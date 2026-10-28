@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a mod on
 [Ornithe](https://ornithemc.net) (Fabric Loader + Feather mappings + Ornithe Standard Libraries).
 
-**Current version: 0.4.0.** It contains the foundation every feature plugs into, the first PvP mods,
+**Current version: 0.5.0.** It contains the foundation every feature plugs into, the first PvP mods,
 the performance probe from 0.0.1, and runs by default with the Argentum rendering engine:
 
 - a module system: every feature is a module with an on/off switch and its own options
@@ -16,6 +16,10 @@ the performance probe from 0.0.1, and runs by default with the Argentum renderin
   durability, potion effects with time left, coordinates and facing
 - comfort mods: zoom (hold C, wheel to adjust), custom crosshair drawn in real pixels, fullbright,
   toggle sprint / sneak (input class, off by default)
+- a competitive profile (Performance category): one switch sets fast graphics, minimal
+  particles, no clouds, shadows, vignette or dynamic FOV, fast leaves and uncapped FPS. Potion
+  particles stay on so you can read your opponent's effects. Your own values are saved to
+  `config/rago-profile-backup.json` and put back when you switch it off.
 - performance HUD: FPS (with 1% low), frame time p50/p99, **server-reported** ping with jitter, capture status
 - a 60-second frame capture written to CSV, with hardware and settings in the header
 - `bench/analyse.py` to compare two sets of captures (e.g. vanilla vs. vanilla + Argentum)
@@ -50,7 +54,7 @@ run without them with `-PnoArgentum`.
 ## Build and test
 
 ```sh
-./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.4.0+1.8.9.jar
+./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.5.0+1.8.9.jar
 ./gradlew test           # unit tests only
 ./gradlew runClient      # starts Minecraft 1.8.9 with Rago + Argentum stack in ./run (offline dev account)
 ./gradlew runClient -PnoArgentum   # same without Argentum, Extras and Cera (benchmark baseline)

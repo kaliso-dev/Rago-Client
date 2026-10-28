@@ -49,6 +49,7 @@ rago.direction.west=Ouest
 key.rago.zoom=Zoom
 rago.module.zoom=Zoom
 rago.module.crosshair=Viseur personnalisé
+rago.module.competitive_profile=Profil compétitif
 rago.module.fullbright=Luminosité max
 rago.module.toggle_sprint=Sprint / accroupi auto
 

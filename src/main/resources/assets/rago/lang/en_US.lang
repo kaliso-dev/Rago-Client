@@ -49,6 +49,7 @@ rago.direction.west=West
 key.rago.zoom=Zoom
 rago.module.zoom=Zoom
 rago.module.crosshair=Custom crosshair
+rago.module.competitive_profile=Competitive profile
 rago.module.fullbright=Fullbright
 rago.module.toggle_sprint=Toggle sprint / sneak
 
