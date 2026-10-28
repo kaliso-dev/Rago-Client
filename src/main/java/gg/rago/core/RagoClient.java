@@ -4,10 +4,16 @@ import gg.rago.config.ConfigStore;
 import gg.rago.gui.HudEditorScreen;
 import gg.rago.gui.RagoMenuScreen;
 import gg.rago.hud.HudManager;
+import gg.rago.hud.elements.ArmorHud;
 import gg.rago.hud.elements.CaptureHud;
+import gg.rago.hud.elements.CoordsHud;
+import gg.rago.hud.elements.CpsHud;
 import gg.rago.hud.elements.FpsHud;
 import gg.rago.hud.elements.FrameTimeHud;
+import gg.rago.hud.elements.KeystrokesHud;
 import gg.rago.hud.elements.PingHud;
+import gg.rago.hud.elements.PotionHud;
+import gg.rago.input.InputState;
 import gg.rago.netdiag.LatencySampler;
 import gg.rago.perf.FrameCapture;
 import gg.rago.perf.FrameTimer;
@@ -53,6 +59,7 @@ public final class RagoClient implements ClientModInitializer {
 
 	private static final FrameTimer FRAMES = new FrameTimer();
 	private static final LatencySampler PING = new LatencySampler();
+	private static final InputState INPUT = new InputState();
 
 	private static final ModuleRegistry MODULES = new ModuleRegistry();
 	private static final HudManager HUD = new HudManager(MODULES);
@@ -73,6 +80,11 @@ public final class RagoClient implements ClientModInitializer {
 		MODULES.register(new FrameTimeHud(FRAMES));
 		MODULES.register(new PingHud(PING));
 		MODULES.register(new CaptureHud(FRAMES, () -> status, () -> statusTimeNs));
+		MODULES.register(new CpsHud(INPUT));
+		MODULES.register(new CoordsHud());
+		MODULES.register(new KeystrokesHud(INPUT));
+		MODULES.register(new ArmorHud());
+		MODULES.register(new PotionHud());
 
 		config = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("rago.json"));
 		try {
@@ -125,6 +137,11 @@ public final class RagoClient implements ClientModInitializer {
 	private static void setStatus(String text) {
 		status = text;
 		statusTimeNs = System.nanoTime();
+	}
+
+	/** Every key or mouse press vanilla processes in game (from KeyBindingMixin). */
+	public static void onKeyPress(int keyCode) {
+		INPUT.onPress(keyCode, System.nanoTime());
 	}
 
 	public static void onFrameStart(long nowNs) {

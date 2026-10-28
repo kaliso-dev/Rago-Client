@@ -23,3 +23,25 @@ rago.menu.edit_hud=Edit HUD
 rago.menu.reset=Reset all
 rago.menu.reset_confirm=Click to confirm
 rago.editor.help=Drag to move - Scroll to resize - Right-click to reset - Esc to save
+
+rago.module.keystrokes=Keystrokes
+rago.module.cps=CPS
+rago.module.coords=Coordinates
+rago.module.armor=Armour
+rago.module.potions=Potion effects
+
+rago.option.show_mouse=Show mouse buttons
+rago.option.show_cps=Show CPS
+rago.option.show_space=Show jump key
+rago.option.pressed_color=Pressed colour
+rago.option.show_right_click=Show right click
+rago.option.decimals=Decimals
+rago.option.show_facing=Show direction
+rago.option.show_held_item=Show held item
+rago.option.show_durability=Show durability
+rago.option.show_icons=Show icons
+
+rago.direction.north=North
+rago.direction.south=South
+rago.direction.east=East
+rago.direction.west=West
