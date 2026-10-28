@@ -3,12 +3,19 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a mod on
 [Ornithe](https://ornithemc.net) (Fabric Loader + Feather mappings + Ornithe Standard Libraries).
 
-**Current version: 0.0.1, the frame-time and ping probe.** It does not add PvP features yet.
-It exists to prove the toolchain and to measure performance honestly before anything else is built:
+**Current version: 0.1.0, the core.** It does not add PvP features yet. It contains the
+foundation every later feature plugs into, plus the performance probe from 0.0.1:
 
-- an overlay with FPS, 1% low, frame-time p50/p99 and the **server-reported** ping with jitter
+- a module system: every feature is a module with an on/off switch and its own options
+- the Rago menu (Right Shift) to toggle modules and change their options
+- a HUD editor: drag elements, snap them to the screen centre, resize them with the mouse wheel
+- settings saved to `config/rago.json` (a broken file is set aside and defaults are used)
+- HUD elements: FPS (with 1% low), frame time p50/p99, **server-reported** ping with jitter, capture status
 - a 60-second frame capture written to CSV, with hardware and settings in the header
 - `bench/analyse.py` to compare two sets of captures (e.g. vanilla vs. vanilla + Argentum)
+
+Every module declares a policy class (visual, informational, input, packet). Input-class modules
+are off by default, and packet-class modules are refused at registration: Rago does not ship them.
 
 Rago is informational only: it never changes gameplay, inputs, or what is sent to the server.
 
@@ -20,24 +27,26 @@ Rago is informational only: it never changes gameplay, inputs, or what is sent t
 ## Build and test
 
 ```sh
-./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.0.1+1.8.9.jar
+./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.1.0+1.8.9.jar
 ./gradlew test           # unit tests only
 ./gradlew runClient      # starts Minecraft 1.8.9 with Rago in ./run (offline dev account)
 ```
 
-On Windows use `gradlew.bat` instead of `./gradlew`. The dev client runs on LWJGL3 through
+On Windows (PowerShell) use `.\gradlew.bat` instead of `./gradlew`, e.g. `.\gradlew.bat runClient`. The dev client runs on LWJGL3 through
 [legacy-lwjgl3](https://github.com/moehreag/legacy-lwjgl3), so it also works on Apple Silicon Macs.
 
 ## Controls
 
 | Key | Action |
 | --- | --- |
-| F10 | Show / hide the overlay |
+| Right Shift | Open the Rago menu (modules, options, *Edit HUD*) |
+| F10 | Show / hide the whole Rago HUD |
 | F12 | Start / stop a 60 s frame capture (saved to `run/rago/frames-YYYYMMDD-HHMMSS.csv`) |
 
-Both keys can be changed in Options → Controls → Rago. On a Mac keyboard, press `fn` with the F key.
+All keys can be changed in Options → Controls → Rago. On a Mac keyboard, press `fn` with the F key.
 
-The overlay only draws while you are in a world.
+In the HUD editor: drag to move, mouse wheel to resize, right-click to reset an element, Esc to save
+and go back. The HUD only draws while you are in a world.
 
 ## Measuring performance
 

@@ -36,7 +36,9 @@ dependencies {
     modImplementation("net.fabricmc:fabric-loader:${property("loader_version")}")
     ploceus.dependOsl(property("osl_version") as String)
 
-    // Dev runtime only: Rago itself does not depend on it. Users get it from the pack.
+    // Compile: org.lwjgl.input.Mouse (same API in LWJGL 2 and legacy-lwjgl3). Dev runtime: LWJGL3 window.
+    // Not bundled in Rago's jar; players get it from the pack.
+    modCompileOnly("io.github.moehreag:legacy-lwjgl3:${property("legacy_lwjgl3_version")}")
     modRuntimeOnly("io.github.moehreag:legacy-lwjgl3:${property("legacy_lwjgl3_version")}")
     // GL11.glGetString has the same signature in LWJGL 2 and 3, so compiling against 3 is safe for both
     compileOnly("org.lwjgl:lwjgl-opengl:${property("lwjgl_version")}")
