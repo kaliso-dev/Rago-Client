@@ -1,6 +1,7 @@
 package gg.rago.hud.elements;
 
 import gg.rago.config.BooleanOption;
+import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
@@ -20,6 +21,11 @@ import java.util.List;
 
 /** Active potion effects with icon, level and time left, as in the inventory screen. */
 public final class PotionHud extends HudElement {
+	@Override
+	public Category category() {
+		return Category.PVP;
+	}
+
 	private static final Identifier INVENTORY = new Identifier("textures/gui/container/inventory.png");
 	private static final int ICON = 18;
 	private static final int ROW = 20;

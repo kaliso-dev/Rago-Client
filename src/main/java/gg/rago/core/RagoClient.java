@@ -17,6 +17,7 @@ import gg.rago.hud.elements.ToggleSprintHud;
 import gg.rago.input.InputState;
 import gg.rago.modules.Crosshair;
 import gg.rago.modules.Fullbright;
+import gg.rago.modules.MainMenu;
 import gg.rago.modules.Zoom;
 import gg.rago.netdiag.LatencySampler;
 import gg.rago.perf.FrameCapture;
@@ -77,6 +78,7 @@ public final class RagoClient implements ClientModInitializer {
 	private static Zoom zoom;
 	private static Crosshair crosshair;
 	private static ToggleSprintHud toggleSprint;
+	private static MainMenu mainMenu;
 	private static boolean overlayVisible = true;
 	private static int tickCounter;
 	private static volatile String status = "";
@@ -99,6 +101,7 @@ public final class RagoClient implements ClientModInitializer {
 		crosshair = MODULES.register(new Crosshair());
 		MODULES.register(new Fullbright());
 		toggleSprint = MODULES.register(new ToggleSprintHud());
+		mainMenu = MODULES.register(new MainMenu());
 
 		config = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("rago.json"));
 		try {
@@ -158,6 +161,11 @@ public final class RagoClient implements ClientModInitializer {
 		return zoom;
 	}
 
+	/** Whether Rago's main menu replaces the vanilla title screen. */
+	public static boolean useMainMenu() {
+		return mainMenu != null && mainMenu.isEnabled();
+	}
+
 	public static Crosshair crosshair() {
 		return crosshair;
 	}
@@ -186,7 +194,7 @@ public final class RagoClient implements ClientModInitializer {
 	private static void onTick(Minecraft mc) {
 		while (menuKey.consumeClick()) {
 			if (mc.screen == null) {
-				mc.openScreen(new RagoMenuScreen());
+				mc.openScreen(new RagoMenuScreen(null));
 			}
 		}
 		while (toggleOverlayKey.consumeClick()) {

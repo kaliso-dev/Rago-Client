@@ -1,6 +1,7 @@
 package gg.rago.hud.elements;
 
 import gg.rago.config.BooleanOption;
+import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.TextHudElement;
@@ -8,6 +9,11 @@ import gg.rago.input.InputState;
 
 /** Attack-button presses in the last second, optionally with the use button. */
 public final class CpsHud extends TextHudElement {
+	@Override
+	public Category category() {
+		return Category.PVP;
+	}
+
 	private final InputState input;
 	private final BooleanOption showRight = addOption(new BooleanOption("show_right_click", true));
 

@@ -39,6 +39,11 @@ public abstract class Module {
 		return defaultEnabled;
 	}
 
+	/** Menu category; HUD elements default to {@link Category#HUD}, everything else to visual. */
+	public Category category() {
+		return Category.VISUAL;
+	}
+
 	/** Translation key of the display name. */
 	public String nameKey() {
 		return "rago.module." + id;

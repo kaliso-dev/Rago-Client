@@ -1,6 +1,7 @@
 package gg.rago.hud.elements;
 
 import gg.rago.config.BooleanOption;
+import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
@@ -17,6 +18,11 @@ import java.util.List;
 
 /** Worn armour (helmet first) and the held item, each with its remaining durability. */
 public final class ArmorHud extends HudElement {
+	@Override
+	public Category category() {
+		return Category.PVP;
+	}
+
 	private static final int ROW = 17;
 	private static final int ICON = 16;
 
