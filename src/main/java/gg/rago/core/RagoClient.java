@@ -15,6 +15,7 @@ import gg.rago.hud.elements.PingHud;
 import gg.rago.hud.elements.PotionHud;
 import gg.rago.hud.elements.ToggleSprintHud;
 import gg.rago.input.InputState;
+import gg.rago.modules.CompetitiveProfile;
 import gg.rago.modules.Crosshair;
 import gg.rago.modules.Fullbright;
 import gg.rago.modules.MainMenu;
@@ -102,6 +103,7 @@ public final class RagoClient implements ClientModInitializer {
 		MODULES.register(new Fullbright());
 		toggleSprint = MODULES.register(new ToggleSprintHud());
 		mainMenu = MODULES.register(new MainMenu());
+		CompetitiveProfile profile = MODULES.register(new CompetitiveProfile());
 
 		config = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("rago.json"));
 		try {
@@ -112,6 +114,7 @@ public final class RagoClient implements ClientModInitializer {
 		} catch (Exception e) {
 			LOG.error("Could not load {}, using defaults", config.file(), e);
 		}
+		profile.markReady();
 
 		toggleOverlayKey = new KeyBinding("key.rago.toggle_overlay", KEY_F10, "key.categories.rago");
 		captureKey = new KeyBinding("key.rago.capture", KEY_F12, "key.categories.rago");
