@@ -3,8 +3,8 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a mod on
 [Ornithe](https://ornithemc.net) (Fabric Loader + Feather mappings + Ornithe Standard Libraries).
 
-**Current version: 0.2.0, the first PvP mods.** It contains the foundation every feature plugs into,
-the first PvP HUD mods and the performance probe from 0.0.1:
+**Current version: 0.3.0.** It contains the foundation every feature plugs into, the first PvP mods,
+the performance probe from 0.0.1, and runs by default with the Argentum rendering engine:
 
 - a module system: every feature is a module with an on/off switch and its own options
 - the Rago menu (Right Shift) to toggle modules and change their options
@@ -12,6 +12,8 @@ the first PvP HUD mods and the performance probe from 0.0.1:
 - settings saved to `config/rago.json` (a broken file is set aside and defaults are used)
 - PvP HUD: keystrokes (follows your bindings, with CPS), CPS counter, armour and held item with
   durability, potion effects with time left, coordinates and facing
+- comfort mods: zoom (hold C, wheel to adjust), custom crosshair drawn in real pixels, fullbright,
+  toggle sprint / sneak (input class, off by default)
 - performance HUD: FPS (with 1% low), frame time p50/p99, **server-reported** ping with jitter, capture status
 - a 60-second frame capture written to CSV, with hardware and settings in the header
 - `bench/analyse.py` to compare two sets of captures (e.g. vanilla vs. vanilla + Argentum)
@@ -19,7 +21,24 @@ the first PvP HUD mods and the performance probe from 0.0.1:
 Every module declares a policy class (visual, informational, input, packet). Input-class modules
 are off by default, and packet-class modules are refused at registration: Rago does not ship them.
 
-Rago is informational only: it never changes gameplay, inputs, or what is sent to the server.
+Rago never changes what is sent to the server. Toggle sprint/sneak is the only module that affects
+input: it makes the vanilla key read as held, nothing more, and it is off until you turn it on.
+
+## Performance stack (instead of OptiFine)
+
+OptiFine cannot be bundled (its license forbids redistribution) and does not run on Ornithe. Rago uses
+the Ornithe rendering mods instead, downloaded from Modrinth and never copied into Rago's jar, because
+they are "All Rights Reserved":
+
+| Mod | What it does |
+| --- | --- |
+| [Argentum](https://modrinth.com/mod/argentum) | Rendering engine (Celeritas/Sodium lineage): terrain, entities, culling, video settings |
+| [Argentum Extras](https://modrinth.com/mod/argentum-extras) | Particles, clouds, leaves, fog, weather, FXAA and other detail settings |
+| [Cera](https://modrinth.com/mod/cera) | OptiFine/MCPatcher resource-pack features (connected textures, custom sky, …) |
+
+`runClient` loads all three. Argentum is compiled for **Java 25**, so Gradle downloads a Java 25
+runtime for the game on first launch (Rago itself is still built with Java 21). For an A/B benchmark,
+run without them with `-PnoArgentum`.
 
 ## Requirements
 
@@ -29,9 +48,10 @@ Rago is informational only: it never changes gameplay, inputs, or what is sent t
 ## Build and test
 
 ```sh
-./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.2.0+1.8.9.jar
+./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.3.0+1.8.9.jar
 ./gradlew test           # unit tests only
-./gradlew runClient      # starts Minecraft 1.8.9 with Rago in ./run (offline dev account)
+./gradlew runClient      # starts Minecraft 1.8.9 with Rago + Argentum stack in ./run (offline dev account)
+./gradlew runClient -PnoArgentum   # same without Argentum, Extras and Cera (benchmark baseline)
 ```
 
 On Windows (PowerShell) use `.\gradlew.bat` instead of `./gradlew`, e.g. `.\gradlew.bat runClient`. The dev client runs on LWJGL3 through
@@ -43,6 +63,7 @@ On Windows (PowerShell) use `.\gradlew.bat` instead of `./gradlew`, e.g. `.\grad
 | --- | --- |
 | Right Shift | Open the Rago menu (modules, options, *Edit HUD*) |
 | F10 | Show / hide the whole Rago HUD |
+| C (hold) | Zoom; mouse wheel changes the zoom level while held |
 | F12 | Start / stop a 60 s frame capture (saved to `run/rago/frames-YYYYMMDD-HHMMSS.csv`) |
 
 All keys can be changed in Options → Controls → Rago. On a Mac keyboard, press `fn` with the F key.

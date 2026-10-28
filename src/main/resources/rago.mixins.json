@@ -5,8 +5,10 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "GameGuiMixin",
+    "GameRendererMixin",
     "KeyBindingMixin",
-    "MinecraftMixin"
+    "MinecraftMixin",
+    "PlayerInventoryMixin"
   ],
   "injectors": {
     "defaultRequire": 1

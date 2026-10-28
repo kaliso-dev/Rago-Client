@@ -8,6 +8,7 @@ The goal is a fair A/B comparison where the only difference between A and B is t
 2. Create two launcher instances (Prism Launcher recommended) for **Minecraft 1.8.9 with Ornithe**:
    - **A (baseline):** Rago jar + Ornithe Standard Libraries + legacy-lwjgl3.
    - **B (test):** the same, plus the mods being tested (for example Argentum, Argentum Extras, Cera from Modrinth).
+     With the dev client: A = `runClient -PnoArgentum`, B = `runClient`.
 3. Use the same Java runtime, memory (`-Xmx`), window size, and `options.txt` in both.
    Copy `options.txt` from A to B so video settings match.
 4. Settings for controlled runs: VSync **off**, Max Framerate **Unlimited**, render distance **8**,
