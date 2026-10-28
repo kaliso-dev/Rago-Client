@@ -1,3 +1,25 @@
 key.categories.rago=Rago
-key.rago.toggle_overlay=Toggle performance overlay
+key.rago.menu=Open Rago menu
+key.rago.toggle_overlay=Show/hide Rago HUD
 key.rago.capture=Start/stop frame capture
+
+rago.module.fps=FPS
+rago.module.frame_time=Frame time
+rago.module.ping=Ping
+rago.module.capture=Capture status
+
+rago.class.visual=visual
+rago.class.informational=info
+rago.class.input=input
+rago.class.packet=packet
+
+rago.option.shadow=Text shadow
+rago.option.background=Background
+rago.option.text_color=Text colour
+rago.option.show_one_percent_low=Show 1%% low
+rago.option.show_jitter=Show jitter
+
+rago.menu.edit_hud=Edit HUD
+rago.menu.reset=Reset all
+rago.menu.reset_confirm=Click to confirm
+rago.editor.help=Drag to move - Scroll to resize - Right-click to reset - Esc to save

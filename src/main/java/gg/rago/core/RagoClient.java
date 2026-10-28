@@ -1,8 +1,15 @@
 package gg.rago.core;
 
+import gg.rago.config.ConfigStore;
+import gg.rago.gui.HudEditorScreen;
+import gg.rago.gui.RagoMenuScreen;
+import gg.rago.hud.HudManager;
+import gg.rago.hud.elements.CaptureHud;
+import gg.rago.hud.elements.FpsHud;
+import gg.rago.hud.elements.FrameTimeHud;
+import gg.rago.hud.elements.PingHud;
 import gg.rago.netdiag.LatencySampler;
 import gg.rago.perf.FrameCapture;
-import gg.rago.perf.FrameStats;
 import gg.rago.perf.FrameTimer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
@@ -11,7 +18,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.PlayerInfo;
 import net.minecraft.client.network.handler.ClientPlayNetworkHandler;
 import net.minecraft.client.options.KeyBinding;
-import net.minecraft.client.render.TextRenderer;
 import net.ornithemc.osl.keybinds.api.KeybindEvents;
 import net.ornithemc.osl.keybinds.api.KeybindRegistry;
 import net.ornithemc.osl.lifecycle.api.client.MinecraftClientEvents;
@@ -23,14 +29,12 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Rago 0.0.1: a frame-time and ping probe. Shows FPS, frame-time percentiles and the
- * server-reported ping, and records frame timings to CSV for {@code bench/analyse.py}.
- * Purely informational: nothing here changes gameplay or what is sent to the server.
+ * Client entrypoint: owns the module registry, the HUD, the config file and the keybinds.
+ * Frame timings come from {@code MinecraftMixin}; the HUD is drawn from {@code GameGuiMixin}.
  */
 public final class RagoClient implements ClientModInitializer {
 	public static final Logger LOG = LogManager.getLogger("Rago");
@@ -40,33 +44,87 @@ public final class RagoClient implements ClientModInitializer {
 	private static final long CAPTURE_DURATION_NS = 60_000_000_000L;
 	private static final int TICKS_PER_PING_SAMPLE = 20;
 
-	// Feather/LWJGL key codes: F10 and F12 are unbound in vanilla 1.8.9. Both can be rebound in Controls.
+	// LWJGL key codes. F10 and F12 are unbound in vanilla 1.8.9; all three can be rebound in Controls.
 	private static final int KEY_F10 = 68;
 	private static final int KEY_F12 = 88;
+	private static final int KEY_RSHIFT = 54;
 	private static final int GL_RENDERER = 0x1F01;
 	private static final int GL_VERSION = 0x1F02;
 
 	private static final FrameTimer FRAMES = new FrameTimer();
 	private static final LatencySampler PING = new LatencySampler();
 
+	private static final ModuleRegistry MODULES = new ModuleRegistry();
+	private static final HudManager HUD = new HudManager(MODULES);
+	private static ConfigStore config;
+
 	private static KeyBinding toggleOverlayKey;
 	private static KeyBinding captureKey;
+	private static KeyBinding menuKey;
 	private static boolean overlayVisible = true;
 	private static int tickCounter;
 	private static volatile String status = "";
+	private static volatile long statusTimeNs;
 	private static Map<String, String> captureMeta;
 
 	@Override
 	public void onInitializeClient() {
+		MODULES.register(new FpsHud(FRAMES));
+		MODULES.register(new FrameTimeHud(FRAMES));
+		MODULES.register(new PingHud(PING));
+		MODULES.register(new CaptureHud(FRAMES, () -> status, () -> statusTimeNs));
+
+		config = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("rago.json"));
+		try {
+			ConfigStore.LoadResult result = config.load(MODULES);
+			if (result == ConfigStore.LoadResult.BROKEN_FILE_REPLACED) {
+				LOG.warn("config/rago.json could not be read; it was renamed to rago.json.broken-* and defaults are used");
+			}
+		} catch (Exception e) {
+			LOG.error("Could not load {}, using defaults", config.file(), e);
+		}
+
 		toggleOverlayKey = new KeyBinding("key.rago.toggle_overlay", KEY_F10, "key.categories.rago");
 		captureKey = new KeyBinding("key.rago.capture", KEY_F12, "key.categories.rago");
+		menuKey = new KeyBinding("key.rago.menu", KEY_RSHIFT, "key.categories.rago");
 		KeybindEvents.REGISTER_KEYBINDS.register(() -> {
+			KeybindRegistry.register(menuKey);
 			KeybindRegistry.register(toggleOverlayKey);
 			KeybindRegistry.register(captureKey);
 		});
 		MinecraftClientEvents.TICK_END.register(RagoClient::onTick);
-		LOG.info("Rago {} loaded", FabricLoader.getInstance().getModContainer("rago")
-			.map(m -> m.getMetadata().getVersion().getFriendlyString()).orElse("?"));
+		LOG.info("Rago {} loaded with {} modules", version(), MODULES.all().size());
+	}
+
+	public static String version() {
+		return FabricLoader.getInstance().getModContainer("rago")
+			.map(m -> m.getMetadata().getVersion().getFriendlyString()).orElse("?");
+	}
+
+	public static ModuleRegistry modules() {
+		return MODULES;
+	}
+
+	public static HudManager hud() {
+		return HUD;
+	}
+
+	/** Key code of the menu binding, so the menu can close with the same key that opened it. */
+	public static int menuKeyCode() {
+		return menuKey.getKeyCode();
+	}
+
+	public static void saveConfig() {
+		try {
+			config.save(MODULES);
+		} catch (Exception e) {
+			LOG.error("Could not save {}", config.file(), e);
+		}
+	}
+
+	private static void setStatus(String text) {
+		status = text;
+		statusTimeNs = System.nanoTime();
 	}
 
 	public static void onFrameStart(long nowNs) {
@@ -81,6 +139,11 @@ public final class RagoClient implements ClientModInitializer {
 	}
 
 	private static void onTick(Minecraft mc) {
+		while (menuKey.consumeClick()) {
+			if (mc.screen == null) {
+				mc.openScreen(new RagoMenuScreen());
+			}
+		}
 		while (toggleOverlayKey.consumeClick()) {
 			overlayVisible = !overlayVisible;
 		}
@@ -95,6 +158,7 @@ public final class RagoClient implements ClientModInitializer {
 			tickCounter = 0;
 			PING.add(readServerPing(mc));
 		}
+		MODULES.tick();
 	}
 
 	/** Server-reported latency of the local player from the tab list, or -1 when not on a server. */
@@ -113,7 +177,7 @@ public final class RagoClient implements ClientModInitializer {
 	private static void startCapture(Minecraft mc) {
 		captureMeta = collectMetadata(mc);
 		FRAMES.startCapture(new FrameCapture(CAPTURE_MAX_FRAMES, CAPTURE_DURATION_NS));
-		status = "capturing";
+		setStatus("capturing");
 		LOG.info("Frame capture started");
 	}
 
@@ -122,14 +186,14 @@ public final class RagoClient implements ClientModInitializer {
 		meta.put("frames", Integer.toString(capture.count()));
 		String name = "frames-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".csv";
 		Path file = FabricLoader.getInstance().getGameDir().resolve("rago").resolve(name);
-		status = "saving";
+		setStatus("saving");
 		Thread writer = new Thread(() -> {
 			try {
 				capture.writeCsv(file, meta);
-				status = "saved " + name;
+				setStatus("saved " + name);
 				LOG.info("Saved {} frames to {}", capture.count(), file);
 			} catch (Exception e) {
-				status = "save failed (see log)";
+				setStatus("save failed (see log)");
 				LOG.error("Could not write frame capture to {}", file, e);
 			}
 		}, "Rago capture writer");
@@ -163,29 +227,9 @@ public final class RagoClient implements ClientModInitializer {
 	}
 
 	public static void renderOverlay() {
-		if (!overlayVisible) {
-			return;
-		}
 		Minecraft mc = Minecraft.getInstance();
-		TextRenderer text = mc.textRenderer;
-		FrameStats s = FRAMES.stats();
-		int x = 4;
-		int y = 4;
-		int line = text.fontHeight + 2;
-
-		text.drawWithShadow(String.format(Locale.ROOT, "FPS %.0f  1%% low %.0f", s.avgFps, s.onePercentLowFps), x, y, 0xFFFFFF);
-		y += line;
-		text.drawWithShadow(String.format(Locale.ROOT, "frame p50 %.2f ms  p99 %.2f ms", s.p50Ms, s.p99Ms), x, y, 0xFFFFFF);
-		y += line;
-		int ping = PING.latest();
-		String pingText = ping < 0 ? "ping (server) --" : String.format(Locale.ROOT, "ping (server) %d ms  jitter %.1f ms", ping, PING.jitterMs());
-		text.drawWithShadow(pingText, x, y, 0xFFFFFF);
-		y += line;
-		if (FRAMES.isCapturing()) {
-			long elapsed = FRAMES.capture().elapsedNs(System.nanoTime()) / 1_000_000_000L;
-			text.drawWithShadow("REC " + elapsed + "s / 60s", x, y, 0xFF5555);
-		} else if (!status.isEmpty()) {
-			text.drawWithShadow(status, x, y, 0xAAAAAA);
+		if (overlayVisible && !(mc.screen instanceof HudEditorScreen)) {
+			HUD.render();
 		}
 	}
 }
