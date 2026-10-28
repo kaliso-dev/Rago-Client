@@ -3,14 +3,16 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a mod on
 [Ornithe](https://ornithemc.net) (Fabric Loader + Feather mappings + Ornithe Standard Libraries).
 
-**Current version: 0.1.0, the core.** It does not add PvP features yet. It contains the
-foundation every later feature plugs into, plus the performance probe from 0.0.1:
+**Current version: 0.2.0, the first PvP mods.** It contains the foundation every feature plugs into,
+the first PvP HUD mods and the performance probe from 0.0.1:
 
 - a module system: every feature is a module with an on/off switch and its own options
 - the Rago menu (Right Shift) to toggle modules and change their options
 - a HUD editor: drag elements, snap them to the screen centre, resize them with the mouse wheel
 - settings saved to `config/rago.json` (a broken file is set aside and defaults are used)
-- HUD elements: FPS (with 1% low), frame time p50/p99, **server-reported** ping with jitter, capture status
+- PvP HUD: keystrokes (follows your bindings, with CPS), CPS counter, armour and held item with
+  durability, potion effects with time left, coordinates and facing
+- performance HUD: FPS (with 1% low), frame time p50/p99, **server-reported** ping with jitter, capture status
 - a 60-second frame capture written to CSV, with hardware and settings in the header
 - `bench/analyse.py` to compare two sets of captures (e.g. vanilla vs. vanilla + Argentum)
 
@@ -27,7 +29,7 @@ Rago is informational only: it never changes gameplay, inputs, or what is sent t
 ## Build and test
 
 ```sh
-./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.1.0+1.8.9.jar
+./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.2.0+1.8.9.jar
 ./gradlew test           # unit tests only
 ./gradlew runClient      # starts Minecraft 1.8.9 with Rago in ./run (offline dev account)
 ```
@@ -68,6 +70,7 @@ Report the numbers as measured, with the hardware lines from the CSV headers.
 | p50 / p99 | nearest-rank percentiles of frame time (start of one frame to start of the next) |
 | ping (server) | the latency the server reports for you in the tab list; Rago sends no packets to measure it |
 | jitter | standard deviation of the last 60 ping samples (one per second) |
+| CPS | presses of your attack (or use) binding that the game registered in the last second |
 
 ## License
 

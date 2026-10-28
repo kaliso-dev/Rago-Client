@@ -23,3 +23,25 @@ rago.menu.edit_hud=Modifier le HUD
 rago.menu.reset=Tout réinitialiser
 rago.menu.reset_confirm=Cliquer pour confirmer
 rago.editor.help=Glisser pour déplacer - Molette pour la taille - Clic droit pour réinitialiser - Échap pour enregistrer
+
+rago.module.keystrokes=Touches
+rago.module.cps=CPS
+rago.module.coords=Coordonnées
+rago.module.armor=Armure
+rago.module.potions=Effets de potion
+
+rago.option.show_mouse=Afficher la souris
+rago.option.show_cps=Afficher les CPS
+rago.option.show_space=Afficher le saut
+rago.option.pressed_color=Couleur appuyée
+rago.option.show_right_click=Afficher le clic droit
+rago.option.decimals=Décimales
+rago.option.show_facing=Afficher la direction
+rago.option.show_held_item=Afficher l'objet en main
+rago.option.show_durability=Afficher la durabilité
+rago.option.show_icons=Afficher les icônes
+
+rago.direction.north=Nord
+rago.direction.south=Sud
+rago.direction.east=Est
+rago.direction.west=Ouest

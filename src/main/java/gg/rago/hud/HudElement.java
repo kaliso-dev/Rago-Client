@@ -21,10 +21,15 @@ public abstract class HudElement extends Module {
 	}
 
 	protected HudElement(String id, FeatureClass featureClass, boolean defaultEnabled, Anchor anchor, int x, int y, int defaultColor) {
+		this(id, featureClass, defaultEnabled, anchor, x, y, defaultColor, false);
+	}
+
+	protected HudElement(String id, FeatureClass featureClass, boolean defaultEnabled, Anchor anchor, int x, int y,
+						 int defaultColor, boolean defaultBackground) {
 		super(id, featureClass, defaultEnabled);
 		this.position = new HudPosition(anchor, x, y);
 		this.shadow = addOption(new BooleanOption("shadow", true));
-		this.background = addOption(new BooleanOption("background", false));
+		this.background = addOption(new BooleanOption("background", defaultBackground));
 		this.textColor = addOption(new ColorOption("text_color", defaultColor));
 	}
 
@@ -48,5 +53,14 @@ public abstract class HudElement extends Module {
 	/** Whether there is anything to draw right now outside the editor. */
 	public boolean hasContent() {
 		return true;
+	}
+
+	/** Draws text in the element's colour, with or without shadow as configured. */
+	protected final void drawText(TextRenderer text, String s, int x, int y, int color) {
+		if (shadow.get()) {
+			text.drawWithShadow(s, x, y, color);
+		} else {
+			text.draw(s, x, y, color);
+		}
 	}
 }
