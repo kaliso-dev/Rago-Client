@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "gg.rago.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "GameGuiMixin",
+    "MinecraftMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
