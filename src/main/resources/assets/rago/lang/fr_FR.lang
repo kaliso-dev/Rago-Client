@@ -45,3 +45,26 @@ rago.direction.north=Nord
 rago.direction.south=Sud
 rago.direction.east=Est
 rago.direction.west=Ouest
+
+key.rago.zoom=Zoom
+rago.module.zoom=Zoom
+rago.module.crosshair=Viseur personnalisé
+rago.module.fullbright=Luminosité max
+rago.module.toggle_sprint=Sprint / accroupi auto
+
+rago.option.zoom_factor=Niveau de zoom
+rago.option.smooth_zoom=Zoom fluide
+rago.option.scroll_to_zoom=Molette pour ajuster
+rago.option.crosshair_style=Forme (0 croix, 1 point, 2 croix+point, 3 T)
+rago.option.crosshair_size=Taille
+rago.option.crosshair_gap=Écart
+rago.option.crosshair_thickness=Épaisseur
+rago.option.crosshair_color=Couleur
+rago.option.crosshair_outline=Contour noir
+rago.option.toggle_sprint=Sprint automatique
+rago.option.toggle_sneak=Accroupi automatique
+rago.option.show_status=Afficher l'état
+
+rago.status.sprinting=[Sprint (activé)]
+rago.status.sneaking=[Accroupi (activé)]
+rago.status.sprinting_sneaking=[Sprint + accroupi (activés)]

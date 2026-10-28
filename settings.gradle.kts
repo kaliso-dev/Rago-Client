@@ -6,4 +6,9 @@ pluginManagement {
     }
 }
 
+plugins {
+    // Downloads the Java 25 runtime Argentum needs for runClient when it is not installed
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
 rootProject.name = "rago-client"

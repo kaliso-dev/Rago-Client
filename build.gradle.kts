@@ -20,6 +20,11 @@ repositories {
         filter { includeGroup("org.lwjgl") }
     }
     // legacy-lwjgl3 (lets 1.8.9 run on LWJGL3, required on Apple Silicon); published by its author here
+    // Argentum, Argentum Extras and Cera, fetched from Modrinth for the dev client only
+    exclusiveContent {
+        forRepository { maven("https://api.modrinth.com/maven") { name = "Modrinth" } }
+        filter { includeGroup("maven.modrinth") }
+    }
     maven("https://maven.axolotlclient.com/releases") {
         content { includeGroupByRegex("io\\.github\\.moehreag(\\..*)?") }
     }
@@ -27,6 +32,18 @@ repositories {
 
 ploceus {
     setIntermediaryGeneration(2)
+}
+
+// Loom does not load the libraries nested inside a remapped mod jar (Argentum ships Celeritas and JOML
+// that way), so the dev client gets them from this copy. Players' launchers read nested jars natively.
+val argentumJar: Configuration by configurations.creating { isTransitive = false }
+val extractArgentumLibs = tasks.register<Copy>("extractArgentumLibs") {
+    from(argentumJar.elements.map { files -> files.map { zipTree(it) } }) {
+        include("META-INF/jars/*.jar")
+        eachFile { path = name }
+    }
+    includeEmptyDirs = false
+    into(layout.buildDirectory.dir("argentum-libs"))
 }
 
 dependencies {
@@ -40,6 +57,16 @@ dependencies {
     // Not bundled in Rago's jar; players get it from the pack.
     modCompileOnly("io.github.moehreag:legacy-lwjgl3:${property("legacy_lwjgl3_version")}")
     modRuntimeOnly("io.github.moehreag:legacy-lwjgl3:${property("legacy_lwjgl3_version")}")
+    // Rendering engine and its companions, on by default in runClient. -PnoArgentum runs without them
+    // for A/B benchmarks. They are only downloaded from Modrinth, never copied into Rago's jar.
+    if (!project.hasProperty("noArgentum")) {
+        modRuntimeOnly("maven.modrinth:argentum:${property("argentum_version")}")
+        modRuntimeOnly("maven.modrinth:argentum-extras:${property("argentum_extras_version")}")
+        modRuntimeOnly("maven.modrinth:cera:${property("cera_version")}")
+        argentumJar("maven.modrinth:argentum:${property("argentum_version")}")
+        runtimeOnly(fileTree(layout.buildDirectory.dir("argentum-libs")) { include("*.jar") }.builtBy(extractArgentumLibs))
+    }
+
     // GL11.glGetString has the same signature in LWJGL 2 and 3, so compiling against 3 is safe for both
     compileOnly("org.lwjgl:lwjgl-opengl:${property("lwjgl_version")}")
 
@@ -68,6 +95,13 @@ loom {
             vmArg("-XstartOnFirstThread")
         }
         runDir = "run"
+    }
+}
+
+// The game runs on Java 25 (Argentum's target); Rago itself stays compiled for Java 21.
+tasks.named<JavaExec>("runClient") {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(project.property("runtime_java_version") as String)
     }
 }
 

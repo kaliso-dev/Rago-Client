@@ -45,3 +45,26 @@ rago.direction.north=North
 rago.direction.south=South
 rago.direction.east=East
 rago.direction.west=West
+
+key.rago.zoom=Zoom
+rago.module.zoom=Zoom
+rago.module.crosshair=Custom crosshair
+rago.module.fullbright=Fullbright
+rago.module.toggle_sprint=Toggle sprint / sneak
+
+rago.option.zoom_factor=Zoom level
+rago.option.smooth_zoom=Smooth zoom
+rago.option.scroll_to_zoom=Scroll to adjust
+rago.option.crosshair_style=Style (0 cross, 1 dot, 2 cross+dot, 3 T)
+rago.option.crosshair_size=Size
+rago.option.crosshair_gap=Gap
+rago.option.crosshair_thickness=Thickness
+rago.option.crosshair_color=Colour
+rago.option.crosshair_outline=Black outline
+rago.option.toggle_sprint=Toggle sprint
+rago.option.toggle_sneak=Toggle sneak
+rago.option.show_status=Show status
+
+rago.status.sprinting=[Sprinting (Toggled)]
+rago.status.sneaking=[Sneaking (Toggled)]
+rago.status.sprinting_sneaking=[Sprinting + Sneaking (Toggled)]

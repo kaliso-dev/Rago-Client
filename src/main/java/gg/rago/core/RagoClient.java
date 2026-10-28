@@ -13,7 +13,11 @@ import gg.rago.hud.elements.FrameTimeHud;
 import gg.rago.hud.elements.KeystrokesHud;
 import gg.rago.hud.elements.PingHud;
 import gg.rago.hud.elements.PotionHud;
+import gg.rago.hud.elements.ToggleSprintHud;
 import gg.rago.input.InputState;
+import gg.rago.modules.Crosshair;
+import gg.rago.modules.Fullbright;
+import gg.rago.modules.Zoom;
 import gg.rago.netdiag.LatencySampler;
 import gg.rago.perf.FrameCapture;
 import gg.rago.perf.FrameTimer;
@@ -54,6 +58,7 @@ public final class RagoClient implements ClientModInitializer {
 	private static final int KEY_F10 = 68;
 	private static final int KEY_F12 = 88;
 	private static final int KEY_RSHIFT = 54;
+	private static final int KEY_C = 46;
 	private static final int GL_RENDERER = 0x1F01;
 	private static final int GL_VERSION = 0x1F02;
 
@@ -68,6 +73,10 @@ public final class RagoClient implements ClientModInitializer {
 	private static KeyBinding toggleOverlayKey;
 	private static KeyBinding captureKey;
 	private static KeyBinding menuKey;
+	private static KeyBinding zoomKey;
+	private static Zoom zoom;
+	private static Crosshair crosshair;
+	private static ToggleSprintHud toggleSprint;
 	private static boolean overlayVisible = true;
 	private static int tickCounter;
 	private static volatile String status = "";
@@ -85,6 +94,11 @@ public final class RagoClient implements ClientModInitializer {
 		MODULES.register(new KeystrokesHud(INPUT));
 		MODULES.register(new ArmorHud());
 		MODULES.register(new PotionHud());
+		zoomKey = new KeyBinding("key.rago.zoom", KEY_C, "key.categories.rago");
+		zoom = MODULES.register(new Zoom(zoomKey));
+		crosshair = MODULES.register(new Crosshair());
+		MODULES.register(new Fullbright());
+		toggleSprint = MODULES.register(new ToggleSprintHud());
 
 		config = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("rago.json"));
 		try {
@@ -103,6 +117,7 @@ public final class RagoClient implements ClientModInitializer {
 			KeybindRegistry.register(menuKey);
 			KeybindRegistry.register(toggleOverlayKey);
 			KeybindRegistry.register(captureKey);
+			KeybindRegistry.register(zoomKey);
 		});
 		MinecraftClientEvents.TICK_END.register(RagoClient::onTick);
 		LOG.info("Rago {} loaded with {} modules", version(), MODULES.all().size());
@@ -137,6 +152,19 @@ public final class RagoClient implements ClientModInitializer {
 	private static void setStatus(String text) {
 		status = text;
 		statusTimeNs = System.nanoTime();
+	}
+
+	public static Zoom zoom() {
+		return zoom;
+	}
+
+	public static Crosshair crosshair() {
+		return crosshair;
+	}
+
+	/** Whether a binding should read as held because toggle sprint/sneak holds it. */
+	public static boolean forceHeld(KeyBinding binding) {
+		return toggleSprint != null && toggleSprint.forceHeld(binding);
 	}
 
 	/** Every key or mouse press vanilla processes in game (from KeyBindingMixin). */
@@ -245,6 +273,7 @@ public final class RagoClient implements ClientModInitializer {
 
 	public static void renderOverlay() {
 		Minecraft mc = Minecraft.getInstance();
+		crosshair.render();
 		if (overlayVisible && !(mc.screen instanceof HudEditorScreen)) {
 			HUD.render();
 		}
