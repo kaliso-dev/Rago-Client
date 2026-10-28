@@ -1,6 +1,7 @@
 package gg.rago.hud.elements;
 
 import gg.rago.config.BooleanOption;
+import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.TextHudElement;
@@ -15,6 +16,11 @@ import net.minecraft.client.resource.language.I18n;
  * so the game and the server see nothing a held key would not produce. Input class: off by default.
  */
 public final class ToggleSprintHud extends TextHudElement {
+	@Override
+	public Category category() {
+		return Category.PVP;
+	}
+
 	private final BooleanOption sprint = addOption(new BooleanOption("toggle_sprint", true));
 	private final BooleanOption sneak = addOption(new BooleanOption("toggle_sneak", false));
 	private final BooleanOption showStatus = addOption(new BooleanOption("show_status", true));

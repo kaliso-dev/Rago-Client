@@ -2,6 +2,7 @@ package gg.rago.hud.elements;
 
 import gg.rago.config.BooleanOption;
 import gg.rago.config.ColorOption;
+import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
@@ -18,6 +19,11 @@ import org.lwjgl.input.Keyboard;
  * player's own bindings. Only reads the held state vanilla already tracks.
  */
 public final class KeystrokesHud extends HudElement {
+	@Override
+	public Category category() {
+		return Category.PVP;
+	}
+
 	private static final int KEY = 22;
 	private static final int GAP = 2;
 	private static final int WIDTH = KEY * 3 + GAP * 2;

@@ -68,3 +68,16 @@ rago.option.show_status=Show status
 rago.status.sprinting=[Sprinting (Toggled)]
 rago.status.sneaking=[Sneaking (Toggled)]
 rago.status.sprinting_sneaking=[Sprinting + Sneaking (Toggled)]
+
+rago.module.main_menu=Rago main menu
+rago.title.mods=Rago Mods
+rago.menu.search=Search mods...
+rago.menu.no_results=No mod matches your search
+rago.menu.options=Options
+rago.menu.on=ENABLED
+rago.menu.off=DISABLED
+rago.category.all=All
+rago.category.hud=HUD
+rago.category.pvp=PvP
+rago.category.visual=Visual
+rago.category.performance=Performance

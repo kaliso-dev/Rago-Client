@@ -3,11 +3,13 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a mod on
 [Ornithe](https://ornithemc.net) (Fabric Loader + Feather mappings + Ornithe Standard Libraries).
 
-**Current version: 0.3.0.** It contains the foundation every feature plugs into, the first PvP mods,
+**Current version: 0.4.0.** It contains the foundation every feature plugs into, the first PvP mods,
 the performance probe from 0.0.1, and runs by default with the Argentum rendering engine:
 
 - a module system: every feature is a module with an on/off switch and its own options
-- the Rago menu (Right Shift) to toggle modules and change their options
+- a Rago main menu instead of the vanilla title screen (quick join for Hypixel and Minemen Club)
+- the Rago menu (Right Shift, or *Rago Mods* on the main menu): mods as cards with categories,
+  search, switches and an options page per mod with sliders
 - a HUD editor: drag elements, snap them to the screen centre, resize them with the mouse wheel
 - settings saved to `config/rago.json` (a broken file is set aside and defaults are used)
 - PvP HUD: keystrokes (follows your bindings, with CPS), CPS counter, armour and held item with
@@ -48,7 +50,7 @@ run without them with `-PnoArgentum`.
 ## Build and test
 
 ```sh
-./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.3.0+1.8.9.jar
+./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.4.0+1.8.9.jar
 ./gradlew test           # unit tests only
 ./gradlew runClient      # starts Minecraft 1.8.9 with Rago + Argentum stack in ./run (offline dev account)
 ./gradlew runClient -PnoArgentum   # same without Argentum, Extras and Cera (benchmark baseline)

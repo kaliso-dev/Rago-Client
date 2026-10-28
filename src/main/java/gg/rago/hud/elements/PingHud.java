@@ -1,6 +1,7 @@
 package gg.rago.hud.elements;
 
 import gg.rago.config.BooleanOption;
+import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.TextHudElement;
@@ -10,6 +11,11 @@ import java.util.Locale;
 
 /** Server-reported ping from the tab list. Hidden when there is no server (singleplayer, menus). */
 public final class PingHud extends TextHudElement {
+	@Override
+	public Category category() {
+		return Category.PERFORMANCE;
+	}
+
 	private final LatencySampler ping;
 	private final BooleanOption showJitter = addOption(new BooleanOption("show_jitter", true));
 

@@ -2,6 +2,7 @@ package gg.rago.hud;
 
 import gg.rago.config.BooleanOption;
 import gg.rago.config.ColorOption;
+import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import net.minecraft.client.render.TextRenderer;
@@ -31,6 +32,11 @@ public abstract class HudElement extends Module {
 		this.shadow = addOption(new BooleanOption("shadow", true));
 		this.background = addOption(new BooleanOption("background", defaultBackground));
 		this.textColor = addOption(new ColorOption("text_color", defaultColor));
+	}
+
+	@Override
+	public Category category() {
+		return Category.HUD;
 	}
 
 	public final HudPosition position() {

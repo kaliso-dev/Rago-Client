@@ -1,5 +1,6 @@
 package gg.rago.hud.elements;
 
+import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.TextHudElement;
@@ -9,6 +10,11 @@ import java.util.function.Supplier;
 
 /** Shows "REC 12s / 60s" while a frame capture runs, then the save result for a few seconds. */
 public final class CaptureHud extends TextHudElement {
+	@Override
+	public Category category() {
+		return Category.PERFORMANCE;
+	}
+
 	private static final long STATUS_VISIBLE_NS = 5_000_000_000L;
 
 	private final FrameTimer frames;

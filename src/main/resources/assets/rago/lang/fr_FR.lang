@@ -68,3 +68,16 @@ rago.option.show_status=Afficher l'état
 rago.status.sprinting=[Sprint (activé)]
 rago.status.sneaking=[Accroupi (activé)]
 rago.status.sprinting_sneaking=[Sprint + accroupi (activés)]
+
+rago.module.main_menu=Menu principal Rago
+rago.title.mods=Mods Rago
+rago.menu.search=Rechercher un mod...
+rago.menu.no_results=Aucun mod ne correspond
+rago.menu.options=Options
+rago.menu.on=ACTIVÉ
+rago.menu.off=DÉSACTIVÉ
+rago.category.all=Tous
+rago.category.hud=HUD
+rago.category.pvp=PvP
+rago.category.visual=Visuel
+rago.category.performance=Performances
