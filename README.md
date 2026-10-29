@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.3.0.** What it contains:
+**Current version: 1.4.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -98,7 +98,7 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - the HUD works out each element's text once per frame instead of several times, and no longer
     filters the module list every frame
 - new in 1.3:
-  - Cosmetics redone in 3D: voxel hats (top hat, wizard hat, blue and green caps, red and green
+  - Cosmetics redone in 3D: voxel hats (top hat, wizard hat, caps, red and green
     mushrooms) and voxel angel wings imported under CC BY 4.0 (credits in `tools/models/CREDITS.md`),
     Rago's own cap and beanie with the logo, butterfly and dragon wings extruded into voxels; each
     model is compiled once into a display list, so thousands of voxels are one draw call. Hat and
@@ -123,6 +123,26 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     decimals and how long it stays; Combo HUD end delay and minimum
   - TNT Timer, Item Counter, Generator Timers and Bed Wars Resources gather what they show once per
     tick instead of every frame
+- new in 1.4:
+  - the Locker (shirt button on the home screen): add any player's skin by name and wear it with a
+    click (only you see it in game), or set it on your Minecraft account so everyone sees it; pick
+    your cape, hat, wings and shield there too, on a 3D preview of your player you can turn
+  - a Rago Optimizer shield in your right hand, seen in third person, in five styles (Rago, Crimson,
+    Gold, Frost, Void); the blue cap is now red and the green one is gone
+  - Bed Wars Stats: each player's star and FKDR in the tab list, coloured by a danger level out of 5
+    (Rago's own formula: FKDR first, then star), nicked players marked, and a chat alert listing the
+    most dangerous enemies when a game starts; needs your Hypixel API key
+  - Trap Notifier: a sound, a title and a chat line when one of your traps goes off, and a reminder
+    when your team has had no trap for a while
+  - Action Sounds: your own sounds for hitting a player (once the server confirms the hit), getting
+    hit and breaking a block: seven sounds made by `tools/sounds.py`, satisfying 1.8 sounds (arrow
+    ding, XP orb, item pop), or the attack sounds of recent versions, read from your own Minecraft
+    install when one was launched (Rago ships none of Mojang's files)
+  - Pack Display shows the pack's logo and keeps the colours in its name (both optional)
+  - Client Fixes: the inventory stays centred with potion effects, an optional parallax fix, and
+    servers can no longer probe your files through a resource pack link
+  - the home screen's third button joins the Rago Optimizer Discord
+  - the Hypixel API is asked faster while the key has plenty of requests left
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -181,7 +201,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.3.0+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.4.0+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the
