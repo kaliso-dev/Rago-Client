@@ -11,6 +11,7 @@ import gg.rago.modules.OldAnimations;
 import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
+import gg.rago.modules.BedwarsStats;
 import gg.rago.modules.RagoCape;
 import gg.rago.modules.SkinChanger;
 import gg.rago.modules.TabList;
@@ -59,6 +60,7 @@ public final class Hooks {
 	public static volatile EngineTweaks engine;
 	public static volatile RagoCape cape;
 	public static volatile SkinChanger skins;
+	public static volatile BedwarsStats bedwarsStats;
 	public static volatile GlintColor glint;
 
 	private Hooks() {
@@ -303,6 +305,12 @@ public final class Hooks {
 		Chat c = chat;
 		boolean shadow = c == null || !c.isEnabled() || c.textShadow();
 		return font.drawString(text, x, y, color, shadow);
+	}
+
+	/** GuiPlayerTabOverlay.getPlayerName: Bed Wars star and ratio around the name. */
+	public static String tabName(String vanilla, NetworkPlayerInfo info) {
+		BedwarsStats s = bedwarsStats;
+		return s != null && s.isEnabled() ? s.tabName(vanilla, info) : vanilla;
 	}
 
 	/** AbstractClientPlayer.getLocationSkin: the locker skin on your own player. */

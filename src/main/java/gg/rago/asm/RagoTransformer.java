@@ -93,6 +93,22 @@ public final class RagoTransformer implements IClassTransformer {
 			"func_175245_a", "drawPing", "(IIILnet/minecraft/client/network/NetworkPlayerInfo;)V",
 			m -> returnIf(m, "replaceTabPing", "(IIILnet/minecraft/client/network/NetworkPlayerInfo;)Z",
 				new int[] {Opcodes.ILOAD, 1, Opcodes.ILOAD, 2, Opcodes.ILOAD, 3, Opcodes.ALOAD, 4}, -1, Opcodes.RETURN)));
+		add("net.minecraft.client.gui.GuiPlayerTabOverlay", new Patch("Bed Wars stats in the tab list",
+			"func_175243_a", "getPlayerName", "(Lnet/minecraft/client/network/NetworkPlayerInfo;)Ljava/lang/String;",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn.getOpcode() == Opcodes.ARETURN) {
+						InsnList call = new InsnList();
+						call.add(new VarInsnNode(Opcodes.ALOAD, 1));
+						call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "tabName",
+							"(Ljava/lang/String;Lnet/minecraft/client/network/NetworkPlayerInfo;)Ljava/lang/String;", false));
+						m.instructions.insertBefore(insn, call);
+						found = true;
+					}
+				}
+				return found;
+			}));
 		add("net.minecraft.client.gui.GuiPlayerTabOverlay", new Patch("tab list look",
 			"func_175249_a", "renderPlayerlist", "(ILnet/minecraft/scoreboard/Scoreboard;Lnet/minecraft/scoreboard/ScoreObjective;)V",
 			RagoTransformer::tabLook));

@@ -31,20 +31,53 @@ public final class HypixelApi {
 	private static final long FRESH_MS = 10 * 60_000L;
 	private static final long RETRY_MS = 2 * 60_000L;
 	private static final long GAP_MS = 1_000L;
+	/** The gap while plenty of the key's requests are left (300 per 5 minutes for a personal key). */
+	private static final long FAST_GAP_MS = 120L;
+	private static final int FAST_WHILE_REMAINING = 60;
 	private static final int MAX_QUEUE = 64;
 
 	/** What is known about a player; {@code level} and {@code star} are -1 when unknown. */
 	public static final class Stats {
 		public final double level;
 		public final int star;
+		/** Whether Hypixel knows the player: a name it does not know in a game is a nick. */
+		public final boolean found;
+		public final int finalKills;
+		public final int finalDeaths;
+		public final int wins;
+		public final int losses;
+		public final int bedsBroken;
+		/** -1 when the player hides it. */
+		public final int winstreak;
 		final long time;
 		final boolean failed;
 
 		Stats(double level, int star, long time, boolean failed) {
+			this(level, star, false, 0, 0, 0, 0, 0, -1, time, failed);
+		}
+
+		Stats(double level, int star, boolean found, int finalKills, int finalDeaths, int wins, int losses, int bedsBroken,
+			int winstreak, long time, boolean failed) {
 			this.level = level;
 			this.star = star;
+			this.found = found;
+			this.finalKills = finalKills;
+			this.finalDeaths = finalDeaths;
+			this.wins = wins;
+			this.losses = losses;
+			this.bedsBroken = bedsBroken;
+			this.winstreak = winstreak;
 			this.time = time;
 			this.failed = failed;
+		}
+
+		/** Bedwars final kills per final death (the kills alone with no deaths). */
+		public double fkdr() {
+			return finalKills / (double) Math.max(1, finalDeaths);
+		}
+
+		public double wlr() {
+			return wins / (double) Math.max(1, losses);
 		}
 	}
 
@@ -57,6 +90,7 @@ public final class HypixelApi {
 	private volatile String key;
 	private volatile Status status = Status.NO_KEY;
 	private volatile long pausedUntil;
+	private volatile long gap = GAP_MS;
 	private Thread worker;
 
 	public HypixelApi(Path configDir) {
@@ -123,7 +157,7 @@ public final class HypixelApi {
 				}
 				fetch(id);
 				queued.remove(id);
-				Thread.sleep(GAP_MS);
+				Thread.sleep(gap);
 			} catch (InterruptedException e) {
 				return;
 			} catch (RuntimeException e) {
@@ -146,6 +180,8 @@ public final class HypixelApi {
 			c.setRequestProperty("API-Key", k);
 			c.setRequestProperty("User-Agent", "Rago Client");
 			int code = c.getResponseCode();
+			String remaining = c.getHeaderField("RateLimit-Remaining");
+			gap = remaining != null && remaining.matches("\\d{1,5}") && Integer.parseInt(remaining) > FAST_WHILE_REMAINING ? FAST_GAP_MS : GAP_MS;
 			if (code == 403) {
 				status = Status.BAD_KEY;
 				RagoClient.LOG.warn("Hypixel API: the key was refused (expired or wrong)");
@@ -193,7 +229,28 @@ public final class HypixelApi {
 				star = a.get("bedwars_level").getAsInt();
 			}
 		}
-		return new Stats(networkLevel(exp), star, now, false);
+		int fk = 0;
+		int fd = 0;
+		int wins = 0;
+		int losses = 0;
+		int beds = 0;
+		int ws = -1;
+		if (p.has("stats") && p.get("stats").isJsonObject() && p.getAsJsonObject("stats").has("Bedwars")
+			&& p.getAsJsonObject("stats").get("Bedwars").isJsonObject()) {
+			JsonObject b = p.getAsJsonObject("stats").getAsJsonObject("Bedwars");
+			fk = number(b, "final_kills_bedwars", 0);
+			fd = number(b, "final_deaths_bedwars", 0);
+			wins = number(b, "wins_bedwars", 0);
+			losses = number(b, "losses_bedwars", 0);
+			beds = number(b, "beds_broken_bedwars", 0);
+			ws = number(b, "winstreak", -1);
+		}
+		return new Stats(networkLevel(exp), star, true, fk, fd, wins, losses, beds, ws, now, false);
+	}
+
+	private static int number(JsonObject o, String key, int fallback) {
+		JsonElement e = o.get(key);
+		return e != null && e.isJsonPrimitive() && e.getAsJsonPrimitive().isNumber() ? e.getAsInt() : fallback;
 	}
 
 	/** Hypixel's network level for an amount of network experience (1.0 at 0 exp). */
