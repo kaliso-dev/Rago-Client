@@ -20,12 +20,15 @@ public final class HudManager {
 		return registry.allOf(HudElement.class);
 	}
 
-	/** Called after the vanilla HUD is drawn while in a world. */
-	public void render() {
+	/**
+	 * Called after the vanilla HUD is drawn while in a world. {@code onlyVanilla} draws only the
+	 * elements that replace vanilla ones, for when Rago's own HUD is hidden.
+	 */
+	public void render(boolean onlyVanilla) {
 		Minecraft mc = Minecraft.getMinecraft();
 		ScaledResolution window = new ScaledResolution(mc);
 		for (HudElement element : elements()) {
-			if (element.isEnabled() && element.hasContent()) {
+			if (element.isEnabled() && (!onlyVanilla || element.replacesVanilla()) && element.hasContent()) {
 				draw(element, mc.fontRendererObj, window.getScaledWidth(), window.getScaledHeight(), false);
 			}
 		}

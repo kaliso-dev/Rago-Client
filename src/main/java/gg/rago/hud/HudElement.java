@@ -56,6 +56,14 @@ public abstract class HudElement extends Module {
 
 	public abstract void render(FontRenderer text, boolean placeholder);
 
+	/**
+	 * Whether this element stands in for part of the vanilla HUD (scoreboard, boss bar), so it stays
+	 * visible when Rago's own HUD is hidden or the F3 screen is open.
+	 */
+	public boolean replacesVanilla() {
+		return false;
+	}
+
 	/** Whether there is anything to draw right now outside the editor. */
 	public boolean hasContent() {
 		return true;

@@ -10,3 +10,4 @@ bench/results/*.csv
 __pycache__/
 libs/optifine/*.jar
 logs/
+rago-dump/

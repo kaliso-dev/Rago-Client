@@ -11,10 +11,13 @@ import org.lwjgl.opengl.Display;
 public final class FrameLimit {
 	/** Vanilla treats this value as "Unlimited". */
 	public static final int UNLIMITED = 260;
+	/** Nothing is visible while minimized; a few frames keep the game loop and sounds running. */
+	private static final int MINIMIZED_FPS = 5;
 
 	private static volatile int menuFps = 120;
 	private static volatile boolean unfocusedCap = true;
 	private static volatile int unfocusedFps = 30;
+	private static volatile boolean minimizedCap = true;
 	private static volatile boolean hooked;
 
 	private FrameLimit() {
@@ -33,6 +36,9 @@ public final class FrameLimit {
 		if (unfocusedCap && !Display.isActive()) {
 			fps = Math.min(fps, unfocusedFps);
 		}
+		if (minimizedCap && !Display.isVisible()) {
+			fps = Math.min(fps, MINIMIZED_FPS);
+		}
 		return fps;
 	}
 
@@ -43,6 +49,10 @@ public final class FrameLimit {
 
 	public static void setMenuFps(int fps) {
 		menuFps = fps;
+	}
+
+	public static void setMinimizedCap(boolean enabled) {
+		minimizedCap = enabled;
 	}
 
 	public static void setUnfocused(boolean enabled, int fps) {

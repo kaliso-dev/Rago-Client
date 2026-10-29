@@ -52,7 +52,8 @@ public final class RagoMenuScreen extends GuiScreen {
 	private enum Tab { MODS, SETTINGS }
 
 	private enum Chip {
-		ALL(null), ON(null), HUD(Category.HUD), PVP(Category.PVP), VISUAL(Category.VISUAL), PERFORMANCE(Category.PERFORMANCE);
+		ALL(null), ON(null), HUD(Category.HUD), PVP(Category.PVP), HYPIXEL(Category.HYPIXEL), VISUAL(Category.VISUAL),
+		FIXES(Category.FIXES), PERFORMANCE(Category.PERFORMANCE);
 
 		final Category category;
 
@@ -594,7 +595,8 @@ public final class RagoMenuScreen extends GuiScreen {
 			IntOption io = (IntOption) option;
 			float f = io.max() == io.min() ? 0 : (float) (io.get() - io.min()) / (io.max() - io.min());
 			String key = "rago.option." + io.key() + "." + io.get();
-			String value = has(key) ? t(key) : Integer.toString(io.get());
+			String format = "rago.option." + io.key() + ".format";
+			String value = has(key) ? t(key) : has(format) ? t(format, io.get()) : Integer.toString(io.get());
 			sliderControl("opt:" + io.key() + System.identityHashCode(io), right - 46 - 170, y, 170, f, value, right, inside,
 				v -> io.set(io.min() + Math.round(v * (io.max() - io.min()))));
 		} else if (option instanceof ColorOption) {

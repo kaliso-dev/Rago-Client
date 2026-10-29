@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 0.8.0.** What it contains:
+**Current version: 0.9.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -36,6 +36,20 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   no dynamic FOV, fast leaves, no sky, stars, vignette or animated smoke/flame/explosions). Potion
   particles stay on so you can read your opponent's effects. Your own values are saved to
   `config/rago-profile-backup.json` and put back when you switch it off.
+- PvP mods: block overlay (outline and fill colour, width, opacity), hitboxes (players, mobs,
+  items, projectiles; colour, width, eye line, look direction), hit particles multiplier, tab list
+  ping in ms, chat (timestamps, repeated messages stacked into one line, up to 1,000 lines of
+  history), a movable scoreboard (scale, background opacity, red numbers optional, or hidden) and boss
+  bar, reach display, combo counter, speed, clock, memory and server address HUDs
+- Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
+  your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
+  resources counter (iron, gold, diamonds, emeralds)
+- fixes and animations: No Hurt Cam (shake strength), 1.7 animations (block-hit swing, red armour
+  when hit, swing while using items), low fire, no pumpkin mask, no water overlay, hide
+  achievements, hide the crosshair in F5, your own name tag in F5, weather and time changers (only
+  on your screen)
+- occlusion culling: entities and chests hidden behind solid blocks are not drawn (players only if
+  you ask), shown on the F3 screen; and a 5 FPS cap while the window is minimised
 - performance HUD: FPS (with 1% low), frame time p50/p99, **server-reported** ping with jitter, capture status
 - a 60-second frame capture written to CSV, with hardware and settings in the header
 - `bench/analyse.py` to compare two sets of captures (e.g. without vs. with OptiFine)
@@ -44,8 +58,16 @@ Every module declares a policy class (visual, informational, input, packet). Inp
 are off by default, and packet-class modules are refused at registration: Rago does not ship them.
 
 Rago never changes what is sent to the server. Every optimisation only changes what this client
-draws. The jar contains one class transformer (`gg.rago.asm`), which only replaces the frame-rate
-cap vanilla uses for menus and unfocused windows; everything else uses Forge events.
+draws. The jar contains one class transformer (`gg.rago.asm`) with a few small patches, each
+calling `gg.rago.hooks.Hooks`: the frame-rate cap for menus and unfocused windows, occlusion culling
+of entities, the hurt camera strength, the 1.7 armour tint and block-hit swing, the tab list ping and
+the chat history length. Each one keeps vanilla behaviour while its feature is off, and a patch that
+does not fit (another mod changed the method) is skipped and logged. Start the game with
+`-Drago.dumpClasses=true` to save such a class to `rago-dump/` for a bug report. Everything else
+uses Forge events.
+
+Rago does not include NoHitDelay or anything else that changes combat timing, reach or what the
+client sends: those are cheats on Hypixel and Minemen Club.
 
 Toggle sprint/sneak is the only module that affects
 input: it makes the vanilla key read as held, nothing more, and it is off until you turn it on.
@@ -92,7 +114,7 @@ OptiFine jar from the mods folder. Only publish such builds if you have that per
 
 | Key | Action |
 | --- | --- |
-| Right Shift | Open the Rago menu (modules, options, *Edit HUD*) |
+| Right Shift | Open the Rago menu (modules, options, *Edit HUD*); `/rago` in chat does the same |
 | F10 | Show / hide the whole Rago HUD |
 | C (hold) | Zoom; mouse wheel changes the zoom level while held |
 | F12 | Start / stop a 60 s frame capture (saved to `rago/frames-YYYYMMDD-HHMMSS.csv`) |
