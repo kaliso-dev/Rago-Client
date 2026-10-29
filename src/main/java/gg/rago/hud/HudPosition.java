@@ -38,6 +38,11 @@ public final class HudPosition {
 		scale = 1;
 	}
 
+	/** Still where the element starts out (scale aside), so the HUD may stack it with its neighbours. */
+	public boolean isDefault() {
+		return anchor == defaultAnchor && offsetX == defaultX && offsetY == defaultY;
+	}
+
 	public Anchor anchor() {
 		return anchor;
 	}

@@ -75,7 +75,7 @@ public final class PotionHud extends HudElement {
 	public int width(FontRenderer text, boolean placeholder) {
 		int w = 0;
 		for (PotionEffect e : effects(placeholder)) {
-			w = Math.max(w, Math.max(text.getStringWidth(name(e)), text.getStringWidth(Potion.getDurationString(e))));
+			w = Math.max(w, Math.max(textWidth(name(e)), textWidth(Potion.getDurationString(e))));
 		}
 		return textX() + w;
 	}

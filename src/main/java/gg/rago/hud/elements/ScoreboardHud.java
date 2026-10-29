@@ -119,9 +119,9 @@ public final class ScoreboardHud extends HudElement {
 		List<String[]> lines = lines(placeholder);
 		for (int i = 0; i < lines.size(); i++) {
 			String[] l = lines.get(i);
-			int lw = text.getStringWidth(l[0]);
+			int lw = textWidth(l[0]);
 			if (i > 0 && numbers.get()) {
-				lw += text.getStringWidth(": " + l[1]);
+				lw += textWidth(": " + l[1]);
 			}
 			w = Math.max(w, lw);
 		}
@@ -153,12 +153,12 @@ public final class ScoreboardHud extends HudElement {
 				Gui.drawRect(0, y, w, y + h + (i == 0 ? 1 : 0), Math.min(255, alpha + (i == 0 ? 16 : 0)) << 24);
 			}
 			if (i == 0) {
-				drawText(text, l[0], (w - text.getStringWidth(l[0])) / 2, y + 1, color);
+				drawText(text, l[0], (w - textWidth(l[0])) / 2, y + 1, color);
 			} else {
 				drawText(text, l[0], 2, y, color);
 				if (numbers.get()) {
 					String n = EnumChatFormatting.RED + l[1];
-					drawText(text, n, w - 2 - text.getStringWidth(n), y, color);
+					drawText(text, n, w - 2 - textWidth(n), y, color);
 				}
 			}
 		}

@@ -26,14 +26,19 @@ public final class FpsHud extends TextHudElement {
 	}
 
 	@Override
-	protected String text(boolean placeholder) {
+	protected String label(boolean after) {
+		return after ? "FPS" : "FPS";
+	}
+
+	@Override
+	protected String value(boolean placeholder) {
 		double avg = placeholder ? 860 : frames.stats().avgFps;
 		double low = placeholder ? 225 : frames.stats().onePercentLowFps;
 		if (!placeholder && frames.stats() == FrameStats.EMPTY) {
-			return "-- FPS";
+			return "--";
 		}
 		return showLow.get()
-			? String.format(Locale.ROOT, "%.0f FPS  1%% low %.0f", avg, low)
-			: String.format(Locale.ROOT, "%.0f FPS", avg);
+			? String.format(Locale.ROOT, "%.0f \u00b7 %.0f low", avg, low)
+			: String.format(Locale.ROOT, "%.0f", avg);
 	}
 }

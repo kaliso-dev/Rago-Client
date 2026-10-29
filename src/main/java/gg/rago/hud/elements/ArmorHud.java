@@ -81,7 +81,7 @@ public final class ArmorHud extends HudElement {
 		if (showDurability.get()) {
 			int label = 0;
 			for (ItemStack stack : items(placeholder)) {
-				label = Math.max(label, text.getStringWidth(label(stack)));
+				label = Math.max(label, textWidth(label(stack)));
 			}
 			if (label > 0) {
 				w += 3 + label;

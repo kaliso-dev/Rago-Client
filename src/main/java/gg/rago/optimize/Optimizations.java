@@ -59,6 +59,7 @@ public final class Optimizations {
 	private static final String TILES = "rago.section.tile_entities";
 	private static final String WORLD = "rago.section.world";
 	private static final String CULLING = "rago.section.culling";
+	private static final String ENGINE = "rago.section.engine";
 
 	private final IntOption menuFps;
 	private final BooleanOption unfocusedCap;
@@ -95,6 +96,10 @@ public final class Optimizations {
 	private final BooleanOption hideFlowers;
 	private final BooleanOption hideDeadBushes;
 	private final IntOption maxParticles;
+	private final BooleanOption fastWorldSwitch;
+	private final BooleanOption unstackedItems;
+	private final BooleanOption skipGlErrors;
+	private final EngineTweaks engine;
 	private final BooleanOption disableFog;
 
 	private final Map<Entity, Double> originalWeights = new WeakHashMap<>();
@@ -157,6 +162,29 @@ public final class Optimizations {
 		disableFog = s.bool(p, WORLD, "disable_fog", false, null);
 		maxParticles = s.slider(p, WORLD, "max_particles", 4000, 100, 4000, 100,
 			v -> v >= 4000 ? I18n.format("rago.value.vanilla") : Integer.toString(v), null);
+
+		fastWorldSwitch = s.bool(p, ENGINE, "fast_world_switch", true, null);
+		unstackedItems = s.bool(p, ENGINE, "unstacked_items", false, null);
+		skipGlErrors = s.bool(p, ENGINE, "skip_gl_errors", true, v -> applyGlErrorChecking());
+		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get);
+	}
+
+	/** Settings read by the game hooks. */
+	public EngineTweaks engine() {
+		return engine;
+	}
+
+	/**
+	 * Vanilla asks the driver for errors (glGetError) several times a frame and only logs them;
+	 * on some drivers each call waits for the GPU. Patcher turns it off the same way.
+	 */
+	private void applyGlErrorChecking() {
+		try {
+			ObfuscationReflectionHelper.setPrivateValue(Minecraft.class, Minecraft.getMinecraft(), !skipGlErrors.get(),
+				"enableGLErrorChecking", "field_175619_R");
+		} catch (RuntimeException e) {
+			RagoClient.LOG.warn("Could not change GL error checking", e);
+		}
 	}
 
 	private static void visibleWhen(Settings s, String id, BooleanSupplier condition) {
@@ -178,6 +206,7 @@ public final class Optimizations {
 	/** Applies settings that need it once the config is loaded and the game is up. */
 	public void start() {
 		applyFrameCaps();
+		applyGlErrorChecking();
 		Minecraft mc = Minecraft.getMinecraft();
 		try {
 			List<IResourcePack> packs = ObfuscationReflectionHelper.getPrivateValue(Minecraft.class, mc, "defaultResourcePacks", "field_110449_ao");

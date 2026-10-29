@@ -1,6 +1,7 @@
 package gg.rago.modules;
 
 import gg.rago.config.BooleanOption;
+import gg.rago.config.ColorOption;
 import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
@@ -20,7 +21,8 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * Chat improvements: a timestamp in front of each message, repeated messages stacked into one
- * line with a counter, and a longer history to scroll back through. Only received messages are
+ * line with a counter, a longer history to scroll back through, and the background's opacity and
+ * colour (down to fully transparent) and text shadow. Only received messages are
  * changed; nothing is sent.
  */
 public final class Chat extends Module {
@@ -33,6 +35,9 @@ public final class Chat extends Module {
 	private final IntOption timeFormat = addOption(new IntOption("time_format", 0, 0, 1));
 	private final BooleanOption compact = addOption(new BooleanOption("compact_chat", true));
 	private final IntOption history = addOption(new IntOption("chat_history", 500, 100, 1000));
+	private final BooleanOption textShadow;
+	private final IntOption backgroundOpacity;
+	private final ColorOption backgroundColor;
 
 	private String lastText;
 	private int lastId;
@@ -41,6 +46,26 @@ public final class Chat extends Module {
 
 	public Chat() {
 		super("chat", FeatureClass.VISUAL, false);
+		section("style");
+		textShadow = addOption(new BooleanOption("text_shadow", true));
+		backgroundOpacity = addOption(new IntOption("background_opacity", 50, 0, 100));
+		backgroundColor = addOption(new ColorOption("background_color", 0xFF000000));
+		backgroundColor.showIf(() -> backgroundOpacity.get() > 0);
+		section(null);
+	}
+
+	public boolean textShadow() {
+		return textShadow.get();
+	}
+
+	/**
+	 * Background of a chat line whose text is {@code lineAlpha2 * 2} opaque (vanilla draws black at
+	 * half that, which is the 50% default); 0% leaves the chat with no background at all.
+	 */
+	public int background(int lineAlphaHalf) {
+		int lineAlpha = Math.min(255, lineAlphaHalf * 2);
+		int alpha = lineAlpha * backgroundOpacity.get() / 100;
+		return alpha << 24 | backgroundColor.get() & 0xFFFFFF;
 	}
 
 	@Override

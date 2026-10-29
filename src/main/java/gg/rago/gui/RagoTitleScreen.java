@@ -1,5 +1,6 @@
 package gg.rago.gui;
 
+import gg.rago.accounts.Accounts;
 import gg.rago.core.QuickJoin;
 import gg.rago.core.RagoClient;
 import gg.rago.gui.ui.Anim;
@@ -54,6 +55,7 @@ public final class RagoTitleScreen extends GuiScreen {
 		center(w, h);
 		dock(w, h);
 		footer(w, h);
+		account(w);
 		if (optifineHelp) {
 			optifineDialog(w, h);
 		}
@@ -205,6 +207,39 @@ public final class RagoTitleScreen extends GuiScreen {
 			default:
 				return () -> mc.shutdown();
 		}
+	}
+
+	/** The account in use, top right; opens the Accounts screen. */
+	private void account(float w) {
+		if (!Accounts.available()) {
+			return;
+		}
+		String name = mc.getSession().getUsername();
+		float size = 10;
+		float tw = Ui.textWidth(Ui.MEDIUM, name, size);
+		float cw = tw + 58;
+		float x = w - 14 - cw;
+		float y = 14;
+		float p = intro(450, 500);
+		Ui.opacity(p);
+		float hv = Anim.to("account", Ui.hover(x, y, cw, 30) ? 1 : 0, 120);
+		Ui.glassBorder(x, y, cw, 30, 15, Ui.mix(0xE6131215, 0xF0242328, hv), Ui.mix(0x1FFFFFFF, 0x3DFFFFFF, hv));
+		AccountsScreen.head(name, x + 7, y + 7, 16);
+		Ui.text(Ui.MEDIUM, name, x + 30, y + (30 - size * 1.21f) / 2, size, Theme.TEXT);
+		Ui.icon("users", x + cw - 22, y + 9, 12, Ui.mix(0xFF9A98A0, Theme.TEXT, hv));
+		if (hv > 0.01f) {
+			String tip = t("rago.dock.accounts");
+			float tsz = 9;
+			float tipW = Ui.textWidth(Ui.MEDIUM, tip, tsz) + 14;
+			Ui.opacity(p * hv);
+			Ui.glass(x + cw - tipW, y + 36, tipW, 17, 6, 0xF0141316);
+			Ui.textCentered(Ui.MEDIUM, tip, x + cw - tipW / 2, y + 36 + (17 - tsz * 1.21f) / 2, tsz, Theme.TEXT);
+			Ui.opacity(p);
+		}
+		if (!optifineHelp) {
+			Ui.click(x, y, cw, 30, () -> mc.displayGuiScreen(new AccountsScreen(this)));
+		}
+		Ui.opacity(1);
 	}
 
 	private void footer(float w, float h) {

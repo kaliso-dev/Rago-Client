@@ -19,15 +19,20 @@ public final class FrameTimeHud extends TextHudElement {
 	private final FrameTimer frames;
 
 	public FrameTimeHud(FrameTimer frames) {
-		super("frame_time", FeatureClass.INFORMATIONAL, true, Anchor.TOP_LEFT, 4, 15);
+		super("frame_time", FeatureClass.INFORMATIONAL, false, Anchor.TOP_LEFT, 4, 15);
 		this.frames = frames;
 	}
 
 	@Override
-	protected String text(boolean placeholder) {
+	protected String label(boolean after) {
+		return after ? "ms" : "Frame";
+	}
+
+	@Override
+	protected String value(boolean placeholder) {
 		FrameStats s = frames.stats();
 		double p50 = placeholder ? 1.16 : s.p50Ms;
 		double p99 = placeholder ? 3.31 : s.p99Ms;
-		return String.format(Locale.ROOT, "frame %.2f ms  p99 %.2f ms", p50, p99);
+		return String.format(Locale.ROOT, "%.2f \u00b7 p99 %.2f", p50, p99);
 	}
 }

@@ -49,12 +49,17 @@ public final class NameTags {
 
 	/** Top of the name tag above an entity drawn at camera-relative y, including the below-name score line. */
 	public static double nameTop(EntityLivingBase e, double y) {
+		return nameTop(e, y, LINE);
+	}
+
+	/** {@link #nameTop(EntityLivingBase, double)} with name tags {@code line} blocks tall. */
+	public static double nameTop(EntityLivingBase e, double y, double line) {
 		double top = y + e.height + 0.5 - (e.isChild() ? e.height / 2 : 0);
 		Minecraft mc = Minecraft.getMinecraft();
 		if (!e.isSneaking() && e instanceof EntityPlayer && e.getDistanceSqToEntity(mc.getRenderViewEntity()) < 100) {
 			ScoreObjective below = ((EntityPlayer) e).getWorldScoreboard().getObjectiveInDisplaySlot(2);
 			if (below != null) {
-				top += LINE;
+				top += line;
 			}
 		}
 		return top;

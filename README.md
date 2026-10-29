@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 0.9.0.** What it contains:
+**Current version: 1.0.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -11,6 +11,9 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
 - frosted glass panels and buttons in every Rago screen (they blur what is behind them, also with
   OptiFine's Fast Render), with a switch to use solid panels instead
 - OptiFine inside the Rago jar for builds that bundle it (see [Bundling OptiFine](#bundling-optifine))
+- an **Accounts** screen in Rago's style (top right of the home screen, or the head button in the
+  server list): add Microsoft accounts and switch between them in one click. The sign-in itself is
+  done by [In-Game Account Switcher](#account-switcher), which is bundled
 - the Rago window (Right Shift): a **Mods** tab with mod profiles (Default, Bedwars, Practice,
   Skywars, or your own), mod cards with Enabled/Disabled, filters, sorting and search, and a page per
   mod with a live preview; a **Settings** tab with General, Performance and Controls pages
@@ -25,9 +28,15 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - hide tall grass, ferns, flowers and dead bushes, a particle cap and a fog switch
 - a Controls page to rebind every key (keyboard or mouse), with conflicts shown in red
 - a module system: every feature is a module with an on/off switch and its own options
-- a HUD editor: drag elements, snap them to the screen centre, resize them with the mouse wheel
+- a HUD editor: drag elements, snap them to the screen centre, resize them with the mouse wheel;
+  elements left at their default place on the left edge stack themselves so they never overlap
+- HUD styles: every text element has a preset (Rago, Vanilla, Box, Classic, Minimal) and then each
+  detail on its own: font (Minecraft, Poppins, Inter), label before or after the value, separator,
+  brackets, label, bracket and text colours, chroma, alignment, background colour and opacity, round
+  corners, padding, minimum width and border. Colours have a picker with hue and opacity
 - settings saved to `config/rago.json` (a broken file is set aside and defaults are used)
-- PvP HUD: keystrokes (follows your bindings, with CPS), CPS counter, armour and held item with
+- PvP HUD: keystrokes (follows your bindings, with CPS; styles, key size, gap, round corners,
+  idle and pressed colours, a smooth release fade), CPS counter, armour and held item with
   durability, potion effects with time left, coordinates and facing
 - comfort mods: zoom (hold C, wheel to adjust), custom crosshair drawn in real pixels, fullbright,
   toggle sprint / sneak (input class, off by default)
@@ -36,32 +45,41 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   no dynamic FOV, fast leaves, no sky, stars, vignette or animated smoke/flame/explosions). Potion
   particles stay on so you can read your opponent's effects. Your own values are saved to
   `config/rago-profile-backup.json` and put back when you switch it off.
-- PvP mods: block overlay (outline and fill colour, width, opacity), hitboxes (players, mobs,
-  items, projectiles; colour, width, eye line, look direction), hit particles multiplier, tab list
-  ping in ms, chat (timestamps, repeated messages stacked into one line, up to 1,000 lines of
-  history), a movable scoreboard (scale, background opacity, red numbers optional, or hidden) and boss
+- PvP mods: block overlay (outline and fill colour, width up to 10, opacity), hitboxes (players,
+  mobs, items, projectiles; colour, width up to 10, eye line, look direction), hit colour (the red
+  tint on hurt players and mobs), hit particles multiplier, tab list ping in ms, chat (timestamps,
+  repeated messages stacked into one line, up to 1,000 lines of history, background opacity down to
+  fully transparent, text shadow on or off), name tags (styles, Minecraft, Poppins or Inter font,
+  size, server or custom colour, background, round corners, border, faint through walls, your own
+  name in F5), a movable scoreboard (scale, background opacity, red numbers optional, or hidden) and boss
   bar, reach display, combo counter, speed, clock, memory and server address HUDs
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
-- fixes and animations: No Hurt Cam (shake strength), 1.7 animations (block-hit swing, red armour
-  when hit, swing while using items), low fire, no pumpkin mask, no water overlay, hide
-  achievements, hide the crosshair in F5, your own name tag in F5, weather and time changers (only
-  on your screen)
+- fixes and animations: No Hurt Cam (shake strength), 1.7 animations (block-hit swing, swing while
+  eating, drinking or drawing a bow, red armour when hit, no re-equip bounce when only the stack
+  changes, swing duration, held item position and size), gameplay fixes (input class, off by
+  default: mouse delay fix, held keys kept after closing a menu, borderless fullscreen on F11), low
+  fire, no pumpkin mask, no water overlay, hide achievements, hide the crosshair in F5, weather and
+  time changers (only on your screen)
+- engine tweaks: no forced full garbage collection on every world change, dropped stacks drawn
+  once, no OpenGL error check every frame
 - occlusion culling: entities and chests hidden behind solid blocks are not drawn (players only if
   you ask), shown on the F3 screen; and a 5 FPS cap while the window is minimised
-- performance HUD: FPS (with 1% low), frame time p50/p99, **server-reported** ping with jitter, capture status
-- a 60-second frame capture written to CSV, with hardware and settings in the header
+- performance HUD: FPS (with 1% low), frame time p50/p99 (off by default), ping (see below)
+- a 60-second frame capture written to CSV, with hardware and settings in the header (start and
+  stop are shown in chat)
 - `bench/analyse.py` to compare two sets of captures (e.g. without vs. with OptiFine)
 
 Every module declares a policy class (visual, informational, input, packet). Input-class modules
 are off by default, and packet-class modules are refused at registration: Rago does not ship them.
 
-Rago never changes what is sent to the server. Every optimisation only changes what this client
+Rago never adds, delays or alters packets, and every optimisation only changes what this client
 draws. The jar contains one class transformer (`gg.rago.asm`) with a few small patches, each
 calling `gg.rago.hooks.Hooks`: the frame-rate cap for menus and unfocused windows, occlusion culling
-of entities, the hurt camera strength, the 1.7 armour tint and block-hit swing, the tab list ping and
-the chat history length. Each one keeps vanilla behaviour while its feature is off, and a patch that
+of entities, the hurt camera strength, the 1.7 animations and held item, the hit colour, the tab list
+ping, the chat history, background and shadow, the mouse delay fix, the world-switch clean-up,
+dropped stacks and borderless fullscreen. Each one keeps vanilla behaviour while its feature is off, and a patch that
 does not fit (another mod changed the method) is skipped and logged. Start the game with
 `-Drago.dumpClasses=true` to save such a class to `rago-dump/` for a bug report. Everything else
 uses Forge events.
@@ -69,13 +87,26 @@ uses Forge events.
 Rago does not include NoHitDelay or anything else that changes combat timing, reach or what the
 client sends: those are cheats on Hypixel and Minemen Club.
 
-Toggle sprint/sneak is the only module that affects
-input: it makes the vanilla key read as held, nothing more, and it is off until you turn it on.
+Toggle sprint/sneak and the keybind fix are the only features that affect input: they make a
+vanilla key read as held, nothing more, and they are off until you turn them on. The mouse delay
+fix makes the crosshair target follow the camera you already see, instead of the head angle from
+one tick earlier; it does not change reach, timing or what is sent.
+
+### About ping
+
+No client can make the network faster: ping is the time packets take between your PC and the
+server. Vanilla 1.8.9 already turns off Nagle's algorithm (`TCP_NODELAY`) on the game connection.
+What Rago changes is what you see and feel: higher and steadier FPS (the Performance page), no
+mouse delay, fast world switching, and a ping counter that tells the truth. The tab list value is
+computed by the server and large networks refresh it rarely, so the Ping HUD measures by default:
+every few seconds (3 to 60, your choice) it opens a separate connection to the same server address
+and times one status ping, exactly like the server list does. Choose *Server (tab)* to show the
+server's value instead.
 
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-0.8.0+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.0.0+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the
@@ -102,6 +133,18 @@ the vanilla settings.
 On Windows (PowerShell) use `.\gradlew.bat` instead of `./gradlew`, e.g. `.\gradlew.bat runClient`.
 To test with OptiFine, install the built jar in a real Forge profile as described above.
 
+### Account switcher
+
+The Accounts screen uses [In-Game Account Switcher](https://github.com/The-Fireplace-Minecraft-Mods/In-Game-Account-Switcher)
+7.1.2 by The_Fireplace, The_BrainStone and VidTu, licensed under the LGPL-3.0. Its unmodified jar is
+in `libs/ias/` with its licence, and is bundled in the Rago jar the same way as OptiFine (Forge
+extracts it to `mods/1.8.9/`); its licence files are in `META-INF/licenses/in-game-account-switcher/`.
+You can replace it with any other build of the same version. The Microsoft sign-in opens in your
+browser on Microsoft's own page; Rago never sees your password. Tokens are kept by the switcher in
+its `.iasms` file, encrypted with a key stored on the same PC: that stops casual reading, not
+malware running as you. If you already have In-Game Account Switcher in your mods folder, Rago uses
+that copy.
+
 ### Bundling OptiFine
 
 OptiFine's licence does not allow redistributing it without permission from its author (sp614x), so
@@ -118,6 +161,7 @@ OptiFine jar from the mods folder. Only publish such builds if you have that per
 | F10 | Show / hide the whole Rago HUD |
 | C (hold) | Zoom; mouse wheel changes the zoom level while held |
 | F12 | Start / stop a 60 s frame capture (saved to `rago/frames-YYYYMMDD-HHMMSS.csv`) |
+| F11 | Fullscreen, borderless when the gameplay fix is on |
 
 All keys can be changed in Options → Controls → Rago. On a Mac keyboard, press `fn` with the F key.
 
@@ -142,10 +186,12 @@ Report the numbers as measured, with the hardware lines from the CSV headers.
 | FPS | frames ÷ elapsed time over the last 1,000 frames |
 | 1% low | 1 ÷ mean of the slowest 1% of those frames |
 | p50 / p99 | nearest-rank percentiles of frame time (start of one frame to start of the next) |
-| ping (server) | the latency the server reports for you in the tab list; Rago sends no packets to measure it |
-| jitter | standard deviation of the last 60 ping samples (one per second) |
+| ping (measured) | round trip of one status ping on a separate connection to the server, like the server list |
+| ping (server) | the latency the server reports for you in the tab list |
+| jitter | standard deviation of the last 60 ping samples |
 | CPS | presses of your attack (or use) binding that the game registered in the last second |
 
 ## License
 
-GPL-3.0-or-later. See [LICENSE](LICENSE).
+GPL-3.0-or-later. See [LICENSE](LICENSE). The bundled In-Game Account Switcher is LGPL-3.0 (see
+`libs/ias/`), the Poppins font is under the SIL Open Font License (see `Poppins-OFL.txt` next to it).

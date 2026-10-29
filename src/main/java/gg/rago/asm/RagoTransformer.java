@@ -8,6 +8,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.FrameNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
@@ -32,8 +33,9 @@ import java.util.Map;
  * found, for example because another mod rewrote it, that one change is skipped and logged; the
  * class is never left half patched.
  *
- * <p>None of these change what is sent to the server: they only affect drawing and what the
- * client keeps in memory.
+ * <p>None of these change what is sent to the server: they affect drawing, what the client keeps
+ * in memory, window handling, and (mouse delay fix, off by default) which entity the crosshair
+ * points at, which then matches what the camera shows.
  */
 public final class RagoTransformer implements IClassTransformer {
 	private static final Logger LOG = LogManager.getLogger("Rago");
@@ -82,9 +84,60 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.gui.GuiNewChat", new Patch("longer chat history",
 			"func_146237_a", "setChatLine", "(Lnet/minecraft/util/IChatComponent;IIZ)V",
 			RagoTransformer::chatLimit));
-		add("net.minecraft.client.renderer.ItemRenderer", new Patch("1.7 block-hit animation",
+		add("net.minecraft.client.renderer.ItemRenderer", new Patch("1.7 swing while blocking, eating and drawing a bow",
 			"func_78440_a", "renderItemInFirstPerson", "(F)V",
-			RagoTransformer::blockHit));
+			RagoTransformer::useSwing));
+		add("net.minecraft.client.renderer.ItemRenderer", new Patch("held item position and size",
+			"func_178096_b", "transformFirstPersonItem", "(FF)V",
+			m -> {
+				m.instructions.insert(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "heldItemOffset", "()V", false));
+				return beforeReturns(m, Opcodes.RETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "heldItemScale", "()V", false));
+			}));
+		add("net.minecraft.client.renderer.ItemRenderer", new Patch("no re-equip animation when the held item only changes",
+			"func_78441_a", "updateEquippedItem", "()V",
+			RagoTransformer::reequip));
+		add("net.minecraft.client.gui.GuiNewChat", new Patch("chat background and text shadow",
+			"func_146230_a", "drawChat", "(I)V",
+			RagoTransformer::chatLook));
+		add("net.minecraft.entity.EntityLivingBase", new Patch("mouse delay fix",
+			"func_70676_i", "getLook", "(F)Lnet/minecraft/util/Vec3;",
+			RagoTransformer::lookFix));
+		add("net.minecraft.entity.EntityLivingBase", new Patch("swing speed",
+			"func_82166_i", "getArmSwingAnimationEnd", "()I",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn.getOpcode() == Opcodes.IRETURN) {
+						InsnList call = new InsnList();
+						call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+						call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "swingDuration", "(ILnet/minecraft/entity/EntityLivingBase;)I", false));
+						m.instructions.insertBefore(insn, call);
+						found = true;
+					}
+				}
+				return found;
+			}));
+		add("net.minecraft.client.renderer.entity.RendererLivingEntity", new Patch("hit colour",
+			"func_177092_a", "setBrightness", "(Lnet/minecraft/entity/EntityLivingBase;FZ)Z",
+			RagoTransformer::hitColor));
+		add("net.minecraft.client.renderer.entity.RenderEntityItem", new Patch("unstacked dropped items",
+			"func_177078_a", "func_177078_a", "(Lnet/minecraft/item/ItemStack;)I",
+			m -> beforeReturns(m, Opcodes.IRETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "itemCopies", "(I)I", false))));
+		add("net.minecraft.client.Minecraft", new Patch("fast world switching",
+			"func_71353_a", "loadWorld", "(Lnet/minecraft/client/multiplayer/WorldClient;Ljava/lang/String;)V",
+			m -> {
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn instanceof MethodInsnNode && "java/lang/System".equals(((MethodInsnNode) insn).owner)
+						&& "gc".equals(((MethodInsnNode) insn).name)) {
+						m.instructions.set(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "worldSwitchGc", "()V", false));
+						return true;
+					}
+				}
+				return false;
+			}));
+		add("net.minecraft.client.Minecraft", new Patch("borderless fullscreen",
+			"func_71352_k", "toggleFullscreen", "()V",
+			m -> returnIf(m, "toggleFullscreen", "()Z", new int[0], -1, Opcodes.RETURN)));
 	}
 
 	private static void add(String className, Patch patch) {
@@ -217,11 +270,13 @@ public final class RagoTransformer implements IClassTransformer {
 	}
 
 	/**
-	 * While blocking, vanilla 1.8 calls {@code transformFirstPersonItem(equip, 0.0F)} before
-	 * {@code doBlockTransformations()}; 1.7 passed the swing progress there, which is what makes a
-	 * block-hit visible. The 0.0F becomes {@code Hooks.blockHitSwing(swing)}.
+	 * While an item is in use, vanilla 1.8 calls {@code transformFirstPersonItem(equip, 0.0F)}: when
+	 * eating or drinking (after {@code performDrinking}), blocking (before {@code doBlockTransformations})
+	 * and drawing a bow (before {@code doBowTransformations}). 1.7 passed the swing progress there,
+	 * which is what makes a block-hit or a swing while eating visible. Each 0.0F becomes
+	 * {@code Hooks.useSwing(swing, kind)}; the block case must be found, the others are optional.
 	 */
-	private static boolean blockHit(MethodNode m) {
+	private static boolean useSwing(MethodNode m) {
 		int swingVar = -1;
 		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
 			if (insn instanceof MethodInsnNode && isMethod((MethodInsnNode) insn, "func_70678_g", "getSwingProgress", "(F)F")
@@ -233,25 +288,184 @@ public final class RagoTransformer implements IClassTransformer {
 		if (swingVar < 0) {
 			return false;
 		}
+		boolean block = false;
+		List<AbstractInsnNode[]> sites = new ArrayList<>();
 		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-			if (insn instanceof MethodInsnNode && isMethod((MethodInsnNode) insn, "func_178096_b", "transformFirstPersonItem", "(FF)V")) {
-				AbstractInsnNode zero = insn.getPrevious();
-				AbstractInsnNode next = nextReal(insn);
-				if (next != null && next.getOpcode() == Opcodes.ALOAD && ((VarInsnNode) next).var == 0) {
-					next = nextReal(next); // this.doBlockTransformations()
-				}
-				if (zero != null && zero.getOpcode() == Opcodes.FCONST_0 && next instanceof MethodInsnNode
-					&& isMethod((MethodInsnNode) next, "func_178103_d", "doBlockTransformations", "()V")) {
-					InsnList swing = new InsnList();
-					swing.add(new VarInsnNode(Opcodes.FLOAD, swingVar));
-					swing.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "blockHitSwing", "(F)F", false));
-					m.instructions.insertBefore(zero, swing);
-					m.instructions.remove(zero);
-					return true;
-				}
+			if (!(insn instanceof MethodInsnNode) || !isMethod((MethodInsnNode) insn, "func_178096_b", "transformFirstPersonItem", "(FF)V")) {
+				continue;
+			}
+			AbstractInsnNode zero = insn.getPrevious();
+			if (zero == null || zero.getOpcode() != Opcodes.FCONST_0) {
+				continue;
+			}
+			int kind = -1;
+			MethodInsnNode after = nextCall(insn, 4);
+			MethodInsnNode before = previousCall(zero, 5);
+			if (after != null && isMethod(after, "func_178103_d", "doBlockTransformations", "()V")) {
+				kind = 1;
+				block = true;
+			} else if (after != null && isMethod(after, "func_178098_a", "doBowTransformations", "(FLnet/minecraft/client/entity/AbstractClientPlayer;)V")) {
+				kind = 2;
+			} else if (before != null && isMethod(before, "func_178104_a", "performDrinking", "(Lnet/minecraft/client/entity/AbstractClientPlayer;F)V")) {
+				kind = 0;
+			}
+			if (kind >= 0) {
+				sites.add(new AbstractInsnNode[] {zero, new IntInsnNode(Opcodes.BIPUSH, kind)});
+			}
+		}
+		if (!block) {
+			return false;
+		}
+		for (AbstractInsnNode[] site : sites) {
+			InsnList swing = new InsnList();
+			swing.add(new VarInsnNode(Opcodes.FLOAD, swingVar));
+			swing.add(site[1]);
+			swing.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "useSwing", "(FI)F", false));
+			m.instructions.insertBefore(site[0], swing);
+			m.instructions.remove(site[0]);
+		}
+		return true;
+	}
+
+	/** The first method call within {@code limit} real instructions after {@code insn}. */
+	private static MethodInsnNode nextCall(AbstractInsnNode insn, int limit) {
+		AbstractInsnNode n = insn;
+		for (int i = 0; i < limit && n != null; i++) {
+			n = nextReal(n);
+			if (n instanceof MethodInsnNode) {
+				return (MethodInsnNode) n;
+			}
+		}
+		return null;
+	}
+
+	private static MethodInsnNode previousCall(AbstractInsnNode insn, int limit) {
+		AbstractInsnNode n = insn.getPrevious();
+		for (int i = 0; i < limit && n != null; n = n.getPrevious()) {
+			if (n.getOpcode() < 0) {
+				continue;
+			}
+			if (n instanceof MethodInsnNode) {
+				return (MethodInsnNode) n;
+			}
+			i++;
+		}
+		return null;
+	}
+
+	/**
+	 * Forge's {@code Item.shouldCauseReequipAnimation} call goes through {@code Hooks.reequip}.
+	 * OptiFine's copy of the method makes that call through its own reflection helper
+	 * ({@code Reflector.callBoolean(item, ForgeItem_shouldCauseReequipAnimation, args)}), which goes
+	 * through {@code Hooks.reequipArgs} instead.
+	 */
+	private static boolean reequip(MethodNode m) {
+		boolean reflected = false;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof FieldInsnNode && "ForgeItem_shouldCauseReequipAnimation".equals(((FieldInsnNode) insn).name)) {
+				reflected = true;
+			}
+			if (!(insn instanceof MethodInsnNode)) {
+				continue;
+			}
+			MethodInsnNode call = (MethodInsnNode) insn;
+			if ("shouldCauseReequipAnimation".equals(call.name)) {
+				m.instructions.set(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "reequip",
+					"(Lnet/minecraft/item/Item;Lnet/minecraft/item/ItemStack;Lnet/minecraft/item/ItemStack;Z)Z", false));
+				return true;
+			}
+			if (reflected && "callBoolean".equals(call.name) && call.owner.endsWith("/Reflector")
+				&& call.desc.equals("(Ljava/lang/Object;L" + call.owner + "Method;[Ljava/lang/Object;)Z")) {
+				m.instructions.set(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "reequipArgs",
+					"(Ljava/lang/Object;Ljava/lang/Object;[Ljava/lang/Object;)Z", false));
+				return true;
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * In drawChat, the colour of the first {@code drawRect} (each line's dark background) goes
+	 * through {@code Hooks.chatBackground}, and {@code drawStringWithShadow} through {@code Hooks.chatText}.
+	 */
+	private static boolean chatLook(MethodNode m) {
+		boolean background = false;
+		boolean text = false;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (!(insn instanceof MethodInsnNode)) {
+				continue;
+			}
+			MethodInsnNode call = (MethodInsnNode) insn;
+			if (!background && isMethod(call, "func_73734_a", "drawRect", "(IIIII)V")) {
+				m.instructions.insertBefore(call, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chatBackground", "(I)I", false));
+				background = true;
+			} else if (isMethod(call, "func_175063_a", "drawStringWithShadow", "(Ljava/lang/String;FFI)I")) {
+				AbstractInsnNode replaced = new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chatText",
+					"(Lnet/minecraft/client/gui/FontRenderer;Ljava/lang/String;FFI)I", false);
+				m.instructions.set(call, replaced);
+				insn = replaced;
+				text = true;
+			}
+		}
+		return background && text;
+	}
+
+	/** At the start of getLook: {@code Hooks.look(this, partialTicks)} returns a direction to use instead, or null. */
+	private static boolean lookFix(MethodNode m) {
+		InsnList head = new InsnList();
+		head.add(new VarInsnNode(Opcodes.ALOAD, 0));
+		head.add(new VarInsnNode(Opcodes.FLOAD, 1));
+		head.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "look",
+			"(Lnet/minecraft/entity/EntityLivingBase;F)Lnet/minecraft/util/Vec3;", false));
+		head.add(new InsnNode(Opcodes.DUP));
+		LabelNode vanilla = new LabelNode();
+		head.add(new JumpInsnNode(Opcodes.IFNULL, vanilla));
+		head.add(new InsnNode(Opcodes.ARETURN));
+		head.add(vanilla);
+		head.add(new FrameNode(Opcodes.F_SAME1, 0, null, 1, new Object[] {"net/minecraft/util/Vec3"}));
+		head.add(new InsnNode(Opcodes.POP));
+		m.instructions.insert(head);
+		return true;
+	}
+
+	/** The hurt tint's four components (1, 0, 0, 0.3) each go through {@code Hooks.hitColor(value, index)}. */
+	private static boolean hitColor(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (!(insn instanceof LdcInsnNode) || !Float.valueOf(0.3f).equals(((LdcInsnNode) insn).cst)) {
+				continue;
+			}
+			// walk back over the three earlier puts to the 1.0F that starts the colour
+			AbstractInsnNode[] consts = new AbstractInsnNode[4];
+			consts[3] = insn;
+			AbstractInsnNode n = insn;
+			for (int i = 2; i >= 0; i--) {
+				n = n.getPrevious();
+				while (n != null && !isFloatConst(n)) {
+					n = n.getPrevious();
+				}
+				if (n == null) {
+					return false;
+				}
+				consts[i] = n;
+			}
+			if (consts[0].getOpcode() != Opcodes.FCONST_1 || consts[1].getOpcode() != Opcodes.FCONST_0 || consts[2].getOpcode() != Opcodes.FCONST_0) {
+				return false;
+			}
+			for (int i = 0; i < 4; i++) {
+				InsnList call = new InsnList();
+				call.add(new IntInsnNode(Opcodes.BIPUSH, i));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "hitColor", "(FI)F", false));
+				m.instructions.insert(consts[i], call);
+			}
+			return true;
+		}
+		return false;
+	}
+
+	private static boolean isFloatConst(AbstractInsnNode n) {
+		int op = n.getOpcode();
+		return op == Opcodes.FCONST_0 || op == Opcodes.FCONST_1 || op == Opcodes.FCONST_2
+			|| n instanceof LdcInsnNode && ((LdcInsnNode) n).cst instanceof Float;
 	}
 
 	private static AbstractInsnNode nextReal(AbstractInsnNode insn) {

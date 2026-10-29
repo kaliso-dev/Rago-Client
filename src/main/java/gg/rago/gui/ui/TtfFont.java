@@ -18,6 +18,8 @@ import java.awt.font.FontRenderContext;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -31,7 +33,10 @@ public final class TtfFont {
 
 	private final ResourceLocation source;
 	private Font base;
-	private final Map<Integer, Atlas> atlases = new HashMap<>();
+	/** Least recently used first, so the oldest size is dropped when there are too many. */
+	private final Map<Integer, Atlas> atlases = new LinkedHashMap<>(16, 0.75f, true);
+	/** Sizes kept at once; each atlas is a texture of up to a few MB. */
+	private static final int MAX_ATLASES = 12;
 
 	public TtfFont(ResourceLocation source) {
 		this.source = source;
@@ -52,6 +57,11 @@ public final class TtfFont {
 	private Atlas atlas(int px) {
 		Atlas a = atlases.get(px);
 		if (a == null) {
+			if (atlases.size() >= MAX_ATLASES) {
+				Iterator<Atlas> oldest = atlases.values().iterator();
+				oldest.next().texture.deleteGlTexture();
+				oldest.remove();
+			}
 			a = new Atlas(base().deriveFont((float) px));
 			atlases.put(px, a);
 		}
@@ -112,6 +122,88 @@ public final class TtfFont {
 			cx += gl.advance;
 		}
 		t.draw();
+	}
+
+	/** Minecraft's sixteen formatting colours (§0 to §f), as RGB. */
+	private static final int[] CODE_COLORS = new int[16];
+
+	static {
+		for (int i = 0; i < 16; i++) {
+			int j = (i >> 3 & 1) * 85;
+			int r = (i >> 2 & 1) * 170 + j;
+			int g = (i >> 1 & 1) * 170 + j;
+			int b = (i & 1) * 170 + j;
+			if (i == 6) {
+				r += 85;
+			}
+			CODE_COLORS[i] = r << 16 | g << 8 | b;
+		}
+	}
+
+	/** Width of {@code s} without its § formatting codes. */
+	public float widthFormatted(String s, float px) {
+		return width(strip(s), px);
+	}
+
+	/** Removes § formatting codes. */
+	public static String strip(String s) {
+		if (s.indexOf('\u00a7') < 0) {
+			return s;
+		}
+		StringBuilder b = new StringBuilder(s.length());
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			if (c == '\u00a7' && i + 1 < s.length()) {
+				i++;
+			} else {
+				b.append(c);
+			}
+		}
+		return b.toString();
+	}
+
+	/**
+	 * Draws {@code s} honouring Minecraft's § colour codes (§r goes back to {@code argb}; styles such
+	 * as bold are ignored). With {@code shadow} a darker copy is drawn {@code shadowOffset} pixels
+	 * down and right first, like the vanilla font's shadow.
+	 */
+	public void drawFormatted(String s, float x, float y, float px, int argb, boolean shadow, float shadowOffset) {
+		if (shadow) {
+			drawRuns(s, x + shadowOffset, y + shadowOffset, px, argb, true);
+		}
+		drawRuns(s, x, y, px, argb, false);
+	}
+
+	private void drawRuns(String s, float x, float y, float px, int argb, boolean shadow) {
+		int alpha = argb & 0xFF000000;
+		int color = argb;
+		StringBuilder run = new StringBuilder();
+		float cx = x;
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			if (c == '\u00a7' && i + 1 < s.length()) {
+				cx = flush(run, cx, y, px, color, shadow);
+				int code = "0123456789abcdef".indexOf(Character.toLowerCase(s.charAt(++i)));
+				if (code >= 0) {
+					color = alpha | CODE_COLORS[code];
+				} else if (Character.toLowerCase(s.charAt(i)) == 'r') {
+					color = argb;
+				}
+			} else {
+				run.append(c);
+			}
+		}
+		flush(run, cx, y, px, color, shadow);
+	}
+
+	private float flush(StringBuilder run, float x, float y, float px, int color, boolean shadow) {
+		if (run.length() == 0) {
+			return x;
+		}
+		String text = run.toString();
+		run.setLength(0);
+		draw(text, x, y, px, shadow ? (color & 0xFF000000) | (color & 0xFCFCFC) >> 2 : color);
+		return x + width(text, px);
 	}
 
 	private static final class Glyph {

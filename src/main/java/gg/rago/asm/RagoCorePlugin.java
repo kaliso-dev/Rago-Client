@@ -7,7 +7,9 @@ import java.util.Map;
 /**
  * Registers {@link RagoTransformer}. It makes one change to the game: the frame-rate cap used by
  * menus and unfocused windows comes from Rago's settings instead of vanilla's fixed 30 FPS. It also
- * starts the OptiFine bundled in the jar, if there is one ({@link BundledOptiFine}).
+ * starts the OptiFine bundled in the jar, if there is one ({@link BundledOptiFine}), and makes sure
+ * the bundled account switcher does not clash with a copy the player installed
+ * ({@link BundledAccountSwitcher}).
  */
 @IFMLLoadingPlugin.MCVersion("1.8.9")
 @IFMLLoadingPlugin.Name("Rago")
@@ -16,6 +18,7 @@ import java.util.Map;
 public final class RagoCorePlugin implements IFMLLoadingPlugin {
 	public RagoCorePlugin() {
 		BundledOptiFine.start();
+		BundledAccountSwitcher.start();
 	}
 
 	@Override

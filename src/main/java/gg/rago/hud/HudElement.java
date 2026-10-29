@@ -1,10 +1,12 @@
 package gg.rago.hud;
 
 import gg.rago.config.BooleanOption;
+import gg.rago.config.ChoiceOption;
 import gg.rago.config.ColorOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
+import gg.rago.render.HudText;
 import net.minecraft.client.gui.FontRenderer;
 
 /**
@@ -16,6 +18,7 @@ public abstract class HudElement extends Module {
 	protected final BooleanOption shadow;
 	protected final BooleanOption background;
 	protected final ColorOption textColor;
+	protected final ChoiceOption font;
 
 	protected HudElement(String id, FeatureClass featureClass, boolean defaultEnabled, Anchor anchor, int x, int y) {
 		this(id, featureClass, defaultEnabled, anchor, x, y, 0xFFFFFFFF);
@@ -29,9 +32,13 @@ public abstract class HudElement extends Module {
 						 int defaultColor, boolean defaultBackground) {
 		super(id, featureClass, defaultEnabled);
 		this.position = new HudPosition(anchor, x, y);
+		section("style");
+		this.font = addOption(new ChoiceOption("font", HudText.MINECRAFT, HudText.FONTS));
 		this.shadow = addOption(new BooleanOption("shadow", true));
-		this.background = addOption(new BooleanOption("background", defaultBackground));
 		this.textColor = addOption(new ColorOption("text_color", defaultColor));
+		section("background");
+		this.background = addOption(new BooleanOption("background", defaultBackground));
+		section(null);
 	}
 
 	@Override
@@ -42,6 +49,9 @@ public abstract class HudElement extends Module {
 	public final HudPosition position() {
 		return position;
 	}
+
+	/** How far {@link HudManager#stack} moved this element down this frame, in scaled pixels. */
+	int stackShift;
 
 	@Override
 	public void reset() {
@@ -69,12 +79,13 @@ public abstract class HudElement extends Module {
 		return true;
 	}
 
-	/** Draws text in the element's colour, with or without shadow as configured. */
-	protected final void drawText(FontRenderer text, String s, int x, int y, int color) {
-		if (shadow.get()) {
-			text.drawStringWithShadow(s, x, y, color);
-		} else {
-			text.drawString(s, x, y, color);
-		}
+	/** Draws text in the chosen font, with or without shadow as configured. */
+	protected final void drawText(FontRenderer text, String s, float x, float y, int color) {
+		HudText.draw(font.get(), s, x, y, color, shadow.get());
+	}
+
+	/** Width of {@code s} in the chosen font, in GUI pixels. */
+	protected final int textWidth(String s) {
+		return HudText.width(font.get(), s);
 	}
 }

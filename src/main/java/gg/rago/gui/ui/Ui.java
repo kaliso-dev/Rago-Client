@@ -256,6 +256,27 @@ public final class Ui {
 		GlStateManager.enableTexture2D();
 	}
 
+	/** Horizontal gradient from {@code left} to {@code right}. */
+	public static void hgradient(float x, float y, float w, float h, int left, int right) {
+		GlStateManager.disableTexture2D();
+		blend();
+		GlStateManager.shadeModel(GL11.GL_SMOOTH);
+		Tessellator t = Tessellator.getInstance();
+		WorldRenderer r = t.getWorldRenderer();
+		r.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+		float x0 = snap(x);
+		float y0 = snap(y);
+		float x1 = snap(x + w);
+		float y1 = snap(y + h);
+		color(r.pos(x0, y1, 0), left).endVertex();
+		color(r.pos(x1, y1, 0), right).endVertex();
+		color(r.pos(x1, y0, 0), right).endVertex();
+		color(r.pos(x0, y0, 0), left).endVertex();
+		t.draw();
+		GlStateManager.shadeModel(GL11.GL_FLAT);
+		GlStateManager.enableTexture2D();
+	}
+
 	private static void quad(WorldRenderer r, float x0, float y0, float x1, float y1, int top, int bottom) {
 		color(r.pos(x0, y1, 0), bottom).endVertex();
 		color(r.pos(x1, y1, 0), bottom).endVertex();
@@ -667,7 +688,12 @@ public final class Ui {
 
 	// ---- generated textures ---------------------------------------------------------------------
 
-	private static DynamicTexture cornerTexture() {
+	/** GL id of the anti-aliased quarter-circle texture used for round corners. */
+	public static int cornerTextureId() {
+		return cornerTexture().getGlTextureId();
+	}
+
+	static DynamicTexture cornerTexture() {
 		if (corner == null) {
 			// Quarter of a disc with an anti-aliased edge: the disc's centre is the texture's bottom-right
 			corner = generated(CORNER_TEX, (x, y) -> {

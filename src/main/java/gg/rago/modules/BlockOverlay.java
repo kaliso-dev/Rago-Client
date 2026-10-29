@@ -23,7 +23,7 @@ public final class BlockOverlay extends Module {
 	private final BooleanOption outline = addOption(new BooleanOption("outline", true));
 	private final ColorOption outlineColor = addOption(new ColorOption("outline_color", 0xFFFFFFFF));
 	private final IntOption outlineOpacity = addOption(new IntOption("outline_opacity", 70, 10, 100));
-	private final IntOption outlineWidth = addOption(new IntOption("outline_width", 2, 1, 6));
+	private final IntOption outlineWidth = addOption(new IntOption("outline_width", 2, 1, 10));
 	private final BooleanOption fill = addOption(new BooleanOption("fill", true));
 	private final ColorOption fillColor = addOption(new ColorOption("fill_color", 0xFFFFFFFF));
 	private final IntOption fillOpacity = addOption(new IntOption("fill_opacity", 15, 5, 100));

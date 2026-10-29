@@ -24,7 +24,7 @@ public final class ServerHud extends TextHudElement {
 	}
 
 	@Override
-	protected String text(boolean placeholder) {
+	protected String value(boolean placeholder) {
 		String a = address();
 		return a == null ? "mc.hypixel.net" : a;
 	}
