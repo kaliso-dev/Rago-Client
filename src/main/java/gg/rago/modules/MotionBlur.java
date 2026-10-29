@@ -13,6 +13,7 @@ import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.World;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
@@ -118,15 +119,22 @@ public final class MotionBlur extends Module {
 			fresh = true;
 			lastWorld = mc.theWorld;
 		}
-		if (!ensureTargets(mc.displayWidth, mc.displayHeight)) {
-			return;
-		}
 		float keep = keep(motion);
 		if (pauseOnZoom.get() && zoom != null && zoom.isZooming()) {
 			keep = 0;
 		}
+		if (keep <= 0) {
+			// no trail to draw (standing still in the "turning" or "moving" mode, or zooming): no
+			// work at all this frame, and the trail starts from the frame it is next needed on
+			fresh = true;
+			sinceStep = 0;
+			return;
+		}
+		if (!ensureTargets(mc.displayWidth, mc.displayHeight)) {
+			return;
+		}
 		sinceStep += dt;
-		boolean step = !frameIndependent.get() || sinceStep >= STEP || fresh || keep <= 0;
+		boolean step = !frameIndependent.get() || sinceStep >= STEP || fresh;
 		int previousFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
 		int[] viewport = viewport();
 		GlStateManager.pushMatrix();
@@ -144,16 +152,23 @@ public final class MotionBlur extends Module {
 		GlStateManager.enableTexture2D();
 		try {
 			if (step) {
-				// 1. the frame just drawn, as a texture
-				GlStateManager.bindTexture(frameTexture);
-				GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+				// 1. the frame just drawn, as a texture: the game's own framebuffer when it draws into
+				// one (read straight from it), otherwise a copy of the screen
+				Framebuffer main = mc.getFramebuffer();
+				if (OpenGlHelper.isFramebufferEnabled() && main != null && main.framebufferObject == previousFbo
+					&& main.framebufferTextureWidth == width && main.framebufferTextureHeight == height) {
+					GlStateManager.bindTexture(main.framebufferTexture);
+				} else {
+					GlStateManager.bindTexture(frameTexture);
+					GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+				}
 				// 2. blend it into the trail: trail = keep * trail + (1 - keep) * frame, with keep
 				// scaled to the time since the last update (one 60 FPS frame or more)
 				OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, historyFbo);
 				GlStateManager.viewport(0, 0, width, height);
 				float stepKeep = frameIndependent.get() ? (float) Math.pow(keep, Math.min(sinceStep, 0.25f) / STEP) : keep;
 				sinceStep = 0;
-				if (fresh || keep <= 0) {
+				if (fresh) {
 					GlStateManager.disableBlend();
 					quad(1);
 					fresh = false;
@@ -166,12 +181,10 @@ public final class MotionBlur extends Module {
 				GlStateManager.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 			}
 			// 3. the trail over the sharp current frame
-			if (keep > 0) {
-				GlStateManager.enableBlend();
-				GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ZERO, GL11.GL_ONE);
-				GlStateManager.bindTexture(historyTexture);
-				quad(keep);
-			}
+			GlStateManager.enableBlend();
+			GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ZERO, GL11.GL_ONE);
+			GlStateManager.bindTexture(historyTexture);
+			quad(keep);
 		} finally {
 			OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFbo);
 			GlStateManager.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);

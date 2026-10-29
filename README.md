@@ -153,6 +153,10 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     servers can no longer probe your files through a resource pack link
   - the home screen's third button joins the Rago Optimizer Discord
   - the Hypixel API is asked faster while the key has plenty of requests left
+  - motion blur costs nothing while it has no trail to draw (standing still in the "when turning"
+    modes, or zooming), and reads the frame straight from the game's framebuffer instead of copying
+    the screen when the game draws into one (OptiFine's Fast Render draws to the screen, so the copy
+    stays there)
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
