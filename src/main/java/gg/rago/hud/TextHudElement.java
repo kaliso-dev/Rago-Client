@@ -1,8 +1,8 @@
 package gg.rago.hud;
 
 import gg.rago.core.FeatureClass;
-import net.minecraft.client.gui.GuiElement;
-import net.minecraft.client.render.TextRenderer;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.FontRenderer;
 
 /** A HUD element that shows text (one or more lines split on {@code \n}), with an optional dark background box. */
 public abstract class TextHudElement extends HudElement {
@@ -29,29 +29,29 @@ public abstract class TextHudElement extends HudElement {
 	}
 
 	@Override
-	public int width(TextRenderer text, boolean placeholder) {
+	public int width(FontRenderer text, boolean placeholder) {
 		int w = 0;
 		for (String line : lines(text(placeholder))) {
-			w = Math.max(w, text.getWidth(line));
+			w = Math.max(w, text.getStringWidth(line));
 		}
 		return w + pad() * 2;
 	}
 
 	@Override
-	public int height(TextRenderer text, boolean placeholder) {
+	public int height(FontRenderer text, boolean placeholder) {
 		int n = lines(text(placeholder)).length;
-		return n * (text.fontHeight + 1) - 1 + pad() * 2 - (background.get() ? 1 : 0);
+		return n * (text.FONT_HEIGHT + 1) - 1 + pad() * 2 - (background.get() ? 1 : 0);
 	}
 
 	@Override
-	public void render(TextRenderer text, boolean placeholder) {
+	public void render(FontRenderer text, boolean placeholder) {
 		String[] lines = lines(text(placeholder));
 		if (background.get()) {
-			GuiElement.fill(0, 0, width(text, placeholder), height(text, placeholder), BACKGROUND);
+			Gui.drawRect(0, 0, width(text, placeholder), height(text, placeholder), BACKGROUND);
 		}
 		int p = pad();
 		for (int i = 0; i < lines.length; i++) {
-			drawText(text, lines[i], p, p + i * (text.fontHeight + 1), textColor.get());
+			drawText(text, lines[i], p, p + i * (text.FONT_HEIGHT + 1), textColor.get());
 		}
 	}
 }

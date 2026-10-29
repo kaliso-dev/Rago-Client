@@ -6,7 +6,7 @@ import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.TextHudElement;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resource.language.I18n;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.Entity;
 
 import java.util.Locale;
@@ -22,16 +22,16 @@ public final class CoordsHud extends TextHudElement {
 
 	@Override
 	public boolean hasContent() {
-		return Minecraft.getInstance().player != null;
+		return Minecraft.getMinecraft().thePlayer != null;
 	}
 
 	@Override
 	protected String text(boolean placeholder) {
-		Entity p = Minecraft.getInstance().player;
-		double x = placeholder || p == null ? 12.5 : p.x;
-		double y = placeholder || p == null ? 64 : p.y;
-		double z = placeholder || p == null ? -30.25 : p.z;
-		float yaw = placeholder || p == null ? 180 : p.yaw;
+		Entity p = Minecraft.getMinecraft().thePlayer;
+		double x = placeholder || p == null ? 12.5 : p.posX;
+		double y = placeholder || p == null ? 64 : p.posY;
+		double z = placeholder || p == null ? -30.25 : p.posZ;
+		float yaw = placeholder || p == null ? 180 : p.rotationYaw;
 		String fmt = "%." + decimals.get() + "f";
 		String s = String.format(Locale.ROOT, "X " + fmt + "\nY " + fmt + "\nZ " + fmt, x, y, z);
 		if (showFacing.get()) {
@@ -43,22 +43,34 @@ public final class CoordsHud extends TextHudElement {
 	/** Cardinal direction for a yaw, matching vanilla: 0 = south (+Z), 90 = west (-X). */
 	static String facingKey(float yaw) {
 		int quadrant = Math.floorMod(Math.round(yaw / 90f), 4);
-		return switch (quadrant) {
-			case 0 -> "south";
-			case 1 -> "west";
-			case 2 -> "north";
-			default -> "east";
-		};
+		switch (quadrant) {
+			case 0:
+				return "south";
+			case 1:
+				return "west";
+			case 2:
+				return "north";
+			default:
+				return "east";
+		}
 	}
 
 	private static String facing(float yaw) {
 		String key = facingKey(yaw);
-		String axis = switch (key) {
-			case "south" -> "+Z";
-			case "west" -> "-X";
-			case "north" -> "-Z";
-			default -> "+X";
-		};
-		return I18n.translate("rago.direction." + key) + " (" + axis + ")";
+		String axis;
+		switch (key) {
+			case "south":
+				axis = "+Z";
+				break;
+			case "west":
+				axis = "-X";
+				break;
+			case "north":
+				axis = "-Z";
+				break;
+			default:
+				axis = "+X";
+		}
+		return I18n.format("rago.direction." + key) + " (" + axis + ")";
 	}
 }

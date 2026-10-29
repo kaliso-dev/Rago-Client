@@ -9,13 +9,13 @@ public final class InputState {
 
 	/** Called with the key code of every press vanilla processes while no screen is open. */
 	public void onPress(int keyCode, long nowNs) {
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.options == null) {
+		Minecraft mc = Minecraft.getMinecraft();
+		if (mc.gameSettings == null) {
 			return;
 		}
-		if (keyCode == mc.options.attackKey.getKeyCode()) {
+		if (keyCode == mc.gameSettings.keyBindAttack.getKeyCode()) {
 			attack.press(nowNs);
-		} else if (keyCode == mc.options.useKey.getKeyCode()) {
+		} else if (keyCode == mc.gameSettings.keyBindUseItem.getKeyCode()) {
 			use.press(nowNs);
 		}
 	}

@@ -5,7 +5,7 @@ import gg.rago.config.ColorOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
-import net.minecraft.client.render.TextRenderer;
+import net.minecraft.client.gui.FontRenderer;
 
 /**
  * A module that draws something on the in-game HUD. Elements draw in local coordinates
@@ -50,11 +50,11 @@ public abstract class HudElement extends Module {
 	}
 
 	/** Unscaled width in GUI pixels. {@code placeholder} is true in the editor when there is no live data. */
-	public abstract int width(TextRenderer text, boolean placeholder);
+	public abstract int width(FontRenderer text, boolean placeholder);
 
-	public abstract int height(TextRenderer text, boolean placeholder);
+	public abstract int height(FontRenderer text, boolean placeholder);
 
-	public abstract void render(TextRenderer text, boolean placeholder);
+	public abstract void render(FontRenderer text, boolean placeholder);
 
 	/** Whether there is anything to draw right now outside the editor. */
 	public boolean hasContent() {
@@ -62,11 +62,11 @@ public abstract class HudElement extends Module {
 	}
 
 	/** Draws text in the element's colour, with or without shadow as configured. */
-	protected final void drawText(TextRenderer text, String s, int x, int y, int color) {
+	protected final void drawText(FontRenderer text, String s, int x, int y, int color) {
 		if (shadow.get()) {
-			text.drawWithShadow(s, x, y, color);
+			text.drawStringWithShadow(s, x, y, color);
 		} else {
-			text.draw(s, x, y, color);
+			text.drawString(s, x, y, color);
 		}
 	}
 }

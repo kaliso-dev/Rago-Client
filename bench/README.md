@@ -5,10 +5,9 @@ The goal is a fair A/B comparison where the only difference between A and B is t
 ## Setup (once)
 
 1. Build Rago: `./gradlew build`.
-2. Create two launcher instances (Prism Launcher recommended) for **Minecraft 1.8.9 with Ornithe**:
-   - **A (baseline):** Rago jar + Ornithe Standard Libraries + legacy-lwjgl3.
-   - **B (test):** the same, plus the mods being tested (for example Argentum, Argentum Extras, Cera from Modrinth).
-     With the dev client: A = `runClient -PnoArgentum`, B = `runClient`.
+2. Create two launcher instances (Prism Launcher recommended) for **Minecraft 1.8.9 with Forge 11.15.1.2318**:
+   - **A (baseline):** Forge + the Rago jar.
+   - **B (test):** the same, plus the mod being tested (for example OptiFine 1.8.9 HD U M5).
 3. Use the same Java runtime, memory (`-Xmx`), window size, and `options.txt` in both.
    Copy `options.txt` from A to B so video settings match.
 4. Settings for controlled runs: VSync **off**, Max Framerate **Unlimited**, render distance **8**,
@@ -43,7 +42,7 @@ laptop on the charger for all runs.
 Copy the CSVs from each instance's `.minecraft/rago/` folder into `bench/results/<label>/`, then run:
 
 ```sh
-python3 bench/analyse.py bench/results/vanilla --vs bench/results/argentum --label-a vanilla --label-b argentum
+python3 bench/analyse.py bench/results/forge --vs bench/results/optifine --label-a forge --label-b optifine
 ```
 
 The script prints each run, the median per side, the change, and a Mann-Whitney U p-value per metric.

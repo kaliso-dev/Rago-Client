@@ -3,6 +3,7 @@ package gg.rago.core;
 import gg.rago.config.ConfigStore;
 import gg.rago.gui.HudEditorScreen;
 import gg.rago.gui.RagoMenuScreen;
+import gg.rago.gui.RagoTitleScreen;
 import gg.rago.hud.HudManager;
 import gg.rago.hud.elements.ArmorHud;
 import gg.rago.hud.elements.CaptureHud;
@@ -23,18 +24,29 @@ import gg.rago.modules.Zoom;
 import gg.rago.netdiag.LatencySampler;
 import gg.rago.perf.FrameCapture;
 import gg.rago.perf.FrameTimer;
-import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.ModContainer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.network.PlayerInfo;
-import net.minecraft.client.network.handler.ClientPlayNetworkHandler;
-import net.minecraft.client.options.KeyBinding;
-import net.ornithemc.osl.keybinds.api.KeybindEvents;
-import net.ornithemc.osl.keybinds.api.KeybindRegistry;
-import net.ornithemc.osl.lifecycle.api.client.MinecraftClientEvents;
+import net.minecraft.client.gui.GuiMainMenu;
+import net.minecraft.client.network.NetHandlerPlayClient;
+import net.minecraft.client.network.NetworkPlayerInfo;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraftforge.client.event.EntityViewRenderEvent;
+import net.minecraftforge.client.event.GuiOpenEvent;
+import net.minecraftforge.client.event.MouseEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.client.registry.ClientRegistry;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.ModContainer;
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.InputEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
 import java.nio.file.Path;
@@ -45,10 +57,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Client entrypoint: owns the module registry, the HUD, the config file and the keybinds.
- * Frame timings come from {@code MinecraftMixin}; the HUD is drawn from {@code GameGuiMixin}.
+ * Forge entrypoint: owns the module registry, the HUD, the config file and the keybinds, and
+ * hooks into the game through Forge events (no class patching).
  */
-public final class RagoClient implements ClientModInitializer {
+@Mod(modid = RagoClient.MOD_ID, name = "Rago Client", useMetadata = true, clientSideOnly = true,
+	acceptedMinecraftVersions = "[1.8.9]")
+public final class RagoClient {
+	public static final String MOD_ID = "rago";
 	public static final Logger LOG = LogManager.getLogger("Rago");
 
 	/** 60 s at up to ~4,000 FPS; about 4 MB of longs, allocated only while capturing. */
@@ -56,13 +71,11 @@ public final class RagoClient implements ClientModInitializer {
 	private static final long CAPTURE_DURATION_NS = 60_000_000_000L;
 	private static final int TICKS_PER_PING_SAMPLE = 20;
 
-	// LWJGL key codes. F10 and F12 are unbound in vanilla 1.8.9; all three can be rebound in Controls.
+	// LWJGL key codes. F10 and F12 are unbound in vanilla 1.8.9; all of them can be rebound in Controls.
 	private static final int KEY_F10 = 68;
 	private static final int KEY_F12 = 88;
 	private static final int KEY_RSHIFT = 54;
 	private static final int KEY_C = 46;
-	private static final int GL_RENDERER = 0x1F01;
-	private static final int GL_VERSION = 0x1F02;
 
 	private static final FrameTimer FRAMES = new FrameTimer();
 	private static final LatencySampler PING = new LatencySampler();
@@ -71,6 +84,7 @@ public final class RagoClient implements ClientModInitializer {
 	private static final ModuleRegistry MODULES = new ModuleRegistry();
 	private static final HudManager HUD = new HudManager(MODULES);
 	private static ConfigStore config;
+	private static Path configDir;
 
 	private static KeyBinding toggleOverlayKey;
 	private static KeyBinding captureKey;
@@ -78,16 +92,21 @@ public final class RagoClient implements ClientModInitializer {
 	private static KeyBinding zoomKey;
 	private static Zoom zoom;
 	private static Crosshair crosshair;
-	private static ToggleSprintHud toggleSprint;
 	private static MainMenu mainMenu;
+	private static CompetitiveProfile profile;
 	private static boolean overlayVisible = true;
 	private static int tickCounter;
 	private static volatile String status = "";
 	private static volatile long statusTimeNs;
 	private static Map<String, String> captureMeta;
 
-	@Override
-	public void onInitializeClient() {
+	@Mod.EventHandler
+	public void preInit(FMLPreInitializationEvent event) {
+		configDir = event.getModConfigurationDirectory().toPath();
+	}
+
+	@Mod.EventHandler
+	public void init(FMLInitializationEvent event) {
 		MODULES.register(new FpsHud(FRAMES));
 		MODULES.register(new FrameTimeHud(FRAMES));
 		MODULES.register(new PingHud(PING));
@@ -101,11 +120,11 @@ public final class RagoClient implements ClientModInitializer {
 		zoom = MODULES.register(new Zoom(zoomKey));
 		crosshair = MODULES.register(new Crosshair());
 		MODULES.register(new Fullbright());
-		toggleSprint = MODULES.register(new ToggleSprintHud());
+		MODULES.register(new ToggleSprintHud());
 		mainMenu = MODULES.register(new MainMenu());
-		CompetitiveProfile profile = MODULES.register(new CompetitiveProfile());
+		profile = MODULES.register(new CompetitiveProfile(configDir));
 
-		config = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("rago.json"));
+		config = new ConfigStore(configDir.resolve("rago.json"));
 		try {
 			ConfigStore.LoadResult result = config.load(MODULES);
 			if (result == ConfigStore.LoadResult.BROKEN_FILE_REPLACED) {
@@ -119,19 +138,17 @@ public final class RagoClient implements ClientModInitializer {
 		toggleOverlayKey = new KeyBinding("key.rago.toggle_overlay", KEY_F10, "key.categories.rago");
 		captureKey = new KeyBinding("key.rago.capture", KEY_F12, "key.categories.rago");
 		menuKey = new KeyBinding("key.rago.menu", KEY_RSHIFT, "key.categories.rago");
-		KeybindEvents.REGISTER_KEYBINDS.register(() -> {
-			KeybindRegistry.register(menuKey);
-			KeybindRegistry.register(toggleOverlayKey);
-			KeybindRegistry.register(captureKey);
-			KeybindRegistry.register(zoomKey);
-		});
-		MinecraftClientEvents.TICK_END.register(RagoClient::onTick);
+		ClientRegistry.registerKeyBinding(menuKey);
+		ClientRegistry.registerKeyBinding(toggleOverlayKey);
+		ClientRegistry.registerKeyBinding(captureKey);
+		ClientRegistry.registerKeyBinding(zoomKey);
+		MinecraftForge.EVENT_BUS.register(this);
 		LOG.info("Rago {} loaded with {} modules", version(), MODULES.all().size());
 	}
 
 	public static String version() {
-		return FabricLoader.getInstance().getModContainer("rago")
-			.map(m -> m.getMetadata().getVersion().getFriendlyString()).orElse("?");
+		ModContainer mod = Loader.instance().getIndexedModList().get(MOD_ID);
+		return mod == null ? "?" : mod.getVersion();
 	}
 
 	public static ModuleRegistry modules() {
@@ -169,47 +186,108 @@ public final class RagoClient implements ClientModInitializer {
 		return mainMenu != null && mainMenu.isEnabled();
 	}
 
+	public static CompetitiveProfile competitiveProfile() {
+		return profile;
+	}
+
 	public static Crosshair crosshair() {
 		return crosshair;
 	}
 
-	/** Whether a binding should read as held because toggle sprint/sneak holds it. */
-	public static boolean forceHeld(KeyBinding binding) {
-		return toggleSprint != null && toggleSprint.forceHeld(binding);
+	public static FrameTimer frames() {
+		return FRAMES;
 	}
 
-	/** Every key or mouse press vanilla processes in game (from KeyBindingMixin). */
-	public static void onKeyPress(int keyCode) {
-		INPUT.onPress(keyCode, System.nanoTime());
+	public static LatencySampler ping() {
+		return PING;
 	}
 
-	public static void onFrameStart(long nowNs) {
-		FRAMES.startFrame(nowNs);
+	// ---- Forge events ----------------------------------------------------------------------------
+
+	/** Key presses in game, for the CPS counters (mouse buttons use vanilla's codes: button - 100). */
+	@SubscribeEvent
+	public void onKeyInput(InputEvent.KeyInputEvent event) {
+		if (Keyboard.getEventKeyState()) {
+			INPUT.onPress(Keyboard.getEventKey(), System.nanoTime());
+		}
 	}
 
-	public static void onFrameEnd(long nowNs) {
-		FrameCapture finished = FRAMES.endFrame(nowNs);
-		if (finished != null) {
-			save(finished);
+	@SubscribeEvent
+	public void onMouse(MouseEvent event) {
+		if (event.button >= 0 && event.buttonstate) {
+			INPUT.onPress(event.button - 100, System.nanoTime());
+		}
+		if (event.dwheel != 0 && Minecraft.getMinecraft().currentScreen == null && zoom.onScroll(event.dwheel)) {
+			event.setCanceled(true);
+		}
+	}
+
+	@SubscribeEvent
+	public void onFov(EntityViewRenderEvent.FOVModifier event) {
+		event.setFOV(zoom.apply(event.getFOV()));
+	}
+
+	@SubscribeEvent
+	public void onRenderTick(TickEvent.RenderTickEvent event) {
+		long now = System.nanoTime();
+		if (event.phase == TickEvent.Phase.START) {
+			FRAMES.startFrame(now);
+		} else {
+			FrameCapture finished = FRAMES.endFrame(now);
+			if (finished != null) {
+				save(finished);
+			}
+		}
+	}
+
+	@SubscribeEvent
+	public void onOverlayPre(RenderGameOverlayEvent.Pre event) {
+		if (event.type == RenderGameOverlayEvent.ElementType.CROSSHAIRS && crosshair.replaceVanilla()) {
+			event.setCanceled(true);
+		}
+	}
+
+	@SubscribeEvent
+	public void onOverlayPost(RenderGameOverlayEvent.Post event) {
+		if (event.type != RenderGameOverlayEvent.ElementType.ALL) {
+			return;
+		}
+		if (overlayVisible && !(Minecraft.getMinecraft().currentScreen instanceof HudEditorScreen)) {
+			HUD.render();
+		}
+	}
+
+	@SubscribeEvent
+	public void onGuiOpen(GuiOpenEvent event) {
+		if (event.gui instanceof GuiMainMenu && useMainMenu()) {
+			event.gui = new RagoTitleScreen();
+		}
+	}
+
+	@SubscribeEvent
+	public void onClientTick(TickEvent.ClientTickEvent event) {
+		if (event.phase == TickEvent.Phase.END) {
+			onTick(Minecraft.getMinecraft());
 		}
 	}
 
 	private static void onTick(Minecraft mc) {
-		while (menuKey.consumeClick()) {
-			if (mc.screen == null) {
-				mc.openScreen(new RagoMenuScreen(null));
+		while (menuKey.isPressed()) {
+			if (mc.currentScreen == null) {
+				mc.displayGuiScreen(new RagoMenuScreen(null));
 			}
 		}
-		while (toggleOverlayKey.consumeClick()) {
+		while (toggleOverlayKey.isPressed()) {
 			overlayVisible = !overlayVisible;
 		}
-		while (captureKey.consumeClick()) {
+		while (captureKey.isPressed()) {
 			if (FRAMES.isCapturing()) {
 				save(FRAMES.stopCapture());
 			} else {
 				startCapture(mc);
 			}
 		}
+		QuickJoin.tick(mc);
 		if (++tickCounter >= TICKS_PER_PING_SAMPLE) {
 			tickCounter = 0;
 			PING.add(readServerPing(mc));
@@ -219,15 +297,15 @@ public final class RagoClient implements ClientModInitializer {
 
 	/** Server-reported latency of the local player from the tab list, or -1 when not on a server. */
 	private static int readServerPing(Minecraft mc) {
-		if (mc.player == null || mc.isIntegratedServerRunning()) {
+		if (mc.thePlayer == null || mc.isIntegratedServerRunning()) {
 			return -1;
 		}
-		ClientPlayNetworkHandler handler = mc.getNetworkHandler();
+		NetHandlerPlayClient handler = mc.getNetHandler();
 		if (handler == null) {
 			return -1;
 		}
-		PlayerInfo info = handler.getOnlinePlayer(mc.player.getUuid());
-		return info == null ? -1 : info.getPing();
+		NetworkPlayerInfo info = handler.getPlayerInfo(mc.thePlayer.getUniqueID());
+		return info == null ? -1 : info.getResponseTime();
 	}
 
 	private static void startCapture(Minecraft mc) {
@@ -241,7 +319,7 @@ public final class RagoClient implements ClientModInitializer {
 		Map<String, String> meta = captureMeta != null ? captureMeta : new LinkedHashMap<>();
 		meta.put("frames", Integer.toString(capture.count()));
 		String name = "frames-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".csv";
-		Path file = FabricLoader.getInstance().getGameDir().resolve("rago").resolve(name);
+		Path file = Minecraft.getMinecraft().mcDataDir.toPath().resolve("rago").resolve(name);
 		setStatus("saving");
 		Thread writer = new Thread(() -> {
 			try {
@@ -260,33 +338,23 @@ public final class RagoClient implements ClientModInitializer {
 	/** Called on the render thread at capture start, so GL queries are allowed. */
 	private static Map<String, String> collectMetadata(Minecraft mc) {
 		Map<String, String> meta = new LinkedHashMap<>();
-		meta.put("rago_version", FabricLoader.getInstance().getModContainer("rago")
-			.map(m -> m.getMetadata().getVersion().getFriendlyString()).orElse("?"));
+		meta.put("rago_version", version());
 		meta.put("started", LocalDateTime.now().toString());
 		meta.put("java", System.getProperty("java.vendor") + " " + System.getProperty("java.version"));
 		meta.put("os", System.getProperty("os.name") + " " + System.getProperty("os.version") + " " + System.getProperty("os.arch"));
 		meta.put("cpu_threads", Integer.toString(Runtime.getRuntime().availableProcessors()));
 		meta.put("max_heap_mb", Long.toString(Runtime.getRuntime().maxMemory() / (1024 * 1024)));
-		meta.put("gpu", GL11.glGetString(GL_RENDERER));
-		meta.put("gl_version", GL11.glGetString(GL_VERSION));
-		meta.put("window", mc.width + "x" + mc.height);
-		meta.put("render_distance", Integer.toString(mc.options.viewDistance));
-		meta.put("vsync", Boolean.toString(mc.options.vsync));
+		meta.put("gpu", GL11.glGetString(GL11.GL_RENDERER));
+		meta.put("gl_version", GL11.glGetString(GL11.GL_VERSION));
+		meta.put("window", mc.displayWidth + "x" + mc.displayHeight);
+		meta.put("render_distance", Integer.toString(mc.gameSettings.renderDistanceChunks));
+		meta.put("vsync", Boolean.toString(mc.gameSettings.enableVsync));
 		meta.put("world", mc.isIntegratedServerRunning() ? "singleplayer"
-			: mc.getCurrentServerEntry() != null ? "multiplayer" : "none");
-		meta.put("mods", FabricLoader.getInstance().getAllMods().stream()
-			.map(ModContainer::getMetadata)
-			.map(m -> m.getId() + "@" + m.getVersion().getFriendlyString())
+			: mc.getCurrentServerData() != null ? "multiplayer" : "none");
+		meta.put("mods", Loader.instance().getActiveModList().stream()
+			.map(m -> m.getModId() + "@" + m.getVersion())
 			.sorted()
 			.collect(Collectors.joining(" ")));
 		return meta;
-	}
-
-	public static void renderOverlay() {
-		Minecraft mc = Minecraft.getInstance();
-		crosshair.render();
-		if (overlayVisible && !(mc.screen instanceof HudEditorScreen)) {
-			HUD.render();
-		}
 	}
 }

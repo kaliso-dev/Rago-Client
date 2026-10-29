@@ -6,9 +6,9 @@ import gg.rago.config.IntOption;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiElement;
-import net.minecraft.client.render.Window;
-import net.minecraft.client.render.platform.GlStateManager;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.GlStateManager;
 
 /**
  * Replaces the vanilla crosshair with one drawn in real screen pixels, so thickness and gap stay
@@ -27,45 +27,41 @@ public final class Crosshair extends Module {
 	private final ColorOption color = addOption(new ColorOption("crosshair_color", 0xFFFFFFFF));
 	private final BooleanOption outline = addOption(new BooleanOption("crosshair_outline", true));
 
-	/** Set during GameGui.render when vanilla decided to draw its crosshair this frame. */
-	private boolean pending;
-
 	public Crosshair() {
 		super("crosshair", FeatureClass.VISUAL, false);
 	}
 
-	/** Called with vanilla's decision; returns what vanilla should do (false = draw ours instead). */
-	public boolean replaceVanilla(boolean vanillaWouldDraw) {
-		if (!isEnabled() || !vanillaWouldDraw) {
-			return vanillaWouldDraw;
+	/**
+	 * Called when vanilla is about to draw its crosshair (Forge only asks when it would).
+	 * Draws Rago's instead and returns true so vanilla's is skipped; false when switched off.
+	 */
+	public boolean replaceVanilla() {
+		if (!isEnabled()) {
+			return false;
 		}
-		pending = true;
-		return false;
+		render();
+		return true;
 	}
 
-	public void render() {
-		if (!pending) {
-			return;
-		}
-		pending = false;
-		Minecraft mc = Minecraft.getInstance();
-		Window window = new Window(mc);
-		int scale = window.getScale();
+	private void render() {
+		Minecraft mc = Minecraft.getMinecraft();
+		ScaledResolution window = new ScaledResolution(mc);
+		int scale = window.getScaleFactor();
 		// Centre of vanilla's crosshair: the GUI pixel at (w/2, h/2), in real pixels.
-		int cx = window.getWidth() / 2 * scale + scale / 2;
-		int cy = window.getHeight() / 2 * scale + scale / 2;
+		int cx = window.getScaledWidth() / 2 * scale + scale / 2;
+		int cy = window.getScaledHeight() / 2 * scale + scale / 2;
 		GlStateManager.pushMatrix();
-		GlStateManager.scalef(1f / scale, 1f / scale, 1f);
+		GlStateManager.scale(1f / scale, 1f / scale, 1f);
 		for (int[] r : rects(style.get(), size.get() * scale / 2 + 1, gap.get() * scale / 2, thickness.get(), cx, cy)) {
 			if (outline.get()) {
-				GuiElement.fill(r[0] - 1, r[1] - 1, r[2] + 1, r[3] + 1, 0xFF000000);
+				Gui.drawRect(r[0] - 1, r[1] - 1, r[2] + 1, r[3] + 1, 0xFF000000);
 			}
 		}
 		for (int[] r : rects(style.get(), size.get() * scale / 2 + 1, gap.get() * scale / 2, thickness.get(), cx, cy)) {
-			GuiElement.fill(r[0], r[1], r[2], r[3], color.get());
+			Gui.drawRect(r[0], r[1], r[2], r[3], color.get());
 		}
 		GlStateManager.popMatrix();
-		GlStateManager.color4f(1, 1, 1, 1);
+		GlStateManager.color(1, 1, 1, 1);
 	}
 
 	/**
@@ -80,11 +76,15 @@ public final class Crosshair extends Module {
 		int[] down = {cx + lo, cy + gap + 1, cx + hi, cy + gap + 1 + length};
 		int[] left = {cx - gap - length, cy + lo, cx - gap, cy + hi};
 		int[] right = {cx + gap + 1, cy + lo, cx + gap + 1 + length, cy + hi};
-		return switch (style) {
-			case STYLE_DOT -> new int[][]{dot};
-			case STYLE_CROSS_DOT -> new int[][]{up, down, left, right, dot};
-			case STYLE_T -> new int[][]{down, left, right};
-			default -> new int[][]{up, down, left, right};
-		};
+		switch (style) {
+			case STYLE_DOT:
+				return new int[][]{dot};
+			case STYLE_CROSS_DOT:
+				return new int[][]{up, down, left, right, dot};
+			case STYLE_T:
+				return new int[][]{down, left, right};
+			default:
+				return new int[][]{up, down, left, right};
+		}
 	}
 }

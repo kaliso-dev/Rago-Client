@@ -92,7 +92,8 @@ public final class ConfigStore {
 					}
 				}
 			}
-			if (module instanceof HudElement hud) {
+			if (module instanceof HudElement) {
+			HudElement hud = (HudElement) module;
 				JsonObject pos = object(m, "hud");
 				if (pos != null) {
 					hud.position().fromJson(pos);
@@ -114,7 +115,8 @@ public final class ConfigStore {
 				options.add(option.key(), option.toJson());
 			}
 			m.add("options", options);
-			if (module instanceof HudElement hud) {
+			if (module instanceof HudElement) {
+			HudElement hud = (HudElement) module;
 				m.add("hud", hud.position().toJson());
 			}
 			modules.add(module.id(), m);

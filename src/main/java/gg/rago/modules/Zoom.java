@@ -4,7 +4,7 @@ import gg.rago.config.BooleanOption;
 import gg.rago.config.IntOption;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
-import net.minecraft.client.options.KeyBinding;
+import net.minecraft.client.settings.KeyBinding;
 
 /**
  * Narrows the field of view while the zoom key is held, like OptiFine's zoom. The mouse wheel
@@ -30,7 +30,7 @@ public final class Zoom extends Module {
 	}
 
 	public boolean isZooming() {
-		return isEnabled() && key.isPressed();
+		return isEnabled() && key.isKeyDown();
 	}
 
 	/** Called with the FOV the world is about to be rendered with; returns the FOV to use. */

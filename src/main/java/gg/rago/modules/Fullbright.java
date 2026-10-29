@@ -3,7 +3,7 @@ package gg.rago.modules;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.options.GameOptions;
+import net.minecraft.client.settings.GameSettings;
 
 /**
  * Raises the brightness (gamma) setting beyond the slider's maximum so dark areas are lit,
@@ -21,21 +21,21 @@ public final class Fullbright extends Module {
 
 	@Override
 	public void tick() {
-		GameOptions o = Minecraft.getInstance().options;
+		GameSettings o = Minecraft.getMinecraft().gameSettings;
 		if (o == null) {
 			return;
 		}
-		if (o.gamma <= 1f) {
-			saved = o.gamma;
+		if (o.gammaSetting <= 1f) {
+			saved = o.gammaSetting;
 		}
-		o.gamma = GAMMA;
+		o.gammaSetting = GAMMA;
 	}
 
 	@Override
 	protected void onDisable() {
-		GameOptions o = Minecraft.getInstance().options;
-		if (o != null && o.gamma > 1f) {
-			o.gamma = saved;
+		GameSettings o = Minecraft.getMinecraft().gameSettings;
+		if (o != null && o.gammaSetting > 1f) {
+			o.gammaSetting = saved;
 		}
 	}
 }

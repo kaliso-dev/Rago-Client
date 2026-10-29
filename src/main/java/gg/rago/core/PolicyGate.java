@@ -14,16 +14,17 @@ public final class PolicyGate {
 
 	public static void check(Module module) {
 		switch (module.featureClass()) {
-			case PACKET -> throw new IllegalArgumentException(
-				"Module '" + module.id() + "' is packet-affecting; Rago does not allow those");
-			case INPUT -> {
+			case PACKET:
+				throw new IllegalArgumentException(
+					"Module '" + module.id() + "' is packet-affecting; Rago does not allow those");
+			case INPUT:
 				if (module.defaultEnabled()) {
 					throw new IllegalArgumentException(
 						"Input-affecting module '" + module.id() + "' must be disabled by default");
 				}
-			}
-			default -> {
-			}
+				break;
+			default:
+				break;
 		}
 	}
 }

@@ -1,66 +1,48 @@
 package gg.rago.gui;
 
-import net.minecraft.client.gui.GuiElement;
-import net.minecraft.client.render.TextRenderer;
-import net.minecraft.client.render.platform.GlStateManager;
+import net.minecraft.client.gui.Gui;
 
-/** Colours (ARGB) and small drawing helpers shared by Rago's screens. */
-final class Theme {
-	static final int SHADE = 0x88000000;
-	static final int PANEL = 0xF0121019;
-	static final int SIDEBAR = 0xFF17141F;
-	static final int ROW = 0xFF1C1926;
-	static final int ROW_HOVER = 0xFF282435;
-	static final int CARD = 0xFF1E1A29;
-	static final int CARD_HOVER = 0xFF29243A;
-	static final int ACCENT = 0xFF8B6CF0;
-	static final int ACCENT_DARK = 0xFF5A3FA6;
-	static final int TEXT = 0xFFF0EEF6;
-	static final int MUTED = 0xFF9C98AC;
-	static final int ON = 0xFF3FBF7F;
-	static final int OFF = 0xFF4A4658;
-	static final int DANGER = 0xFFE05A55;
-	static final int OUTLINE = 0x80FFFFFF;
-	static final int OUTLINE_ACTIVE = 0xFF8B6CF0;
-	static final int GUIDE = 0x408B6CF0;
-	static final int BG_TOP = 0xFF1B1235;
-	static final int BG_BOTTOM = 0xFF07060C;
+/** Rago's colours (ARGB), taken from the design mock-ups, and two GUI-pixel helpers for the HUD editor. */
+public final class Theme {
+	public static final int BG = 0xFF0B0A0D;
+	public static final int PANEL = 0xF5121114;
+	public static final int PANEL_SOLID = 0xFF121114;
+	public static final int SIDEBAR = 0xFF0F0E11;
+	public static final int CARD = 0xFF18171B;
+	public static final int CARD_HOVER = 0xFF1E1D22;
+	public static final int FIELD = 0xFF1A191D;
+	public static final int CHIP = 0xFF1C1B1F;
+	public static final int CHIP_ACTIVE = 0xFFF4F4F5;
+	public static final int BORDER = 0x14FFFFFF;
+	public static final int BORDER_STRONG = 0x26FFFFFF;
+	public static final int ACCENT = 0xFFF2392C;
+	public static final int ACCENT_HOVER = 0xFFFF4B3E;
+	public static final int ACCENT_SOFT = 0x2EF2392C;
+	public static final int TEXT = 0xFFF4F4F5;
+	public static final int MUTED = 0xFF9A98A0;
+	public static final int DIM = 0xFF6B6970;
+	public static final int GREEN = 0xFF34D399;
+	public static final int BLUE = 0xFF60A5FA;
+	public static final int YELLOW = 0xFFFACC15;
+	public static final int SWITCH_OFF = 0xFF3A383E;
+	public static final int KNOB_OFF = 0xFFC9C8CD;
+
+	// HUD editor (GUI pixels)
+	public static final int OUTLINE = 0x80FFFFFF;
+	public static final int OUTLINE_ACTIVE = ACCENT;
+	public static final int GUIDE = 0x40F2392C;
 
 	private Theme() {
 	}
 
 	static void outline(int x, int y, int w, int h, int color) {
-		GuiElement.fill(x, y, x + w, y + 1, color);
-		GuiElement.fill(x, y + h - 1, x + w, y + h, color);
-		GuiElement.fill(x, y + 1, x + 1, y + h - 1, color);
-		GuiElement.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
-	}
-
-	/** A rectangle with its four corner pixels cut, which reads as slightly rounded at GUI scale. */
-	static void rounded(int x, int y, int w, int h, int color) {
-		GuiElement.fill(x + 1, y, x + w - 1, y + h, color);
-		GuiElement.fill(x, y + 1, x + 1, y + h - 1, color);
-		GuiElement.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
+		Gui.drawRect(x, y, x + w, y + 1, color);
+		Gui.drawRect(x, y + h - 1, x + w, y + h, color);
+		Gui.drawRect(x, y + 1, x + 1, y + h - 1, color);
+		Gui.drawRect(x + w - 1, y + 1, x + w, y + h - 1, color);
 	}
 
 	static boolean inside(int mx, int my, int x, int y, int w, int h) {
 		return mx >= x && my >= y && mx < x + w && my < y + h;
-	}
-
-	/** Draws text scaled up around its own top-left corner. */
-	static void scaledText(TextRenderer text, String s, int x, int y, float scale, int color, boolean shadow) {
-		GlStateManager.pushMatrix();
-		GlStateManager.translatef(x, y, 0);
-		GlStateManager.scalef(scale, scale, 1);
-		if (shadow) {
-			text.drawWithShadow(s, 0, 0, color);
-		} else {
-			text.draw(s, 0, 0, color);
-		}
-		GlStateManager.popMatrix();
-	}
-
-	static void centered(TextRenderer text, String s, int centerX, int y, int color) {
-		text.draw(s, centerX - text.getWidth(s) / 2, y, color);
 	}
 }

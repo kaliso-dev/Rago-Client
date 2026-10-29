@@ -14,8 +14,8 @@ import java.util.Map;
 public final class CompetitivePreset {
 	/** Vanilla options, under Rago's own keys (see {@code CompetitiveProfile}). */
 	public static final Map<String, JsonElement> VANILLA;
-	/** Argentum Extras options, under the keys of {@code config/argentum-extras.json}. */
-	public static final Map<String, JsonElement> EXTRAS;
+	/** OptiFine options, under the names of its fields in {@code GameSettings}. */
+	public static final Map<String, JsonElement> OPTIFINE;
 
 	static {
 		Map<String, JsonElement> v = new LinkedHashMap<>();
@@ -28,23 +28,27 @@ public final class CompetitivePreset {
 		v.put("vsync", new JsonPrimitive(false));
 		VANILLA = Collections.unmodifiableMap(v);
 
+		// OptiFine's own settings (fields it adds to GameSettings); skipped when OptiFine is absent.
 		Map<String, JsonElement> x = new LinkedHashMap<>();
-		x.put("explosion_particles", new JsonPrimitive(false));
-		x.put("portal_particles", new JsonPrimitive(false));
-		x.put("smoke_and_flame_particles", new JsonPrimitive(false));
-		x.put("redstone_particles", new JsonPrimitive(false));
-		x.put("water_particles", new JsonPrimitive(false));
-		x.put("miscellaneous_particles", new JsonPrimitive(false));
-		// spell_particles stay on: they show which potions an opponent has.
-		x.put("dynamic_fov_strength", new JsonPrimitive(0));
-		x.put("entity_shadow_distance", new JsonPrimitive(0));
-		x.put("player_ears", new JsonPrimitive(false));
-		x.put("stuck_arrows", new JsonPrimitive(false));
-		x.put("stars", new JsonPrimitive(false));
-		x.put("vignette_strength", new JsonPrimitive(0));
-		x.put("weather_density", new JsonPrimitive(0));
-		x.put("leaf_quality", new JsonPrimitive("FAST"));
-		EXTRAS = Collections.unmodifiableMap(x);
+		x.put("ofFastMath", new JsonPrimitive(true));
+		x.put("ofSmoothFps", new JsonPrimitive(false));
+		x.put("ofDynamicFov", new JsonPrimitive(false));
+		x.put("ofClouds", new JsonPrimitive(3)); // off
+		x.put("ofTrees", new JsonPrimitive(1)); // fast
+		x.put("ofSky", new JsonPrimitive(false));
+		x.put("ofStars", new JsonPrimitive(false));
+		x.put("ofVignette", new JsonPrimitive(1)); // fast = none
+		x.put("ofAnimatedExplosion", new JsonPrimitive(false));
+		x.put("ofAnimatedFlame", new JsonPrimitive(false));
+		x.put("ofAnimatedSmoke", new JsonPrimitive(false));
+		x.put("ofVoidParticles", new JsonPrimitive(false));
+		x.put("ofWaterParticles", new JsonPrimitive(false));
+		x.put("ofPortalParticles", new JsonPrimitive(false));
+		x.put("ofDrippingWaterLava", new JsonPrimitive(false));
+		x.put("ofFireworkParticles", new JsonPrimitive(false));
+		x.put("ofRainSplash", new JsonPrimitive(false));
+		// ofPotionParticles stays on: it shows which potions an opponent has.
+		OPTIFINE = Collections.unmodifiableMap(x);
 	}
 
 	private CompetitivePreset() {

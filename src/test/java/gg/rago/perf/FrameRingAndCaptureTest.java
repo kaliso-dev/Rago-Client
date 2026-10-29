@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -81,7 +82,7 @@ class FrameRingAndCaptureTest {
 		c.writeCsv(file, meta);
 
 		List<String> lines = Files.readAllLines(file);
-		assertEquals(List.of(
+		assertEquals(Arrays.asList(
 			"# gpu=Test GPU line2",
 			"frame,interval_ns,work_ns",
 			"0,6944200,5120300",

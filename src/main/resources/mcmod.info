@@ -1,0 +1,15 @@
+[
+  {
+    "modid": "rago",
+    "name": "Rago Client",
+    "description": "Competitive PvP client for Hypixel Bedwars and Minemen Club.",
+    "version": "${version}",
+    "mcversion": "1.8.9",
+    "url": "https://github.com/kaliso-dev/Rago-Client",
+    "authorList": ["kaliso-dev"],
+    "credits": "Fonts: Inter and JetBrains Mono (SIL OFL 1.1). Icons: Lucide (ISC).",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": []
+  }
+]

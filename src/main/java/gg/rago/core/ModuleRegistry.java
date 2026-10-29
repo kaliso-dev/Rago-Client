@@ -1,5 +1,6 @@
 package gg.rago.core;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,7 +24,7 @@ public final class ModuleRegistry {
 	}
 
 	public List<Module> all() {
-		return Collections.unmodifiableList(List.copyOf(modules.values()));
+		return Collections.unmodifiableList(new ArrayList<>(modules.values()));
 	}
 
 	public <T extends Module> List<T> allOf(Class<T> type) {
