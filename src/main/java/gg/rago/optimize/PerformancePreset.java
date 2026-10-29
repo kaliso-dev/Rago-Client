@@ -167,7 +167,7 @@ public final class PerformancePreset {
 		return restored;
 	}
 
-	private static int read(Setting row) {
+	static int read(Setting row) {
 		if (row instanceof Toggle) {
 			return ((Toggle) row).get() ? 1 : 0;
 		}
@@ -180,7 +180,7 @@ public final class PerformancePreset {
 		return Integer.MIN_VALUE;
 	}
 
-	private static void write(Setting row, int value) {
+	static void write(Setting row, int value) {
 		try {
 			if (row instanceof Toggle) {
 				((Toggle) row).set(value != 0);

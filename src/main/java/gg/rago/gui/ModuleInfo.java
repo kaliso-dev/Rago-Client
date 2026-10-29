@@ -58,6 +58,12 @@ final class ModuleInfo {
 		ICONS.put("block_counter", "blocks");
 		ICONS.put("direction", "compass");
 		ICONS.put("pack_display", "layers");
+		ICONS.put("tab_list", "table-properties");
+		ICONS.put("particles", "party-popper");
+		ICONS.put("color_grading", "contrast");
+		ICONS.put("hit_delay_fix", "swords");
+		ICONS.put("fast_shop", "shopping-cart");
+		ICONS.put("cosmetics", "crown");
 	}
 
 	private ModuleInfo() {

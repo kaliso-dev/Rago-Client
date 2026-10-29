@@ -52,6 +52,9 @@ public abstract class HudElement extends Module {
 
 	/** How far {@link HudManager#stack} moved this element down this frame, in scaled pixels. */
 	int stackShift;
+	/** Where the element would sit unstacked, and its height, while {@link HudManager#stack} runs. */
+	int stackY;
+	int stackH;
 
 	@Override
 	public void reset() {

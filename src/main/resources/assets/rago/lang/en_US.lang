@@ -526,6 +526,7 @@ rago.option.text_shadow=Text shadow
 rago.option.eat_swing=Swing while eating
 rago.option.bow_swing=Swing while drawing a bow
 rago.option.no_reequip=No re-equip animation
+rago.option.smooth_sneak=Smooth sneak
 rago.option.swing_speed=Swing duration
 rago.option.swing_speed.format=%d%%
 rago.option.item_x=Horizontal position
@@ -615,3 +616,125 @@ rago.module.direction.desc=The direction you face (N, NE, E...) and its bearing.
 rago.option.show_degrees=Show degrees
 rago.module.pack_display=Pack Display
 rago.module.pack_display.desc=The name of the resource pack you use.
+
+# 1.2: tab list
+rago.module.tab_list=Tab List
+rago.module.tab_list.desc=How see-through the tab list is, its header and footer, text shadow and size.
+rago.option.tab_background=Background opacity
+rago.option.tab_background.format=%d%%
+rago.option.tab_rows=Row opacity
+rago.option.tab_rows.format=%d%%
+rago.option.tab_header=Server header
+rago.option.tab_footer=Server footer
+rago.option.tab_scale=Size
+rago.option.tab_scale.format=%d%%
+
+# 1.2: particles
+rago.module.particles=Particles
+rago.module.particles.desc=Hide, resize, tint or multiply block, hit and other particles.
+rago.modsection.particles_blocks=Block particles
+rago.modsection.particles_crit=Critical hits
+rago.modsection.particles_sharpness=Sharpness
+rago.modsection.particles_other=Other particles
+rago.option.particles_show=Show
+rago.option.particles_crit_show=Show
+rago.option.particles_sharpness_show=Show
+rago.option.particles_other_show=Show
+rago.option.particles_size=Size
+rago.option.particles_crit_size=Size
+rago.option.particles_sharpness_size=Size
+rago.option.particles_other_size=Size
+rago.option.particles_size.format=%d%%
+rago.option.particles_crit_size.format=%d%%
+rago.option.particles_sharpness_size.format=%d%%
+rago.option.particles_other_size.format=%d%%
+rago.option.particles_break_multiplier=Breaking particles
+rago.option.particles_break_multiplier.format=×%d
+rago.option.particles_color=Colour
+rago.option.particles_crit_color=Colour
+rago.option.particles_sharpness_color=Colour
+
+# 1.2: colour grading
+rago.module.color_grading=Saturation & Colours
+rago.module.color_grading.desc=Saturation, vibrance, contrast, brightness, gamma, white balance and sharpening of the world.
+rago.option.grading_saturation=Saturation
+rago.option.grading_vibrance=Vibrance
+rago.option.grading_contrast=Contrast
+rago.option.grading_brightness=Brightness
+rago.option.grading_gamma=Gamma
+rago.option.grading_temperature=Temperature (cool / warm)
+rago.option.grading_tint=Tint (magenta / green)
+rago.option.grading_sharpen=Sharpen
+rago.option.grading_saturation.format=%d%%
+rago.option.grading_contrast.format=%d%%
+rago.option.grading_gamma.format=%d%%
+rago.option.grading_sharpen.format=%d%%
+rago.option.grading_vibrance.format=%d%%
+rago.option.grading_brightness.format=%d%%
+rago.option.grading_temperature.format=%d%%
+rago.option.grading_tint.format=%d%%
+
+# 1.2: presets
+rago.setting.preset_ranked_bedwars=Ranked Bedwars
+rago.setting.preset_ranked_bedwars.help=Turns on the mods a Bedwars player needs (FPS, ping, CPS, keystrokes, armour, potions, resources, height limit, blocks, tab ping, 1.7 animations) and sets fast video settings. Undo puts your mods and settings back.
+rago.setting.preset_ranked_bedwars.button=Apply
+rago.setting.preset_quality=Quality
+rago.setting.preset_quality.help=Better-looking world: colour grading, longer render distance, fancy graphics, smooth lighting, mipmaps and all particles.
+rago.setting.preset_quality.button=Apply
+rago.setting.undo_play_preset=Undo presets
+rago.setting.undo_play_preset.help=Puts back the mods and settings you had before applying Ranked Bedwars or Quality.
+rago.setting.undo_play_preset.button=Undo
+
+# 1.2: hit delay fix
+rago.module.hit_delay_fix=Hit Delay Fix
+rago.module.hit_delay_fix.desc=A missed click no longer blocks your next attack for half a second (1.8 behaviour). Check the rules of your server.
+
+# 1.2: eating fix
+rago.option.eating_fix=Eating fix
+rago.option.eating_fix.help=When the server re-sends the item in your hand while you eat or drink, keep eating instead of starting over.
+
+# 1.2: fast shop
+rago.module.fast_shop=Fast Shop
+rago.module.fast_shop.desc=Bed Wars shop on Hypixel: clicks sent as middle clicks so buying is faster on high ping, affordable items highlighted, no duplicate swords.
+rago.option.shop_fast_clicks=Fast clicks
+rago.option.shop_highlight=Highlight affordable items
+rago.option.shop_highlight_opacity=Highlight opacity
+rago.option.shop_highlight_opacity.format=%d%%
+rago.option.shop_no_duplicates=No duplicate swords or knockback stick
+
+# 1.2: cosmetics
+rago.module.cosmetics=Cosmetics
+rago.module.cosmetics.desc=A hat (top hat, crown or halo) and wings (angel or dragon) on your player, each with its colour. Only you see them.
+rago.option.cosmetic_hat=Hat
+rago.option.cosmetic_hat.none=None
+rago.option.cosmetic_hat.top_hat=Top hat
+rago.option.cosmetic_hat.crown=Crown
+rago.option.cosmetic_hat.halo=Halo
+rago.option.cosmetic_hat_color=Hat colour
+rago.option.cosmetic_wings=Wings
+rago.option.cosmetic_wings.none=None
+rago.option.cosmetic_wings.angel=Angel
+rago.option.cosmetic_wings.dragon=Dragon
+rago.option.cosmetic_wings_color=Wings colour
+rago.option.cosmetic_wings_flap=Flapping
+
+# 1.2: resource packs screen
+rago.packs.title=Resource packs
+rago.packs.subtitle=%s in use out of %s. Type to search.
+rago.packs.search=Search packs
+rago.packs.all=All packs
+rago.packs.active=In use
+rago.packs.folders=Folders
+rago.packs.new_folder=New folder
+rago.packs.no_folder=No folder
+rago.packs.folder_name=Folder name
+rago.packs.create=Create
+rago.packs.open_folder=Open folder
+rago.packs.refresh=Refresh
+rago.packs.classic=Classic screen
+rago.packs.none=No resource packs yet. Open the folder and drop .zip packs in it, then press Refresh.
+rago.packs.no_match=No pack matches.
+rago.packs.incompatible=Made for another version (format %s)
+
+# 1.2: conflicting mods
+rago.conflict.nohitdelay=The separate "Rago NoHitDelay" mod is in your mods folder. Its NoUseDelay lets go of right click before the server has finished your bite, so golden apples get cancelled and start over. Remove that jar: Rago has Hit Delay Fix built in (Mods > Hit Delay Fix).

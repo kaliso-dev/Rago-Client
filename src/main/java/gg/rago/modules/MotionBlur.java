@@ -30,20 +30,23 @@ import java.nio.ByteBuffer;
  * Motion blur: each frame of the world is blended with the frames before it, so fast camera turns
  * leave a short trail. The HUD and menus are drawn afterwards and stay sharp.
  *
- * <p>The trail is kept in a floating-point image so it fades out cleanly instead of leaving a
- * faint ghost, and its length is set in time rather than in frames, so it looks the same at 60
- * and at 600 FPS. It can apply all the time, only while the camera turns, or only while moving,
+ * <p>The trail is updated 60 times per second whatever the frame rate and laid over the sharp
+ * current frame. Updating it on every frame at 1000+ FPS would add only a few percent of each new
+ * frame, too little for the image's precision to ever fade small differences out: those stay on
+ * screen as pixel trails, most visibly in the sky. It can apply all the time, only while the camera turns, or only while moving,
  * with a sensitivity for how fast a turn reaches full strength.
  */
 public final class MotionBlur extends Module {
 	/** GL_RGBA16F, the same value in OpenGL 3.0 and ARB_texture_float. */
 	private static final int RGBA16F = 0x881A;
 	/** At 60 FPS the trail keeps at most this much of the previous frame. */
-	private static final float MAX_KEEP = 0.82f;
+	private static final float MAX_KEEP = 0.72f;
 	/** Without a floating-point image, a long trail would leave a ghost: keep less per frame. */
-	private static final float MAX_KEEP_8BIT = 0.78f;
+	private static final float MAX_KEEP_8BIT = 0.66f;
+	/** The trail is updated at most this often. */
+	private static final float STEP = 1 / 60f;
 
-	private final IntOption strength = addOption(new IntOption("blur_strength", 35, 1, 100));
+	private final IntOption strength = addOption(new IntOption("blur_strength", 30, 1, 100));
 	private final ChoiceOption mode = addOption(new ChoiceOption("blur_mode", "always", "always", "turning", "moving"));
 	private final IntOption sensitivity = addOption(new IntOption("blur_sensitivity", 50, 1, 100));
 	private final BooleanOption frameIndependent = addOption(new BooleanOption("blur_frame_independent", true));
@@ -59,6 +62,7 @@ public final class MotionBlur extends Module {
 	private boolean fresh = true;
 	private boolean doneThisFrame;
 	private long lastFrame;
+	private float sinceStep;
 	private float lastYaw;
 	private float lastPitch;
 	private double lastX;
@@ -117,10 +121,12 @@ public final class MotionBlur extends Module {
 		if (!ensureTargets(mc.displayWidth, mc.displayHeight)) {
 			return;
 		}
-		float keep = keep(dt, motion);
+		float keep = keep(motion);
 		if (pauseOnZoom.get() && zoom != null && zoom.isZooming()) {
 			keep = 0;
 		}
+		sinceStep += dt;
+		boolean step = !frameIndependent.get() || sinceStep >= STEP || fresh || keep <= 0;
 		int previousFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
 		int[] viewport = viewport();
 		GlStateManager.pushMatrix();
@@ -137,27 +143,35 @@ public final class MotionBlur extends Module {
 		GlStateManager.disableCull();
 		GlStateManager.enableTexture2D();
 		try {
-			// 1. the frame just drawn, as a texture
-			GlStateManager.bindTexture(frameTexture);
-			GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
-			// 2. blend it into the trail: trail = keep * trail + (1 - keep) * frame
-			OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, historyFbo);
-			GlStateManager.viewport(0, 0, width, height);
-			if (fresh || keep <= 0) {
-				GlStateManager.disableBlend();
-				quad(1);
-				fresh = false;
-			} else {
-				GlStateManager.enableBlend();
-				GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
-				quad(1 - keep);
+			if (step) {
+				// 1. the frame just drawn, as a texture
+				GlStateManager.bindTexture(frameTexture);
+				GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+				// 2. blend it into the trail: trail = keep * trail + (1 - keep) * frame, with keep
+				// scaled to the time since the last update (one 60 FPS frame or more)
+				OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, historyFbo);
+				GlStateManager.viewport(0, 0, width, height);
+				float stepKeep = frameIndependent.get() ? (float) Math.pow(keep, Math.min(sinceStep, 0.25f) / STEP) : keep;
+				sinceStep = 0;
+				if (fresh || keep <= 0) {
+					GlStateManager.disableBlend();
+					quad(1);
+					fresh = false;
+				} else {
+					GlStateManager.enableBlend();
+					GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+					quad(1 - stepKeep);
+				}
+				OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFbo);
+				GlStateManager.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 			}
-			// 3. the trail back on screen
-			OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFbo);
-			GlStateManager.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-			GlStateManager.disableBlend();
-			GlStateManager.bindTexture(historyTexture);
-			quad(1);
+			// 3. the trail over the sharp current frame
+			if (keep > 0) {
+				GlStateManager.enableBlend();
+				GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ZERO, GL11.GL_ONE);
+				GlStateManager.bindTexture(historyTexture);
+				quad(keep);
+			}
 		} finally {
 			OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFbo);
 			GlStateManager.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
@@ -175,19 +189,11 @@ public final class MotionBlur extends Module {
 	}
 
 	/** How much of the trail stays this frame (0 none, close to 1 a long trail). */
-	private float keep(float dt, float motion) {
+	private float keep(float motion) {
 		float max = floatHistory ? MAX_KEEP : MAX_KEEP_8BIT;
 		// a curve, so the lower half of the slider gives the light trails most players want
 		float s = strength.get() / 100f;
-		float at60 = max * s * (float) Math.sqrt(s) * motion;
-		if (at60 <= 0) {
-			return 0;
-		}
-		if (!frameIndependent.get()) {
-			return at60;
-		}
-		// the same fade per second whatever the frame rate
-		return (float) Math.pow(at60, dt * 60);
+		return Math.max(0, max * s * (float) Math.sqrt(s) * motion);
 	}
 
 	/** 0 to 1: how much the current movement asks for blur in the chosen mode. */
@@ -304,5 +310,6 @@ public final class MotionBlur extends Module {
 		width = 0;
 		height = 0;
 		lastFrame = 0;
+		sinceStep = 0;
 	}
 }
