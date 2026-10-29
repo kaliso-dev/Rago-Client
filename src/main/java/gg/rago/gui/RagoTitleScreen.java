@@ -1,7 +1,6 @@
 package gg.rago.gui;
 
 import gg.rago.accounts.Accounts;
-import gg.rago.core.QuickJoin;
 import gg.rago.core.RagoClient;
 import gg.rago.gui.ui.Anim;
 import gg.rago.gui.ui.Ui;
@@ -24,7 +23,7 @@ import java.io.IOException;
  * Shown instead of the vanilla title screen unless the player picks the vanilla menu.
  */
 public final class RagoTitleScreen extends GuiScreen {
-	private static final String HYPIXEL = "mc.hypixel.net";
+	private static final String DISCORD_URL = "https://discord.gg/ragooptimizer";
 	private static final String OPTIFINE_URL = "https://optifine.net/downloads";
 	/** The intro plays once per game start, not every time the player comes back here. */
 	private static boolean introPlayed;
@@ -86,11 +85,11 @@ public final class RagoTitleScreen extends GuiScreen {
 		float bw = 290;
 		float bh = 25;
 		float by = ty + 40;
-		String[] labels = {t("menu.singleplayer"), t("menu.multiplayer"), t("rago.title.play_hypixel")};
+		String[] labels = {t("menu.singleplayer"), t("menu.multiplayer"), t("rago.title.join_discord")};
 		Runnable[] actions = {
 			() -> mc.displayGuiScreen(new GuiSelectWorld(this)),
 			() -> mc.displayGuiScreen(new GuiMultiplayer(this)),
-			() -> QuickJoin.join(this, "Hypixel", HYPIXEL, null, null)
+			() -> Sys.openURL(DISCORD_URL)
 		};
 		for (int i = 0; i < labels.length; i++) {
 			float p = intro(120 + i * 70, 450);
@@ -145,11 +144,11 @@ public final class RagoTitleScreen extends GuiScreen {
 	private void dock(float w, float h) {
 		boolean noOptifine = !OptiFineFields.installed();
 		String[] icons = noOptifine
-			? new String[] {"logo", "sliders-horizontal", "settings", "globe", "zap", "power"}
-			: new String[] {"logo", "sliders-horizontal", "settings", "globe", "power"};
+			? new String[] {"logo", "shirt", "sliders-horizontal", "settings", "globe", "zap", "power"}
+			: new String[] {"logo", "shirt", "sliders-horizontal", "settings", "globe", "power"};
 		String[] tips = noOptifine
-			? new String[] {"rago.dock.mods", "rago.dock.rago_settings", "rago.dock.options", "rago.dock.servers", "rago.dock.optifine", "rago.dock.quit"}
-			: new String[] {"rago.dock.mods", "rago.dock.rago_settings", "rago.dock.options", "rago.dock.servers", "rago.dock.quit"};
+			? new String[] {"rago.dock.mods", "rago.dock.locker", "rago.dock.rago_settings", "rago.dock.options", "rago.dock.servers", "rago.dock.optifine", "rago.dock.quit"}
+			: new String[] {"rago.dock.mods", "rago.dock.locker", "rago.dock.rago_settings", "rago.dock.options", "rago.dock.servers", "rago.dock.quit"};
 		float size = 30;
 		float gap = 8;
 		float total = icons.length * size + (icons.length - 1) * gap;
@@ -193,6 +192,8 @@ public final class RagoTitleScreen extends GuiScreen {
 		switch (icon) {
 			case "logo":
 				return () -> mc.displayGuiScreen(new RagoMenuScreen(this));
+			case "shirt":
+				return () -> mc.displayGuiScreen(new LockerScreen(this));
 			case "sliders-horizontal":
 				return () -> mc.displayGuiScreen(RagoMenuScreen.settings(this));
 			case "settings":

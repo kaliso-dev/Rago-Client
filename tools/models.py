@@ -140,9 +140,9 @@ def drop_hidden(tris):
 
 HATS = {
     # glb file: {name of the hat's node: (model name, texture name)}
-    'hats_mini_pack_1.glb': {'cape1_5': ('cap_blue', 'hats_atlas'), 'mushroomhead0_11': ('mushroom_red', 'hats_atlas'),
+    'hats_mini_pack_1.glb': {'cape1_5': ('cap_red', 'cap_red'), 'mushroomhead0_11': ('mushroom_red', 'hats_atlas'),
                              'cylinder_18': ('top_hat', 'hats_atlas')},
-    'hats_mini_pack_3.glb': {'cape0_5': ('cap_green', 'hats_atlas'), 'mushroomhead2_11': ('mushroom_green', 'hats_atlas'),
+    'hats_mini_pack_3.glb': {'mushroomhead2_11': ('mushroom_green', 'hats_atlas'),
                              'magehat_20': ('wizard_hat', 'wizard_hat')},
 }
 
@@ -180,7 +180,28 @@ def hats():
                 p = pos - np.array([centre[0], 0.25, centre[2]])
                 converted.append((p * np.array([1, -1, -1]), uv))
             write_model(model, [('hat', (0, 0, 0), drop_hidden(converted))])
-            open(os.path.join(TEXTURES, tex + '.png'), 'wb').write(texture(j, data, tris[0][2]))
+            png = texture(j, data, tris[0][2])
+            if tex == 'cap_red':
+                rago_red(png).save(os.path.join(TEXTURES, tex + '.png'))
+            else:
+                open(os.path.join(TEXTURES, tex + '.png'), 'wb').write(png)
+
+
+def rago_red(png):
+    """The blue cap in Rago's red: blue pixels turn to the red of the logo, keeping their shading."""
+    import colorsys
+    import io
+    img = Image.open(io.BytesIO(png)).convert('RGBA')
+    px = img.load()
+    for y in range(img.size[1]):
+        for x in range(img.size[0]):
+            r, g, b, a = px[x, y]
+            h, l, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+            if a and sat > 0.2 and 0.45 < h < 0.75:
+                # #F2392C is hue 0.01; keep the lightness, a little darker so white stays white
+                nr, ng, nb = colorsys.hls_to_rgb(0.01, min(l * 0.92, 0.85), min(1, sat * 1.15))
+                px[x, y] = (round(nr * 255), round(ng * 255), round(nb * 255), a)
+    return img
 
 
 # ---- the voxel angel wings -------------------------------------------------------------------------
@@ -209,20 +230,22 @@ def quad(a, b, c, d, uv):
             (np.array([a, c, d]), np.array([uv[0], uv[2], uv[3]]))]
 
 
-def extrude(tex_name, root, depth_of, sweep=0.25):
+def extrude(tex_name, root, depth_of, sweep=0.25, depth_at=None):
     """
     A wing from a 64 x 64 texture, one voxel per opaque pixel, `depth_of(pixel)` pixels thick. The root
     pixel lands on (0, 0, 0); one texture is one unit wide, and the wing sweeps back toward its tip.
     """
     img = Image.open(os.path.join(TEXTURES, tex_name + '.png')).convert('RGBA')
-    n = img.size[0]
-    px = np.array(img)
+    n = max(img.size)
+    px = np.zeros((n, n, 4), np.uint8)
+    px[:img.size[1], :img.size[0]] = np.array(img)
     depth = np.zeros((n, n))
     for y in range(n):
         for x in range(n):
             if px[y, x, 3] > 25:
-                depth[y, x] = depth_of(px[y, x])
+                depth[y, x] = depth_at(x, y) if depth_at else depth_of(px[y, x])
     s = 1 / n
+    tw, th = img.size
     rx, ry = root
 
     def at(x, y, z):
@@ -241,7 +264,7 @@ def extrude(tex_name, root, depth_of, sweep=0.25):
             end = x
             while end + 1 < n and depth[y, end + 1] == d:
                 end += 1
-            u0, u1, v0, v1 = x / n, (end + 1) / n, y / n, (y + 1) / n
+            u0, u1, v0, v1 = x / tw, (end + 1) / tw, y / th, (y + 1) / th
             h = d / 2
             tris += quad(at(x, y, -h), at(end + 1, y, -h), at(end + 1, y + 1, -h), at(x, y + 1, -h),
                          [(u0, v0), (u1, v0), (u1, v1), (u0, v1)])
@@ -255,7 +278,7 @@ def extrude(tex_name, root, depth_of, sweep=0.25):
                 continue
             h = d / 2
             # the side faces only where the neighbour is thinner, coloured with this pixel
-            c = ((x + 0.5) / n, (y + 0.5) / n)
+            c = ((x + 0.5) / tw, (y + 0.5) / th)
             uv = [c, c, c, c]
             if x == 0 or depth[y, x - 1] < d:
                 tris += quad(at(x, y, -h), at(x, y + 1, -h), at(x, y + 1, h), at(x, y, h), uv)
@@ -278,7 +301,21 @@ def wings():
     write_model('dragon', [('wing', (0, 0, 0), extrude('dragon', (3, 12), bones_thicker))])
 
 
+def shields():
+    """Rago's shields: the rim three pixels thick, the logo two, the face one."""
+    import cosmetics
+    _, rim, logo = cosmetics.shield_masks()
+
+    def depth(x, y):
+        return 3 if (x, y) in rim else 2 if (x, y) in logo else 1
+    for style in cosmetics.SHIELD_STYLES:
+        name = 'shield_' + style
+        # centred on the shield, which is 48 pixels tall: one unit is the shield's height
+        write_model(name, [('shield', (0, 0, 0), extrude(name, (20, 24), None, 0, depth))])
+
+
 if __name__ == '__main__':
+    shields()
     hats()
     angel()
     wings()

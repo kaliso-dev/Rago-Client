@@ -151,6 +151,62 @@ def beanie():
                 d.point([(x + i, y + j)], fill=grey(rnd.choice((255, 240, 228))))
     return img
 
+# ---- shields: 40 x 48, a heater shield with a rim, the R logo in the middle ---------------------------
+
+SHIELD_W, SHIELD_H = 40, 48
+SHIELD_STYLES = {
+    # name: (face top, face bottom, rim, logo)
+    'rago': ((44, 44, 52), (24, 24, 30), (242, 57, 44), (242, 57, 44)),
+    'crimson': ((210, 48, 40), (130, 22, 20), (36, 36, 42), (255, 255, 255)),
+    'gold': ((250, 246, 236), (214, 206, 190), (232, 182, 64), (242, 57, 44)),
+    'frost': ((200, 232, 250), (120, 176, 220), (250, 252, 255), (32, 80, 150)),
+    'void': ((22, 14, 34), (8, 4, 14), (150, 80, 230), (200, 150, 255)),
+}
+
+
+def shield_masks():
+    """The shield's silhouette, its rim (two pixels deep) and the logo, as sets of (x, y)."""
+    w, h = SHIELD_W, SHIELD_H
+    outline = Image.new('L', (w, h))
+    d = ImageDraw.Draw(outline)
+    # straight top and sides, then two curves meeting at a point at the bottom
+    def bezier(p0, p1, p2, steps=20):
+        return [((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0],
+                 (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]) for t in (i / steps for i in range(steps + 1))]
+    side = h * 0.42
+    pts = [(0.5, 0.5), (w - 0.5, 0.5), (w - 0.5, side)]
+    pts += bezier((w - 0.5, side), (w - 0.5, h * 0.8), (w / 2, h - 0.5))
+    pts += bezier((w / 2, h - 0.5), (0.5, h * 0.8), (0.5, side))
+    d.polygon(pts, fill=255)
+    shape = {(x, y) for y in range(h) for x in range(w) if outline.getpixel((x, y)) > 127}
+    rim = {(x, y) for (x, y) in shape
+           if any((x + dx, y + dy) not in shape for dx in (-2, -1, 0, 1, 2) for dy in (-2, -1, 0, 1, 2))}
+    logo_img = Image.open(os.path.join(OUT, '..', 'logo.png')).convert('RGBA').resize((24, 24), Image.LANCZOS)
+    logo = {(x + 8, y + 10) for y in range(24) for x in range(24) if logo_img.getpixel((x, y))[3] > 70}
+    return shape, rim, logo & shape - rim
+
+
+def shield(style):
+    top, bottom, rim_c, logo_c = SHIELD_STYLES[style]
+    shape, rim, logo = shield_masks()
+    img = Image.new('RGBA', (SHIELD_W, SHIELD_H))
+    rnd = random.Random(7)
+    for (x, y) in shape:
+        t = y / (SHIELD_H - 1)
+        c = [round(a + (b - a) * t) for a, b in zip(top, bottom)]
+        if (x, y) in rim:
+            c = list(rim_c)
+            # a lighter inner edge and rivets on the rim
+            if all((x + dx, y + dy) in shape for dx in (-3, 3) for dy in (-3, 3)) or (x + y) % 9 == 0 and y < 6:
+                c = [min(255, v + 30) for v in c]
+        elif (x, y) in logo:
+            c = list(logo_c)
+        else:
+            n = rnd.randint(-6, 6)
+            c = [max(0, min(255, v + n)) for v in c]
+        img.putpixel((x, y), tuple(c) + (255,))
+    return img
+
 
 def main():
     os.makedirs(OUT, exist_ok=True)
@@ -158,6 +214,8 @@ def main():
     dragon().save(os.path.join(OUT, 'dragon.png'))
     cap().save(os.path.join(OUT, 'cap.png'))
     beanie().save(os.path.join(OUT, 'beanie.png'))
+    for style in SHIELD_STYLES:
+        shield(style).save(os.path.join(OUT, 'shield_' + style + '.png'))
 
 
 if __name__ == '__main__':

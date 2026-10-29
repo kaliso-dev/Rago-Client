@@ -12,6 +12,7 @@ import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.SkinChanger;
 import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
 import gg.rago.optimize.EngineTweaks;
@@ -57,6 +58,7 @@ public final class Hooks {
 	public static volatile HitColor hitColor;
 	public static volatile EngineTweaks engine;
 	public static volatile RagoCape cape;
+	public static volatile SkinChanger skins;
 	public static volatile GlintColor glint;
 
 	private Hooks() {
@@ -301,6 +303,18 @@ public final class Hooks {
 		Chat c = chat;
 		boolean shadow = c == null || !c.isEnabled() || c.textShadow();
 		return font.drawString(text, x, y, color, shadow);
+	}
+
+	/** AbstractClientPlayer.getLocationSkin: the locker skin on your own player. */
+	public static ResourceLocation skin(ResourceLocation vanilla, AbstractClientPlayer player) {
+		SkinChanger s = skins;
+		return s != null && s.isEnabled() ? s.skinFor(player, vanilla) : vanilla;
+	}
+
+	/** AbstractClientPlayer.getSkinType: slim or wide arms to go with the locker skin. */
+	public static String skinModel(String vanilla, AbstractClientPlayer player) {
+		SkinChanger s = skins;
+		return s != null && s.isEnabled() ? s.modelFor(player, vanilla) : vanilla;
 	}
 
 	/** AbstractClientPlayer.getLocationCape: the Rago cape for players who wear it. */

@@ -1,6 +1,7 @@
 package gg.rago.core;
 
 import gg.rago.accounts.Accounts;
+import gg.rago.accounts.Skins;
 import gg.rago.gui.AccountsButton;
 import gg.rago.config.BooleanOption;
 import gg.rago.config.ConfigStore;
@@ -72,6 +73,7 @@ import gg.rago.modules.NoPumpkin;
 import gg.rago.modules.NoWaterOverlay;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.SkinChanger;
 import gg.rago.modules.FastShop;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.HitColor;
@@ -245,6 +247,7 @@ public final class RagoClient {
 		MODULES.register(new ColorGrading());
 		RagoCape cape = MODULES.register(new RagoCape());
 		MODULES.register(new Cosmetics());
+		SkinChanger skinChanger = MODULES.register(new SkinChanger());
 		GlintColor glint = MODULES.register(new GlintColor());
 		mainMenu = MODULES.register(new MainMenu());
 		profile = MODULES.register(new CompetitiveProfile(configDir));
@@ -261,6 +264,8 @@ public final class RagoClient {
 		Hooks.fixes = fixes;
 		Hooks.hitColor = hitColor;
 		Hooks.cape = cape;
+		Hooks.skins = skinChanger;
+		Skins.load(configDir);
 		Hooks.glint = glint;
 		ClientCommandHandler.instance.registerCommand(new RagoCommand(hypixel, () -> openMenu = true));
 

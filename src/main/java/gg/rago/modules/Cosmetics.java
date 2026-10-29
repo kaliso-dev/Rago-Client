@@ -27,11 +27,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Cosmetics on your own player: a hat (Rago cap, Rago beanie, top hat, crown or halo) and wings
- * (angel, butterfly or dragon), each with its colour and size. All of them are Rago's own models:
- * the cap, beanie and wings are textured pixel-art models (textures drawn by tools/cosmetics.py),
- * the others simple shapes. Off by default, and each piece can be set to none. Only this client
- * draws them.
+ * Cosmetics on your own player: a hat, wings and a shield on the right arm, each with its size (and
+ * colour for the hat and wings). The Rago cap and beanie are textured boxes; the voxel hats, wings
+ * and shields are {@link CosmeticModel}s built by tools/models.py (credits in
+ * tools/models/CREDITS.md); the crown and halo are simple shapes. Off by default, and each piece can
+ * be set to none. Only this client draws them.
  */
 public final class Cosmetics extends Module {
 	private static final ResourceLocation TEX_CAP = new ResourceLocation("rago", "textures/cosmetics/cap.png");
@@ -43,16 +43,22 @@ public final class Cosmetics extends Module {
 	private static final CosmeticModel ANGEL = model("angel", "angel");
 	private static final CosmeticModel BUTTERFLY = model("butterfly", "butterfly");
 	private static final CosmeticModel DRAGON = model("dragon", "dragon");
+	private static final String[] SHIELDS = {"none", "rago", "crimson", "gold", "frost", "void"};
+	private static final Map<String, CosmeticModel> SHIELD_MODELS = new HashMap<>();
 
 	static {
-		for (String h : new String[] {"top_hat", "cap_blue", "cap_green", "mushroom_red", "mushroom_green"}) {
+		for (String h : new String[] {"top_hat", "mushroom_red", "mushroom_green"}) {
 			HATS.put(h, model(h, "hats_atlas"));
 		}
 		HATS.put("wizard_hat", model("wizard_hat", "wizard_hat"));
+		HATS.put("cap_red", model("cap_red", "cap_red"));
+		for (int i = 1; i < SHIELDS.length; i++) {
+			SHIELD_MODELS.put(SHIELDS[i], model("shield_" + SHIELDS[i], "shield_" + SHIELDS[i]));
+		}
 	}
 
 	private final ChoiceOption hat = addOption(new ChoiceOption("cosmetic_hat", "none", "none", "rago_cap", "rago_beanie",
-		"top_hat", "wizard_hat", "cap_blue", "cap_green", "mushroom_red", "mushroom_green", "crown", "halo"));
+		"cap_red", "top_hat", "wizard_hat", "mushroom_red", "mushroom_green", "crown", "halo"));
 	private final ColorOption hatColor = addOption(new ColorOption("cosmetic_hat_color", 0xFFFFFFFF));
 	private final ColorOption logoColor = addOption(new ColorOption("cosmetic_logo_color", 0xFFF2392C));
 	private final IntOption hatScale = addOption(new IntOption("cosmetic_hat_scale", 100, 70, 150));
@@ -61,6 +67,8 @@ public final class Cosmetics extends Module {
 	private final IntOption wingsScale = addOption(new IntOption("cosmetic_wings_scale", 100, 50, 160));
 	private final BooleanOption flap = addOption(new BooleanOption("cosmetic_wings_flap", true));
 	private final IntOption flapSpeed = addOption(new IntOption("cosmetic_wings_flap_speed", 100, 25, 300));
+	private final ChoiceOption shield = addOption(new ChoiceOption("cosmetic_shield", "none", SHIELDS));
+	private final IntOption shieldScale = addOption(new IntOption("cosmetic_shield_scale", 100, 50, 150));
 	private boolean installed;
 
 	private static CosmeticModel model(String name, String texture) {
@@ -76,6 +84,7 @@ public final class Cosmetics extends Module {
 		wingsScale.showIf(() -> !wings.is("none"));
 		flap.showIf(() -> !wings.is("none"));
 		flapSpeed.showIf(() -> !wings.is("none") && flap.get());
+		shieldScale.showIf(() -> !shield.is("none"));
 	}
 
 	@Override
@@ -143,6 +152,15 @@ public final class Cosmetics extends Module {
 						extrudedWing(-1, beat);
 						extrudedWing(1, beat);
 					}
+					GlStateManager.popMatrix();
+				}
+				if (!shield.is("none")) {
+					GlStateManager.pushMatrix();
+					if (player.isSneaking()) {
+						GlStateManager.translate(0, 0.2f, 0);
+					}
+					model.bipedRightArm.postRender(0.0625f);
+					drawShield();
 					GlStateManager.popMatrix();
 				}
 			} finally {
@@ -442,6 +460,31 @@ public final class Cosmetics extends Module {
 		GlStateManager.scale(side * span, span, span);
 		GlStateManager.disableBlend();
 		(butterfly ? BUTTERFLY : DRAGON).render("wing", c);
+		GlStateManager.popMatrix();
+		untextured();
+	}
+
+	// ---- shield: right arm space, the arm from x -3 to 1 pixels, the shoulder at y = -2 -----------
+
+	/**
+	 * A Rago shield held in the right hand, on the outside of the arm. Only seen in third person, like
+	 * the rest of the player.
+	 */
+	private void drawShield() {
+		CosmeticModel m = SHIELD_MODELS.get(shield.get());
+		if (m == null) {
+			return;
+		}
+		// the model is one unit tall (48 texture pixels): 12 pixels on the player at 100%
+		float size = 0.75f * shieldScale.get() / 100f;
+		GlStateManager.pushMatrix();
+		// held at the hand, its face turned half forward and half outward so it shows from the front and
+		// the side
+		GlStateManager.translate(-3.2f * PX - size * 1.5f / 48, 7.5f * PX, -1.5f * PX);
+		GlStateManager.rotate(-50, 0, 1, 0);
+		GlStateManager.scale(size, size, size);
+		GlStateManager.disableBlend();
+		m.render("shield", 0xFFFFFFFF);
 		GlStateManager.popMatrix();
 		untextured();
 	}

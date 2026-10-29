@@ -224,6 +224,14 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return found;
 			}));
+		add("net.minecraft.client.entity.AbstractClientPlayer", new Patch("locker skin",
+			"func_110306_p", "getLocationSkin", "()Lnet/minecraft/util/ResourceLocation;",
+			m -> ownPlayerFilter(m, Opcodes.ARETURN, "skin",
+				"(Lnet/minecraft/util/ResourceLocation;Lnet/minecraft/client/entity/AbstractClientPlayer;)Lnet/minecraft/util/ResourceLocation;")));
+		add("net.minecraft.client.entity.AbstractClientPlayer", new Patch("locker skin model",
+			"func_175154_l", "getSkinType", "()Ljava/lang/String;",
+			m -> ownPlayerFilter(m, Opcodes.ARETURN, "skinModel",
+				"(Ljava/lang/String;Lnet/minecraft/client/entity/AbstractClientPlayer;)Ljava/lang/String;")));
 		add("net.minecraft.client.renderer.entity.RenderItem", new Patch("glint colour on items",
 			"func_180451_a", "renderEffect", "(Lnet/minecraft/client/resources/model/IBakedModel;)V",
 			RagoTransformer::itemGlint));
@@ -234,6 +242,21 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.Minecraft", new Patch("borderless fullscreen",
 			"func_71352_k", "toggleFullscreen", "()V",
 			m -> returnIf(m, "toggleFullscreen", "()Z", new int[0], -1, Opcodes.RETURN)));
+	}
+
+	/** Passes each value a player method returns through a hook that also gets the player. */
+	private static boolean ownPlayerFilter(MethodNode m, int returnOp, String hook, String desc) {
+		boolean found = false;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == returnOp) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, hook, desc, false));
+				m.instructions.insertBefore(insn, call);
+				found = true;
+			}
+		}
+		return found;
 	}
 
 	private static void add(String className, Patch patch) {
