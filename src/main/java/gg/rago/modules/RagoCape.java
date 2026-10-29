@@ -1,6 +1,7 @@
 package gg.rago.modules;
 
 import gg.rago.config.BooleanOption;
+import gg.rago.config.ChoiceOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
@@ -9,13 +10,24 @@ import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.util.ResourceLocation;
 
 /**
- * The Rago cape on your own player, on by default. A cape you already own (Minecraft or OptiFine)
+ * The Rago cape on your own player, on by default, in one of six designs. A cape you already own (Minecraft or OptiFine)
  * is kept unless you choose to show Rago's instead. Only this client draws it: Minecraft servers
  * do not send cosmetics, so other players see it only if their client knows you wear it.
  */
 public final class RagoCape extends Module {
 	public static final ResourceLocation TEXTURE = new ResourceLocation("rago", "textures/cape.png");
+	/** The other designs, drawn by tools/capes.py. */
+	private static final String[] DESIGNS = {"rago", "midnight", "flame", "ocean", "royal", "frost"};
+	private static final ResourceLocation[] TEXTURES = new ResourceLocation[DESIGNS.length];
 
+	static {
+		TEXTURES[0] = TEXTURE;
+		for (int i = 1; i < DESIGNS.length; i++) {
+			TEXTURES[i] = new ResourceLocation("rago", "textures/capes/" + DESIGNS[i] + ".png");
+		}
+	}
+
+	private final ChoiceOption design = addOption(new ChoiceOption("cape_design", "rago", DESIGNS));
 	private final BooleanOption overOwnCape = addOption(new BooleanOption("cape_over_own", false));
 
 	public RagoCape() {
@@ -33,6 +45,16 @@ public final class RagoCape extends Module {
 		if (player != mc.thePlayer && !player.getUniqueID().equals(mc.getSession().getProfile().getId())) {
 			return vanilla;
 		}
-		return vanilla == null || overOwnCape.get() ? TEXTURE : vanilla;
+		return vanilla == null || overOwnCape.get() ? texture() : vanilla;
+	}
+
+	private ResourceLocation texture() {
+		String d = design.get();
+		for (int i = 0; i < DESIGNS.length; i++) {
+			if (DESIGNS[i].equals(d)) {
+				return TEXTURES[i];
+			}
+		}
+		return TEXTURE;
 	}
 }

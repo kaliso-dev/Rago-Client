@@ -3,9 +3,11 @@ package gg.rago.modules;
 import gg.rago.config.BooleanOption;
 import gg.rago.config.ChoiceOption;
 import gg.rago.config.ColorOption;
+import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
+import gg.rago.render.CosmeticModel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.model.ModelPlayer;
@@ -16,40 +18,64 @@ import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.entity.RenderPlayer;
 import net.minecraft.client.renderer.entity.layers.LayerRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
- * Cosmetics on your own player: a hat (top hat, crown or halo) and wings (angel or dragon), each
- * with its colour. All of them are Rago's own models, drawn from simple shapes. Off by default,
- * and each piece can be set to none. Only this client draws them.
+ * Cosmetics on your own player: a hat (Rago cap, Rago beanie, top hat, crown or halo) and wings
+ * (angel, butterfly or dragon), each with its colour and size. All of them are Rago's own models:
+ * the cap, beanie and wings are textured pixel-art models (textures drawn by tools/cosmetics.py),
+ * the others simple shapes. Off by default, and each piece can be set to none. Only this client
+ * draws them.
  */
 public final class Cosmetics extends Module {
-	private final ChoiceOption hat = addOption(new ChoiceOption("cosmetic_hat", "none", "none", "top_hat", "crown", "halo"));
+	private static final ResourceLocation TEX_CAP = new ResourceLocation("rago", "textures/cosmetics/cap.png");
+	private static final ResourceLocation TEX_BEANIE = new ResourceLocation("rago", "textures/cosmetics/beanie.png");
+	private static final ResourceLocation TEX_LOGO = new ResourceLocation("rago", "textures/logo.png");
+	private static final float PX = 1 / 16f;
+	/** The voxel hats, by option value. */
+	private static final Map<String, CosmeticModel> HATS = new HashMap<>();
+	private static final CosmeticModel ANGEL = model("angel", "angel");
+	private static final CosmeticModel BUTTERFLY = model("butterfly", "butterfly");
+	private static final CosmeticModel DRAGON = model("dragon", "dragon");
+
+	static {
+		for (String h : new String[] {"top_hat", "cap_blue", "cap_green", "mushroom_red", "mushroom_green"}) {
+			HATS.put(h, model(h, "hats_atlas"));
+		}
+		HATS.put("wizard_hat", model("wizard_hat", "wizard_hat"));
+	}
+
+	private final ChoiceOption hat = addOption(new ChoiceOption("cosmetic_hat", "none", "none", "rago_cap", "rago_beanie",
+		"top_hat", "wizard_hat", "cap_blue", "cap_green", "mushroom_red", "mushroom_green", "crown", "halo"));
 	private final ColorOption hatColor = addOption(new ColorOption("cosmetic_hat_color", 0xFFFFFFFF));
-	private final ChoiceOption wings = addOption(new ChoiceOption("cosmetic_wings", "none", "none", "angel", "dragon"));
+	private final ColorOption logoColor = addOption(new ColorOption("cosmetic_logo_color", 0xFFF2392C));
+	private final IntOption hatScale = addOption(new IntOption("cosmetic_hat_scale", 100, 70, 150));
+	private final ChoiceOption wings = addOption(new ChoiceOption("cosmetic_wings", "none", "none", "angel", "butterfly", "dragon"));
 	private final ColorOption wingsColor = addOption(new ColorOption("cosmetic_wings_color", 0xFFFFFFFF));
+	private final IntOption wingsScale = addOption(new IntOption("cosmetic_wings_scale", 100, 50, 160));
 	private final BooleanOption flap = addOption(new BooleanOption("cosmetic_wings_flap", true));
+	private final IntOption flapSpeed = addOption(new IntOption("cosmetic_wings_flap_speed", 100, 25, 300));
 	private boolean installed;
 
-	/** Wing outlines in wing space: x out from the back, y down; the root is at (0, 0). */
-	private static final float[][] ANGEL = {
-		{0.00f, -0.05f}, {0.20f, -0.22f}, {0.45f, -0.32f}, {0.72f, -0.34f}, {0.95f, -0.22f}, {1.00f, -0.08f},
-		{0.88f, 0.10f}, {0.74f, 0.32f}, {0.58f, 0.52f}, {0.42f, 0.64f}, {0.28f, 0.62f}, {0.16f, 0.44f}, {0.06f, 0.20f}
-	};
-	private static final float[][] DRAGON = {
-		{0.00f, -0.06f}, {0.30f, -0.30f}, {0.62f, -0.40f}, {1.00f, -0.30f}, {0.86f, -0.05f}, {0.92f, 0.30f},
-		{0.70f, 0.18f}, {0.66f, 0.56f}, {0.46f, 0.38f}, {0.36f, 0.70f}, {0.22f, 0.44f}, {0.08f, 0.40f}
-	};
-	/** Bone tips of the dragon wing (indices into DRAGON). */
-	private static final int[] DRAGON_BONES = {3, 5, 7, 9};
+	private static CosmeticModel model(String name, String texture) {
+		return new CosmeticModel(name, new ResourceLocation("rago", "textures/cosmetics/" + texture + ".png"));
+	}
 
 	public Cosmetics() {
 		super("cosmetics", FeatureClass.VISUAL, false);
 		hatColor.showIf(() -> !hat.is("none"));
+		logoColor.showIf(() -> hat.is("rago_cap") || hat.is("rago_beanie"));
+		hatScale.showIf(() -> !hat.is("none"));
 		wingsColor.showIf(() -> !wings.is("none"));
+		wingsScale.showIf(() -> !wings.is("none"));
 		flap.showIf(() -> !wings.is("none"));
+		flapSpeed.showIf(() -> !wings.is("none") && flap.get());
 	}
 
 	@Override
@@ -94,6 +120,13 @@ public final class Cosmetics extends Module {
 						GlStateManager.translate(0, 0.2f, 0);
 					}
 					model.bipedHead.postRender(0.0625f);
+					float hs = hatScale.get() / 100f;
+					if (hs != 1) {
+						// grow from the top of the head, where the hat sits
+						GlStateManager.translate(0, -0.5f, 0);
+						GlStateManager.scale(hs, hs, hs);
+						GlStateManager.translate(0, 0.5f, 0);
+					}
 					drawHat(player.getCurrentArmor(3) != null, ageInTicks);
 					GlStateManager.popMatrix();
 				}
@@ -103,9 +136,13 @@ public final class Cosmetics extends Module {
 						GlStateManager.translate(0, 0.2f, 0);
 					}
 					model.bipedBody.postRender(0.0625f);
-					float beat = flap.get() ? flapAngle(player, ageInTicks) : 0;
-					drawWing(-1, beat);
-					drawWing(1, beat);
+					float beat = flap.get() ? flapAngle(player, ageInTicks * flapSpeed.get() / 100f, wings.is("butterfly")) : 0;
+					if (wings.is("angel")) {
+						angelWings(beat);
+					} else {
+						extrudedWing(-1, beat);
+						extrudedWing(1, beat);
+					}
 					GlStateManager.popMatrix();
 				}
 			} finally {
@@ -122,10 +159,13 @@ public final class Cosmetics extends Module {
 		}
 	}
 
-	private static float flapAngle(AbstractClientPlayer player, float age) {
+	private static float flapAngle(AbstractClientPlayer player, float age, boolean butterfly) {
 		boolean airborne = !player.onGround || player.capabilities.isFlying;
 		float speed = airborne ? 0.45f : 0.12f;
-		float amount = airborne ? 22 : 6;
+		float amount = butterfly ? (airborne ? 40 : 14) : airborne ? 22 : 6;
+		if (butterfly) {
+			speed *= 1.6f;
+		}
 		return (float) Math.sin(age * speed) * amount;
 	}
 
@@ -138,14 +178,14 @@ public final class Cosmetics extends Module {
 
 	private void drawHat(boolean helmet, float age) {
 		float base = helmet ? -0.58f : -0.535f;
+		float lift = helmet ? -0.75f * PX : 0;
 		switch (hat.get()) {
-			case "top_hat": {
-				int c = color(hatColor, 0xFF26262B);
-				box(-0.36f, base - 0.03f, -0.36f, 0.36f, base, 0.36f, c);
-				box(-0.24f, base - 0.42f, -0.24f, 0.24f, base - 0.03f, 0.24f, c);
-				box(-0.245f, base - 0.10f, -0.245f, 0.245f, base - 0.04f, 0.245f, 0xFFC0392B);
+			case "rago_cap":
+				drawCap(lift);
 				break;
-			}
+			case "rago_beanie":
+				drawBeanie(lift);
+				break;
 			case "crown": {
 				int c = color(hatColor, 0xFFF2C14E);
 				float r = 0.27f;
@@ -163,7 +203,7 @@ public final class Cosmetics extends Module {
 				box(-0.04f, base - 0.11f, r - t, 0.04f, base - 0.04f, r + 0.01f, 0xFF3498DB);
 				break;
 			}
-			default: {
+			case "halo": {
 				// halo: a glowing ring floating above the head
 				int c = color(hatColor, 0xFFFFE27A);
 				float y = base - 0.22f + (float) Math.sin(age * 0.08f) * 0.02f;
@@ -172,6 +212,18 @@ public final class Cosmetics extends Module {
 				OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240, 240);
 				ring(0, y, 0, 0.22f, 0.04f, 0.025f, c);
 				OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, lx, ly);
+				break;
+			}
+			default: {
+				CosmeticModel m = HATS.get(hat.get());
+				if (m != null) {
+					GlStateManager.pushMatrix();
+					GlStateManager.translate(0, lift, 0);
+					GlStateManager.disableBlend();
+					m.render("hat", hatColor.get());
+					GlStateManager.popMatrix();
+					untextured();
+				}
 			}
 		}
 	}
@@ -228,67 +280,169 @@ public final class Cosmetics extends Module {
 		t.draw();
 	}
 
-	// ---- wings: body space, the back of the body at z = 0.125 --------------------------------------
+	// ---- textured hats: head space in pixels (1/16 block), y down, the face looking to -z --------
 
-	private void drawWing(int side, float beat) {
-		boolean dragon = wings.is("dragon");
-		int c = color(wingsColor, dragon ? 0xFF3B2A4D : 0xFFF4F4F6);
-		float span = dragon ? 1.05f : 0.95f;
+	private void drawCap(float lift) {
+		int c = color(hatColor, 0xFF232328);
+		textured(TEX_CAP);
 		GlStateManager.pushMatrix();
-		GlStateManager.translate(side * 0.06f, 0.18f, 0.14f);
-		// folded back about 30 degrees, opening with the beat
-		GlStateManager.rotate(side * (-30 + beat), 0, 1, 0);
-		GlStateManager.rotate(side * -12, 0, 0, 1);
-		GlStateManager.scale(side * span, span, span);
-		float[][] shape = dragon ? DRAGON : ANGEL;
+		GlStateManager.translate(0, lift, 0);
+		texBox(-4.5f, -8.75f, -4.5f, 4.5f, -4.75f, 4.5f, 0, 0, 9, 4, 9, 64, 32, c);
+		// the brim, tilted down a little at the front
+		GlStateManager.pushMatrix();
+		GlStateManager.translate(0, -4.9f * PX, -4.5f * PX);
+		GlStateManager.rotate(8, 1, 0, 0);
+		texBox(-4.5f, -0.5f, -5, 4.5f, 0.25f, 0, 0, 14, 9, 1, 5, 64, 32, c);
+		GlStateManager.popMatrix();
+		texBox(-0.5f, -9.25f, -0.5f, 0.5f, -8.75f, 0.5f, 40, 0, 1, 1, 1, 64, 32, c);
+		logo(-1.6f, -8.3f, 3.2f, -4.53f);
+		GlStateManager.popMatrix();
+		untextured();
+	}
+
+	private void drawBeanie(float lift) {
+		int c = color(hatColor, 0xFF232328);
+		textured(TEX_BEANIE);
+		GlStateManager.pushMatrix();
+		GlStateManager.translate(0, lift, 0);
+		texBox(-4.5f, -9.25f, -4.5f, 4.5f, -5.5f, 4.5f, 0, 0, 9, 4, 9, 64, 32, c);
+		texBox(-4.8f, -5.75f, -4.8f, 4.8f, -3.9f, 4.8f, 0, 14, 9, 2, 9, 64, 32, c);
+		int pom = logoColor.get();
+		texBox(-1.5f, -11.6f, -1.5f, 1.5f, -9.1f, 1.5f, 40, 0, 3, 3, 3, 64, 32, pom);
+		logo(-0.9f, -5.65f, 1.8f, -4.83f);
+		GlStateManager.popMatrix();
+		untextured();
+	}
+
+	/** Rago's logo on the front of a hat: a square {@code size} pixels wide at depth {@code z}. */
+	private void logo(float x, float y, float size, float z) {
+		Minecraft.getMinecraft().getTextureManager().bindTexture(TEX_LOGO);
+		int c = logoColor.get();
 		Tessellator t = Tessellator.getInstance();
 		WorldRenderer w = t.getWorldRenderer();
-		w.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_COLOR);
-		int root = shade(c, dragon ? 0.6f : 0.82f);
-		for (int i = 0; i < shape.length; i++) {
-			float[] a = shape[i];
-			float[] b = shape[(i + 1) % shape.length];
-			vertex(w, 0.04f, 0.12f, root);
-			vertex(w, a[0], a[1], shade(c, 0.85f + 0.15f * a[0]));
-			vertex(w, b[0], b[1], shade(c, 0.85f + 0.15f * b[0]));
-		}
+		w.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+		float x0 = x * PX;
+		float x1 = (x + size) * PX;
+		float y0 = y * PX;
+		float y1 = (y + size) * PX;
+		float zz = z * PX;
+		// The face looks toward -z, so the viewer's right is +x.
+		texVertex(w, x1, y0, zz, 1, 0, c, 1);
+		texVertex(w, x0, y0, zz, 0, 0, c, 1);
+		texVertex(w, x0, y1, zz, 0, 1, c, 1);
+		texVertex(w, x1, y1, zz, 1, 1, c, 1);
 		t.draw();
-		// feather rows or bones, slightly darker and just behind the surface
-		GL11.glLineWidth(2f);
-		w.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
-		int line = shade(c, dragon ? 0.45f : 0.7f);
-		if (dragon) {
-			for (int tip : DRAGON_BONES) {
-				line(w, 0, 0, shape[tip][0], shape[tip][1], line);
-			}
-			line(w, 0, 0, shape[2][0], shape[2][1], line);
-			line(w, shape[2][0], shape[2][1], shape[3][0], shape[3][1], line);
-		} else {
-			for (int i = 6; i < shape.length; i++) {
-				line(w, 0.05f, 0.1f, shape[i][0] * 0.98f, shape[i][1] * 0.98f, line);
-			}
-			for (int i = 1; i < 6; i++) {
-				line(w, shape[i][0] * 0.55f, shape[i][1] * 0.55f + 0.1f, shape[i][0] * 0.95f, shape[i][1] * 0.95f + 0.05f, line);
-			}
-		}
+	}
+
+	private static void textured(ResourceLocation tex) {
+		GlStateManager.enableTexture2D();
+		Minecraft.getMinecraft().getTextureManager().bindTexture(tex);
+		GlStateManager.enableAlpha();
+		GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1f);
+		GlStateManager.disableBlend();
+	}
+
+	private static void untextured() {
+		GlStateManager.disableTexture2D();
+	}
+
+	/**
+	 * A box in pixels from (x0, y0, z0) to (x1, y1, z1), textured from the box layout at (u, v) of a
+	 * w x h x d box (see tools/cosmetics.py), tinted and shaded per face.
+	 */
+	private static void texBox(float x0, float y0, float z0, float x1, float y1, float z1, int u, int v, int w, int h, int d,
+		float tw, float th, int argb) {
+		float ax = x0 * PX;
+		float ay = y0 * PX;
+		float az = z0 * PX;
+		float bx = x1 * PX;
+		float by = y1 * PX;
+		float bz = z1 * PX;
+		Tessellator t = Tessellator.getInstance();
+		WorldRenderer wr = t.getWorldRenderer();
+		wr.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+		// top (y0): u+d .. u+d+w across x, v .. v+d from back to front
+		texQuad(wr, argb, 1.0f, u + d, v, w, d, tw, th, ax, ay, bz, bx, ay, bz, bx, ay, az, ax, ay, az);
+		// bottom (y1)
+		texQuad(wr, argb, 0.5f, u + d + w, v, w, d, tw, th, ax, by, az, bx, by, az, bx, by, bz, ax, by, bz);
+		// front (z0)
+		texQuad(wr, argb, 0.82f, u + d, v + d, w, h, tw, th, bx, ay, az, ax, ay, az, ax, by, az, bx, by, az);
+		// back (z1)
+		texQuad(wr, argb, 0.82f, u + 2 * d + w, v + d, w, h, tw, th, ax, ay, bz, bx, ay, bz, bx, by, bz, ax, by, bz);
+		// sides (x0 and x1)
+		texQuad(wr, argb, 0.68f, u, v + d, d, h, tw, th, ax, ay, az, ax, ay, bz, ax, by, bz, ax, by, az);
+		texQuad(wr, argb, 0.68f, u + d + w, v + d, d, h, tw, th, bx, ay, bz, bx, ay, az, bx, by, az, bx, by, bz);
 		t.draw();
-		GL11.glLineWidth(1f);
+	}
+
+	/** One face: corners top-left, top-right, bottom-right, bottom-left of the texture rectangle. */
+	private static void texQuad(WorldRenderer w, int argb, float shade, int u, int v, int du, int dv, float tw, float th,
+		float... p) {
+		float u0 = u / tw;
+		float v0 = v / th;
+		float u1 = (u + du) / tw;
+		float v1 = (v + dv) / th;
+		texVertex(w, p[0], p[1], p[2], u0, v0, argb, shade);
+		texVertex(w, p[3], p[4], p[5], u1, v0, argb, shade);
+		texVertex(w, p[6], p[7], p[8], u1, v1, argb, shade);
+		texVertex(w, p[9], p[10], p[11], u0, v1, argb, shade);
+	}
+
+	private static void texVertex(WorldRenderer w, float x, float y, float z, float u, float v, int argb, float shade) {
+		w.pos(x, y, z).tex(u, v).color(Math.round((argb >> 16 & 0xFF) * shade), Math.round((argb >> 8 & 0xFF) * shade),
+			Math.round((argb & 0xFF) * shade), argb >>> 24).endVertex();
+	}
+
+	// ---- wings: body space, the back of the body at z = 0.125 --------------------------------------
+
+	/**
+	 * The voxel angel wings: both wings in one model, each turning around its root near the spine. The
+	 * model's texture is grey so the chosen colour tints it.
+	 */
+	private void angelWings(float beat) {
+		int c = wingsColor.get();
+		float span = wingsScale.get() / 100f;
+		GlStateManager.disableBlend();
+		GlStateManager.pushMatrix();
+		// a little higher than the source model, so the wings start at the shoulder blades
+		GlStateManager.translate(0, -0.08f, 0);
+		for (int side = -1; side <= 1; side += 2) {
+			String group = side > 0 ? "left" : "right";
+			float[] p = ANGEL.pivot(group);
+			GlStateManager.pushMatrix();
+			GlStateManager.translate(p[0], p[1], p[2]);
+			// beating sweeps the tips back and forth
+			GlStateManager.rotate(-side * beat, 0, 1, 0);
+			GlStateManager.scale(span, span, span);
+			GlStateManager.translate(-p[0], -p[1], -p[2]);
+			ANGEL.render(group, c);
+			GlStateManager.popMatrix();
+		}
 		GlStateManager.popMatrix();
+		untextured();
 	}
 
-	/** Wing space to model space: x along the span, y down, a slight sweep back. */
-	private static void vertex(WorldRenderer w, float x, float y, int argb) {
-		w.pos(x, y, x * 0.25f).color(argb >> 16 & 0xFF, argb >> 8 & 0xFF, argb & 0xFF, argb >>> 24).endVertex();
-	}
-
-	private static void line(WorldRenderer w, float x0, float y0, float x1, float y1, int argb) {
-		w.pos(x0, y0, x0 * 0.25f + 0.002f).color(argb >> 16 & 0xFF, argb >> 8 & 0xFF, argb & 0xFF, 255).endVertex();
-		w.pos(x1, y1, x1 * 0.25f + 0.002f).color(argb >> 16 & 0xFF, argb >> 8 & 0xFF, argb & 0xFF, 255).endVertex();
-	}
-
-	private static int shade(int argb, float f) {
-		f = Math.min(1, f);
-		return argb & 0xFF000000 | Math.round((argb >> 16 & 0xFF) * f) << 16 | Math.round((argb >> 8 & 0xFF) * f) << 8
-			| Math.round((argb & 0xFF) * f);
+	/**
+	 * One butterfly or dragon wing: Rago's pixel-art wing extruded into voxels, its root on the back.
+	 * The other side is the same model mirrored.
+	 */
+	private void extrudedWing(int side, float beat) {
+		boolean butterfly = wings.is("butterfly");
+		int c = color(wingsColor, butterfly ? 0xFF4FA3FF : 0xFF5A3E78);
+		float span = (butterfly ? 0.9f : 1.15f) * wingsScale.get() / 100f;
+		GlStateManager.pushMatrix();
+		GlStateManager.translate(side * 0.05f, butterfly ? 0.3f : 0.16f, 0.16f);
+		if (butterfly) {
+			// butterflies open and close around the spine
+			GlStateManager.rotate(side * (-20 + beat), 0, 1, 0);
+		} else {
+			GlStateManager.rotate(side * (-30 + beat), 0, 1, 0);
+			GlStateManager.rotate(side * -12, 0, 0, 1);
+		}
+		GlStateManager.scale(side * span, span, span);
+		GlStateManager.disableBlend();
+		(butterfly ? BUTTERFLY : DRAGON).render("wing", c);
+		GlStateManager.popMatrix();
+		untextured();
 	}
 }

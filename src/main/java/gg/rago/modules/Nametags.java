@@ -46,6 +46,10 @@ public final class Nametags extends Module implements Styled {
 	private final LabelBatch batch = new LabelBatch();
 	private final BooleanOption showOwn = addOption(new BooleanOption("show_own", false));
 	private final BooleanOption throughWalls = addOption(new BooleanOption("through_walls", true));
+	/** How visible a name is through walls, in percent of its normal look; 50 is vanilla's faint text. */
+	private final IntOption wallOpacity = addOption(new IntOption("wall_opacity", 50, 0, 100));
+	/** Names show up to this many blocks away, as vanilla's 64 (32 when sneaking). */
+	private final IntOption maxDistance = addOption(new IntOption("nametag_distance", 64, 8, 64));
 	private final IntOption scale = addOption(new IntOption("nametag_scale", 100, 50, 200));
 	private final ChoiceOption style;
 	private final ChoiceOption font;
@@ -61,6 +65,7 @@ public final class Nametags extends Module implements Styled {
 
 	public Nametags() {
 		super("nametags", FeatureClass.VISUAL, false);
+		wallOpacity.showIf(throughWalls::get);
 		section("style");
 		style = addOption(new ChoiceOption("style", "vanilla", STYLES).onSelect(this::applyStyle));
 		font = addOption(new ChoiceOption("font", HudText.MINECRAFT, HudText.FONTS));
@@ -175,6 +180,10 @@ public final class Nametags extends Module implements Styled {
 		if (!NameTags.visible(p)) {
 			return; // vanilla would not draw it either
 		}
+		if (p.getDistanceSqToEntity(mc.getRenderViewEntity()) > maxDistance.get() * (double) maxDistance.get()) {
+			event.setCanceled(true); // nearer than vanilla's limit: neither Rago nor vanilla draws it
+			return;
+		}
 		event.setCanceled(true);
 		drawName(p, event.x, event.y, event.z);
 		// cancelling skips the Post event; send it so labels above the name (Level Head) still show
@@ -219,21 +228,24 @@ public final class Nametags extends Module implements Styled {
 		float half = w / 2f;
 		// keep the bottom of the text where vanilla's is, so a bigger tag grows upwards, away from the head
 		batch.begin(x, anchorY, z, s, (drop + 8) * WorldDraw.LABEL_SCALE / s - 8 - pad);
-		int back = seeThrough ? LabelBatch.SEE_THROUGH : LabelBatch.DEPTH;
+		// as vanilla: the tag is drawn normally where the player can be seen, and only a faint copy
+		// (background, border and text at wall_opacity) shows through walls, whatever the colours
+		float wall = seeThrough ? wallOpacity.get() / 100f : 0;
 		float bx = -half - 1 - pad;
 		float by = -1 - pad;
 		float bw = w + 2 + pad * 2;
 		float bh = 9 + pad * 2;
 		if (background.get()) {
-			batch.round(back, bx, by, bw, bh, radius.get(), backgroundColor.get());
+			layered(bx, by, bw, bh, wall, backgroundColor.get(), false);
 		}
 		if (border.get()) {
-			batch.outline(back, bx, by, bw, bh, radius.get(), 0.75f, borderColor.get());
+			layered(bx, by, bw, bh, wall, borderColor.get(), true);
 		}
 		int a = Math.min(alpha, color >>> 24);
 		boolean ok = true;
-		if (seeThrough) {
-			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, shown, -half, 0, 0x20000000 | color & 0xFFFFFF, false);
+		int faint = Math.round(0x40 * wall * a / 255f);
+		if (faint > 0) {
+			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, shown, -half, 0, faint << 24 | color & 0xFFFFFF, false);
 		}
 		if (ok) {
 			ok = batch.text(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, ttf, em, WORLD_SHARPNESS, shown, -half, 0,
@@ -242,6 +254,31 @@ public final class Nametags extends Module implements Styled {
 		if (!ok) {
 			// characters outside the Minecraft font's ASCII page (or the Unicode font): vanilla draws it
 			WorldDraw.label(shown, x, anchorY - (drop + 8) * WorldDraw.LABEL_SCALE + (8 + pad) * s, z, false);
+		}
+	}
+
+	/**
+	 * A background or border: a faint copy at {@code wall} of its opacity that ignores depth, and the
+	 * depth-tested part with the rest, so where the player is visible the two add up to the set colour.
+	 */
+	private void layered(float x, float y, float w, float h, float wall, int argb, boolean outline) {
+		float a = (argb >>> 24) / 255f;
+		float faint = a * wall;
+		float rest = faint >= 1 ? 0 : (a - faint) / (1 - faint);
+		int rgb = argb & 0xFFFFFF;
+		if (faint > 0.004f) {
+			shape(LabelBatch.SEE_THROUGH, x, y, w, h, Math.round(faint * 255) << 24 | rgb, outline);
+		}
+		if (rest > 0.004f) {
+			shape(LabelBatch.DEPTH, x, y, w, h, Math.round(rest * 255) << 24 | rgb, outline);
+		}
+	}
+
+	private void shape(int layer, float x, float y, float w, float h, int argb, boolean outline) {
+		if (outline) {
+			batch.outline(layer, x, y, w, h, radius.get(), 0.75f, argb);
+		} else {
+			batch.round(layer, x, y, w, h, radius.get(), argb);
 		}
 	}
 

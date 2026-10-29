@@ -14,7 +14,7 @@ import net.minecraft.util.MovingObjectPosition;
  * 1.7 animations and held-item tweaks: the sword swings while you block-hit, the arm swings while
  * eating or drawing a bow, armour turns red with the player when hit, the arm swings when you click
  * while using an item, no lower-and-raise animation when the held item only changes (durability),
- * swing speed, the held item's position and size, and a camera that lowers smoothly when you sneak. All of it only changes how your own client
+ * swing speed, the held item's position (its size is in Item Scale), and a camera that lowers smoothly when you sneak. All of it only changes how your own client
  * draws things; nothing here is sent to the server.
  */
 public final class OldAnimations extends Module {
@@ -29,7 +29,6 @@ public final class OldAnimations extends Module {
 	private final IntOption itemX;
 	private final IntOption itemY;
 	private final IntOption itemZ;
-	private final IntOption itemScale;
 	private float eyeHeight = Float.NaN;
 	private long lastEyeNs;
 
@@ -40,7 +39,6 @@ public final class OldAnimations extends Module {
 		itemX = addOption(new IntOption("item_x", 0, -50, 50));
 		itemY = addOption(new IntOption("item_y", 0, -50, 50));
 		itemZ = addOption(new IntOption("item_z", 0, -50, 50));
-		itemScale = addOption(new IntOption("item_scale", 100, 50, 150));
 		section(null);
 	}
 
@@ -84,13 +82,6 @@ public final class OldAnimations extends Module {
 	public void applyItemOffset() {
 		if (itemX.get() != 0 || itemY.get() != 0 || itemZ.get() != 0) {
 			GlStateManager.translate(itemX.get() / 100f, itemY.get() / 100f, itemZ.get() / 100f);
-		}
-	}
-
-	public void applyItemScale() {
-		if (itemScale.get() != 100) {
-			float f = itemScale.get() / 100f;
-			GlStateManager.scale(f, f, f);
 		}
 	}
 

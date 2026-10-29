@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.2.0.** What it contains:
+**Current version: 1.3.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -97,6 +97,32 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     of right click before the server has finished the bite, so golden apples are cancelled on servers
   - the HUD works out each element's text once per frame instead of several times, and no longer
     filters the module list every frame
+- new in 1.3:
+  - Cosmetics redone in 3D: voxel hats (top hat, wizard hat, blue and green caps, red and green
+    mushrooms) and voxel angel wings imported under CC BY 4.0 (credits in `tools/models/CREDITS.md`),
+    Rago's own cap and beanie with the logo, butterfly and dragon wings extruded into voxels; each
+    model is compiled once into a display list, so thousands of voxels are one draw call. Hat and
+    wings size, logo colour, flapping speed
+  - the Rago cape in six HD designs: Rago, Midnight, Flame, Ocean, Royal, Frost
+  - name tags follow vanilla through walls: only a faint copy shows behind blocks (opacity
+    configurable), and a maximum distance
+  - the 1.2 Particles mod is merged into Particle Multiplier, which can now also hide block-breaking
+    and block-mining particles
+  - Item Scale (held and dropped items from 25% to 400%), Item Physics (dropped items lie on the
+    ground and tumble while falling)
+  - TNT Timer above lit TNT (format, colour by time, size, through walls, distance, fuse length for
+    servers that change it)
+  - Item Counter HUD (golden apples, pearls, fireballs, TNT, arrows, bridge eggs, snowballs, potions;
+    each on or off, orange when low) and Bed Wars Generator Timers HUD (diamond and emerald, tier,
+    read from the generators' floating text and counted down out of range)
+  - Fast Shop buys like Meowtils: a click sends the purchase without picking the item up on the
+    cursor
+  - resource packs screen: each card shows the pack's end stone, wool, wood, obsidian, dirt and glass
+    as small 3D blocks next to its items
+  - Toggle Sprint: an option to hide its text; Speed HUD in km/h and with 0 to 3 decimals; Reach HUD
+    decimals and how long it stays; Combo HUD end delay and minimum
+  - TNT Timer, Item Counter, Generator Timers and Bed Wars Resources gather what they show once per
+    tick instead of every frame
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -155,7 +181,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.2.0+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.3.0+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the
@@ -262,4 +288,4 @@ spends per frame on occlusion culling, the HUD, name tags and its tick, and the 
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE). The bundled In-Game Account Switcher is LGPL-3.0 (see
-`libs/ias/`), the bundled PolyPatcher is CC BY-NC-SA 4.0 (see `libs/patcher/`), the Poppins font is under the SIL Open Font License (see `Poppins-OFL.txt` next to it).
+`libs/ias/`), the bundled PolyPatcher is CC BY-NC-SA 4.0 (see `libs/patcher/`), the Poppins font is under the SIL Open Font License (see `Poppins-OFL.txt` next to it). The voxel hats (by VoxelBear) and angel wings (by playswolrdgames, a port of the Wings mod by pau101) are under CC BY 4.0, see `tools/models/CREDITS.md`.

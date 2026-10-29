@@ -8,27 +8,27 @@ import gg.rago.modules.HitColor;
 import gg.rago.modules.HitDelayFix;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.OldAnimations;
-import gg.rago.modules.Particles;
+import gg.rago.modules.HitParticles;
+import gg.rago.modules.ItemPhysics;
+import gg.rago.modules.ItemScale;
 import gg.rago.modules.RagoCape;
 import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
 import gg.rago.optimize.EngineTweaks;
 import gg.rago.optimize.OcclusionCuller;
-import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.particle.EffectRenderer;
-import net.minecraft.client.particle.EntityFX;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.network.NetworkPlayerInfo;
+import net.minecraft.client.resources.model.IBakedModel;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.BlockPos;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3;
@@ -47,7 +47,9 @@ public final class Hooks {
 	public static volatile OldAnimations animations;
 	public static volatile TabPing tabPing;
 	public static volatile TabList tabList;
-	public static volatile Particles particles;
+	public static volatile HitParticles hitParticles;
+	public static volatile ItemScale itemScale;
+	public static volatile ItemPhysics itemPhysics;
 	public static volatile HitDelayFix hitDelay;
 	public static volatile FastShop fastShop;
 	public static volatile Chat chat;
@@ -103,10 +105,26 @@ public final class Hooks {
 
 	/** ItemRenderer.transformFirstPersonItem, last thing: scales the held item. */
 	public static void heldItemScale() {
-		OldAnimations a = animations;
-		if (a != null && a.isEnabled()) {
-			a.applyItemScale();
+		ItemScale s = itemScale;
+		if (s != null && s.isEnabled()) {
+			s.applyHeld();
 		}
+	}
+
+	/**
+	 * RenderEntityItem's transform of a dropped item, last thing: item physics replaces the transform,
+	 * then the item is scaled. Returns the number of copies to draw, unchanged.
+	 */
+	public static int droppedItem(int copies, EntityItem item, double x, double y, double z, float partialTicks, IBakedModel model) {
+		ItemPhysics p = itemPhysics;
+		if (p != null && p.isEnabled()) {
+			p.apply(item, x, y, z, partialTicks, model);
+		}
+		ItemScale s = itemScale;
+		if (s != null && s.isEnabled()) {
+			s.applyDropped();
+		}
+		return copies;
 	}
 
 	/** ItemRenderer.updateEquippedItem: whether a changed held item plays the lower-and-raise animation. */
@@ -220,18 +238,16 @@ public final class Hooks {
 		return h != null && h.isEnabled() ? h.missDelay(vanilla) : vanilla;
 	}
 
-	/** EffectRenderer.addEffect: true to drop the particle (the Particles mod can also restyle it). */
-	public static boolean dropParticle(EntityFX fx) {
-		Particles p = particles;
-		return p != null && p.isEnabled() && fx != null && !p.onAdded(fx);
+	/** EffectRenderer.addBlockDestroyEffects: true to skip the particles of a broken block. */
+	public static boolean hideBlockBreak() {
+		HitParticles h = hitParticles;
+		return h != null && h.isEnabled() && h.hideBlockBreak();
 	}
 
-	/** EffectRenderer.addBlockDestroyEffects, at the end. */
-	public static void blockBroken(EffectRenderer renderer, BlockPos pos, IBlockState state) {
-		Particles p = particles;
-		if (p != null && p.isEnabled()) {
-			p.afterBlockBroken(renderer, pos, state);
-		}
+	/** EffectRenderer.addBlockHitEffects: true to skip the particles of a block being mined. */
+	public static boolean hideBlockHit() {
+		HitParticles h = hitParticles;
+		return h != null && h.isEnabled() && h.hideBlockHit();
 	}
 
 	/** GuiPlayerTabOverlay.renderPlayerlist, first thing. */

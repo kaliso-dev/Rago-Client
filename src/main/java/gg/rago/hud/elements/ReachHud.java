@@ -1,5 +1,6 @@
 package gg.rago.hud.elements;
 
+import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
@@ -14,7 +15,8 @@ import java.util.Locale;
 
 /** The distance of your last hit, from your eyes to where your crosshair met the target. */
 public final class ReachHud extends TextHudElement {
-	private static final long SHOW_NS = 3_000_000_000L;
+	private final IntOption decimals = addOption(new IntOption("decimals", 2, 1, 3));
+	private final IntOption showFor = addOption(new IntOption("show_seconds", 3, 1, 15));
 	private double reach;
 	private long time;
 
@@ -42,7 +44,7 @@ public final class ReachHud extends TextHudElement {
 
 	@Override
 	public boolean hasContent() {
-		return time != 0 && System.nanoTime() - time < SHOW_NS;
+		return time != 0 && System.nanoTime() - time < showFor.get() * 1_000_000_000L;
 	}
 
 	@Override
@@ -52,6 +54,6 @@ public final class ReachHud extends TextHudElement {
 
 	@Override
 	protected String value(boolean placeholder) {
-		return String.format(Locale.ROOT, "%.2f", placeholder && !hasContent() ? 2.94 : reach);
+		return String.format(Locale.ROOT, "%." + decimals.get() + "f", placeholder && !hasContent() ? 2.94 : reach);
 	}
 }

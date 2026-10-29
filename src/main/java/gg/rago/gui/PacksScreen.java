@@ -41,14 +41,16 @@ import java.util.Map;
 public final class PacksScreen extends GuiScreen {
 	private static final Logger LOG = LogManager.getLogger("Rago");
 	private static final float SIDE_W = 168;
-	private static final float CARD_H = 86;
+	private static final float CARD_H = 108;
 	private static final float GAP = 10;
 	/** Textures shown on a card when the pack changes them, in this order; the first five found are used. */
 	private static final String[] PREVIEW = {
-		"items/diamond_sword", "items/ender_pearl", "items/apple_golden", "blocks/wool_colored_white",
-		"items/bow_standby", "items/iron_sword", "blocks/end_stone", "blocks/planks_oak", "items/diamond_chestplate",
-		"blocks/obsidian", "items/stone_sword", "items/fireball", "blocks/glass", "items/potion_bottle_splash"};
-	private static final int PREVIEW_COUNT = 5;
+		"items/diamond_sword", "items/iron_sword", "items/ender_pearl", "items/apple_golden", "items/bow_standby",
+		"items/fireball", "items/stone_sword", "items/diamond_chestplate", "items/potion_bottle_splash",
+		"items/fishing_rod_uncast", "items/snowball", "items/egg"};
+	private static final int PREVIEW_COUNT = 6;
+	/** Blocks shown as little cubes on every card: the ones Bed Wars and PvP players see most. */
+	private static final String[] BLOCKS = {"wool_colored_white", "end_stone", "planks_oak", "obsidian", "dirt", "glass"};
 	/** Opening the vanilla screen from here must not open this one again. */
 	private static boolean showVanilla;
 
@@ -77,6 +79,9 @@ public final class PacksScreen extends GuiScreen {
 		ResourceLocation icon;
 		final List<ResourceLocation> previews = new ArrayList<>();
 		final List<float[]> previewUv = new ArrayList<>();
+		/** One per entry of BLOCKS: the pack's texture, or the default one when the pack keeps it. */
+		final List<ResourceLocation> blocks = new ArrayList<>();
+		final List<float[]> blockUv = new ArrayList<>();
 	}
 
 	public PacksScreen(GuiScreen parent) {
@@ -327,21 +332,27 @@ public final class PacksScreen extends GuiScreen {
 		Ui.text(Ui.SEMIBOLD, ellipsize(Ui.SEMIBOLD, plain(name.replaceAll("(?i)\\.zip$", "")), 11, textW), tx, y + 9, 11, Theme.TEXT);
 		String desc = plain(e.getTexturePackDescription());
 		List<String> lines = Ui.wrap(Ui.REGULAR, desc, 8.5f, textW);
-		for (int i = 0; i < Math.min(2, lines.size()); i++) {
+		boolean incompatible = e.func_183027_f() != 1;
+		int maxLines = incompatible ? 1 : 2;
+		for (int i = 0; i < Math.min(maxLines, lines.size()); i++) {
 			String line = lines.get(i);
-			if (i == 1 && lines.size() > 2) {
+			if (i == maxLines - 1 && lines.size() > maxLines) {
 				line = ellipsize(Ui.REGULAR, line + "…", 8.5f, textW);
 			}
 			Ui.text(Ui.REGULAR, line, tx, y + 26 + i * 11, 8.5f, Theme.MUTED);
 		}
-		if (e.func_183027_f() != 1) {
-			Ui.text(Ui.MEDIUM, t("rago.packs.incompatible", e.func_183027_f()), tx, y + 26 + 2 * 11, 8, 0xFFE0A030);
+		if (incompatible) {
+			Ui.text(Ui.MEDIUM, ellipsize(Ui.MEDIUM, t("rago.packs.incompatible", e.func_183027_f()), 8, textW), tx, y + 37, 8, 0xFFE0A030);
 		}
 
-		// textures the pack changes
-		float px = tx;
-		float py = y + CARD_H - 26;
+		// the key blocks as little cubes, then the items the pack changes
 		if (v != null) {
+			float bx0 = tx;
+			for (int i = 0; i < v.blocks.size(); i++) {
+				cube(v.blocks.get(i), v.blockUv.get(i), bx0 + i * 22, y + 52, 20);
+			}
+			float px = tx;
+			float py = y + CARD_H - 26;
 			for (int i = 0; i < v.previews.size(); i++) {
 				float[] uv = v.previewUv.get(i);
 				Ui.round(px, py, 18, 18, 4, 0xFF0B0A0D);
@@ -350,38 +361,48 @@ public final class PacksScreen extends GuiScreen {
 			}
 		}
 
-		// buttons on the right: on/off, priority up and down, folder
+		// on the right: on/off, then folder and priority up and down in a column
 		Widgets.pill("packpill:" + name, right - Widgets.PILL_W, y + 10, on);
 		float bx = right - 22;
-		float bY = y + CARD_H - 30;
 		String f = folders.folderOf(name);
-		smallButton(bx, bY, f != null ? "folder" : "folder-plus", f != null);
+		float fy = y + 36;
+		smallButton(bx, fy, f != null ? "folder" : "folder-plus", f != null);
 		if (!noClicks) {
-			Ui.click(bx, bY, 22, 22, () -> {
+			Ui.click(bx, fy, 22, 22, () -> {
 				folderMenu = name;
 				menuX = bx;
-				menuY = bY + 24;
+				menuY = fy + 24;
 			});
 		}
 		if (on) {
-			smallButton(bx - 26, bY, "chevron-down", false);
-			smallButton(bx - 52, bY, "chevron-up", false);
+			smallButton(bx, y + 60, "chevron-up", false);
+			smallButton(bx, y + 84, "chevron-down", false);
 			if (!noClicks) {
-				Ui.click(bx - 26, bY, 22, 22, () -> move(e, 1));
-				Ui.click(bx - 52, bY, 22, 22, () -> move(e, -1));
+				Ui.click(bx, y + 60, 22, 22, () -> move(e, -1));
+				Ui.click(bx, y + 84, 22, 22, () -> move(e, 1));
 			}
 		}
 		if (f != null) {
-			float fw = Math.min(90, Ui.textWidth(Ui.MEDIUM, f, 8) + 10);
-			float fx = bx - (on ? 56 : 4) - fw;
-			if (fx > px + 4) {
-				Ui.round(fx, bY + 4, fw, 14, 7, 0x14FFFFFF);
-				Ui.text(Ui.MEDIUM, ellipsize(Ui.MEDIUM, f, 8, fw - 10), fx + 5, bY + 4 + (14 - 8 * 1.21f) / 2, 8, Theme.MUTED);
-			}
+			// the folder's name under the pack icon
+			float fw = Math.min(50, Ui.textWidth(Ui.MEDIUM, f, 8) + 10);
+			Ui.round(x + 10, y + 84, fw, 14, 7, 0x14FFFFFF);
+			Ui.text(Ui.MEDIUM, ellipsize(Ui.MEDIUM, f, 8, fw - 10), x + 15, y + 84 + (14 - 8 * 1.21f) / 2, 8, Theme.MUTED);
 		}
 		if (!noClicks) {
 			Ui.click(right - Widgets.PILL_W, y + 10, Widgets.PILL_W, Widgets.PILL_H, () -> toggle(e));
 		}
+	}
+
+	/** A block drawn as an isometric cube {@code s} wide: top lit, left and right sides shaded. */
+	private static void cube(ResourceLocation tex, float[] uv, float x, float y, float s) {
+		float cx = x + s / 2;
+		float h = s / 2;
+		float q = s / 4;
+		float u = uv[0];
+		float v = uv[1];
+		Ui.textureQuad(tex, cx - h, y + q, cx, y, cx + h, y + q, cx, y + h, 0, 0, u, v, 0xFFFFFFFF);
+		Ui.textureQuad(tex, cx - h, y + q, cx, y + h, cx, y + s, cx - h, y + 3 * q, 0, 0, u, v, 0xFFC8C8C8);
+		Ui.textureQuad(tex, cx, y + h, cx + h, y + q, cx + h, y + 3 * q, cx, y + s, 0, 0, u, v, 0xFF999999);
 	}
 
 	private static void smallButton(float x, float y, String icon, boolean lit) {
@@ -516,6 +537,18 @@ public final class PacksScreen extends GuiScreen {
 		} catch (Exception ex) {
 			LOG.debug("No icon for {}", e.getResourcePackName(), ex);
 		}
+		IResourcePack fallback = repo.rprDefaultResourcePack;
+		for (String block : BLOCKS) {
+			ResourceLocation loc = new ResourceLocation("textures/blocks/" + block + ".png");
+			BufferedImage img = read(pack, loc);
+			if (img == null) {
+				img = read(fallback, loc);
+			}
+			if (img != null) {
+				v.blocks.add(mc.getTextureManager().getDynamicTextureLocation(key + "_b" + v.blocks.size(), new DynamicTexture(img)));
+				v.blockUv.add(new float[] {1, Math.min(1f, img.getWidth() / (float) img.getHeight())});
+			}
+		}
 		for (String path : PREVIEW) {
 			if (v.previews.size() >= PREVIEW_COUNT) {
 				break;
@@ -542,12 +575,30 @@ public final class PacksScreen extends GuiScreen {
 		return v;
 	}
 
+	private static BufferedImage read(IResourcePack pack, ResourceLocation loc) {
+		try {
+			if (pack == null || !pack.resourceExists(loc)) {
+				return null;
+			}
+			try (InputStream in = pack.getInputStream(loc)) {
+				BufferedImage img = ImageIO.read(in);
+				return img == null || img.getWidth() == 0 ? null : img;
+			}
+		} catch (Exception e) {
+			LOG.debug("Could not read {}", loc, e);
+			return null;
+		}
+	}
+
 	private void freeVisuals() {
 		for (Visual v : visuals.values()) {
 			if (v.icon != null) {
 				mc.getTextureManager().deleteTexture(v.icon);
 			}
 			for (ResourceLocation r : v.previews) {
+				mc.getTextureManager().deleteTexture(r);
+			}
+			for (ResourceLocation r : v.blocks) {
 				mc.getTextureManager().deleteTexture(r);
 			}
 		}

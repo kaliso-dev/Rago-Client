@@ -579,6 +579,25 @@ public final class Ui {
 		t.draw();
 	}
 
+	/**
+	 * Any four-cornered piece of a texture (an isometric block face, say): corners clockwise from
+	 * the one that gets (u0, v0), with (u1, v0), (u1, v1) and (u0, v1) after it.
+	 */
+	public static void textureQuad(ResourceLocation tex, float x0, float y0, float x1, float y1, float x2, float y2,
+		float x3, float y3, float u0, float v0, float u1, float v1, int argb) {
+		Minecraft.getMinecraft().getTextureManager().bindTexture(tex);
+		GlStateManager.enableTexture2D();
+		blend();
+		Tessellator t = Tessellator.getInstance();
+		WorldRenderer b = t.getWorldRenderer();
+		b.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+		color(b.pos(px(x0), px(y0), 0).tex(u0, v0), argb).endVertex();
+		color(b.pos(px(x1), px(y1), 0).tex(u1, v0), argb).endVertex();
+		color(b.pos(px(x2), px(y2), 0).tex(u1, v1), argb).endVertex();
+		color(b.pos(px(x3), px(y3), 0).tex(u0, v1), argb).endVertex();
+		t.draw();
+	}
+
 	private static void linear() {
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);

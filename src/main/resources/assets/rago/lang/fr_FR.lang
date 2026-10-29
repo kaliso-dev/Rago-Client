@@ -67,7 +67,7 @@ rago.option.crosshair_color=Couleur
 rago.option.crosshair_outline=Contour noir
 rago.option.toggle_sprint=Sprint automatique
 rago.option.toggle_sneak=Accroupi automatique
-rago.option.show_status=Afficher l'état
+rago.option.show_status=Afficher le texte à l'écran
 
 rago.status.sprinting=[Sprint (activé)]
 rago.status.sneaking=[Accroupi (activé)]
@@ -581,8 +581,8 @@ rago.accounts.remove_body=Il sera retiré de ce PC. Tu pourras le rajouter plus 
 rago.accounts.remove=Supprimer
 
 # 1.1
-rago.module.hit_particles=Particules
-rago.module.hit_particles.desc=Plus de particules de critique et de tranchant quand tu frappes, ou à chaque coup.
+rago.module.hit_particles=Multiplicateur de particules
+rago.module.hit_particles.desc=Plus de particules de critique et de tranchant quand tu frappes, ou à chaque coup ; et si tu veux, plus de particules quand un bloc est cassé ou miné.
 rago.option.always_crit=Particules de critique à chaque coup
 rago.module.motion_blur=Motion Blur
 rago.module.motion_blur.desc=Mélange chaque image avec les précédentes, comme le motion blur de Lunar. Le HUD reste net.
@@ -597,7 +597,7 @@ rago.option.blur_sensitivity.format=%d%%
 rago.option.blur_frame_independent=Même rendu à tous les FPS
 rago.option.blur_pause_zoom=Désactivé pendant le zoom
 rago.module.rago_cape=Cape Rago
-rago.module.rago_cape.desc=La cape Rago Optimizer sur ton joueur. Pour l'instant, toi seul la vois.
+rago.module.rago_cape.desc=La cape Rago Optimizer sur ton joueur, en six designs HD : Rago, Minuit, Flammes, Océan, Royal et Givre. Toi seul la vois pour l'instant.
 rago.option.cape_over_own=Remplacer ma cape Minecraft
 rago.module.glint_color=Couleur d'enchantement
 rago.module.glint_color.desc=La couleur de l'effet brillant des objets et armures enchantés.
@@ -628,31 +628,6 @@ rago.option.tab_header=En-tête du serveur
 rago.option.tab_footer=Pied du serveur
 rago.option.tab_scale=Taille
 rago.option.tab_scale.format=%d%%
-
-# 1.2: particles
-rago.module.particles=Particules
-rago.module.particles.desc=Cache, agrandit, colore ou multiplie les particules des blocs, des coups et les autres.
-rago.modsection.particles_blocks=Particules des blocs
-rago.modsection.particles_crit=Coups critiques
-rago.modsection.particles_sharpness=Tranchant
-rago.modsection.particles_other=Autres particules
-rago.option.particles_show=Afficher
-rago.option.particles_crit_show=Afficher
-rago.option.particles_sharpness_show=Afficher
-rago.option.particles_other_show=Afficher
-rago.option.particles_size=Taille
-rago.option.particles_crit_size=Taille
-rago.option.particles_sharpness_size=Taille
-rago.option.particles_other_size=Taille
-rago.option.particles_size.format=%d%%
-rago.option.particles_crit_size.format=%d%%
-rago.option.particles_sharpness_size.format=%d%%
-rago.option.particles_other_size.format=%d%%
-rago.option.particles_break_multiplier=Particules de casse
-rago.option.particles_break_multiplier.format=×%d
-rago.option.particles_color=Couleur
-rago.option.particles_crit_color=Couleur
-rago.option.particles_sharpness_color=Couleur
 
 # 1.2: colour grading
 rago.module.color_grading=Saturation et couleurs
@@ -695,7 +670,7 @@ rago.option.eating_fix.help=Quand le serveur renvoie l'objet en main pendant que
 
 # 1.2: fast shop
 rago.module.fast_shop=Fast Shop
-rago.module.fast_shop.desc=Shop Bed Wars sur Hypixel : clics envoyés en clic molette pour acheter plus vite avec du ping, objets abordables surlignés, pas d'épée en double.
+rago.module.fast_shop.desc=Shop Bed Wars sur Hypixel : un clic achète l'objet sans l'attraper, tu peux recliquer tout de suite, même avec du ping. Objets abordables surlignés, pas d'épée en double.
 rago.option.shop_fast_clicks=Clics rapides
 rago.option.shop_highlight=Surligner ce que tu peux acheter
 rago.option.shop_highlight_opacity=Opacité du surlignage
@@ -704,7 +679,7 @@ rago.option.shop_no_duplicates=Pas d'épée ni de stick knockback en double
 
 # 1.2: cosmetics
 rago.module.cosmetics=Cosmétiques
-rago.module.cosmetics.desc=Un chapeau (haut-de-forme, couronne ou auréole) et des ailes (ange ou dragon) sur ton joueur, chacun avec sa couleur. Toi seul les vois.
+rago.module.cosmetics.desc=Un chapeau (casquette Rago, bonnet Rago, haut-de-forme, chapeau de sorcier, casquettes, champignons, couronne ou auréole) et des ailes 3D en voxels (ange, papillon ou dragon) sur ton joueur, chacun avec sa couleur et sa taille. Toi seul les vois.
 rago.option.cosmetic_hat=Chapeau
 rago.option.cosmetic_hat.none=Aucun
 rago.option.cosmetic_hat.top_hat=Haut-de-forme
@@ -738,3 +713,104 @@ rago.packs.incompatible=Fait pour une autre version (format %s)
 
 # 1.2: mods en conflit
 rago.conflict.nohitdelay=Le mod séparé "Rago NoHitDelay" est dans ton dossier mods. Son NoUseDelay lâche le clic droit avant que le serveur ait fini ta bouchée : la gapple est annulée et recommence. Enlève ce jar, Rago a Hit Delay Fix intégré (Mods > Hit Delay Fix).
+
+# 1.3 : name tags
+rago.option.wall_opacity=À travers les murs
+rago.option.wall_opacity.format=%d%%
+rago.option.nametag_distance=Distance max
+rago.option.nametag_distance.format=%d blocs
+
+# 1.3 : multiplicateur de particules
+rago.option.hide_block_break=Pas de particules quand un bloc casse
+rago.option.hide_block_hit=Pas de particules en minant
+
+# 1.3 : taille des objets, timer de TNT
+rago.module.item_scale=Taille des objets
+rago.module.item_scale.desc=L'objet dans ta main et les objets au sol, de petits à énormes.
+rago.option.held_item_scale=Objet en main
+rago.option.held_item_scale.format=%d%%
+rago.option.dropped_item_scale=Objets au sol
+rago.option.dropped_item_scale.format=%d%%
+rago.module.tnt_timer=Timer de TNT
+rago.module.tnt_timer.desc=Les secondes avant l'explosion au-dessus de la TNT allumée, du vert au rouge.
+rago.option.tnt_format=Format
+rago.option.tnt_format.tenths=3,4
+rago.option.tnt_format.seconds=4
+rago.option.tnt_color_by_time=Couleur selon le temps restant
+rago.option.tnt_color=Couleur
+rago.option.tnt_scale=Taille
+rago.option.tnt_scale.format=%d%%
+rago.option.tnt_distance=Distance max
+rago.option.tnt_distance.format=%d blocs
+rago.option.tnt_through_walls=À travers les murs
+rago.option.tnt_fuse=Durée de la mèche
+rago.option.tnt_fuse.format=%d ticks
+rago.option.tnt_fuse.help=Le temps avant que la TNT allumée explose sur ton serveur. Le serveur ne l'envoie pas : 80 ticks (4 s) en vanilla.
+
+# 1.3 : cosmétiques
+rago.option.cosmetic_hat.rago_cap=Casquette Rago
+rago.option.cosmetic_hat.rago_beanie=Bonnet Rago
+rago.option.cosmetic_logo_color=Couleur du logo
+rago.option.cosmetic_hat_scale=Taille du chapeau
+rago.option.cosmetic_hat_scale.format=%d%%
+rago.option.cosmetic_wings.butterfly=Papillon
+rago.option.cosmetic_wings_scale=Taille des ailes
+rago.option.cosmetic_wings_scale.format=%d%%
+rago.option.cosmetic_wings_flap_speed=Vitesse des battements
+rago.option.cosmetic_wings_flap_speed.format=%d%%
+rago.option.cosmetic_hat.wizard_hat=Chapeau de sorcier
+rago.option.cosmetic_hat.cap_blue=Casquette bleue
+rago.option.cosmetic_hat.cap_green=Casquette verte
+rago.option.cosmetic_hat.mushroom_red=Champignon rouge
+rago.option.cosmetic_hat.mushroom_green=Champignon vert
+rago.option.cosmetic_hat.help=Le haut-de-forme, le chapeau de sorcier, les casquettes et les champignons sont des modèles voxel de VoxelBear sur Sketchfab (CC BY 4.0).
+rago.option.cosmetic_wings.help=Les ailes d'ange sont un modèle voxel de playswolrdgames sur Sketchfab (CC BY 4.0), repris du mod Wings de pau101 (MIT). Les ailes de papillon et de dragon sont celles de Rago.
+
+# 1.3: item counter, generator timers, item physics
+rago.module.item_counter=Compteur d'items
+rago.module.item_counter.desc=Tes items de combat d'un coup d'œil : pommes dorées, ender pearls, fireballs, TNT, flèches, bridge eggs, boules de neige et potions, chacun activable, en orange quand il en reste peu.
+rago.section.items=Items
+rago.option.count_gapples=Pommes dorées
+rago.option.count_pearls=Ender pearls
+rago.option.count_fireballs=Fireballs
+rago.option.count_tnt=TNT
+rago.option.count_arrows=Flèches
+rago.option.count_eggs=Bridge eggs
+rago.option.count_snowballs=Boules de neige
+rago.option.count_potions=Potions
+rago.option.low_items=Alerte à
+rago.option.low_items.help=Un nombre égal ou inférieur passe en orange ; à zéro, il passe en rouge.
+rago.module.gen_timers=Timers des générateurs
+rago.module.gen_timers.desc=Générateurs de diamants et d'émeraudes en Bed Wars : le temps avant le prochain spawn et leur niveau, lus sur le texte au-dessus des générateurs et décomptés quand ils sont hors de portée.
+rago.option.gen_diamonds=Diamants
+rago.option.gen_emeralds=Émeraudes
+rago.option.gen_tier=Afficher le niveau
+rago.option.gen_format=Format du temps
+rago.option.gen_format.seconds=23s
+rago.option.gen_format.clock=0:23
+rago.option.gen_soon=Surligner sous
+rago.option.gen_soon.format=%ds
+rago.option.gen_soon_color=Couleur du surlignage
+rago.module.item_physics=Item Physics
+rago.module.item_physics.desc=Les items au sol sont posés par terre au lieu de flotter et tourner : les items plats sont à plat, les blocs posés au sol, et ils tournoient en tombant.
+rago.option.physics_tumble=Tournoyer en tombant
+rago.option.physics_tumble_speed=Vitesse de rotation
+rago.option.physics_tumble_speed.format=%d%%
+
+# 1.3: capes and more options
+rago.option.cape_design=Design
+rago.option.cape_design.rago=Rago
+rago.option.cape_design.midnight=Minuit
+rago.option.cape_design.flame=Flammes
+rago.option.cape_design.ocean=Océan
+rago.option.cape_design.royal=Royal
+rago.option.cape_design.frost=Givre
+rago.option.speed_unit=Unité
+rago.option.speed_unit.bps=Blocs par seconde
+rago.option.speed_unit.kmh=km/h
+rago.option.show_seconds=Afficher pendant
+rago.option.show_seconds.format=%ds
+rago.option.combo_expire=Fin du combo après
+rago.option.combo_expire.format=%ds
+rago.option.combo_minimum=Afficher à partir de
+rago.option.combo_minimum.format=%d coups
