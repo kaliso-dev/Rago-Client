@@ -713,8 +713,6 @@ rago.packs.incompatible=Fait pour une autre version (format %s)
 rago.conflict.nohitdelay=Le mod séparé "Rago NoHitDelay" est dans ton dossier mods. Son NoUseDelay lâche le clic droit avant que le serveur ait fini ta bouchée : la gapple est annulée et recommence. Enlève ce jar, Rago a Hit Delay Fix intégré (Mods > Hit Delay Fix).
 
 # 1.3 : name tags
-rago.option.wall_opacity=À travers les murs
-rago.option.wall_opacity.format=%d%%
 rago.option.nametag_distance=Distance max
 rago.option.nametag_distance.format=%d blocs
 
@@ -824,9 +822,6 @@ rago.option.cosmetic_shield.void=Néant
 rago.option.cosmetic_shield.help=Un bouclier Rago Optimizer dans ta main gauche, visible à la troisième personne (F5).
 rago.option.cosmetic_shield_scale=Taille du bouclier
 rago.option.cosmetic_shield_scale.format=%d%%
-rago.option.cosmetic_shield_angle=Angle du bouclier
-rago.option.cosmetic_shield_angle.format=%d°
-rago.option.cosmetic_shield_angle.help=0° : face vers l'avant à côté du bras. 90° : collé à plat contre l'extérieur du bras.
 rago.dock.locker=Casier
 rago.module.skin_changer=Skin Changer
 rago.module.skin_changer.desc=Met sur ton joueur le skin choisi dans le casier (bouton t-shirt de l'écran d'accueil). Ajoute des skins par pseudo ; mets-en un sur ton compte Minecraft depuis le casier pour que tout le monde le voie.

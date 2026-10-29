@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.3.** What it contains:
+**Current version: 1.4.4.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -104,8 +104,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     model is compiled once into a display list, so thousands of voxels are one draw call. Hat and
     wings size, logo colour, flapping speed
   - the Rago cape in six HD designs: Rago, Midnight, Flame, Ocean, Royal, Frost
-  - name tags follow vanilla through walls: only a faint copy shows behind blocks (opacity
-    configurable), and a maximum distance
+  - name tags follow vanilla through walls: only vanilla's faint copy shows behind blocks, and a
+    maximum distance; the name's custom colour can be any colour but stays fully opaque
   - the 1.2 Particles mod is merged into Particle Multiplier, which can now also hide block-breaking
     and block-mining particles
   - Item Scale (held and dropped items from 25% to 400%), Item Physics (dropped items lie on the
@@ -146,8 +146,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     Shop reads prices in English, French, German, Spanish, Italian, Portuguese, Dutch and Polish
   - Hit Particles: the multiplier goes by tenths (x1.0 to x5.0) and adds single particles, not
     whole extra bursts
-  - the shield is hinged on the outside of the left forearm, bigger, with an angle setting (0°
-    facing forward, 90° flat against the arm); the wings start higher on the back
+  - the shield lies flat against the outside of the left forearm, face outward, and is bigger;
+    the wings start higher on the back
   - dragon wings with scales and bones, and smaller dragon wings like Lunar Client's
   - Emotes: eight dances and gestures on a wheel (B): floss, dab, wave, disco, zombie, helicopter,
     clap, macarena; the camera turns to face you, and only you see them
@@ -239,7 +239,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.3+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.4.4+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the

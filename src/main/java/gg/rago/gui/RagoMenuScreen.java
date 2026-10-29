@@ -840,7 +840,11 @@ public final class RagoMenuScreen extends GuiScreen {
 				d.apply();
 			});
 		}
-		// opacity
+		// opacity (none for colours that stay opaque)
+		if (co.isOpaque()) {
+			colorPreview(argb, x, y, w);
+			return;
+		}
 		Ui.text(Ui.REGULAR, t("rago.color.opacity"), bx, y + 40, 9, Theme.MUTED);
 		Ui.textRight(Ui.MONO, Math.round(alpha / 2.55f) + "%", bx + bw, y + 40, 9, 0xFFD4D4D8);
 		float ay = y + 54;
@@ -857,7 +861,10 @@ public final class RagoMenuScreen extends GuiScreen {
 				d.apply();
 			});
 		}
-		// preview
+		colorPreview(argb, x, y, w);
+	}
+
+	private void colorPreview(int argb, float x, float y, float w) {
 		float px = x + w - 52;
 		for (int i = 0; i < 4; i++) {
 			for (int j = 0; j < 4; j++) {

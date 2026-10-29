@@ -713,8 +713,6 @@ rago.packs.incompatible=Made for another version (format %s)
 rago.conflict.nohitdelay=The separate "Rago NoHitDelay" mod is in your mods folder. Its NoUseDelay lets go of right click before the server has finished your bite, so golden apples get cancelled and start over. Remove that jar: Rago has Hit Delay Fix built in (Mods > Hit Delay Fix).
 
 # 1.3: name tags
-rago.option.wall_opacity=Through walls
-rago.option.wall_opacity.format=%d%%
 rago.option.nametag_distance=Max distance
 rago.option.nametag_distance.format=%d blocks
 
@@ -824,9 +822,6 @@ rago.option.cosmetic_shield.void=Void
 rago.option.cosmetic_shield.help=A Rago Optimizer shield in your left hand, seen in third person (F5).
 rago.option.cosmetic_shield_scale=Shield size
 rago.option.cosmetic_shield_scale.format=%d%%
-rago.option.cosmetic_shield_angle=Shield angle
-rago.option.cosmetic_shield_angle.format=%d°
-rago.option.cosmetic_shield_angle.help=0°: facing forward beside the arm. 90°: flat against the outside of the arm.
 rago.dock.locker=Locker
 rago.module.skin_changer=Skin Changer
 rago.module.skin_changer.desc=Wears the skin picked in the locker (shirt button on the home screen) on your player. Add skins by player name; set one on your Minecraft account from the locker so that everyone sees it.

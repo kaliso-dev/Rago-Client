@@ -46,8 +46,11 @@ public final class Nametags extends Module implements Styled {
 	private final LabelBatch batch = new LabelBatch();
 	private final BooleanOption showOwn = addOption(new BooleanOption("show_own", false));
 	private final BooleanOption throughWalls = addOption(new BooleanOption("through_walls", true));
-	/** How visible a name is through walls, in percent of its normal look; 50 is vanilla's faint text. */
-	private final IntOption wallOpacity = addOption(new IntOption("wall_opacity", 50, 0, 100));
+	/**
+	 * How visible a name is through walls, as a share of its normal look: vanilla's faint text, and
+	 * not a setting, since a brighter name behind walls would show where players hide.
+	 */
+	private static final float WALL_OPACITY = 0.5f;
 	/** Names show up to this many blocks away, as vanilla's 64 (32 when sneaking). */
 	private final IntOption maxDistance = addOption(new IntOption("nametag_distance", 64, 8, 64));
 	private final IntOption scale = addOption(new IntOption("nametag_scale", 100, 50, 200));
@@ -65,14 +68,14 @@ public final class Nametags extends Module implements Styled {
 
 	public Nametags() {
 		super("nametags", FeatureClass.VISUAL, false);
-		wallOpacity.showIf(throughWalls::get);
 		section("style");
 		style = addOption(new ChoiceOption("style", "vanilla", STYLES).onSelect(this::applyStyle));
 		font = addOption(new ChoiceOption("font", HudText.MINECRAFT, HudText.FONTS));
 		shadow = addOption(new BooleanOption("shadow", false));
 		section("text");
 		colorMode = addOption(new ChoiceOption("name_color_mode", "server", "server", "custom"));
-		nameColor = addOption(new ColorOption("name_color", 0xFFFFFFFF));
+		// any colour, but as opaque as vanilla's text
+		nameColor = addOption(new ColorOption("name_color", 0xFFFFFFFF).opaque());
 		nameColor.showIf(() -> colorMode.is("custom"));
 		section("background");
 		background = addOption(new BooleanOption("background", true));
@@ -229,8 +232,8 @@ public final class Nametags extends Module implements Styled {
 		// keep the bottom of the text where vanilla's is, so a bigger tag grows upwards, away from the head
 		batch.begin(x, anchorY, z, s, (drop + 8) * WorldDraw.LABEL_SCALE / s - 8 - pad);
 		// as vanilla: the tag is drawn normally where the player can be seen, and only a faint copy
-		// (background, border and text at wall_opacity) shows through walls, whatever the colours
-		float wall = seeThrough ? wallOpacity.get() / 100f : 0;
+		// (background, border and text at vanilla's faintness) shows through walls, whatever the colours
+		float wall = seeThrough ? WALL_OPACITY : 0;
 		float bx = -half - 1 - pad;
 		float by = -1 - pad;
 		float bw = w + 2 + pad * 2;

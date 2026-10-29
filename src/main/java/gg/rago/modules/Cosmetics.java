@@ -71,7 +71,6 @@ public final class Cosmetics extends Module {
 	private final ChoiceOption shield = addOption(new ChoiceOption("cosmetic_shield", "none", SHIELDS));
 	private final IntOption shieldScale = addOption(new IntOption("cosmetic_shield_scale", 100, 50, 150));
 	/** 0: facing forward beside the arm; 90: flat against the outside of the arm. */
-	private final IntOption shieldAngle = addOption(new IntOption("cosmetic_shield_angle", 60, 0, 90));
 	private boolean installed;
 
 	private static CosmeticModel model(String name, String texture) {
@@ -88,7 +87,6 @@ public final class Cosmetics extends Module {
 		flap.showIf(() -> !wings.is("none"));
 		flapSpeed.showIf(() -> !wings.is("none") && flap.get());
 		shieldScale.showIf(() -> !shield.is("none"));
-		shieldAngle.showIf(() -> !shield.is("none"));
 	}
 
 	@Override
@@ -475,13 +473,9 @@ public final class Cosmetics extends Module {
 	// ---- shield: left arm space, the arm from x -1 to 3 pixels, the shoulder at y = -2 -----------
 
 	/**
-	 * A Rago shield held in the left hand, as Badlion shows one: upright beside the forearm,
-	 * its face forward and turned a little outward. Only seen in third person, like the rest of the
-	 * player.
+	 * A Rago shield on the left arm, as Badlion shows one: flat against the outer side of the
+	 * forearm, its face outward. Only seen in third person, like the rest of the player.
 	 */
-	/** The direction a positive shield angle turns it in, so its face turns outward. */
-	private static final int SHIELD_TURN = 1;
-
 	private void drawShield() {
 		CosmeticModel m = SHIELD_MODELS.get(shield.get());
 		if (m == null) {
@@ -489,14 +483,10 @@ public final class Cosmetics extends Module {
 		}
 		// the model is one unit tall (48 texture pixels, 40 wide): 16 pixels on the player at 100%
 		float size = shieldScale.get() / 100f;
-		float width = 16 * size * 40 / 48;
-		float angle = shieldAngle.get();
 		GlStateManager.pushMatrix();
-		// hinged on the outer side of the forearm (x = 3), turned from facing forward (0) to lying
-		// flat against the arm (90); its inner edge stays on the arm
+		// against the outer side of the forearm (x = 3), turned a quarter so the face looks outward
 		GlStateManager.translate(3.5f * PX, 7 * PX, 0);
-		GlStateManager.rotate(SHIELD_TURN * angle, 0, 1, 0);
-		GlStateManager.translate(width / 2 * (1 - angle / 90f) * PX, 0, 0);
+		GlStateManager.rotate(-90, 0, 1, 0);
 		GlStateManager.scale(size, size, size);
 		GlStateManager.disableBlend();
 		m.render("shield", 0xFFFFFFFF);
