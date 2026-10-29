@@ -676,7 +676,7 @@ rago.option.shop_no_duplicates=Pas d'épée ni de stick knockback en double
 
 # 1.2: cosmetics
 rago.module.cosmetics=Cosmétiques
-rago.module.cosmetics.desc=Un chapeau (casquette Rago, bonnet Rago, haut-de-forme, chapeau de sorcier, casquette rouge, champignons, couronne ou auréole), des ailes 3D en voxels (ange, papillon ou dragon) et un bouclier Rago dans la main gauche (cinq styles) sur ton joueur, chacun avec sa couleur et sa taille. Toi seul les vois.
+rago.module.cosmetics.desc=Un chapeau (casquette Rago, bonnet Rago, haut-de-forme, chapeau de sorcier, casquette rouge, champignons, couronne ou auréole), des ailes 3D en voxels (ange, papillon, dragon ou petit dragon) et un bouclier Rago dans la main gauche (cinq styles) sur ton joueur, chacun avec sa couleur et sa taille. Toi seul les vois.
 rago.option.cosmetic_hat=Chapeau
 rago.option.cosmetic_hat.none=Aucun
 rago.option.cosmetic_hat.top_hat=Haut-de-forme
@@ -687,6 +687,7 @@ rago.option.cosmetic_wings=Ailes
 rago.option.cosmetic_wings.none=Aucune
 rago.option.cosmetic_wings.angel=Ange
 rago.option.cosmetic_wings.dragon=Dragon
+rago.option.cosmetic_wings.dragon_small=Petit dragon
 rago.option.cosmetic_wings_color=Couleur des ailes
 rago.option.cosmetic_wings_flap=Battement
 
@@ -823,6 +824,9 @@ rago.option.cosmetic_shield.void=Néant
 rago.option.cosmetic_shield.help=Un bouclier Rago Optimizer dans ta main gauche, visible à la troisième personne (F5).
 rago.option.cosmetic_shield_scale=Taille du bouclier
 rago.option.cosmetic_shield_scale.format=%d%%
+rago.option.cosmetic_shield_angle=Angle du bouclier
+rago.option.cosmetic_shield_angle.format=%d°
+rago.option.cosmetic_shield_angle.help=0° : face vers l'avant à côté du bras. 90° : collé à plat contre l'extérieur du bras.
 rago.dock.locker=Casier
 rago.module.skin_changer=Skin Changer
 rago.module.skin_changer.desc=Met sur ton joueur le skin choisi dans le casier (bouton t-shirt de l'écran d'accueil). Ajoute des skins par pseudo ; mets-en un sur ton compte Minecraft depuis le casier pour que tout le monde le voie.
@@ -1005,10 +1009,10 @@ rago.option.stats_tab_legend=Légende en haut du tab
 rago.option.stats_strong_fkdr=Fort à partir de ce FKDR
 rago.option.stats_strong_star=Fort à partir de cette étoile
 rago.option.stats_strong_star.format=%s✫
-rago.stats.legend_star=§e[✫] §7étoile Bed Wars
-rago.stats.legend_fkdr=§a1.2 §7FKDR = finals ÷ morts finales
-rago.stats.legend_danger=§7[§c5§7] danger sur 5
-rago.stats.legend_mark=§4§l⚠§r §7fort (FKDR %s+ ou %s✫+) ou nick
+rago.stats.legend_star=§e[✫] §7= étoile Bed Wars
+rago.stats.legend_fkdr=§7FKDR = finals ÷ morts finales (§aplus haut§7 = plus fort)
+rago.stats.legend_danger=§7Danger = niveau de danger Rago sur 5
+rago.stats.legend_mark=§4§l⚠§r §7= joueur fort (FKDR %s+ ou %s✫+) ou nick
 rago.stats.nick=nick
 rago.team.unknown=Sans équipe
 rago.team.0=Noir
@@ -1029,3 +1033,41 @@ rago.team.e=Jaune
 rago.team.f=Blanc
 rago.option.particle_amount=Multiplicateur
 rago.option.particle_amount.format=x%s
+rago.stats.danger_short=Danger
+
+# 1.4: emotes
+key.rago.emotes=Roue des emotes
+rago.module.emotes=Emotes
+rago.module.emotes.desc=Des danses et des gestes pour ton joueur, choisis sur une roue (B). La caméra se tourne vers toi ; bouger, attaquer ou appuyer encore sur B arrête. Toi seul les vois : rien n'est envoyé au serveur.
+rago.option.emote_camera=Tourner la caméra vers toi
+rago.option.emote_speed=Vitesse de la danse
+rago.option.emote_speed.format=%d%%
+rago.emotes.title=Emotes
+rago.emotes.hint=Clique sur une danse. Bouge, attaque ou appuie sur B pour arrêter.
+rago.emote.floss=Floss
+rago.emote.dab=Dab
+rago.emote.wave=Coucou
+rago.emote.disco=Disco
+rago.emote.zombie=Zombie
+rago.emote.helicopter=Hélico
+rago.emote.clap=Bravo
+rago.emote.macarena=Macarena
+
+# 1.4: HUD cache
+rago.setting.hud_cache=Cache du HUD
+rago.setting.hud_cache.help=Quand le jeu tourne vite, le HUD Rago est dessiné un nombre fixe de fois par seconde et réutilisé entre-temps, au lieu d'être redessiné à chaque image.
+rago.setting.hud_cache_rate=Mises à jour du HUD par seconde
+rago.setting.hud_cache_rate.help=À quelle fréquence le HUD en cache est redessiné. Quand le jeu tourne moins vite que ça, le HUD est dessiné à chaque image comme avant.
+rago.menu.click_to_type=Clique pour écrire
+
+# 1.4: message hotkeys
+rago.module.auto_text=Messages sur touche
+rago.module.auto_text.desc=Des touches qui écrivent un de tes messages dans le chat à ta place. Choisis les touches dans Contrôles (section Rago) ; chaque appui envoie le message une fois, au plus une fois toutes les deux secondes.
+rago.option.auto_text_1=Message 1
+key.rago.auto_text_1=Message sur touche 1
+rago.option.auto_text_2=Message 2
+key.rago.auto_text_2=Message sur touche 2
+rago.option.auto_text_3=Message 3
+key.rago.auto_text_3=Message sur touche 3
+rago.option.auto_text_4=Message 4
+key.rago.auto_text_4=Message sur touche 4

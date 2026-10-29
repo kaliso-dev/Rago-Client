@@ -5,6 +5,7 @@ import gg.rago.config.ChoiceOption;
 import gg.rago.config.ColorOption;
 import gg.rago.config.IntOption;
 import gg.rago.config.Option;
+import gg.rago.config.StringOption;
 import gg.rago.core.Category;
 import gg.rago.core.Module;
 import gg.rago.core.RagoClient;
@@ -80,6 +81,8 @@ public final class RagoMenuScreen extends GuiScreen {
 	private String keyText = "";
 	private boolean keyEditing;
 	private boolean keyWrong;
+	/** The text option being typed into, or null. */
+	private StringOption editingText;
 	private KeyBinding binding;
 	private SliderDrag dragging;
 	private String tooltip;
@@ -743,6 +746,8 @@ public final class RagoMenuScreen extends GuiScreen {
 			String value = has(key) ? t(key) : has(format) ? t(format, io.formatValue()) : io.display();
 			sliderControl("opt:" + io.key() + System.identityHashCode(io), right - 46 - 170, y, 170, f, value, right, inside,
 				v -> io.set(io.min() + Math.round(v * (io.max() - io.min()))));
+		} else if (option instanceof StringOption) {
+			textControl((StringOption) option, x + w * 0.42f, y, right, inside);
 		} else if (option instanceof ChoiceOption) {
 			choiceControl((ChoiceOption) option, x + w * 0.42f, y, right, inside);
 		} else if (option instanceof ColorOption) {
@@ -865,6 +870,21 @@ public final class RagoMenuScreen extends GuiScreen {
 	}
 
 	/** Segmented buttons when the choices fit, otherwise arrows around the current choice. */
+	/** A line of text: click it to type, Enter or a click elsewhere to finish. */
+	private void textControl(StringOption so, float left, float y, float right, boolean inside) {
+		boolean editing = so == editingText;
+		float fw = right - left;
+		Ui.glassBorder(left, y + 4, fw, 22, 6, 0xFF0E0D10, editing ? 0x66F2392C : 0x1FFFFFFF);
+		String value = so.get();
+		boolean caret = editing && (System.currentTimeMillis() / 500) % 2 == 0;
+		String shown = value.isEmpty() && !editing ? t("rago.menu.click_to_type") : value + (caret ? "_" : "");
+		Ui.text(Ui.REGULAR, fit(Ui.REGULAR, shown, 9.5f, fw - 14), left + 7, y + 4 + (22 - 9.5f * 1.21f) / 2, 9.5f,
+			value.isEmpty() && !editing ? 0xFF7C7A82 : Theme.TEXT);
+		if (inside) {
+			Ui.click(left, y + 4, fw, 22, () -> editingText = so);
+		}
+	}
+
 	private void choiceControl(ChoiceOption co, float left, float y, float right, boolean inside) {
 		List<String> ids = co.ids();
 		float total = 0;
@@ -1287,6 +1307,7 @@ public final class RagoMenuScreen extends GuiScreen {
 			return;
 		}
 		String wasRenaming = renaming;
+		editingText = null;
 		if (Ui.dispatchClick()) {
 			mc.getSoundHandler().playSound(PositionedSoundRecord.create(new ResourceLocation("gui.button.press"), 1.0F));
 		}
@@ -1318,6 +1339,19 @@ public final class RagoMenuScreen extends GuiScreen {
 	protected void keyTyped(char typedChar, int keyCode) throws IOException {
 		if (binding != null) {
 			setKey(keyCode == Keyboard.KEY_ESCAPE ? 0 : keyCode);
+			return;
+		}
+		if (editingText != null) {
+			String v = editingText.get();
+			if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER || keyCode == Keyboard.KEY_ESCAPE) {
+				editingText = null;
+			} else if (keyCode == Keyboard.KEY_BACK) {
+				editingText.set(isCtrlKeyDown() || v.isEmpty() ? "" : v.substring(0, v.length() - 1));
+			} else if (isKeyComboCtrlV(keyCode)) {
+				editingText.set(v + getClipboardString());
+			} else if (ChatAllowedCharacters.isAllowedCharacter(typedChar)) {
+				editingText.set(v + typedChar);
+			}
 			return;
 		}
 		if (keyEditing && module != null && ModuleInfo.usesHypixelKey(module)) {

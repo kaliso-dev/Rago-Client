@@ -99,6 +99,8 @@ public final class Optimizations {
 	private final BooleanOption fastWorldSwitch;
 	private final BooleanOption unstackedItems;
 	private final BooleanOption skipGlErrors;
+	private final BooleanOption hudCache;
+	private final IntOption hudCacheRate;
 	private final EngineTweaks engine;
 	private final BooleanOption disableFog;
 
@@ -166,7 +168,20 @@ public final class Optimizations {
 		fastWorldSwitch = s.bool(p, ENGINE, "fast_world_switch", true, null);
 		unstackedItems = s.bool(p, ENGINE, "unstacked_items", false, null);
 		skipGlErrors = s.bool(p, ENGINE, "skip_gl_errors", true, v -> applyGlErrorChecking());
+		hudCache = s.bool(p, ENGINE, "hud_cache", true, null);
+		hudCacheRate = s.slider(p, ENGINE, "hud_cache_rate", 144, 30, 360, 6, v -> v + " FPS", null);
+		visibleWhen(s, "hud_cache_rate", hudCache::get);
 		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get);
+	}
+
+	/** Whether Rago's HUD is drawn into an image a fixed number of times per second. */
+	public boolean hudCache() {
+		return hudCache.get();
+	}
+
+	/** How many times per second the cached HUD is drawn again. */
+	public int hudCacheRate() {
+		return hudCacheRate.get();
 	}
 
 	/** Settings read by the game hooks. */

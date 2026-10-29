@@ -24,6 +24,11 @@ public final class Hypixel {
 		return host.equals("hypixel.net") || host.endsWith(".hypixel.net");
 	}
 
+	/** Hypixel's NPCs and the bots it adds to games have version 2 UUIDs: never players. */
+	public static boolean npc(UUID id) {
+		return id == null || id.version() == 2;
+	}
+
 	/** Real accounts have version 4 UUIDs; Hypixel's NPCs and nicked players do not. */
 	public static boolean realPlayer(UUID id) {
 		return id != null && id.version() == 4;

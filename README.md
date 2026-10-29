@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.1.** What it contains:
+**Current version: 1.4.2.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -146,7 +146,18 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     Shop reads prices in English, French, German, Spanish, Italian, Portuguese, Dutch and Polish
   - Hit Particles: the multiplier goes by tenths (x1.0 to x5.0) and adds single particles, not
     whole extra bursts
-  - the shield sits beside the left forearm, bigger; the wings start higher on the back
+  - the shield is hinged on the outside of the left forearm, bigger, with an angle setting (0°
+    facing forward, 90° flat against the arm); the wings start higher on the back
+  - dragon wings with scales and bones, and smaller dragon wings like Lunar Client's
+  - Emotes: eight dances and gestures on a wheel (B): floss, dab, wave, disco, zombie, helicopter,
+    clap, macarena; the camera turns to face you, and only you see them
+  - Message Hotkeys (input class, off by default): up to four keys that each type one of your
+    messages in the chat, at most once every two seconds
+  - HUD cache: at high frame rates Rago's HUD is drawn 144 times per second (a setting) into an
+    image reused in between, drawn over black and white so translucent backgrounds stay exact
+  - Bed Wars Stats: each number in the tab list is named ("FKDR 1.3", "Danger 2/5"), and Hypixel's
+    NPCs, bots without a team and spectators are no longer taken for nicks
+  - Hit Particles from x0.1 to x3.0, applied to every critical and sharpness burst
   - Bed Wars Quests: your daily and weekly Bed Wars quests and what is left of each (final kills,
     beds, wins, games), from the Hypixel API, counted on live during the game from the chat
   - the Hypixel API key can be pasted on the page of each Hypixel mod (Level Head, Bed Wars Stats,
@@ -224,7 +235,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.1+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.4.2+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the

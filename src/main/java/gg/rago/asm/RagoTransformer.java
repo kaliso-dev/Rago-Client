@@ -188,6 +188,27 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.particle.EffectRenderer", new Patch("no block mining particles",
 			"func_180532_a", "addBlockHitEffects", "(Lnet/minecraft/util/BlockPos;Lnet/minecraft/util/EnumFacing;)V",
 			m -> returnIf(m, "hideBlockHit", "()Z", new int[0], -1, Opcodes.RETURN)));
+		add("net.minecraft.client.model.ModelBiped", new Patch("emotes",
+			"func_78087_a", "setRotationAngles", "(FFFFFFLnet/minecraft/entity/Entity;)V",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn.getOpcode() == Opcodes.RETURN) {
+						InsnList call = new InsnList();
+						call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+						call.add(new VarInsnNode(Opcodes.ALOAD, 7));
+						call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "emotePose",
+							"(Lnet/minecraft/client/model/ModelBiped;Lnet/minecraft/entity/Entity;)V", false));
+						m.instructions.insertBefore(insn, call);
+						found = true;
+					}
+				}
+				return found;
+			}));
+		add("net.minecraft.client.particle.EffectRenderer", new Patch("hit particle amount",
+			"func_178926_a", "emitParticleAtEntity", "(Lnet/minecraft/entity/Entity;Lnet/minecraft/util/EnumParticleTypes;)V",
+			m -> returnIf(m, "emitParticles", "(Lnet/minecraft/entity/Entity;Lnet/minecraft/util/EnumParticleTypes;)Z",
+				new int[] {Opcodes.ALOAD, 1, Opcodes.ALOAD, 2}, -1, Opcodes.RETURN)));
 		add("net.minecraft.client.gui.GuiNewChat", new Patch("longer chat history",
 			"func_146237_a", "setChatLine", "(Lnet/minecraft/util/IChatComponent;IIZ)V",
 			RagoTransformer::chatLimit));

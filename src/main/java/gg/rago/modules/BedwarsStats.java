@@ -22,6 +22,7 @@ import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldSettings;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
@@ -142,13 +143,14 @@ public final class BedwarsStats extends Module {
 			return;
 		}
 		tab.clear();
+		boolean playing = BedwarsGame.playing();
 		for (NetworkPlayerInfo info : net.getPlayerInfoMap()) {
 			UUID id = info.getGameProfile().getId();
 			if (id == null) {
 				continue;
 			}
 			// asking for every player in the lobby has their stats ready by the time the game starts
-			String[] parts = parts(id);
+			String[] parts = parts(info, playing);
 			if (parts != null) {
 				tab.put(id, parts);
 			}
@@ -159,7 +161,12 @@ public final class BedwarsStats extends Module {
 	}
 
 	/** The text before and after a player's name, or null to leave it as it is. */
-	private String[] parts(UUID id) {
+	private String[] parts(NetworkPlayerInfo info, boolean playing) {
+		UUID id = info.getGameProfile().getId();
+		// NPCs and Hypixel's bots are no players; in a game, every player is in a team
+		if (Hypixel.npc(id) || playing && !inTeam(info)) {
+			return null;
+		}
 		String warn = mark.get() ? MARK + " " : "";
 		if (!Hypixel.realPlayer(id)) {
 			return nicks.get() ? new String[] {warn + "§c[NICK] ", ""} : null;
@@ -173,14 +180,21 @@ public final class BedwarsStats extends Module {
 		}
 		String before = (strong(s) ? warn : "") + (tabStar.get() && s.star >= 0 ? Hypixel.bedwarsStar(s.star) + " " : "");
 		StringBuilder after = new StringBuilder();
+		// each number with its name, so the list reads on its own
 		if (tabFkdr.get()) {
-			after.append(" §7• ").append(Danger.color(Danger.fkdrScore(s.fkdr()))).append(Danger.ratio(s.fkdr()));
+			after.append(" §8| §7FKDR ").append(Danger.color(Danger.fkdrScore(s.fkdr()))).append(Danger.ratio(s.fkdr()));
 		}
 		if (tabDanger.get()) {
 			int d = Danger.level(s);
-			after.append(" §8[").append(Danger.color(d)).append(d).append("§8]");
+			after.append(" §8| §7").append(I18n.format("rago.stats.danger_short")).append(' ').append(Danger.color(d)).append(d).append("§7/5");
 		}
 		return new String[] {before, after.toString()};
+	}
+
+	/** A player of the game: in a team whose prefix is its letter ("R " for Red). */
+	private static boolean inTeam(NetworkPlayerInfo info) {
+		ScorePlayerTeam team = info.getPlayerTeam();
+		return team != null && BedwarsGame.teamLetter(team) != 0;
 	}
 
 	/** A player the options call strong: a high final kill/death ratio or a high star. */
@@ -257,7 +271,8 @@ public final class BedwarsStats extends Module {
 		boolean waiting = false;
 		for (NetworkPlayerInfo info : net.getPlayerInfoMap()) {
 			UUID id = info.getGameProfile().getId();
-			if (id == null || id.equals(mc.thePlayer.getUniqueID())) {
+			if (id == null || id.equals(mc.thePlayer.getUniqueID()) || Hypixel.npc(id) || !inTeam(info)
+				|| info.getGameType() == WorldSettings.GameType.SPECTATOR) {
 				continue;
 			}
 			ScorePlayerTeam team = info.getPlayerTeam();

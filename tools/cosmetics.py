@@ -55,29 +55,72 @@ def butterfly():
     return img
 
 
-def dragon():
-    """Bat-like membrane between long finger bones, scalloped trailing edge. Root at (3, 12)."""
+def scales(img, shape_mask, seed, light=196, dark=124):
+    """Overlapping scales on the membrane: little rounded cells, each darker along its lower rim."""
+    rnd = random.Random(seed)
+    for y in range(N):
+        for x in range(N):
+            if not shape_mask(x, y):
+                continue
+            row = y // 4
+            sx = (x + (2 if row % 2 else 0)) % 4
+            sy = y % 4
+            # an arc: the rim runs down the sides and under the middle of each scale
+            rim = (sy == 3 and sx in (1, 2)) or (sy == 2 and sx in (0, 3))
+            v = dark if rim else light - sy * 12 + rnd.randint(-5, 5)
+            img.putpixel((x, y), grey(v))
+
+
+def bat_wing(joint, tips, top, root_low, bone=46, membrane_seed=3):
+    """
+    A dragon wing: an arm bone from the root to the joint, finger bones to each tip, a membrane
+    with scales sagging between the fingers, and claws on the joint and the tips.
+    """
     img = Image.new('RGBA', (N, N))
     d = ImageDraw.Draw(img)
-    joint = (40, 5)
-    tips = [(63, 14), (60, 40), (46, 54), (28, 58), (10, 48)]
-    outline = [(2, 10), (20, 5), joint, tips[0]]
+    outline = top + [joint, tips[0]]
     for i in range(1, len(tips)):
         a, b = tips[i - 1], tips[i]
-        # the membrane sags between two bone tips
-        mid = ((a[0] + b[0]) / 2 - 7, (a[1] + b[1]) / 2 - 7)
+        # the membrane sags between two finger tips
+        mid = ((a[0] + b[0]) / 2 - 6, (a[1] + b[1]) / 2 - 6)
         outline += [mid, b]
-    outline += [(3, 30)]
-    d.polygon(outline, fill=grey(150))
-    # lighter membrane near the bones, darker in between
+    outline += [root_low]
+    mask_img = Image.new('L', (N, N))
+    ImageDraw.Draw(mask_img).polygon(outline, fill=255)
+    scales(img, lambda x, y: mask_img.getpixel((x, y)) > 127, membrane_seed)
+    # the membrane darkens towards its trailing edge
+    edge = Image.new('L', (N, N))
+    ImageDraw.Draw(edge).line(outline[len(top) + 1:], fill=255, width=2)
+    for y in range(N):
+        for x in range(N):
+            if edge.getpixel((x, y)) and mask_img.getpixel((x, y)) > 127:
+                img.putpixel((x, y), grey(112))
+    # finger bones with a lighter ridge, the arm bone thicker
     for t in tips:
-        d.line([joint, t], fill=grey(170), width=4)
+        d.line([joint, t], fill=grey(bone), width=2)
+    d.line(top + [joint], fill=grey(bone - 8), width=3)
     for t in tips:
-        d.line([joint, t], fill=grey(72), width=2)
-    d.line([(2, 10), (20, 5), joint], fill=grey(64), width=3)
-    # claw at the joint
+        d.line([joint, t], fill=grey(bone + 30), width=1)
+    # knuckles along the arm, claws on the joint and the finger tips
+    for k in range(1, len(top)):
+        d.point([top[k]], fill=grey(bone + 40))
     d.polygon([(joint[0] - 1, joint[1]), (joint[0] + 2, joint[1] - 5), (joint[0] + 3, joint[1] + 1)], fill=grey(240))
+    for t in tips[:-1]:
+        d.point([(min(N - 1, t[0] + 1), t[1])], fill=grey(235))
     return img
+
+
+def dragon():
+    """Ender-dragon-like wing: long bones, scaled membrane, scalloped trailing edge. Root at (3, 12)."""
+    return bat_wing((40, 5), [(63, 14), (60, 40), (46, 54), (28, 58), (10, 48)], [(2, 10), (20, 5)], (3, 30))
+
+
+def dragon_small():
+    """
+    A short dragon wing, as compact as Lunar Client's: the arm bone rising from the root, three
+    fingers, the membrane scaled. Root at (3, 22); the model is drawn smaller in game.
+    """
+    return bat_wing((34, 8), [(60, 16), (52, 34), (34, 42), (16, 38)], [(2, 20), (16, 12)], (3, 32), membrane_seed=5)
 
 
 def box_faces(u, v, w, h, d):
@@ -212,6 +255,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     butterfly().save(os.path.join(OUT, 'butterfly.png'))
     dragon().save(os.path.join(OUT, 'dragon.png'))
+    dragon_small().save(os.path.join(OUT, 'dragon_small.png'))
     cap().save(os.path.join(OUT, 'cap.png'))
     beanie().save(os.path.join(OUT, 'beanie.png'))
     for style in SHIELD_STYLES:

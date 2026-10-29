@@ -21,6 +21,7 @@ import gg.rago.gui.RagoMenuScreen;
 import gg.rago.gui.RagoTitleScreen;
 import gg.rago.gui.AccountsScreen;
 import gg.rago.gui.PacksScreen;
+import gg.rago.hud.HudCache;
 import gg.rago.hud.HudManager;
 import gg.rago.hooks.Hooks;
 import gg.rago.hud.elements.ArmorHud;
@@ -52,6 +53,7 @@ import gg.rago.hypixel.HypixelApi;
 import gg.rago.input.InputState;
 import gg.rago.modules.BlockOverlay;
 import gg.rago.modules.ActionSounds;
+import gg.rago.modules.AutoText;
 import gg.rago.modules.BedwarsStats;
 import gg.rago.modules.Chat;
 import gg.rago.modules.ClientFixes;
@@ -59,6 +61,7 @@ import gg.rago.modules.ColorGrading;
 import gg.rago.modules.Cosmetics;
 import gg.rago.modules.CompetitiveProfile;
 import gg.rago.modules.Crosshair;
+import gg.rago.modules.Emotes;
 import gg.rago.modules.F5Crosshair;
 import gg.rago.modules.Fullbright;
 import gg.rago.modules.GlintColor;
@@ -162,6 +165,7 @@ public final class RagoClient {
 	private static final InputState INPUT = new InputState();
 
 	private static final ModuleRegistry MODULES = new ModuleRegistry();
+	private static final HudCache HUD_CACHE = new HudCache();
 	private static final HudManager HUD = new HudManager(MODULES);
 	private static final Settings SETTINGS = new Settings();
 	private static final ModProfiles PROFILES = new ModProfiles();
@@ -174,6 +178,7 @@ public final class RagoClient {
 	private static ConfigStore config;
 	private static Path configDir;
 	private static HypixelApi hypixel;
+	private static AutoText autoText;
 
 	/** Forge's config folder, where Rago keeps its files. */
 	public static Path configDir() {
@@ -249,6 +254,8 @@ public final class RagoClient {
 		MODULES.register(new TrapNotifier());
 		MODULES.register(new ActionSounds());
 		MODULES.register(new RawInput());
+		Hooks.emotes = MODULES.register(new Emotes());
+		autoText = MODULES.register(new AutoText());
 		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());
 		OldAnimations animations = MODULES.register(new OldAnimations());
 		GameplayFixes fixes = MODULES.register(new GameplayFixes());
@@ -314,6 +321,10 @@ public final class RagoClient {
 		ClientRegistry.registerKeyBinding(toggleOverlayKey);
 		ClientRegistry.registerKeyBinding(captureKey);
 		ClientRegistry.registerKeyBinding(zoomKey);
+		ClientRegistry.registerKeyBinding(Hooks.emotes.key());
+		for (KeyBinding k : autoText.keys()) {
+			ClientRegistry.registerKeyBinding(k);
+		}
 		MinecraftForge.EVENT_BUS.register(this);
 		gg.rago.debug.NametagBench bench = gg.rago.debug.NametagBench.fromProperty();
 		if (bench != null) {
@@ -522,7 +533,11 @@ public final class RagoClient {
 		}
 		boolean ownHud = overlayVisible && !(mc.gameSettings.showDebugInfo && !hudInDebug.get());
 		long t = FrameProfile.ON ? System.nanoTime() : 0;
-		HUD.render(!ownHud);
+		if (optimizations.hudCache()) {
+			HUD_CACHE.render(() -> HUD.render(!ownHud), optimizations.hudCacheRate());
+		} else {
+			HUD.render(!ownHud);
+		}
 		if (FrameProfile.ON) {
 			FrameProfile.add(FrameProfile.HUD, System.nanoTime() - t);
 		}

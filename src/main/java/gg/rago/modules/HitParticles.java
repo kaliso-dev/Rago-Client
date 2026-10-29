@@ -28,8 +28,8 @@ import java.util.Random;
  * broken or mined, if you like. Particles only exist on your screen.
  */
 public final class HitParticles extends Module {
-	/** Tenths: 10 is the game's own amount, 15 one and a half times as many. */
-	private final IntOption multiplier = addOption(new IntOption("particle_amount", 20, 10, 50).decimals(1));
+	/** Tenths: 10 is the game's own amount, 5 half as many, 15 one and a half times as many. */
+	private final IntOption multiplier = addOption(new IntOption("particle_amount", 20, 1, 30).decimals(1));
 	private final BooleanOption alwaysCrit = addOption(new BooleanOption("always_crit", false));
 	private final BooleanOption alwaysSharpness = addOption(new BooleanOption("always_sharpness", false));
 	private final BooleanOption hideBlockBreak = addOption(new BooleanOption("hide_block_break", false));
@@ -71,9 +71,22 @@ public final class HitParticles extends Module {
 			? ((EntityLivingBase) target).getCreatureAttribute() : EnumCreatureAttribute.UNDEFINED;
 		boolean sharp = EnchantmentHelper.getModifierForCreature(p.getHeldItem(), attr) > 0;
 		float times = multiplier.get() / 10f;
-		// vanilla already emits one burst of each it wants
-		emit(target, EnumParticleTypes.CRIT, crit ? times - 1 : alwaysCrit.get() ? times : 0);
-		emit(target, EnumParticleTypes.CRIT_MAGIC, sharp ? times - 1 : alwaysSharpness.get() ? times : 0);
+		// real critical and sharpness hits make their burst through emitParticles; these are the extra ones
+		if (!crit && alwaysCrit.get()) {
+			emit(target, EnumParticleTypes.CRIT, times);
+		}
+		if (!sharp && alwaysSharpness.get()) {
+			emit(target, EnumParticleTypes.CRIT_MAGIC, times);
+		}
+	}
+
+	/** The game's critical and sharpness bursts, made here in the chosen size instead (fewer too). */
+	public boolean emitParticles(Entity target, EnumParticleTypes type) {
+		if (type != EnumParticleTypes.CRIT && type != EnumParticleTypes.CRIT_MAGIC || target == null) {
+			return false;
+		}
+		emit(target, type, multiplier.get() / 10f);
+		return true;
 	}
 
 	/** A burst like the game's own (16 particles a tick for 3 ticks), {@code times} as big. */

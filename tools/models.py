@@ -299,6 +299,7 @@ def bones_thicker(p):
 def wings():
     write_model('butterfly', [('wing', (0, 0, 0), extrude('butterfly', (4, 30), bones_thicker, 0.1))])
     write_model('dragon', [('wing', (0, 0, 0), extrude('dragon', (3, 12), bones_thicker))])
+    write_model('dragon_small', [('wing', (0, 0, 0), extrude('dragon_small', (3, 22), bones_thicker))])
 
 
 def shields():

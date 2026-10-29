@@ -79,6 +79,8 @@ final class ModuleInfo {
 		ICONS.put("client_fixes", "shield");
 		ICONS.put("screenshots", "camera");
 		ICONS.put("raw_input", "mouse-pointer-click");
+		ICONS.put("emotes", "party-popper");
+		ICONS.put("auto_text", "message-square");
 	}
 
 	private ModuleInfo() {

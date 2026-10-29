@@ -676,7 +676,7 @@ rago.option.shop_no_duplicates=No duplicate swords or knockback stick
 
 # 1.2: cosmetics
 rago.module.cosmetics=Cosmetics
-rago.module.cosmetics.desc=A hat (Rago cap, Rago beanie, top hat, wizard hat, red cap, mushrooms, crown or halo), 3D voxel wings (angel, butterfly or dragon) and a Rago shield in your left hand (five styles) on your player, each with its colour and size. Only you see them.
+rago.module.cosmetics.desc=A hat (Rago cap, Rago beanie, top hat, wizard hat, red cap, mushrooms, crown or halo), 3D voxel wings (angel, butterfly, dragon or small dragon) and a Rago shield in your left hand (five styles) on your player, each with its colour and size. Only you see them.
 rago.option.cosmetic_hat=Hat
 rago.option.cosmetic_hat.none=None
 rago.option.cosmetic_hat.top_hat=Top hat
@@ -687,6 +687,7 @@ rago.option.cosmetic_wings=Wings
 rago.option.cosmetic_wings.none=None
 rago.option.cosmetic_wings.angel=Angel
 rago.option.cosmetic_wings.dragon=Dragon
+rago.option.cosmetic_wings.dragon_small=Small dragon
 rago.option.cosmetic_wings_color=Wings colour
 rago.option.cosmetic_wings_flap=Flapping
 
@@ -823,6 +824,9 @@ rago.option.cosmetic_shield.void=Void
 rago.option.cosmetic_shield.help=A Rago Optimizer shield in your left hand, seen in third person (F5).
 rago.option.cosmetic_shield_scale=Shield size
 rago.option.cosmetic_shield_scale.format=%d%%
+rago.option.cosmetic_shield_angle=Shield angle
+rago.option.cosmetic_shield_angle.format=%d°
+rago.option.cosmetic_shield_angle.help=0°: facing forward beside the arm. 90°: flat against the outside of the arm.
 rago.dock.locker=Locker
 rago.module.skin_changer=Skin Changer
 rago.module.skin_changer.desc=Wears the skin picked in the locker (shirt button on the home screen) on your player. Add skins by player name; set one on your Minecraft account from the locker so that everyone sees it.
@@ -1005,10 +1009,10 @@ rago.option.stats_tab_legend=Legend at the top of the tab list
 rago.option.stats_strong_fkdr=Strong from this FKDR
 rago.option.stats_strong_star=Strong from this star
 rago.option.stats_strong_star.format=%s✫
-rago.stats.legend_star=§e[✫] §7Bed Wars star
-rago.stats.legend_fkdr=§a1.2 §7FKDR = final kills ÷ final deaths
-rago.stats.legend_danger=§7[§c5§7] danger out of 5
-rago.stats.legend_mark=§4§l⚠§r §7strong (FKDR %s+ or %s✫+) or nick
+rago.stats.legend_star=§e[✫] §7= Bed Wars star
+rago.stats.legend_fkdr=§7FKDR = final kills ÷ final deaths (§ahigher§7 = stronger)
+rago.stats.legend_danger=§7Danger = Rago's danger level out of 5
+rago.stats.legend_mark=§4§l⚠§r §7= strong (FKDR %s+ or %s✫+) or nick
 rago.stats.nick=nick
 rago.team.unknown=No team
 rago.team.0=Black
@@ -1029,3 +1033,41 @@ rago.team.e=Yellow
 rago.team.f=White
 rago.option.particle_amount=Multiplier
 rago.option.particle_amount.format=x%s
+rago.stats.danger_short=Danger
+
+# 1.4: emotes
+key.rago.emotes=Emote wheel
+rago.module.emotes=Emotes
+rago.module.emotes.desc=Dances and gestures for your player, picked on a wheel (B). The camera turns to face you; moving, attacking or B again stops. Only you see them: nothing is sent to the server.
+rago.option.emote_camera=Turn the camera to face you
+rago.option.emote_speed=Dance speed
+rago.option.emote_speed.format=%d%%
+rago.emotes.title=Emotes
+rago.emotes.hint=Click a dance. Move, attack or press B to stop.
+rago.emote.floss=Floss
+rago.emote.dab=Dab
+rago.emote.wave=Wave
+rago.emote.disco=Disco
+rago.emote.zombie=Zombie
+rago.emote.helicopter=Helicopter
+rago.emote.clap=Clap
+rago.emote.macarena=Macarena
+
+# 1.4: HUD cache
+rago.setting.hud_cache=HUD cache
+rago.setting.hud_cache.help=At high frame rates, Rago's HUD is drawn a fixed number of times per second and reused in between, instead of on every frame.
+rago.setting.hud_cache_rate=HUD updates per second
+rago.setting.hud_cache_rate.help=How often the cached HUD is drawn again. When the game runs slower than this, the HUD is drawn on every frame as before.
+rago.menu.click_to_type=Click to type
+
+# 1.4: message hotkeys
+rago.module.auto_text=Message Hotkeys
+rago.module.auto_text.desc=Keys that type one of your messages in the chat for you. Set the keys in Controls (Rago section); each press sends the message once, at most once every two seconds.
+rago.option.auto_text_1=Message 1
+key.rago.auto_text_1=Message hotkey 1
+rago.option.auto_text_2=Message 2
+key.rago.auto_text_2=Message hotkey 2
+rago.option.auto_text_3=Message 3
+key.rago.auto_text_3=Message hotkey 3
+rago.option.auto_text_4=Message 4
+key.rago.auto_text_4=Message hotkey 4

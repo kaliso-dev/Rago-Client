@@ -43,6 +43,7 @@ public final class Cosmetics extends Module {
 	private static final CosmeticModel ANGEL = model("angel", "angel");
 	private static final CosmeticModel BUTTERFLY = model("butterfly", "butterfly");
 	private static final CosmeticModel DRAGON = model("dragon", "dragon");
+	private static final CosmeticModel DRAGON_SMALL = model("dragon_small", "dragon_small");
 	private static final String[] SHIELDS = {"none", "rago", "crimson", "gold", "frost", "void"};
 	private static final Map<String, CosmeticModel> SHIELD_MODELS = new HashMap<>();
 
@@ -62,13 +63,15 @@ public final class Cosmetics extends Module {
 	private final ColorOption hatColor = addOption(new ColorOption("cosmetic_hat_color", 0xFFFFFFFF));
 	private final ColorOption logoColor = addOption(new ColorOption("cosmetic_logo_color", 0xFFF2392C));
 	private final IntOption hatScale = addOption(new IntOption("cosmetic_hat_scale", 100, 70, 150));
-	private final ChoiceOption wings = addOption(new ChoiceOption("cosmetic_wings", "none", "none", "angel", "butterfly", "dragon"));
+	private final ChoiceOption wings = addOption(new ChoiceOption("cosmetic_wings", "none", "none", "angel", "butterfly", "dragon", "dragon_small"));
 	private final ColorOption wingsColor = addOption(new ColorOption("cosmetic_wings_color", 0xFFFFFFFF));
 	private final IntOption wingsScale = addOption(new IntOption("cosmetic_wings_scale", 100, 50, 160));
 	private final BooleanOption flap = addOption(new BooleanOption("cosmetic_wings_flap", true));
 	private final IntOption flapSpeed = addOption(new IntOption("cosmetic_wings_flap_speed", 100, 25, 300));
 	private final ChoiceOption shield = addOption(new ChoiceOption("cosmetic_shield", "none", SHIELDS));
 	private final IntOption shieldScale = addOption(new IntOption("cosmetic_shield_scale", 100, 50, 150));
+	/** 0: facing forward beside the arm; 90: flat against the outside of the arm. */
+	private final IntOption shieldAngle = addOption(new IntOption("cosmetic_shield_angle", 60, 0, 90));
 	private boolean installed;
 
 	private static CosmeticModel model(String name, String texture) {
@@ -85,6 +88,7 @@ public final class Cosmetics extends Module {
 		flap.showIf(() -> !wings.is("none"));
 		flapSpeed.showIf(() -> !wings.is("none") && flap.get());
 		shieldScale.showIf(() -> !shield.is("none"));
+		shieldAngle.showIf(() -> !shield.is("none"));
 	}
 
 	@Override
@@ -446,8 +450,10 @@ public final class Cosmetics extends Module {
 	 */
 	private void extrudedWing(int side, float beat) {
 		boolean butterfly = wings.is("butterfly");
-		int c = color(wingsColor, butterfly ? 0xFF4FA3FF : 0xFF5A3E78);
-		float span = (butterfly ? 0.9f : 1.15f) * wingsScale.get() / 100f;
+		boolean small = wings.is("dragon_small");
+		int c = color(wingsColor, butterfly ? 0xFF4FA3FF : small ? 0xFF3FB950 : 0xFF5A3E78);
+		// the small dragon wings are compact, like Lunar Client's
+		float span = (butterfly ? 0.9f : small ? 0.7f : 1.15f) * wingsScale.get() / 100f;
 		GlStateManager.pushMatrix();
 		// the root high on the back, between the shoulder blades
 		GlStateManager.translate(side * 0.05f, butterfly ? 0.14f : 0.04f, 0.16f);
@@ -461,7 +467,7 @@ public final class Cosmetics extends Module {
 		}
 		GlStateManager.scale(side * span, span, span);
 		GlStateManager.disableBlend();
-		(butterfly ? BUTTERFLY : DRAGON).render("wing", c);
+		(butterfly ? BUTTERFLY : small ? DRAGON_SMALL : DRAGON).render("wing", c);
 		GlStateManager.popMatrix();
 		untextured();
 	}
@@ -473,6 +479,9 @@ public final class Cosmetics extends Module {
 	 * its face forward and turned a little outward. Only seen in third person, like the rest of the
 	 * player.
 	 */
+	/** The direction a positive shield angle turns it in, so its face turns outward. */
+	private static final int SHIELD_TURN = 1;
+
 	private void drawShield() {
 		CosmeticModel m = SHIELD_MODELS.get(shield.get());
 		if (m == null) {
@@ -481,11 +490,13 @@ public final class Cosmetics extends Module {
 		// the model is one unit tall (48 texture pixels, 40 wide): 16 pixels on the player at 100%
 		float size = shieldScale.get() / 100f;
 		float width = 16 * size * 40 / 48;
+		float angle = shieldAngle.get();
 		GlStateManager.pushMatrix();
-		// beside the forearm on the outside, its inner edge just over the arm (whose outer side is at
-		// x = 3), facing forward and turned a little outward
-		GlStateManager.translate((3 + width * 0.4f) * PX, 7 * PX, 0);
-		GlStateManager.rotate(-20, 0, 1, 0);
+		// hinged on the outer side of the forearm (x = 3), turned from facing forward (0) to lying
+		// flat against the arm (90); its inner edge stays on the arm
+		GlStateManager.translate(3.5f * PX, 7 * PX, 0);
+		GlStateManager.rotate(SHIELD_TURN * angle, 0, 1, 0);
+		GlStateManager.translate(width / 2 * (1 - angle / 90f) * PX, 0, 0);
 		GlStateManager.scale(size, size, size);
 		GlStateManager.disableBlend();
 		m.render("shield", 0xFFFFFFFF);

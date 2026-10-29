@@ -1,6 +1,7 @@
 package gg.rago.hooks;
 
 import gg.rago.modules.Chat;
+import gg.rago.modules.Emotes;
 import gg.rago.modules.FastShop;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.GlintColor;
@@ -25,6 +26,7 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.client.entity.AbstractClientPlayer;
+import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.resources.model.IBakedModel;
 import net.minecraft.entity.Entity;
@@ -33,6 +35,7 @@ import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3;
@@ -65,6 +68,7 @@ public final class Hooks {
 	public static volatile BedwarsStats bedwarsStats;
 	public static volatile ClientFixes clientFixes;
 	public static volatile Screenshots screenshots;
+	public static volatile Emotes emotes;
 	public static volatile GlintColor glint;
 
 	private Hooks() {
@@ -250,6 +254,20 @@ public final class Hooks {
 	public static boolean hideBlockBreak() {
 		HitParticles h = hitParticles;
 		return h != null && h.isEnabled() && h.hideBlockBreak();
+	}
+
+	/** ModelBiped.setRotationAngles, at its end: the pose of a dance on your own player. */
+	public static void emotePose(ModelBiped model, Entity entity) {
+		Emotes e = emotes;
+		if (e != null && e.playing() != null) {
+			e.pose(model, entity);
+		}
+	}
+
+	/** EffectRenderer.emitParticleAtEntity: true when Hit Particles makes the burst itself, in its size. */
+	public static boolean emitParticles(Entity entity, EnumParticleTypes type) {
+		HitParticles h = hitParticles;
+		return h != null && h.isEnabled() && h.emitParticles(entity, type);
 	}
 
 	/** EffectRenderer.addBlockHitEffects: true to skip the particles of a block being mined. */
