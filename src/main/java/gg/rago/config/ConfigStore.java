@@ -8,6 +8,8 @@ import com.google.gson.JsonParser;
 import gg.rago.core.Module;
 import gg.rago.core.ModuleRegistry;
 import gg.rago.hud.HudElement;
+import gg.rago.profile.ModProfiles;
+import gg.rago.settings.Settings;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -53,6 +55,10 @@ public final class ConfigStore {
 	public enum LoadResult { MISSING, LOADED, BROKEN_FILE_REPLACED }
 
 	public LoadResult load(ModuleRegistry registry) throws IOException {
+		return load(registry, null, null);
+	}
+
+	public LoadResult load(ModuleRegistry registry, Settings settings, ModProfiles profiles) throws IOException {
 		if (!Files.exists(file)) {
 			return LoadResult.MISSING;
 		}
@@ -71,9 +77,22 @@ public final class ConfigStore {
 
 		root = migrate(root);
 		JsonObject modules = object(root, "modules");
-		if (modules == null) {
-			return LoadResult.LOADED;
+		if (modules != null) {
+			modulesFromJson(registry, modules);
 		}
+		JsonObject settingsJson = object(root, "settings");
+		if (settings != null && settingsJson != null) {
+			settings.fromJson(settingsJson);
+		}
+		JsonObject profilesJson = object(root, "profiles");
+		if (profiles != null && profilesJson != null) {
+			profiles.fromJson(profilesJson);
+		}
+		return LoadResult.LOADED;
+	}
+
+	/** Applies stored module states; modules missing from {@code modules} keep their current state. */
+	public static void modulesFromJson(ModuleRegistry registry, JsonObject modules) {
 		for (Module module : registry.all()) {
 			JsonObject m = object(modules, module.id());
 			if (m == null) {
@@ -93,19 +112,16 @@ public final class ConfigStore {
 				}
 			}
 			if (module instanceof HudElement) {
-			HudElement hud = (HudElement) module;
+				HudElement hud = (HudElement) module;
 				JsonObject pos = object(m, "hud");
 				if (pos != null) {
 					hud.position().fromJson(pos);
 				}
 			}
 		}
-		return LoadResult.LOADED;
 	}
 
-	public void save(ModuleRegistry registry) throws IOException {
-		JsonObject root = new JsonObject();
-		root.addProperty("schema", SCHEMA);
+	public static JsonObject modulesToJson(ModuleRegistry registry) {
 		JsonObject modules = new JsonObject();
 		for (Module module : registry.all()) {
 			JsonObject m = new JsonObject();
@@ -116,12 +132,28 @@ public final class ConfigStore {
 			}
 			m.add("options", options);
 			if (module instanceof HudElement) {
-			HudElement hud = (HudElement) module;
+				HudElement hud = (HudElement) module;
 				m.add("hud", hud.position().toJson());
 			}
 			modules.add(module.id(), m);
 		}
-		root.add("modules", modules);
+		return modules;
+	}
+
+	public void save(ModuleRegistry registry) throws IOException {
+		save(registry, null, null);
+	}
+
+	public void save(ModuleRegistry registry, Settings settings, ModProfiles profiles) throws IOException {
+		JsonObject root = new JsonObject();
+		root.addProperty("schema", SCHEMA);
+		root.add("modules", modulesToJson(registry));
+		if (settings != null) {
+			root.add("settings", settings.toJson());
+		}
+		if (profiles != null) {
+			root.add("profiles", profiles.toJson());
+		}
 
 		Path dir = file.toAbsolutePath().getParent();
 		Files.createDirectories(dir);

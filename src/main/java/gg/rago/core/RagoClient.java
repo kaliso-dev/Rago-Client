@@ -1,6 +1,14 @@
 package gg.rago.core;
 
+import gg.rago.config.BooleanOption;
 import gg.rago.config.ConfigStore;
+import gg.rago.gui.ui.Anim;
+import gg.rago.optimize.OptiFineFields;
+import gg.rago.optimize.Optimizations;
+import gg.rago.optimize.VideoRows;
+import gg.rago.profile.ModProfiles;
+import gg.rago.settings.Setting;
+import gg.rago.settings.Settings;
 import gg.rago.gui.HudEditorScreen;
 import gg.rago.gui.RagoMenuScreen;
 import gg.rago.gui.RagoTitleScreen;
@@ -83,6 +91,12 @@ public final class RagoClient {
 
 	private static final ModuleRegistry MODULES = new ModuleRegistry();
 	private static final HudManager HUD = new HudManager(MODULES);
+	private static final Settings SETTINGS = new Settings();
+	private static final ModProfiles PROFILES = new ModProfiles();
+	private static Optimizations optimizations;
+	private static BooleanOption menuAnimations;
+	private static BooleanOption menuBlur;
+	private static BooleanOption hudInDebug;
 	private static ConfigStore config;
 	private static Path configDir;
 
@@ -123,10 +137,13 @@ public final class RagoClient {
 		MODULES.register(new ToggleSprintHud());
 		mainMenu = MODULES.register(new MainMenu());
 		profile = MODULES.register(new CompetitiveProfile(configDir));
+		registerGeneralSettings();
+		optimizations = new Optimizations(SETTINGS);
+		VideoRows.register(SETTINGS);
 
 		config = new ConfigStore(configDir.resolve("rago.json"));
 		try {
-			ConfigStore.LoadResult result = config.load(MODULES);
+			ConfigStore.LoadResult result = config.load(MODULES, SETTINGS, PROFILES);
 			if (result == ConfigStore.LoadResult.BROKEN_FILE_REPLACED) {
 				LOG.warn("config/rago.json could not be read; it was renamed to rago.json.broken-* and defaults are used");
 			}
@@ -134,6 +151,12 @@ public final class RagoClient {
 			LOG.error("Could not load {}, using defaults", config.file(), e);
 		}
 		profile.markReady();
+		PROFILES.ensureDefaults(MODULES);
+		Anim.setEnabled(menuAnimations.get());
+		optimizations.start();
+		if (OptiFineFields.installed()) {
+			LOG.info("OptiFine settings: {}", OptiFineFields.describe());
+		}
 
 		toggleOverlayKey = new KeyBinding("key.rago.toggle_overlay", KEY_F10, "key.categories.rago");
 		captureKey = new KeyBinding("key.rago.capture", KEY_F12, "key.categories.rago");
@@ -143,6 +166,7 @@ public final class RagoClient {
 		ClientRegistry.registerKeyBinding(captureKey);
 		ClientRegistry.registerKeyBinding(zoomKey);
 		MinecraftForge.EVENT_BUS.register(this);
+		MinecraftForge.EVENT_BUS.register(optimizations);
 		LOG.info("Rago {} loaded with {} modules", version(), MODULES.all().size());
 	}
 
@@ -164,9 +188,39 @@ public final class RagoClient {
 		return menuKey.getKeyCode();
 	}
 
+	private static void registerGeneralSettings() {
+		Setting.Tab g = Setting.Tab.GENERAL;
+		String ui = "rago.section.interface";
+		menuAnimations = SETTINGS.bool(g, ui, "menu_animations", true, Anim::setEnabled);
+		menuBlur = SETTINGS.bool(g, ui, "menu_blur", true, null);
+		SETTINGS.choice(g, ui, "main_menu_style", () -> mainMenu.isEnabled() ? 0 : 1, i -> mainMenu.setEnabled(i == 0),
+			"rago.value.rago", "rago.value.vanilla");
+		hudInDebug = SETTINGS.bool(g, "rago.section.hud", "hud_in_debug", false, null);
+		SETTINGS.toggle(g, "rago.section.hud", "hud_visible", () -> overlayVisible, v -> overlayVisible = v);
+		SETTINGS.toggle(g, "rago.section.competitive", "competitive_profile", () -> profile.isEnabled(), v -> profile.setEnabled(v));
+		SETTINGS.button(g, "rago.section.competitive", "edit_hud", () -> {
+			Minecraft mc = Minecraft.getMinecraft();
+			mc.displayGuiScreen(new HudEditorScreen(mc.currentScreen));
+		});
+	}
+
+	public static Settings settings() {
+		return SETTINGS;
+	}
+
+	public static ModProfiles profiles() {
+		return PROFILES;
+	}
+
+	/** Whether menus may blur the world behind them. */
+	public static boolean menuBlur() {
+		return menuBlur.get();
+	}
+
 	public static void saveConfig() {
 		try {
-			config.save(MODULES);
+			PROFILES.capture(MODULES);
+			config.save(MODULES, SETTINGS, PROFILES);
 		} catch (Exception e) {
 			LOG.error("Could not save {}", config.file(), e);
 		}
@@ -252,7 +306,11 @@ public final class RagoClient {
 		if (event.type != RenderGameOverlayEvent.ElementType.ALL) {
 			return;
 		}
-		if (overlayVisible && !(Minecraft.getMinecraft().currentScreen instanceof HudEditorScreen)) {
+		Minecraft mc = Minecraft.getMinecraft();
+		if (mc.gameSettings.showDebugInfo && !hudInDebug.get()) {
+			return;
+		}
+		if (overlayVisible && !(mc.currentScreen instanceof HudEditorScreen)) {
 			HUD.render();
 		}
 	}

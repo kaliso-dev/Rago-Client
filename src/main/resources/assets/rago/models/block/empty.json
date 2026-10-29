@@ -1,0 +1,15 @@
+{
+	"textures": {
+		"particle": "blocks/tallgrass",
+		"none": "blocks/tallgrass"
+	},
+	"elements": [
+		{
+			"from": [8, 0, 8],
+			"to": [8, 0, 8],
+			"faces": {
+				"down": { "texture": "#none" }
+			}
+		}
+	]
+}
