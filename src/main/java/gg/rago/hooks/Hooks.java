@@ -13,6 +13,7 @@ import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
 import gg.rago.modules.BedwarsStats;
+import gg.rago.modules.RagoBadge;
 import gg.rago.modules.ClientFixes;
 import gg.rago.modules.RagoCape;
 import gg.rago.modules.Screenshots;
@@ -69,6 +70,7 @@ public final class Hooks {
 	public static volatile ClientFixes clientFixes;
 	public static volatile Screenshots screenshots;
 	public static volatile Emotes emotes;
+	public static volatile RagoBadge ragoBadge;
 	public static volatile GlintColor glint;
 
 	private Hooks() {
@@ -301,13 +303,16 @@ public final class Hooks {
 	/** GuiPlayerTabOverlay.renderPlayerlist: the header ({@code first}) or footer, null to hide it. */
 	public static IChatComponent tabHeaderFooter(IChatComponent text, boolean first) {
 		TabList t = tabList;
-		IChatComponent out = t != null && t.isEnabled() ? t.headerFooter(text, first) : text;
-		BedwarsStats b = bedwarsStats;
-		return first && b != null && b.isEnabled() ? b.withLegend(out) : out;
+		return t != null && t.isEnabled() ? t.headerFooter(text, first) : text;
 	}
 
 	/** GuiPlayerTabOverlay.renderPlayerlist: draws a name, header or footer line. */
 	public static int tabText(FontRenderer font, String text, float x, float y, int color) {
+		RagoBadge r = ragoBadge;
+		if (r != null && r.tabLogo(text, x, y)) {
+			text = RagoBadge.tabText(text);
+			x += RagoBadge.tabShift();
+		}
 		TabList t = tabList;
 		return t != null && t.isEnabled() ? t.drawText(font, text, x, y, color) : font.drawStringWithShadow(text, x, y, color);
 	}
@@ -352,7 +357,9 @@ public final class Hooks {
 	/** GuiPlayerTabOverlay.getPlayerName: Bed Wars star and ratio around the name. */
 	public static String tabName(String vanilla, NetworkPlayerInfo info) {
 		BedwarsStats s = bedwarsStats;
-		return s != null && s.isEnabled() ? s.tabName(vanilla, info) : vanilla;
+		String name = s != null && s.isEnabled() ? s.tabName(vanilla, info) : vanilla;
+		RagoBadge r = ragoBadge;
+		return r != null ? r.tabName(name, info) : name;
 	}
 
 	/** AbstractClientPlayer.getLocationSkin: the locker skin on your own player. */

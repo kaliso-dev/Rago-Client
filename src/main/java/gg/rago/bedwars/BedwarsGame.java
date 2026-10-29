@@ -4,6 +4,7 @@ import gg.rago.core.RagoClient;
 import gg.rago.hypixel.Hypixel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiIngame;
+import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.scoreboard.Score;
 import net.minecraft.scoreboard.ScoreObjective;
 import net.minecraft.scoreboard.ScorePlayerTeam;
@@ -99,6 +100,24 @@ public final class BedwarsGame {
 		}
 		ScorePlayerTeam team = mc.theWorld.getScoreboard().getPlayersTeam(mc.thePlayer.getName());
 		return team == null ? 0 : teamLetter(team);
+	}
+
+	/** How many players in the tab list are in your team (by its letter), or 0 when unknown. */
+	public static int ownTeamSize() {
+		Minecraft mc = Minecraft.getMinecraft();
+		char own = ownTeam();
+		if (own == 0 || mc.getNetHandler() == null) {
+			return 0;
+		}
+		Scoreboard board = mc.theWorld.getScoreboard();
+		int n = 0;
+		for (NetworkPlayerInfo info : mc.getNetHandler().getPlayerInfoMap()) {
+			ScorePlayerTeam team = board.getPlayersTeam(info.getGameProfile().getName());
+			if (team != null && teamLetter(team) == own) {
+				n++;
+			}
+		}
+		return n;
 	}
 
 	/** A team's letter from its prefix ("§c§lR §c" is R), or 0 when it has none. */

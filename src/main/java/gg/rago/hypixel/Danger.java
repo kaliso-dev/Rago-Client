@@ -33,6 +33,14 @@ public final class Danger {
 		return "§" + COLORS[Math.max(0, Math.min(5, level))];
 	}
 
+	/**
+	 * The colour of a final kill/death ratio, by the usual Bed Wars steps: grey under 1, green from
+	 * 1, dark green from 5, yellow from 8, gold from 15 and red from 20.
+	 */
+	public static String fkdrColor(double fkdr) {
+		return fkdr < 1 ? "§7" : fkdr < 5 ? "§a" : fkdr < 8 ? "§2" : fkdr < 15 ? "§e" : fkdr < 20 ? "§6" : "§c";
+	}
+
 	/** A ratio as Bed Wars players write it: one decimal, none from 100. */
 	public static String ratio(double r) {
 		return r >= 100 ? Integer.toString((int) r) : String.format(java.util.Locale.ROOT, "%.1f", r);

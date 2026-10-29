@@ -123,6 +123,11 @@ public final class LabelBatch {
 		quad(f, x, y, x + r, y + r, u0, v0, u1, v1, argb);
 	}
 
+	/** A whole texture (white, tinted by {@code argb}) over a rectangle, in label units. */
+	public void image(int layer, int texture, float x, float y, float w, float h, int argb) {
+		quad(layers[layer].textured(texture), x, y, x + w, y + h, 0, 0, 1, 1, argb);
+	}
+
 	private void quad(FloatList f, float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1, int argb) {
 		f.vertex(wx(x0, y1), wy(x0, y1), wz(x0, y1), u0, v1, argb);
 		f.vertex(wx(x1, y1), wy(x1, y1), wz(x1, y1), u1, v1, argb);

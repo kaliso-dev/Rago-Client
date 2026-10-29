@@ -30,9 +30,9 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 /**
  * Players' name tags drawn Rago's way: a style preset (Vanilla, Rago, Minimal, Outline) and then
- * every detail on its own: font (Minecraft, Poppins, Inter), size, server colours or a custom
- * colour, shadow, background colour and opacity, round corners, border, and whether the name
- * shows faintly through walls. Who gets a name tag, and when, follows vanilla's rules (distance,
+ * every detail on its own: font (Minecraft, Poppins, Inter), server colours or a custom colour,
+ * shadow, background colour, round corners, border, and whether the name shows faintly through
+ * walls. Size and opacity stay vanilla's: only colours change, never how visible a name is. Who gets a name tag, and when, follows vanilla's rules (distance,
  * sneaking, team visibility, invisibility); the below-name score line is kept. Your own name can be
  * shown in third person.
  */
@@ -53,7 +53,6 @@ public final class Nametags extends Module implements Styled {
 	private static final float WALL_OPACITY = 0.5f;
 	/** Names show up to this many blocks away, as vanilla's 64 (32 when sneaking). */
 	private final IntOption maxDistance = addOption(new IntOption("nametag_distance", 64, 8, 64));
-	private final IntOption scale = addOption(new IntOption("nametag_scale", 100, 50, 200));
 	private final ChoiceOption style;
 	private final ChoiceOption font;
 	private final BooleanOption shadow;
@@ -62,7 +61,10 @@ public final class Nametags extends Module implements Styled {
 	private final BooleanOption background;
 	private final ColorOption backgroundColor;
 	private final IntOption radius;
-	private final IntOption padding;
+	/** Vanilla's space around the name; not a setting, as the tag keeps vanilla's size. */
+	private static final int PADDING = 1;
+	/** Vanilla's name tag background: black at a quarter opacity; only its colour can change. */
+	private static final int BACKGROUND_ALPHA = 0x40;
 	private final BooleanOption border;
 	private final ColorOption borderColor;
 
@@ -75,18 +77,16 @@ public final class Nametags extends Module implements Styled {
 		section("text");
 		colorMode = addOption(new ChoiceOption("name_color_mode", "server", "server", "custom"));
 		// any colour, but as opaque as vanilla's text
-		nameColor = addOption(new ColorOption("name_color", 0xFFFFFFFF).opaque());
+		nameColor = addOption(new ColorOption("name_color", 0xFFFFFFFF).fixedAlpha(0xFF));
 		nameColor.showIf(() -> colorMode.is("custom"));
 		section("background");
 		background = addOption(new BooleanOption("background", true));
-		backgroundColor = addOption(new ColorOption("background_color", 0x40000000));
+		backgroundColor = addOption(new ColorOption("background_color", 0x40000000).fixedAlpha(BACKGROUND_ALPHA));
 		backgroundColor.showIf(background::get);
 		radius = addOption(new IntOption("corner_radius", 0, 0, 6));
 		radius.showIf(background::get);
-		padding = addOption(new IntOption("padding", 1, 0, 6));
-		padding.showIf(background::get);
 		border = addOption(new BooleanOption("border", false));
-		borderColor = addOption(new ColorOption("border_color", 0x60FFFFFF));
+		borderColor = addOption(new ColorOption("border_color", 0x60FFFFFF).fixedAlpha(0x60));
 		borderColor.showIf(border::get);
 		section(null);
 		applyStyle("vanilla");
@@ -115,7 +115,6 @@ public final class Nametags extends Module implements Styled {
 				background.set(true);
 				backgroundColor.set(0xA0101014);
 				radius.set(3);
-				padding.set(2);
 				border.set(true);
 				borderColor.set(0x30FFFFFF);
 				break;
@@ -131,7 +130,6 @@ public final class Nametags extends Module implements Styled {
 				background.set(true);
 				backgroundColor.set(0x30000000);
 				radius.set(2);
-				padding.set(2);
 				border.set(true);
 				borderColor.set(Theme.ACCENT);
 				break;
@@ -141,7 +139,6 @@ public final class Nametags extends Module implements Styled {
 				background.set(true);
 				backgroundColor.set(0x40000000);
 				radius.set(0);
-				padding.set(1);
 				border.set(false);
 		}
 	}
@@ -161,8 +158,8 @@ public final class Nametags extends Module implements Styled {
 		if (!isEnabled()) {
 			return NameTags.LINE;
 		}
-		float units = Math.max(9 * 1.15f, 8 + padding.get() * 2 + 2.35f);
-		return units * WorldDraw.LABEL_SCALE * scale.get() / 100.0;
+		float units = Math.max(9 * 1.15f, 8 + PADDING * 2 + 2.35f);
+		return units * WorldDraw.LABEL_SCALE;
 	}
 
 	@SubscribeEvent(priority = EventPriority.HIGH)
@@ -211,7 +208,9 @@ public final class Nametags extends Module implements Styled {
 			label(score.getScorePoints() + " " + below.getDisplayName(), x, top, z, 0, throughWalls.get(), 0xFF);
 			top += lineHeight();
 		}
-		label(name, x, top, z, 0, throughWalls.get(), 0xFF);
+		RagoBadge badge = gg.rago.hooks.Hooks.ragoBadge;
+		boolean logo = p == mc.thePlayer && badge != null && badge.onNametag();
+		label(name, x, top, z, 0, throughWalls.get(), 0xFF, logo ? badge : null);
 	}
 
 	/**
@@ -221,13 +220,19 @@ public final class Nametags extends Module implements Styled {
 	 * all together after the world (see {@link LabelBatch}).
 	 */
 	public void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha) {
+		label(text, x, anchorY, z, drop, seeThrough, alpha, null);
+	}
+
+	/** {@link #label}, with the Rago logo before the text when {@code logo} is given. */
+	private void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha, RagoBadge logo) {
 		String shown = colorMode.is("custom") ? TtfFont.strip(text) : text;
 		int color = colorMode.is("custom") ? nameColor.get() : 0xFFFFFFFF;
-		float s = WorldDraw.LABEL_SCALE * scale.get() / 100f;
-		int pad = background.get() ? padding.get() : 0;
+		float s = WorldDraw.LABEL_SCALE;
+		int pad = background.get() ? PADDING : 0;
 		TtfFont ttf = HudText.ttf(font.get());
 		float em = HudText.em(font.get());
-		float w = LabelBatch.width(ttf, em, WORLD_SHARPNESS, shown);
+		float logoW = logo != null ? RagoBadge.LOGO_SIZE + 2 : 0;
+		float w = LabelBatch.width(ttf, em, WORLD_SHARPNESS, shown) + logoW;
 		float half = w / 2f;
 		// keep the bottom of the text where vanilla's is, so a bigger tag grows upwards, away from the head
 		batch.begin(x, anchorY, z, s, (drop + 8) * WorldDraw.LABEL_SCALE / s - 8 - pad);
@@ -247,12 +252,18 @@ public final class Nametags extends Module implements Styled {
 		int a = Math.min(alpha, color >>> 24);
 		boolean ok = true;
 		int faint = Math.round(0x40 * wall * a / 255f);
+		float tx = -half + logoW;
 		if (faint > 0) {
-			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, shown, -half, 0, faint << 24 | color & 0xFFFFFF, false);
+			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, shown, tx, 0, faint << 24 | color & 0xFFFFFF, false);
 		}
 		if (ok) {
-			ok = batch.text(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, ttf, em, WORLD_SHARPNESS, shown, -half, 0,
+			ok = batch.text(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, ttf, em, WORLD_SHARPNESS, shown, tx, 0,
 				a << 24 | color & 0xFFFFFF, shadow.get());
+		}
+		int logoTexture = logo != null ? logo.texture() : 0;
+		if (ok && logoTexture != 0) {
+			batch.image(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, logoTexture, -half, -0.5f, RagoBadge.LOGO_SIZE, RagoBadge.LOGO_SIZE,
+				logo.color());
 		}
 		if (!ok) {
 			// characters outside the Minecraft font's ASCII page (or the Unicode font): vanilla draws it

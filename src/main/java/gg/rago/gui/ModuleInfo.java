@@ -82,6 +82,7 @@ final class ModuleInfo {
 		ICONS.put("emotes", "party-popper");
 		ICONS.put("auto_text", "message-square");
 		ICONS.put("auto_messages", "sparkles");
+		ICONS.put("rago_badge", "award");
 	}
 
 	private ModuleInfo() {

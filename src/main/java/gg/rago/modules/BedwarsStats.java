@@ -17,7 +17,6 @@ import net.minecraft.client.resources.I18n;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatComponentTranslation;
-import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.ResourceLocation;
@@ -50,7 +49,6 @@ public final class BedwarsStats extends Module {
 	private final BooleanOption tabDanger = addOption(new BooleanOption("stats_tab_danger", false));
 	private final BooleanOption nicks = addOption(new BooleanOption("stats_nicks", true));
 	private final BooleanOption mark = addOption(new BooleanOption("stats_tab_mark", true));
-	private final BooleanOption legend = addOption(new BooleanOption("stats_tab_legend", true));
 	/** A strong player: this final kill/death ratio or more... */
 	private final IntOption strongFkdr = addOption(new IntOption("stats_strong_fkdr", 10, 1, 50));
 	/** ...or this Bed Wars star or more. */
@@ -69,9 +67,6 @@ public final class BedwarsStats extends Module {
 	private boolean alerted;
 	private boolean warned;
 	private boolean wasPlaying;
-	private IChatComponent legendFor;
-	private IChatComponent legendShown;
-	private String legendText;
 
 	/** The red danger sign before strong and nicked players. */
 	static final String MARK = "§4§l\u26a0§r";
@@ -182,7 +177,7 @@ public final class BedwarsStats extends Module {
 		StringBuilder after = new StringBuilder();
 		// each number with its name, so the list reads on its own
 		if (tabFkdr.get()) {
-			after.append(" §8| §7FKDR ").append(Danger.color(Danger.fkdrScore(s.fkdr()))).append(Danger.ratio(s.fkdr()));
+			after.append(" §8| §7FKDR ").append(Danger.fkdrColor(s.fkdr())).append(Danger.ratio(s.fkdr()));
 		}
 		if (tabDanger.get()) {
 			int d = Danger.level(s);
@@ -202,36 +197,14 @@ public final class BedwarsStats extends Module {
 		return s.found && (s.fkdr() >= strongFkdr.get() || s.star >= strongStar.get());
 	}
 
-	/** The tab list's header with a line saying what each number means, while stats are shown. */
-	public IChatComponent withLegend(IChatComponent header) {
-		if (!legend.get() || !bedwars || tab.isEmpty()) {
-			return header;
-		}
-		String text = legendLine();
-		if (header != legendFor || !text.equals(legendText)) {
-			legendFor = header;
-			legendText = text;
-			IChatComponent out = header == null ? new ChatComponentText("") : header.createCopy().appendText("\n");
-			legendShown = out.appendText(text);
-		}
-		return legendShown;
+	/** The final kill/death ratio from which a player is strong, for the legend in the menu. */
+	public int strongFkdr() {
+		return strongFkdr.get();
 	}
 
-	private String legendLine() {
-		StringBuilder b = new StringBuilder();
-		if (tabStar.get()) {
-			b.append(I18n.format("rago.stats.legend_star"));
-		}
-		if (tabFkdr.get()) {
-			b.append(b.length() > 0 ? "  §8|  " : "").append(I18n.format("rago.stats.legend_fkdr"));
-		}
-		if (tabDanger.get()) {
-			b.append(b.length() > 0 ? "  §8|  " : "").append(I18n.format("rago.stats.legend_danger"));
-		}
-		if (mark.get()) {
-			b.append(b.length() > 0 ? "  §8|  " : "").append(I18n.format("rago.stats.legend_mark", strongFkdr.get(), strongStar.get()));
-		}
-		return b.toString();
+	/** The star from which a player is strong, for the legend in the menu. */
+	public int strongStar() {
+		return strongStar.get();
 	}
 
 	/** The name the tab list shows for a player, given the game's. */
@@ -306,7 +279,7 @@ public final class BedwarsStats extends Module {
 				threat = 5;
 			} else if (s != null && strong(s)) {
 				entry = MARK + " " + (s.star >= 0 ? Hypixel.bedwarsStar(s.star) + " " : "") + "§f" + name
-					+ " §7(FKDR " + Danger.color(Danger.fkdrScore(s.fkdr())) + Danger.ratio(s.fkdr()) + "§7)";
+					+ " §7(FKDR " + Danger.fkdrColor(s.fkdr()) + Danger.ratio(s.fkdr()) + "§7)";
 				threat = s.fkdr();
 			} else {
 				continue;

@@ -22,7 +22,8 @@ import java.util.regex.Pattern;
  * Messages sent on their own, on Hypixel only: GG (and a message of yours) when a game ends, a
  * message when you kill someone, and /tip all now and then. Off by default, as the player asked
  * for these knowingly: each message is an ordinary chat line, and kill messages wait a minimum
- * time between them so the chat is not flooded.
+ * time between them so the chat is not flooded. Plain chat in a Bed Wars game only reaches your
+ * team, so messages go to everyone with /shout in team modes and /ac in solo.
  */
 public final class AutoMessages extends Module {
 	/** A death line: a name, then words, ending with a full stop or a final kill in capitals; no colon. */
@@ -49,6 +50,8 @@ public final class AutoMessages extends Module {
 	private int nextSend;
 	private int lastKill = -100000;
 	private int nextTip = 20 * 30;
+	/** Most players seen in your team this game: 1 in solo. */
+	private int teamSize;
 
 	public AutoMessages() {
 		super("auto_messages", FeatureClass.AUTO_CHAT, false);
@@ -73,6 +76,7 @@ public final class AutoMessages extends Module {
 			world = mc.theWorld;
 			inGame = false;
 			ended = false;
+			teamSize = 0;
 			queue.clear();
 		}
 		if (mc.thePlayer == null || !Hypixel.connected()) {
@@ -82,14 +86,22 @@ public final class AutoMessages extends Module {
 			inGame = true;
 			ended = false;
 		}
+		if (inGame && !ended && ticks % 20 == 0) {
+			teamSize = Math.max(teamSize, BedwarsGame.ownTeamSize());
+		}
 		String title = BedwarsGame.title();
 		if (!title.equals(lastTitle)) {
 			lastTitle = title;
 			if (inGame && !ended && (BedwarsGame.isVictory(title) || BedwarsGame.isGameOver(title))) {
 				ended = true;
 				if (gg.get()) {
-					enqueue(ggText.get());
-					enqueue(endText.get());
+					if (solo()) {
+						enqueue(toAll(ggText.get()));
+						enqueue(toAll(endText.get()));
+					} else {
+						// /shout waits a while between two uses: both in one message
+						enqueue(toAll((ggText.get().trim() + " " + endText.get().trim()).trim()));
+					}
 				}
 			}
 		}
@@ -101,6 +113,19 @@ public final class AutoMessages extends Module {
 			nextSend = ticks + SPACING_TICKS;
 			mc.thePlayer.sendChatMessage(queue.poll());
 		}
+	}
+
+	private boolean solo() {
+		return teamSize <= 1;
+	}
+
+	/** A message for everyone in the game: /ac in solo, /shout in team modes; commands as they are. */
+	private String toAll(String text) {
+		String t = text == null ? "" : text.trim();
+		if (t.isEmpty() || t.startsWith("/") || !inGame) {
+			return t;
+		}
+		return (solo() ? "/ac " : "/shout ") + t;
 	}
 
 	private void enqueue(String text) {
@@ -125,7 +150,7 @@ public final class AutoMessages extends Module {
 		boolean anyKill = finalKill || isOwnKill(line, name);
 		if ((finalOnly.get() ? finalKill : anyKill) && ticks - lastKill >= killGap.get() * 20) {
 			lastKill = ticks;
-			enqueue(killText.get());
+			enqueue(toAll(killText.get()));
 		}
 	}
 

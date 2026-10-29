@@ -543,8 +543,6 @@ rago.module.nametags=Pseudos
 rago.module.nametags.desc=Pseudos des joueurs avec styles, polices, couleurs et fond, et ton propre pseudo en F5.
 rago.option.show_own=Afficher mon pseudo (F5)
 rago.option.through_walls=Léger à travers les murs
-rago.option.nametag_scale=Taille
-rago.option.nametag_scale.format=%d%%
 rago.option.name_color_mode=Couleur du pseudo
 rago.option.name_color_mode.server=Couleurs du serveur
 rago.option.name_color_mode.custom=Personnalisée
@@ -860,7 +858,7 @@ rago.locker.more=Couleurs et tailles
 
 # 1.4: Bed Wars stats, trap notifier
 rago.module.bedwars_stats=Stats Bed Wars
-rago.module.bedwars_stats.desc=L'étoile et le ratio finals/morts finales (FKDR) de chaque joueur dans la liste tab, colorés selon un niveau de danger sur 5, les joueurs nick signalés, et une alerte dans le chat avec les ennemis les plus dangereux au début de la partie. Il faut ta clé API Hypixel (dans ses réglages).
+rago.module.bedwars_stats.desc=L'étoile et le ratio finals/morts finales (FKDR) de chaque joueur dans le tab, le FKDR coloré par paliers (gris, vert, vert foncé, jaune, orange, rouge), les joueurs nick et forts signalés, et une alerte dans le chat avec les ennemis les plus dangereux au début de la partie. Il faut ta clé API Hypixel (ci-dessous).
 rago.option.stats_tab_star=Étoile avant les pseudos
 rago.option.stats_tab_fkdr=FKDR après les pseudos
 rago.option.stats_tab_danger=Niveau de danger après les pseudos
@@ -999,15 +997,15 @@ rago.option.raw_input_all_mice=Lire toutes les souris branchées
 rago.raw_input.no_mouse=Raw Input n'arrive pas à lire ta souris sur ce PC, la souris normale du jeu est gardée.
 
 # 1.4: stats marks, legend and team alert
+rago.stats.legend_title=Ce qu'affiche le tab
+rago.stats.legend_star=Étoile avant le pseudo : le niveau Bed Wars du joueur
+rago.stats.legend_fkdr=FKDR (finals ÷ morts finales) :
+rago.stats.legend_danger=Danger : niveau de danger Rago de 1 à 5 (le FKDR compte le plus, puis l'étoile)
+rago.stats.legend_mark=Logo rouge : joueur fort (FKDR %s+ ou étoile %s+) ou joueur nick
 rago.option.stats_tab_mark=Logo rouge danger pour les joueurs forts et les nicks
-rago.option.stats_tab_legend=Légende en haut du tab
 rago.option.stats_strong_fkdr=Fort à partir de ce FKDR
 rago.option.stats_strong_star=Fort à partir de cette étoile
 rago.option.stats_strong_star.format=%s✫
-rago.stats.legend_star=§e[✫] §7= étoile Bed Wars
-rago.stats.legend_fkdr=§7FKDR = finals ÷ morts finales (§aplus haut§7 = plus fort)
-rago.stats.legend_danger=§7Danger = niveau de danger Rago sur 5
-rago.stats.legend_mark=§4§l⚠§r §7= joueur fort (FKDR %s+ ou %s✫+) ou nick
 rago.stats.nick=nick
 rago.team.unknown=Sans équipe
 rago.team.0=Noir
@@ -1081,3 +1079,10 @@ rago.option.auto_kill_gap.format=%d s
 rago.option.auto_tip=Auto Tip (/tip all)
 rago.option.auto_tip_every=Tip toutes les
 rago.option.auto_tip_every.format=%d min
+rago.conflict.oneconfig_key=Le menu OneConfig (Patcher) s'ouvrait avec la même touche que Rago. Il s'ouvre maintenant avec %s ; %s reste la touche du menu Rago. Tu peux la changer dans les Préférences de OneConfig.
+# 1.4.5: Rago logo
+rago.module.rago_badge=Logo Rago
+rago.module.rago_badge.desc=Le logo Rago à côté de ton pseudo, dans le tab et au-dessus de ta tête en F5 (avec l'option des Nametags qui affiche ton propre nom). Seulement sur ton écran : les autres joueurs ne le voient pas.
+rago.option.badge_tab=Dans le tab
+rago.option.badge_nametag=Sur ton nametag
+rago.option.badge_color=Couleur du logo

@@ -543,8 +543,6 @@ rago.module.nametags=Nametags
 rago.module.nametags.desc=Player names with styles, fonts, colours and a background, and your own name in F5.
 rago.option.show_own=Show my own name (F5)
 rago.option.through_walls=Faint through walls
-rago.option.nametag_scale=Size
-rago.option.nametag_scale.format=%d%%
 rago.option.name_color_mode=Name colour
 rago.option.name_color_mode.server=Server colours
 rago.option.name_color_mode.custom=Custom
@@ -860,7 +858,7 @@ rago.locker.more=Colours and sizes
 
 # 1.4: Bed Wars stats, trap notifier
 rago.module.bedwars_stats=Bed Wars Stats
-rago.module.bedwars_stats.desc=Each player's star and final kill/death ratio (FKDR) in the tab list, coloured by a danger level out of 5, nicked players marked, and a chat alert listing the most dangerous enemies when a game starts. Needs your Hypixel API key (in its settings).
+rago.module.bedwars_stats.desc=Each player's star and final kill/death ratio (FKDR) in the tab list, the FKDR coloured by steps (grey, green, dark green, yellow, orange, red), nicked and strong players marked, and a chat alert listing the most dangerous enemies when a game starts. Needs your Hypixel API key (below).
 rago.option.stats_tab_star=Star before names
 rago.option.stats_tab_fkdr=FKDR after names
 rago.option.stats_tab_danger=Danger level after names
@@ -999,15 +997,15 @@ rago.option.raw_input_all_mice=Read every mouse plugged in
 rago.raw_input.no_mouse=Raw Input could not read your mouse on this computer, the game's own mouse stays.
 
 # 1.4: stats marks, legend and team alert
+rago.stats.legend_title=What the tab list shows
+rago.stats.legend_star=Star before the name: the player's Bed Wars level
+rago.stats.legend_fkdr=FKDR (final kills ÷ final deaths):
+rago.stats.legend_danger=Danger: Rago's danger level, 1 to 5 (FKDR counts most, then the star)
+rago.stats.legend_mark=Red sign: a strong player (FKDR %s+ or star %s+) or a nicked player
 rago.option.stats_tab_mark=Red danger sign for strong and nicked players
-rago.option.stats_tab_legend=Legend at the top of the tab list
 rago.option.stats_strong_fkdr=Strong from this FKDR
 rago.option.stats_strong_star=Strong from this star
 rago.option.stats_strong_star.format=%s✫
-rago.stats.legend_star=§e[✫] §7= Bed Wars star
-rago.stats.legend_fkdr=§7FKDR = final kills ÷ final deaths (§ahigher§7 = stronger)
-rago.stats.legend_danger=§7Danger = Rago's danger level out of 5
-rago.stats.legend_mark=§4§l⚠§r §7= strong (FKDR %s+ or %s✫+) or nick
 rago.stats.nick=nick
 rago.team.unknown=No team
 rago.team.0=Black
@@ -1081,3 +1079,10 @@ rago.option.auto_kill_gap.format=%d s
 rago.option.auto_tip=Auto Tip (/tip all)
 rago.option.auto_tip_every=Tip every
 rago.option.auto_tip_every.format=%d min
+rago.conflict.oneconfig_key=OneConfig's menu (Patcher) opened on the same key as Rago's. It now opens with %s; %s stays Rago's menu. You can change it in OneConfig's Preferences.
+# 1.4.5: Rago logo
+rago.module.rago_badge=Rago Logo
+rago.module.rago_badge.desc=The Rago logo next to your name, in the tab list and above your head in F5 (with Nametags showing your own name). Only on your screen: other players don't see it.
+rago.option.badge_tab=In the tab list
+rago.option.badge_nametag=On your name tag
+rago.option.badge_color=Logo colour

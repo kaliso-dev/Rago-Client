@@ -63,6 +63,7 @@ import gg.rago.modules.Cosmetics;
 import gg.rago.modules.CompetitiveProfile;
 import gg.rago.modules.Crosshair;
 import gg.rago.modules.Emotes;
+import gg.rago.modules.RagoBadge;
 import gg.rago.modules.F5Crosshair;
 import gg.rago.modules.Fullbright;
 import gg.rago.modules.GlintColor;
@@ -256,6 +257,7 @@ public final class RagoClient {
 		MODULES.register(new ActionSounds());
 		MODULES.register(new RawInput());
 		Hooks.emotes = MODULES.register(new Emotes());
+		Hooks.ragoBadge = MODULES.register(new RagoBadge());
 		autoText = MODULES.register(new AutoText());
 		MODULES.register(new AutoMessages());
 		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());
@@ -620,6 +622,11 @@ public final class RagoClient {
 			return;
 		}
 		conflictsChecked = true;
+		if (OneConfigKey.moveOff(menuKey.getKeyCode())) {
+			mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText(
+				net.minecraft.util.EnumChatFormatting.RED + "[Rago] " + net.minecraft.util.EnumChatFormatting.RESET
+					+ I18n.format("rago.conflict.oneconfig_key", Keyboard.getKeyName(OneConfigKey.NEW_KEY), Keyboard.getKeyName(menuKey.getKeyCode()))));
+		}
 		if (net.minecraftforge.fml.common.Loader.isModLoaded("ragonohitdelay")) {
 			LOG.warn("The separate Rago NoHitDelay mod is loaded; its NoUseDelay cancels eating on servers");
 			mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText(

@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.4.** What it contains:
+**Current version: 1.4.5.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -104,8 +104,16 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     model is compiled once into a display list, so thousands of voxels are one draw call. Hat and
     wings size, logo colour, flapping speed
   - the Rago cape in six HD designs: Rago, Midnight, Flame, Ocean, Royal, Frost
-  - name tags follow vanilla through walls: only vanilla's faint copy shows behind blocks, and a
-    maximum distance; the name's custom colour can be any colour but stays fully opaque
+  - name tags keep vanilla's size and opacity: only vanilla's faint copy shows behind blocks, the
+    name stays fully opaque and the background at vanilla's quarter opacity; only their colours
+    can change
+  - Rago Logo: the Rago logo before your own name in the tab list and on your name tag in F5 (only
+    on your screen: there is no Rago server, so other Rago players are not marked)
+  - Bed Wars stats: the FKDR is coloured by steps (grey under 1, green from 1, dark green from 5,
+    yellow from 8, orange from 15, red from 20); what the numbers mean is explained on the mod's
+    page in the menu instead of at the top of the tab list
+  - when OneConfig's menu (Patcher) uses the same key as Rago's (Right Shift), it is moved to Right
+    Control once, with a chat message
   - the 1.2 Particles mod is merged into Particle Multiplier, which can now also hide block-breaking
     and block-mining particles
   - Item Scale (held and dropped items from 25% to 400%), Item Physics (dropped items lie on the
@@ -155,7 +163,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     messages in the chat, at most once every two seconds
   - Auto Messages (auto-chat class, off by default, Hypixel only): GG and a message of yours when a
     game ends, a message when you kill someone (final kills only by default, at least 15 seconds
-    apart), and `/tip all` every 15 minutes; at most one message every 1.25 seconds
+    apart), and `/tip all` every 15 minutes; at most one message every 1.25 seconds. In a game they
+    go to everyone: `/shout` in team modes, `/ac` in solo
   - HUD cache: at high frame rates Rago's HUD is drawn 144 times per second (a setting) into an
     image reused in between, drawn over black and white so translucent backgrounds stay exact
   - Bed Wars Stats: each number in the tab list is named ("FKDR 1.3", "Danger 2/5"), and Hypixel's
@@ -239,7 +248,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.4+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.4.5+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the

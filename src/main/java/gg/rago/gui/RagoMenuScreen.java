@@ -15,6 +15,7 @@ import gg.rago.gui.ui.Widgets;
 import gg.rago.hud.HudElement;
 import gg.rago.hud.HudPosition;
 import gg.rago.hypixel.HypixelApi;
+import gg.rago.modules.BedwarsStats;
 import gg.rago.optimize.OptiFineFields;
 import gg.rago.profile.ModProfiles;
 import gg.rago.settings.Button;
@@ -572,6 +573,9 @@ public final class RagoMenuScreen extends GuiScreen {
 		if (ModuleInfo.usesHypixelKey(m)) {
 			cy = hypixelKey(x, cy, w - 8, inside) + 10;
 		}
+		if (m instanceof BedwarsStats) {
+			cy = statsLegend((BedwarsStats) m, x, cy, w - 8) + 10;
+		}
 		if (m instanceof HudElement) {
 			preview((HudElement) m, x, cy, w - 8, 110);
 			cy += 122;
@@ -722,6 +726,36 @@ public final class RagoMenuScreen extends GuiScreen {
 		}
 	}
 
+	/** FKDR colour steps, as in the tab list: the lowest ratio of each step and its colour. */
+	private static final String[] FKDR_STEPS = {"< 1", "1+", "5+", "8+", "15+", "20+"};
+	private static final int[] FKDR_COLORS = {0xFFAAAAAA, 0xFF55FF55, 0xFF00AA00, 0xFFFFFF55, 0xFFFFAA00, 0xFFFF5555};
+
+	/** What the numbers next to the names in the tab list mean, with the FKDR colours. */
+	private float statsLegend(BedwarsStats stats, float x, float y, float w) {
+		float h = 112;
+		rowFrame(x, y, w, h);
+		Ui.icon("list-ordered", x + 12, y + 10, 13, Theme.ACCENT);
+		Ui.text(Ui.MEDIUM, t("rago.stats.legend_title"), x + 32, y + 10, 10.5f, Theme.TEXT);
+		float ly = y + 32;
+		Ui.text(Ui.REGULAR, t("rago.stats.legend_star"), x + 12, ly, 9.5f, 0xFFD4D2D9);
+		ly += 18;
+		String fkdr = t("rago.stats.legend_fkdr");
+		Ui.text(Ui.REGULAR, fkdr, x + 12, ly, 9.5f, 0xFFD4D2D9);
+		float cx = x + 12 + Ui.textWidth(Ui.REGULAR, fkdr, 9.5f) + 10;
+		for (int i = 0; i < FKDR_STEPS.length; i++) {
+			float cw = Ui.textWidth(Ui.MEDIUM, FKDR_STEPS[i], 9) + 14;
+			Ui.roundBorder(cx, ly - 3, cw, 16, 8, 0xCC141316, 0x1FFFFFFF);
+			Ui.text(Ui.MEDIUM, FKDR_STEPS[i], cx + 7, ly - 3 + (16 - 9 * 1.21f) / 2, 9, FKDR_COLORS[i]);
+			cx += cw + 4;
+		}
+		ly += 18;
+		Ui.text(Ui.REGULAR, t("rago.stats.legend_danger"), x + 12, ly, 9.5f, 0xFFD4D2D9);
+		ly += 18;
+		Ui.icon("triangle-alert", x + 12, ly - 1, 11, 0xFFAA0000);
+		Ui.text(Ui.REGULAR, t("rago.stats.legend_mark", stats.strongFkdr(), stats.strongStar()), x + 28, ly, 9.5f, 0xFFD4D2D9);
+		return y + h;
+	}
+
 	private static void rowFrame(float x, float y, float w, float h) {
 		Ui.glassBorder(x, y, w, h, 7, 0xFF131215, 0x12FFFFFF);
 	}
@@ -841,7 +875,7 @@ public final class RagoMenuScreen extends GuiScreen {
 			});
 		}
 		// opacity (none for colours that stay opaque)
-		if (co.isOpaque()) {
+		if (co.hasFixedAlpha()) {
 			colorPreview(argb, x, y, w);
 			return;
 		}
