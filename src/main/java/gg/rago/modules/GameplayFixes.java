@@ -7,6 +7,8 @@ import gg.rago.core.Module;
 import gg.rago.core.RagoClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.GameSettings;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.fml.relauncher.ReflectionHelper;
 import org.lwjgl.input.Keyboard;
@@ -23,6 +25,9 @@ import java.lang.reflect.Method;
  *   head was turned a tick earlier.</li>
  *   <li>Keybind fix: movement keys held while a menu closes keep working, as in 1.12+, instead of
  *   having to be pressed again.</li>
+ *   <li>Eating fix: when the server re-sends the stack in your hand while you eat or drink (same
+ *   item, a new copy), 1.8 takes it for another item and starts the bite over; with this on the bite
+ *   continues, as in later versions. Nothing extra is sent.</li>
  *   <li>Borderless fullscreen: F11 fills the screen with a window without borders, so alt-tab is
  *   instant and the mouse can leave the game on a second monitor.</li>
  * </ul>
@@ -34,6 +39,9 @@ public final class GameplayFixes extends Module {
 	private final BooleanOption mouseDelay = addOption(new BooleanOption("mouse_delay_fix", true));
 	private final BooleanOption keybindFix = addOption(new BooleanOption("keybind_fix", true));
 	private final BooleanOption borderless = addOption(new BooleanOption("borderless_fullscreen", true));
+	private final BooleanOption eatingFix = addOption(new BooleanOption("eating_fix", true));
+	private Field itemInUse;
+	private boolean itemInUseFailed;
 
 	private boolean screenWasOpen;
 	private int windowW;
@@ -48,6 +56,30 @@ public final class GameplayFixes extends Module {
 	@Override
 	public Category category() {
 		return Category.FIXES;
+	}
+
+	/**
+	 * Whether the player keeps using {@code inUse} although the hand now holds {@code current}:
+	 * true when it is the same stack, or with the eating fix, an identical copy of it (which then
+	 * becomes the stack in use).
+	 */
+	public boolean keepUsing(ItemStack current, ItemStack inUse, EntityPlayer player) {
+		if (!eatingFix.get() || current == null || inUse == null || player != Minecraft.getMinecraft().thePlayer
+			|| current.getItem() != inUse.getItem() || current.getMetadata() != inUse.getMetadata()
+			|| !ItemStack.areItemStackTagsEqual(current, inUse) || itemInUseFailed) {
+			return false;
+		}
+		try {
+			if (itemInUse == null) {
+				itemInUse = ReflectionHelper.findField(EntityPlayer.class, "field_71074_e", "itemInUse");
+			}
+			itemInUse.set(player, current);
+			return true;
+		} catch (RuntimeException | IllegalAccessException e) {
+			itemInUseFailed = true;
+			RagoClient.LOG.warn("Eating fix unavailable", e);
+			return false;
+		}
 	}
 
 	public boolean mouseDelayFix() {

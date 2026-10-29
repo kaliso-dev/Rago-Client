@@ -74,6 +74,18 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.renderer.EntityRenderer", new Patch("hurt camera strength",
 			"func_78482_e", "hurtCameraEffect", "(F)V",
 			RagoTransformer::hurtShake));
+		add("net.minecraft.client.renderer.EntityRenderer", new Patch("smooth sneak camera",
+			"func_78467_g", "orientCamera", "(F)V",
+			m -> {
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn instanceof MethodInsnNode && "()F".equals(((MethodInsnNode) insn).desc)
+						&& ("func_70047_e".equals(((MethodInsnNode) insn).name) || "getEyeHeight".equals(((MethodInsnNode) insn).name))) {
+						m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "cameraEyeHeight", "(F)F", false));
+						return true;
+					}
+				}
+				return false;
+			}));
 		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("1.7 armour damage tint",
 			"func_177142_b", "shouldCombineTextures", "()Z",
 			m -> beforeReturns(m, Opcodes.IRETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "armorDamageTint", "(Z)Z", false))));
@@ -81,6 +93,64 @@ public final class RagoTransformer implements IClassTransformer {
 			"func_175245_a", "drawPing", "(IIILnet/minecraft/client/network/NetworkPlayerInfo;)V",
 			m -> returnIf(m, "replaceTabPing", "(IIILnet/minecraft/client/network/NetworkPlayerInfo;)Z",
 				new int[] {Opcodes.ILOAD, 1, Opcodes.ILOAD, 2, Opcodes.ILOAD, 3, Opcodes.ALOAD, 4}, -1, Opcodes.RETURN)));
+		add("net.minecraft.client.gui.GuiPlayerTabOverlay", new Patch("tab list look",
+			"func_175249_a", "renderPlayerlist", "(ILnet/minecraft/scoreboard/Scoreboard;Lnet/minecraft/scoreboard/ScoreObjective;)V",
+			RagoTransformer::tabLook));
+		add("net.minecraft.entity.player.EntityPlayer", new Patch("eating fix",
+			"func_70071_h_", "onUpdate", "()V",
+			m -> {
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					AbstractInsnNode prev = insn.getPrevious();
+					if (insn.getOpcode() == Opcodes.IF_ACMPNE && prev instanceof FieldInsnNode
+						&& ("field_71074_e".equals(((FieldInsnNode) prev).name) || "itemInUse".equals(((FieldInsnNode) prev).name))) {
+						InsnList check = new InsnList();
+						check.add(new VarInsnNode(Opcodes.ALOAD, 0));
+						check.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "keepItemInUse",
+							"(Lnet/minecraft/item/ItemStack;Lnet/minecraft/item/ItemStack;Lnet/minecraft/entity/player/EntityPlayer;)Z", false));
+						check.add(new JumpInsnNode(Opcodes.IFEQ, ((JumpInsnNode) insn).label));
+						m.instructions.insertBefore(insn, check);
+						m.instructions.remove(insn);
+						return true;
+					}
+				}
+				return false;
+			}));
+		add("net.minecraft.client.Minecraft", new Patch("hit delay fix",
+			"func_147116_af", "clickMouse", "()V",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn.getOpcode() == Opcodes.BIPUSH && ((IntInsnNode) insn).operand == 10
+						&& insn.getNext() instanceof FieldInsnNode && insn.getNext().getOpcode() == Opcodes.PUTFIELD
+						&& ("field_71429_W".equals(((FieldInsnNode) insn.getNext()).name)
+							|| "leftClickCounter".equals(((FieldInsnNode) insn.getNext()).name))) {
+						m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "missDelay", "(I)I", false));
+						found = true;
+					}
+				}
+				return found;
+			}));
+		add("net.minecraft.client.particle.EffectRenderer", new Patch("particle styles",
+			"func_78873_a", "addEffect", "(Lnet/minecraft/client/particle/EntityFX;)V",
+			m -> returnIf(m, "dropParticle", "(Lnet/minecraft/client/particle/EntityFX;)Z", new int[] {Opcodes.ALOAD, 1}, -1, Opcodes.RETURN)));
+		add("net.minecraft.client.particle.EffectRenderer", new Patch("more block breaking particles",
+			"func_180533_a", "addBlockDestroyEffects", "(Lnet/minecraft/util/BlockPos;Lnet/minecraft/block/state/IBlockState;)V",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn.getOpcode() == Opcodes.RETURN) {
+						InsnList call = new InsnList();
+						call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+						call.add(new VarInsnNode(Opcodes.ALOAD, 1));
+						call.add(new VarInsnNode(Opcodes.ALOAD, 2));
+						call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "blockBroken",
+							"(Lnet/minecraft/client/particle/EffectRenderer;Lnet/minecraft/util/BlockPos;Lnet/minecraft/block/state/IBlockState;)V", false));
+						m.instructions.insertBefore(insn, call);
+						found = true;
+					}
+				}
+				return found;
+			}));
 		add("net.minecraft.client.gui.GuiNewChat", new Patch("longer chat history",
 			"func_146237_a", "setChatLine", "(Lnet/minecraft/util/IChatComponent;IIZ)V",
 			RagoTransformer::chatLimit));
@@ -458,6 +528,52 @@ public final class RagoTransformer implements IClassTransformer {
 			}
 		}
 		return background && text;
+	}
+
+	/**
+	 * renderPlayerlist: {@code Hooks.tabBegin(width)} first and {@code Hooks.tabEnd()} before
+	 * returning, rectangle colours through {@code Hooks.tabRect}, the header and footer fields
+	 * through {@code Hooks.tabHeaderFooter}, and text through {@code Hooks.tabText}.
+	 */
+	private static boolean tabLook(MethodNode m) {
+		int rects = 0;
+		int fields = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof FieldInsnNode && insn.getOpcode() == Opcodes.GETFIELD
+				&& "Lnet/minecraft/util/IChatComponent;".equals(((FieldInsnNode) insn).desc)) {
+				String name = ((FieldInsnNode) insn).name;
+				boolean header = "field_175256_i".equals(name) || "header".equals(name);
+				if (!header && !"field_175255_h".equals(name) && !"footer".equals(name)) {
+					continue;
+				}
+				InsnList call = new InsnList();
+				call.add(new InsnNode(header ? Opcodes.ICONST_1 : Opcodes.ICONST_0));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "tabHeaderFooter",
+					"(Lnet/minecraft/util/IChatComponent;Z)Lnet/minecraft/util/IChatComponent;", false));
+				m.instructions.insert(insn, call);
+				fields++;
+			} else if (insn instanceof MethodInsnNode) {
+				MethodInsnNode call = (MethodInsnNode) insn;
+				if (isMethod(call, "func_73734_a", "drawRect", "(IIIII)V")) {
+					m.instructions.insertBefore(call, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "tabRect", "(I)I", false));
+					rects++;
+				} else if (isMethod(call, "func_175063_a", "drawStringWithShadow", "(Ljava/lang/String;FFI)I")) {
+					AbstractInsnNode replaced = new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "tabText",
+						"(Lnet/minecraft/client/gui/FontRenderer;Ljava/lang/String;FFI)I", false);
+					m.instructions.set(call, replaced);
+					insn = replaced;
+				}
+			}
+		}
+		if (rects == 0 || fields == 0) {
+			return false;
+		}
+		beforeReturns(m, Opcodes.RETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "tabEnd", "()V", false));
+		InsnList head = new InsnList();
+		head.add(new VarInsnNode(Opcodes.ILOAD, 1));
+		head.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "tabBegin", "(I)V", false));
+		m.instructions.insert(head);
+		return true;
 	}
 
 	/** At the start of getLook: {@code Hooks.look(this, partialTicks)} returns a direction to use instead, or null. */

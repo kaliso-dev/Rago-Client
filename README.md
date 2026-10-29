@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.1.0.** What it contains:
+**Current version: 1.2.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -68,6 +68,23 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - Direction HUD, Pack Display HUD, enchantment glint colour (or rainbow) on items and armour
   - less memory: Rago's textures no longer keep a copy of their pixels in Java memory, and text is
     measured without building a 48-pixel glyph texture
+- new in 1.2:
+  - motion blur reworked: the trail is updated 60 times per second and laid over the sharp current
+    frame, so 1000+ FPS no longer leaves pixel trails (most visible in the sky); lighter by default
+  - smooth sneak: the camera lowers over a fifth of a second (1.7 animations; aiming keeps the real
+    eye height)
+  - Tab List: background and row opacity (transparent by default), server header and footer, text
+    shadow, size
+  - Particles: block, critical-hit, sharpness and other particles can each be hidden, resized and
+    tinted; block-breaking particles can be multiplied (×1 to ×5)
+  - Saturation & Colours: saturation, vibrance, contrast, brightness, gamma, temperature, tint and
+    sharpening of the world in one shader pass (OpenGL 2.0), the HUD keeps its colours
+  - presets on the Performance page: Ranked Bedwars (the mods a Bed Wars player needs and fast video
+    settings) and Quality (colour grading, longer render distance, fancy graphics), with Undo
+  - Hit Delay Fix (input class, off by default): a missed click no longer locks the attack key for
+    10 ticks. Check the rules of the server you play on
+  - eating fix (in gameplay fixes): when the server re-sends the stack in your hand while you eat or
+    drink, the bite continues instead of starting over
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -126,7 +143,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.1.0+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.2.0+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the

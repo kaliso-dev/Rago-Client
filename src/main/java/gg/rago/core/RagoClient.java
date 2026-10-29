@@ -8,6 +8,7 @@ import gg.rago.debug.FrameProfile;
 import gg.rago.gui.ui.Anim;
 import gg.rago.gui.ui.Ui;
 import gg.rago.optimize.OptiFineFields;
+import gg.rago.optimize.PlayPreset;
 import gg.rago.optimize.Optimizations;
 import gg.rago.optimize.PerformancePreset;
 import gg.rago.optimize.VideoRows;
@@ -46,6 +47,7 @@ import gg.rago.hypixel.HypixelApi;
 import gg.rago.input.InputState;
 import gg.rago.modules.BlockOverlay;
 import gg.rago.modules.Chat;
+import gg.rago.modules.ColorGrading;
 import gg.rago.modules.CompetitiveProfile;
 import gg.rago.modules.Crosshair;
 import gg.rago.modules.F5Crosshair;
@@ -62,10 +64,13 @@ import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.NoPumpkin;
 import gg.rago.modules.NoWaterOverlay;
 import gg.rago.modules.OldAnimations;
+import gg.rago.modules.Particles;
 import gg.rago.modules.RagoCape;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.HitColor;
+import gg.rago.modules.HitDelayFix;
 import gg.rago.modules.Nametags;
+import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
 import gg.rago.modules.TimeChanger;
 import gg.rago.modules.WeatherChanger;
@@ -198,6 +203,9 @@ public final class RagoClient {
 		MODULES.register(new Hitboxes());
 		MODULES.register(new HitParticles());
 		TabPing tabPing = MODULES.register(new TabPing());
+		Hooks.tabList = MODULES.register(new TabList());
+		Hooks.particles = MODULES.register(new Particles());
+		Hooks.hitDelay = MODULES.register(new HitDelayFix());
 		Chat chat = MODULES.register(new Chat());
 		Nametags nametags = MODULES.register(new Nametags());
 		HypixelApi hypixel = new HypixelApi(configDir);
@@ -214,6 +222,7 @@ public final class RagoClient {
 		MODULES.register(new WeatherChanger());
 		MODULES.register(new TimeChanger());
 		MODULES.register(new MotionBlur(zoom));
+		MODULES.register(new ColorGrading());
 		RagoCape cape = MODULES.register(new RagoCape());
 		GlintColor glint = MODULES.register(new GlintColor());
 		mainMenu = MODULES.register(new MainMenu());
@@ -306,6 +315,20 @@ public final class RagoClient {
 			LOG.info("Max performance preset undone, {} settings restored", restored);
 			saveConfig();
 		}).visibleWhen(preset::canUndo);
+		PlayPreset play = new PlayPreset(SETTINGS, MODULES, configDir);
+		SETTINGS.button(p, presets, "preset_ranked_bedwars", () -> {
+			LOG.info("Ranked Bedwars preset changed {} mods and settings", play.apply(PlayPreset.Kind.RANKED_BEDWARS));
+			saveConfig();
+		}).primary();
+		SETTINGS.button(p, presets, "preset_quality", () -> {
+			LOG.info("Quality preset changed {} mods and settings", play.apply(PlayPreset.Kind.QUALITY));
+			saveConfig();
+		});
+		SETTINGS.button(p, presets, "undo_play_preset", () -> {
+			play.undo();
+			LOG.info("Mods and settings from before the presets restored");
+			saveConfig();
+		}).visibleWhen(play::canUndo);
 	}
 
 	private static void registerGeneralSettings() {

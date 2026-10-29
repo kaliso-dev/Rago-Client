@@ -4,20 +4,29 @@ import gg.rago.modules.Chat;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.GlintColor;
 import gg.rago.modules.HitColor;
+import gg.rago.modules.HitDelayFix;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.OldAnimations;
+import gg.rago.modules.Particles;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
 import gg.rago.optimize.EngineTweaks;
 import gg.rago.optimize.OcclusionCuller;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.particle.EffectRenderer;
+import net.minecraft.client.particle.EntityFX;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.BlockPos;
+import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3;
 
@@ -34,6 +43,9 @@ public final class Hooks {
 	public static volatile NoHurtCam noHurtCam;
 	public static volatile OldAnimations animations;
 	public static volatile TabPing tabPing;
+	public static volatile TabList tabList;
+	public static volatile Particles particles;
+	public static volatile HitDelayFix hitDelay;
 	public static volatile Chat chat;
 	public static volatile GameplayFixes fixes;
 	public static volatile HitColor hitColor;
@@ -69,6 +81,12 @@ public final class Hooks {
 	public static float useSwing(float swing, int kind) {
 		OldAnimations a = animations;
 		return a != null && a.isEnabled() && a.swingWhileUsing(kind) ? swing : 0f;
+	}
+
+	/** EntityRenderer.orientCamera: the eye height the camera is placed at (smooth sneak). */
+	public static float cameraEyeHeight(float vanilla) {
+		OldAnimations a = animations;
+		return a != null && a.isEnabled() ? a.cameraEyeHeight(vanilla) : vanilla;
 	}
 
 	/** ItemRenderer.transformFirstPersonItem, first thing: moves the held item. */
@@ -167,6 +185,69 @@ public final class Hooks {
 	public static boolean replaceTabPing(int width, int x, int y, NetworkPlayerInfo info) {
 		TabPing t = tabPing;
 		return t != null && t.isEnabled() && t.draw(width, x, y, info);
+	}
+
+	/** EntityPlayer.onUpdate: whether the item in use is still the one in the hand (vanilla: same object). */
+	public static boolean keepItemInUse(ItemStack current, ItemStack inUse, EntityPlayer player) {
+		if (current == inUse) {
+			return true;
+		}
+		GameplayFixes f = fixes;
+		return f != null && f.isEnabled() && f.keepUsing(current, inUse, player);
+	}
+
+	/** Minecraft.clickMouse: ticks the attack key is locked after a click that hits nothing. */
+	public static int missDelay(int vanilla) {
+		HitDelayFix h = hitDelay;
+		return h != null && h.isEnabled() ? h.missDelay(vanilla) : vanilla;
+	}
+
+	/** EffectRenderer.addEffect: true to drop the particle (the Particles mod can also restyle it). */
+	public static boolean dropParticle(EntityFX fx) {
+		Particles p = particles;
+		return p != null && p.isEnabled() && fx != null && !p.onAdded(fx);
+	}
+
+	/** EffectRenderer.addBlockDestroyEffects, at the end. */
+	public static void blockBroken(EffectRenderer renderer, BlockPos pos, IBlockState state) {
+		Particles p = particles;
+		if (p != null && p.isEnabled()) {
+			p.afterBlockBroken(renderer, pos, state);
+		}
+	}
+
+	/** GuiPlayerTabOverlay.renderPlayerlist, first thing. */
+	public static void tabBegin(int width) {
+		TabList t = tabList;
+		if (t != null && t.isEnabled()) {
+			t.begin(width);
+		}
+	}
+
+	/** GuiPlayerTabOverlay.renderPlayerlist, before returning (always called after tabBegin). */
+	public static void tabEnd() {
+		TabList t = tabList;
+		if (t != null) {
+			t.end();
+		}
+	}
+
+	/** GuiPlayerTabOverlay.renderPlayerlist: colour of the background and row rectangles. */
+	public static int tabRect(int vanilla) {
+		TabList t = tabList;
+		return t != null && t.isEnabled() ? t.rectColor(vanilla) : vanilla;
+	}
+
+	/** GuiPlayerTabOverlay.renderPlayerlist: the header ({@code first}) or footer, null to hide it. */
+	public static IChatComponent tabHeaderFooter(IChatComponent text, boolean first) {
+		TabList t = tabList;
+		return t != null && t.isEnabled() ? t.headerFooter(text, first) : text;
+	}
+
+	/** GuiPlayerTabOverlay.renderPlayerlist: draws a name, header or footer line. */
+	public static int tabText(FontRenderer font, String text, float x, float y, int color) {
+		TabList t = tabList;
+		return t != null && t.isEnabled() ? t.drawText(font, text, x, y, color) : font.drawStringWithShadow(text, x, y, color);
 	}
 
 	/** GuiNewChat.setChatLine: how many lines the chat keeps. */

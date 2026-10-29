@@ -14,7 +14,7 @@ import net.minecraft.util.MovingObjectPosition;
  * 1.7 animations and held-item tweaks: the sword swings while you block-hit, the arm swings while
  * eating or drawing a bow, armour turns red with the player when hit, the arm swings when you click
  * while using an item, no lower-and-raise animation when the held item only changes (durability),
- * swing speed, and the held item's position and size. All of it only changes how your own client
+ * swing speed, the held item's position and size, and a camera that lowers smoothly when you sneak. All of it only changes how your own client
  * draws things; nothing here is sent to the server.
  */
 public final class OldAnimations extends Module {
@@ -24,11 +24,14 @@ public final class OldAnimations extends Module {
 	private final BooleanOption eatSwing = addOption(new BooleanOption("eat_swing", true));
 	private final BooleanOption bowSwing = addOption(new BooleanOption("bow_swing", true));
 	private final BooleanOption noReequip = addOption(new BooleanOption("no_reequip", true));
+	private final BooleanOption smoothSneak = addOption(new BooleanOption("smooth_sneak", true));
 	private final IntOption swingSpeed;
 	private final IntOption itemX;
 	private final IntOption itemY;
 	private final IntOption itemZ;
 	private final IntOption itemScale;
+	private float eyeHeight = Float.NaN;
+	private long lastEyeNs;
 
 	public OldAnimations() {
 		super("old_animations", FeatureClass.VISUAL, false);
@@ -51,6 +54,22 @@ public final class OldAnimations extends Module {
 			default:
 				return bowSwing.get();
 		}
+	}
+
+	/**
+	 * The camera height used for drawing: follows the real eye height (which jumps by 0.08 blocks
+	 * when sneaking) over about a fifth of a second. Aiming and hits keep the real height.
+	 */
+	public float cameraEyeHeight(float vanilla) {
+		long now = System.nanoTime();
+		float dt = lastEyeNs == 0 ? 0 : Math.min(0.1f, (now - lastEyeNs) / 1e9f);
+		lastEyeNs = now;
+		if (!smoothSneak.get() || Float.isNaN(eyeHeight) || Math.abs(vanilla - eyeHeight) > 0.3f) {
+			eyeHeight = vanilla;
+		} else {
+			eyeHeight += (vanilla - eyeHeight) * (1 - (float) Math.exp(-dt * 15));
+		}
+		return eyeHeight;
 	}
 
 	public boolean noReequip() {
