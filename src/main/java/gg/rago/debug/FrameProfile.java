@@ -14,7 +14,10 @@ public final class FrameProfile {
 	public static final int HUD = 1;
 	public static final int NAMETAGS = 2;
 	public static final int TICK = 3;
-	private static final String[] NAMES = {"culling", "hud", "nametags", "tick"};
+	/** Working out the name tags (and the lines above them) as each player is drawn. */
+	public static final int NAMES_QUEUED = 4;
+	public static final int HITBOXES = 5;
+	private static final String[] NAMES = {"culling", "hud", "nametags", "tick", "names", "hitboxes"};
 	private static final long[] TOTAL = new long[NAMES.length];
 	private static long frames;
 	private static long windowStart;

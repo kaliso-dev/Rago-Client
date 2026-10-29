@@ -21,4 +21,13 @@ class DangerTest {
 		assertEquals("§c", Danger.color(4));
 		assertEquals("§4", Danger.color(5));
 	}
+
+	@Test
+	void levelsReadAsTiers() {
+		assertEquals('D', Danger.tier(1));
+		assertEquals('C', Danger.tier(2));
+		assertEquals('B', Danger.tier(3));
+		assertEquals('A', Danger.tier(4));
+		assertEquals('S', Danger.tier(5));
+	}
 }

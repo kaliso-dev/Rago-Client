@@ -246,10 +246,17 @@ public final class MotionBlur extends Module {
 		}
 	}
 
+	/** Reused every frame: a direct buffer is slow to make. */
+	private static final java.nio.IntBuffer VIEWPORT = org.lwjgl.BufferUtils.createIntBuffer(16);
+	private static final int[] VIEWPORT_OUT = new int[4];
+
 	private static int[] viewport() {
-		java.nio.IntBuffer b = org.lwjgl.BufferUtils.createIntBuffer(16);
-		GL11.glGetInteger(GL11.GL_VIEWPORT, b);
-		return new int[]{b.get(0), b.get(1), b.get(2), b.get(3)};
+		VIEWPORT.clear();
+		GL11.glGetInteger(GL11.GL_VIEWPORT, VIEWPORT);
+		for (int i = 0; i < 4; i++) {
+			VIEWPORT_OUT[i] = VIEWPORT.get(i);
+		}
+		return VIEWPORT_OUT;
 	}
 
 	/** A screen-filling quad with the bound texture at {@code alpha}. */

@@ -21,6 +21,7 @@ import gg.rago.modules.Screenshots;
 import gg.rago.modules.SkinChanger;
 import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
+import gg.rago.modules.TitleMod;
 import gg.rago.optimize.EngineTweaks;
 import gg.rago.optimize.OcclusionCuller;
 import net.minecraft.client.Minecraft;
@@ -73,6 +74,19 @@ public final class Hooks {
 	public static volatile Emotes emotes;
 	public static volatile RagoBadge ragoBadge;
 	public static volatile AntiArmor antiArmor;
+	public static volatile TitleMod titles;
+
+	/** GuiIngameForge.renderTitle, first thing: true draws no title or subtitle. */
+	public static boolean hideTitles() {
+		TitleMod t = titles;
+		return t != null && t.isEnabled() && t.hides();
+	}
+
+	/** GuiIngameForge.renderTitle: the title's scale (vanilla 4) or the subtitle's (vanilla 2). */
+	public static float titleScale(float vanilla, int width) {
+		TitleMod t = titles;
+		return t != null && t.isEnabled() ? t.scale(vanilla, width) : vanilla;
+	}
 
 	/** LayerArmorBase.doRenderLayer: true to draw no armour on this entity. */
 	public static boolean hideArmor(EntityLivingBase entity) {

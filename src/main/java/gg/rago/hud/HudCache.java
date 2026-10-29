@@ -39,15 +39,16 @@ public final class HudCache {
 		long frame = lastFrame == 0 ? Long.MAX_VALUE : now - lastFrame;
 		lastFrame = now;
 		long interval = 1_000_000_000L / Math.max(1, rate);
-		int previous = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
 		// slower than the update rate (or no framebuffers): nothing to save
-		if (failed || frame >= interval || !OpenGlHelper.framebufferSupported || !ready(mc, previous)) {
+		if (failed || frame >= interval || !OpenGlHelper.framebufferSupported || !ready(mc)) {
 			valid = false;
 			drawHud.run();
 			return;
 		}
 		if (!valid || now - drawnAt >= interval) {
 			drawnAt = now;
+			// asked only when the image is redrawn: asking the driver can make it wait
+			int previous = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
 			draw(black, 0, drawHud);
 			draw(white, 1, drawHud);
 			// white minus black: how much of the world shows through each pixel, in the white image
@@ -74,12 +75,13 @@ public final class HudCache {
 		drawHud.run();
 	}
 
-	private boolean ready(Minecraft mc, int previous) {
+	private boolean ready(Minecraft mc) {
 		int w = mc.displayWidth;
 		int h = mc.displayHeight;
 		if (black != null && black.width == w && black.height == h) {
 			return true;
 		}
+		int previous = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
 		if (black != null) {
 			black.delete();
 			white.delete();

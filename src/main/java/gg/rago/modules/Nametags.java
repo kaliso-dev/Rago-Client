@@ -20,13 +20,18 @@ import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.scoreboard.Score;
 import net.minecraft.scoreboard.ScoreObjective;
+import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.scoreboard.Scoreboard;
+import net.minecraft.world.World;
 import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
+
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /**
  * Players' name tags drawn Rago's way: a style preset (Vanilla, Rago, Minimal, Outline) and then
@@ -167,6 +172,14 @@ public final class Nametags extends Module implements Styled {
 		if (!isEnabled() || !(event.entity instanceof EntityPlayer)) {
 			return;
 		}
+		long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
+		namePre(event);
+		if (gg.rago.debug.FrameProfile.ON) {
+			gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.NAMES_QUEUED, System.nanoTime() - t);
+		}
+	}
+
+	private void namePre(RenderLivingEvent.Specials.Pre<EntityLivingBase> event) {
 		EntityPlayer p = (EntityPlayer) event.entity;
 		Minecraft mc = Minecraft.getMinecraft();
 		boolean self = p == mc.getRenderViewEntity();
@@ -193,7 +206,7 @@ public final class Nametags extends Module implements Styled {
 	private void drawName(EntityPlayer p, double x, double y, double z) {
 		Minecraft mc = Minecraft.getMinecraft();
 		double base = y + p.height + 0.5 - (p.isChild() ? p.height / 2 : 0);
-		String name = p.getDisplayName().getFormattedText();
+		String name = displayName(p);
 		if (p.isSneaking()) {
 			// vanilla: lower, only where the player is visible, faint text
 			label(name, x, base, z, SNEAK_DROP, false, 0x20);
@@ -211,6 +224,53 @@ public final class Nametags extends Module implements Styled {
 		RagoBadge badge = gg.rago.hooks.Hooks.ragoBadge;
 		boolean logo = p == mc.thePlayer && badge != null && badge.onNametag();
 		label(name, x, top, z, 0, throughWalls.get(), 0xFF, logo ? badge : null);
+	}
+
+	/** A player's name as the game shows it, what it was made from, and the tick it was made. */
+	private static final class Name {
+		int tick = -1;
+		Object team;
+		String prefix;
+		String suffix;
+		String base;
+		String text;
+	}
+
+	/** Names are made again at least this often, for mods that change them without a team change. */
+	private static final int NAME_REFRESH_TICKS = 20;
+
+	private final Map<EntityPlayer, Name> names = new WeakHashMap<>();
+	private World namesWorld;
+
+	/**
+	 * The player's name with its team colours. The game builds a chat message with a click and a
+	 * hover action (an NBT tag turned to text) each time it is asked, so the name is made again only
+	 * when the team, its prefix or suffix or the name change, and once a second whatever happens.
+	 */
+	private String displayName(EntityPlayer p) {
+		if (p.worldObj != namesWorld) {
+			namesWorld = p.worldObj;
+			names.clear();
+		}
+		Name n = names.get(p);
+		if (n == null) {
+			n = new Name();
+			names.put(p, n);
+		}
+		ScorePlayerTeam team = p.getWorldScoreboard().getPlayersTeam(p.getName());
+		String prefix = team == null ? null : team.getColorPrefix();
+		String suffix = team == null ? null : team.getColorSuffix();
+		String base = p.getDisplayNameString();
+		int age = p.ticksExisted - n.tick;
+		if (n.text == null || age < 0 || age >= NAME_REFRESH_TICKS || n.team != team || n.prefix != prefix || n.suffix != suffix || n.base != base) {
+			n.tick = p.ticksExisted;
+			n.team = team;
+			n.prefix = prefix;
+			n.suffix = suffix;
+			n.base = base;
+			n.text = p.getDisplayName().getFormattedText();
+		}
+		return n.text;
 	}
 
 	/**

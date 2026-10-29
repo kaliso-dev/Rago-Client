@@ -17,6 +17,9 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+import java.util.Map;
+import java.util.WeakHashMap;
+
 
 /**
  * On Hypixel, shows each player's network level or Bedwars star above their name, read from the
@@ -78,7 +81,7 @@ public final class LevelHead extends Module {
 			return;
 		}
 		HypixelApi.Stats stats = api.get(p.getUniqueID());
-		String text = stats == null ? null : text(stats);
+		String text = stats == null ? null : cachedText(stats);
 		if (text != null) {
 			double line = nametags.lineHeight();
 			double top = NameTags.nameTop(p, event.y, line) + line;
@@ -88,6 +91,23 @@ public final class LevelHead extends Module {
 				WorldDraw.label(text, event.x, top, event.z, background.get());
 			}
 		}
+	}
+
+	/** The line for each set of stats, made once rather than every frame; new stats are new objects. */
+	private final Map<HypixelApi.Stats, String> texts = new WeakHashMap<>();
+	private int textsDisplay = -1;
+
+	private String cachedText(HypixelApi.Stats s) {
+		if (display.get() != textsDisplay) {
+			textsDisplay = display.get();
+			texts.clear();
+		}
+		String t = texts.get(s);
+		if (t == null && !texts.containsKey(s)) {
+			t = text(s);
+			texts.put(s, t);
+		}
+		return t;
 	}
 
 	private String text(HypixelApi.Stats s) {

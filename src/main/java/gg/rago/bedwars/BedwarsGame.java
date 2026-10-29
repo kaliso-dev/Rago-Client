@@ -39,6 +39,7 @@ public final class BedwarsGame {
 	private static long readAt;
 	private static Map<Character, Boolean> beds = Collections.emptyMap();
 	private static Map<Character, Boolean> alive = Collections.emptyMap();
+	private static String eventLine;
 
 	private BedwarsGame() {
 	}
@@ -66,6 +67,7 @@ public final class BedwarsGame {
 		readAt = now;
 		Map<Character, Boolean> out = new LinkedHashMap<>();
 		Map<Character, Boolean> teamsAlive = new LinkedHashMap<>();
+		String event = null;
 		Minecraft mc = Minecraft.getMinecraft();
 		if (inBedwars()) {
 			Scoreboard board = mc.theWorld.getScoreboard();
@@ -77,13 +79,22 @@ public final class BedwarsGame {
 				if (bed != null) {
 					out.put(line.charAt(0), bed);
 					teamsAlive.put(line.charAt(0), alive(line));
+				} else if (event == null && GameEvents.hasCountdown(line)) {
+					event = line;
 				}
 			}
 		}
+		eventLine = out.size() >= 2 ? event : null;
 		// a single line could be something else: a game has at least two teams
 		beds = out.size() >= 2 ? out : Collections.<Character, Boolean>emptyMap();
 		alive = out.size() >= 2 ? teamsAlive : Collections.<Character, Boolean>emptyMap();
 		return beds;
+	}
+
+	/** The sidebar's countdown to the next game event ("Diamond II in 5:37"), or null. */
+	public static String eventLine() {
+		teamBeds();
+		return eventLine;
 	}
 
 	/** Each team in the game now, by letter: true while it has a bed or players left (not ✗). */

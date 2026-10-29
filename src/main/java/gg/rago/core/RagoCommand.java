@@ -72,6 +72,14 @@ final class RagoCommand extends CommandBase {
 			sender.addChatMessage(message(on ? "rago.command.debug_on" : "rago.command.debug_off", EnumChatFormatting.GOLD));
 			return;
 		}
+		if (args[0].equalsIgnoreCase("testplayers") && gg.rago.debug.FakeBedwars.ON) {
+			gg.rago.debug.FakeBedwars.players(args.length > 1 ? Integer.parseInt(args[1]) : 16);
+			return;
+		}
+		if (args[0].equalsIgnoreCase("testbw") && gg.rago.debug.FakeBedwars.ON) {
+			gg.rago.debug.FakeBedwars.start(args.length > 1 ? Integer.parseInt(args[1]) : 337);
+			return;
+		}
 		if (args[0].equalsIgnoreCase("screenshot") && args.length >= 3) {
 			// the buttons after "Saved screenshot as ..."; the file name may hold spaces
 			Screenshots.command(args[1], String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length)));

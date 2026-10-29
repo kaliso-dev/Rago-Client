@@ -10,6 +10,7 @@ import gg.rago.hooks.Hooks;
 import gg.rago.render.WorldDraw;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -54,32 +55,51 @@ public final class Hitboxes extends Module {
 		if (!isEnabled() || mc.theWorld == null || mc.getRenderViewEntity() == null) {
 			return;
 		}
+		long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
+		draw(mc, event.partialTicks);
+		if (gg.rago.debug.FrameProfile.ON) {
+			gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.HITBOXES, System.nanoTime() - t);
+		}
+	}
+
+	private void draw(Minecraft mc, float pt) {
 		RenderManager rm = mc.getRenderManager();
 		Entity viewer = mc.getRenderViewEntity();
-		float pt = event.partialTicks;
 		frustum.setPosition(rm.viewerPosX, rm.viewerPosY, rm.viewerPosZ);
+		int c = color.get();
+		WorldRenderer wr = null;
+		// every box, eye line and look line in one batch: one draw call for the whole frame
 		for (Entity e : mc.theWorld.loadedEntityList) {
 			if (e == viewer && mc.gameSettings.thirdPersonView == 0 || e.isInvisible() || !wanted(e)
 				|| e.getDistanceSqToEntity(viewer) > MAX_DISTANCE_SQ || !frustum.isBoundingBoxInFrustum(e.getEntityBoundingBox())
 				|| Hooks.skipEntity(e)) {
 				continue;
 			}
+			if (wr == null) {
+				wr = WorldDraw.beginLines(width.get());
+			}
 			double x = e.lastTickPosX + (e.posX - e.lastTickPosX) * pt - rm.viewerPosX;
 			double y = e.lastTickPosY + (e.posY - e.lastTickPosY) * pt - rm.viewerPosY;
 			double z = e.lastTickPosZ + (e.posZ - e.lastTickPosZ) * pt - rm.viewerPosZ;
-			AxisAlignedBB box = e.getEntityBoundingBox().offset(x - e.posX, y - e.posY, z - e.posZ);
-			WorldDraw.outline(box, color.get(), width.get());
+			AxisAlignedBB b = e.getEntityBoundingBox();
+			double ox = x - e.posX;
+			double oy = y - e.posY;
+			double oz = z - e.posZ;
+			WorldDraw.box(wr, b.minX + ox, b.minY + oy, b.minZ + oz, b.maxX + ox, b.maxY + oy, b.maxZ + oz, c);
 			if (e instanceof EntityLivingBase) {
 				double eye = y + e.getEyeHeight();
 				double r = e.width / 2.0;
 				if (eyeLine.get()) {
-					WorldDraw.outline(new AxisAlignedBB(x - r, eye - 0.01, z - r, x + r, eye + 0.01, z + r), 0xFFFF5555, width.get());
+					WorldDraw.box(wr, x - r, eye - 0.01, z - r, x + r, eye + 0.01, z + r, 0xFFFF5555);
 				}
 				if (lookLine.get()) {
 					Vec3 look = e.getLook(pt);
-					WorldDraw.line(x, eye, z, x + look.xCoord * 2, eye + look.yCoord * 2, z + look.zCoord * 2, 0xFF5555FF, width.get());
+					WorldDraw.line(wr, x, eye, z, x + look.xCoord * 2, eye + look.yCoord * 2, z + look.zCoord * 2, 0xFF5555FF);
 				}
 			}
+		}
+		if (wr != null) {
+			WorldDraw.endLines();
 		}
 	}
 

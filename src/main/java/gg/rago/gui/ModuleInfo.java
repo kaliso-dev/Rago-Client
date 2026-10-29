@@ -84,6 +84,9 @@ final class ModuleInfo {
 		ICONS.put("auto_messages", "sparkles");
 		ICONS.put("rago_badge", "award");
 		ICONS.put("anti_armor", "shirt");
+		ICONS.put("event_timers", "timer");
+		ICONS.put("upgrades_hud", "sword");
+		ICONS.put("title_mod", "type");
 	}
 
 	private ModuleInfo() {

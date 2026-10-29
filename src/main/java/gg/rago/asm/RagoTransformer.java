@@ -301,6 +301,12 @@ public final class RagoTransformer implements IClassTransformer {
 			"func_177183_a", "renderGlint",
 			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
 			RagoTransformer::armorGlint));
+		add("net.minecraftforge.client.GuiIngameForge", new Patch("title size",
+			"renderTitle", "renderTitle", "(IIF)V",
+			RagoTransformer::titleScale));
+		add("net.minecraftforge.client.GuiIngameForge", new Patch("hide titles",
+			"renderTitle", "renderTitle", "(IIF)V",
+			m -> returnIf(m, "hideTitles", "()Z", new int[0], -1, Opcodes.RETURN)));
 		add("net.minecraft.client.Minecraft", new Patch("borderless fullscreen",
 			"func_71352_k", "toggleFullscreen", "()V",
 			m -> returnIf(m, "toggleFullscreen", "()Z", new int[0], -1, Opcodes.RETURN)));
@@ -389,6 +395,26 @@ public final class RagoTransformer implements IClassTransformer {
 			m.exceptions.toArray(new String[0]));
 		m.accept(copy);
 		return copy;
+	}
+
+	/**
+	 * Passes the title's scale (4) and the subtitle's (2) through {@code Hooks.titleScale}, with the
+	 * screen width so a long title can shrink to fit.
+	 */
+	private static boolean titleScale(MethodNode m) {
+		int found = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			// 4 is a constant of the class, 2 has its own instruction
+			if (insn instanceof LdcInsnNode && Float.valueOf(4f).equals(((LdcInsnNode) insn).cst) || insn.getOpcode() == Opcodes.FCONST_2) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ILOAD, 1));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "titleScale", "(FI)F", false));
+				m.instructions.insert(insn, call);
+				found++;
+			}
+		}
+		// GlStateManager.scale(s, s, s) for the title, then for the subtitle
+		return found == 6;
 	}
 
 	/** Passes vanilla's glint colour constant through {@code Hooks.glintColor}. */

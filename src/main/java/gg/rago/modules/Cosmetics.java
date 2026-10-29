@@ -131,7 +131,8 @@ public final class Cosmetics extends Module {
 						GlStateManager.translate(0, 0.2f, 0);
 					}
 					model.bipedHead.postRender(0.0625f);
-					float hs = hatScale.get() / 100f;
+					// the hats that go around the head are always a little bigger, to clear the skin's hat layer
+					float hs = hatScale.get() / 100f * skinLayerFit(hat.get());
 					if (hs != 1) {
 						// grow from the top of the head, where the hat sits
 						GlStateManager.translate(0, -0.5f, 0);
@@ -192,6 +193,33 @@ public final class Cosmetics extends Module {
 	private int color(ColorOption option, int fallback) {
 		int c = option.get();
 		return c == 0xFFFFFFFF ? fallback : c;
+	}
+
+	/** Half the width of the skin's second layer on the head (8 pixels and half a pixel each side). */
+	private static final float SKIN_LAYER_HALF = 4.5f;
+	/** How far outside that layer a hat's sides stay, in pixels, so the two never fight for the same place. */
+	private static final float LAYER_CLEARANCE = 0.4f;
+
+	/**
+	 * How much bigger a hat is drawn so its sides clear the skin's hat layer instead of cutting
+	 * through it: the hats that go around the head, by the half width of their sides in pixels.
+	 */
+	static float skinLayerFit(String hat) {
+		float half;
+		switch (hat) {
+			case "rago_cap":
+			case "rago_beanie":
+				half = 4.5f;
+				break;
+			case "cap_red":
+			case "top_hat":
+			case "wizard_hat":
+				half = 4.1f;
+				break;
+			default:
+				return 1;
+		}
+		return Math.max(1, (SKIN_LAYER_HALF + LAYER_CLEARANCE) / half);
 	}
 
 	// ---- hats: head space, 1 unit = 1 block, y down, top of the head at y = -0.5 ----------------

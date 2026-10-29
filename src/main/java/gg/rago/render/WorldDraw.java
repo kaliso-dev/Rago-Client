@@ -20,22 +20,41 @@ public final class WorldDraw {
 
 	/** Lines along the twelve edges of {@code box} (camera-relative), {@code width} pixels wide. */
 	public static void outline(AxisAlignedBB box, int argb, float width) {
+		WorldRenderer wr = beginLines(width);
+		box(wr, box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ, argb);
+		endLines();
+	}
+
+	/**
+	 * Starts a batch of lines {@code width} pixels wide, all drawn at once by {@link #endLines}: one
+	 * draw call for many boxes instead of one each.
+	 */
+	public static WorldRenderer beginLines(float width) {
 		begin(width);
-		Tessellator t = Tessellator.getInstance();
-		WorldRenderer wr = t.getWorldRenderer();
+		WorldRenderer wr = Tessellator.getInstance().getWorldRenderer();
 		wr.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
-		double[] xs = {box.minX, box.maxX};
-		double[] ys = {box.minY, box.maxY};
-		double[] zs = {box.minZ, box.maxZ};
-		for (int a = 0; a < 2; a++) {
-			for (int b = 0; b < 2; b++) {
-				line(wr, xs[0], ys[a], zs[b], xs[1], ys[a], zs[b], argb);
-				line(wr, xs[a], ys[0], zs[b], xs[a], ys[1], zs[b], argb);
-				line(wr, xs[a], ys[b], zs[0], xs[a], ys[b], zs[1], argb);
-			}
-		}
-		t.draw();
+		return wr;
+	}
+
+	public static void endLines() {
+		Tessellator.getInstance().draw();
 		end();
+	}
+
+	/** The twelve edges of a box (camera-relative), into a batch from {@link #beginLines}. */
+	public static void box(WorldRenderer wr, double x0, double y0, double z0, double x1, double y1, double z1, int argb) {
+		line(wr, x0, y0, z0, x1, y0, z0, argb);
+		line(wr, x0, y0, z1, x1, y0, z1, argb);
+		line(wr, x0, y1, z0, x1, y1, z0, argb);
+		line(wr, x0, y1, z1, x1, y1, z1, argb);
+		line(wr, x0, y0, z0, x0, y1, z0, argb);
+		line(wr, x1, y0, z0, x1, y1, z0, argb);
+		line(wr, x0, y0, z1, x0, y1, z1, argb);
+		line(wr, x1, y0, z1, x1, y1, z1, argb);
+		line(wr, x0, y0, z0, x0, y0, z1, argb);
+		line(wr, x1, y0, z0, x1, y0, z1, argb);
+		line(wr, x0, y1, z0, x0, y1, z1, argb);
+		line(wr, x1, y1, z0, x1, y1, z1, argb);
 	}
 
 	/** One line from (x0, y0, z0) to (x1, y1, z1), camera-relative. */
@@ -85,7 +104,8 @@ public final class WorldDraw {
 		GlStateManager.color(1, 1, 1, 1);
 	}
 
-	private static void line(WorldRenderer wr, double x0, double y0, double z0, double x1, double y1, double z1, int c) {
+	/** One line (camera-relative) into a batch from {@link #beginLines}. */
+	public static void line(WorldRenderer wr, double x0, double y0, double z0, double x1, double y1, double z1, int c) {
 		wr.pos(x0, y0, z0).color(c >> 16 & 255, c >> 8 & 255, c & 255, c >>> 24).endVertex();
 		wr.pos(x1, y1, z1).color(c >> 16 & 255, c >> 8 & 255, c & 255, c >>> 24).endVertex();
 	}

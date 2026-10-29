@@ -14,6 +14,7 @@ import gg.rago.gui.ui.Ui;
 import gg.rago.gui.ui.Widgets;
 import gg.rago.hud.HudElement;
 import gg.rago.hud.HudPosition;
+import gg.rago.hypixel.Danger;
 import gg.rago.hypixel.HypixelApi;
 import gg.rago.modules.BedwarsStats;
 import gg.rago.optimize.OptiFineFields;
@@ -729,10 +730,12 @@ public final class RagoMenuScreen extends GuiScreen {
 	/** FKDR colour steps, as in the tab list: the lowest ratio of each step and its colour. */
 	private static final String[] FKDR_STEPS = {"< 1", "1+", "5+", "10+", "20+"};
 	private static final int[] FKDR_COLORS = {0xFFAAAAAA, 0xFF55FF55, 0xFF00AA00, 0xFFFF5555, 0xFFAA0000};
+	/** Tier colours by danger level, 1 (D) to 5 (S), as in the tab list. */
+	private static final int[] TIER_COLORS = {0xFFAAAAAA, 0xFF55FF55, 0xFF00AA00, 0xFFFF5555, 0xFFAA0000};
 
 	/** What the numbers next to the names in the tab list mean, with the FKDR colours. */
 	private float statsLegend(BedwarsStats stats, float x, float y, float w) {
-		float h = 130;
+		float h = 148;
 		rowFrame(x, y, w, h);
 		Ui.icon("list-ordered", x + 12, y + 10, 13, Theme.ACCENT);
 		Ui.text(Ui.MEDIUM, t("rago.stats.legend_title"), x + 32, y + 10, 10.5f, Theme.TEXT);
@@ -750,6 +753,15 @@ public final class RagoMenuScreen extends GuiScreen {
 		}
 		ly += 18;
 		Ui.text(Ui.REGULAR, t("rago.stats.legend_danger"), x + 12, ly, 9.5f, 0xFFD4D2D9);
+		ly += 18;
+		cx = x + 12;
+		for (int level = 5; level >= 1; level--) {
+			String chip = Danger.tier(level) + "  " + t("rago.stats.tier_" + Character.toLowerCase(Danger.tier(level)));
+			float cw = Ui.textWidth(Ui.MEDIUM, chip, 9) + 14;
+			Ui.roundBorder(cx, ly - 3, cw, 16, 8, 0xCC141316, 0x1FFFFFFF);
+			Ui.text(Ui.MEDIUM, chip, cx + 7, ly - 3 + (16 - 9 * 1.21f) / 2, 9, TIER_COLORS[level - 1]);
+			cx += cw + 4;
+		}
 		ly += 18;
 		Ui.icon("triangle-alert", x + 12, ly - 1, 11, 0xFFAA0000);
 		Ui.text(Ui.REGULAR, t("rago.stats.legend_mark", stats.strongFkdr(), stats.strongStar()), x + 28, ly, 9.5f, 0xFFD4D2D9);

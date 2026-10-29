@@ -50,7 +50,7 @@ public final class BedwarsStats extends Module {
 
 	private final BooleanOption tabStar = addOption(new BooleanOption("stats_tab_star", true));
 	private final BooleanOption tabFkdr = addOption(new BooleanOption("stats_tab_fkdr", true));
-	private final BooleanOption tabDanger = addOption(new BooleanOption("stats_tab_danger", false));
+	private final BooleanOption tabDanger = addOption(new BooleanOption("stats_tab_danger", true));
 	private final BooleanOption nicks = addOption(new BooleanOption("stats_nicks", true));
 	private final BooleanOption mark = addOption(new BooleanOption("stats_tab_mark", true));
 	/** A strong player: this final kill/death ratio or more... */
@@ -246,14 +246,14 @@ public final class BedwarsStats extends Module {
 		}
 		String before = (strong(s) || !sniperTag.isEmpty() ? warn : "") + sniperTag
 			+ (tabStar.get() && s.star >= 0 ? Hypixel.bedwarsStar(s.star) + " " : "");
-		// "[300✫] Name 2.5/3": numbers only, so a full game stays readable; the menu explains them
+		// "[300✫] Name 2.5/B": the ratio and the tier only, so a full game stays readable; the menu explains them
 		StringBuilder after = new StringBuilder();
 		if (tabFkdr.get()) {
 			after.append(' ').append(Danger.fkdrColor(s.fkdr())).append(Danger.ratio(s.fkdr()));
 		}
 		if (tabDanger.get()) {
 			int d = Danger.level(s);
-			after.append(tabFkdr.get() ? "§8/" : " ").append(Danger.color(d)).append(d);
+			after.append(tabFkdr.get() ? "§8/" : " ").append(Danger.color(d)).append(Danger.tier(d));
 		}
 		return new String[] {before, after.toString()};
 	}
@@ -285,8 +285,20 @@ public final class BedwarsStats extends Module {
 			return vanilla;
 		}
 		String[] p = tab.get(info.getGameProfile().getId());
-		return p == null ? vanilla : p[0] + "§r" + vanilla + p[1];
+		if (p == null) {
+			return vanilla;
+		}
+		// the tab list asks every frame while it is open: reuse the line while nothing changed
+		String[] last = tabLines.get(info);
+		if (last != null && last[0] == (Object) p[0] && last[1] == (Object) p[1] && vanilla.equals(last[2])) {
+			return last[3];
+		}
+		String line = p[0] + "§r" + vanilla + p[1];
+		tabLines.put(info, new String[] {p[0], p[1], vanilla, line});
+		return line;
 	}
+
+	private final java.util.Map<NetworkPlayerInfo, String[]> tabLines = new java.util.WeakHashMap<>();
 
 	@SubscribeEvent
 	public void onChat(ClientChatReceivedEvent event) {

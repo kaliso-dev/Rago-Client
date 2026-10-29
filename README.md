@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.8.** What it contains:
+**Current version: 1.4.9.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -135,6 +135,21 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     `logs/latest.log`, to find a delay or a message that does not go
   - the competitive profile also turns off the usage snooper and, with OptiFine, turns on Smart
     Animations, Render Regions and Fast Render
+  - Event Timers HUD (Bed Wars): the time until Diamond II, Emerald II, Diamond III, Emerald III,
+    the beds going, sudden death and the game end; the next event's time comes from the
+    scoreboard, the ones after it follow Hypixel's usual schedule
+  - Upgrades HUD (Bed Wars): your team's Sharpness, Protection, Haste, Feather Falling, heal pool,
+    forge and queued traps, the next trap first; levels are read from your gear, purchases and traps
+    from the chat and titles
+  - Title Mod: the size of titles and subtitles (20% to 200%), long titles shrunk to fit the
+    screen, or no titles at all
+  - Bed Wars stats: the danger level shows as a tier, S (elite, dark red), A (light red), B (dark
+    green), C (light green), D (grey), and is shown after the FKDR by default
+  - hats that go around the head (caps, top hat, wizard hat, beanie) are drawn a little bigger, so
+    they sit over the skin's hat layer instead of cutting through it
+  - faster name tags with many players (a name is worked out again only when its team changes, the
+    rounded outline's angles once, the vertices handed over in one copy), all hitboxes in one draw
+    call, and fewer graphics driver queries for HUD text, the HUD cache and Motion Blur
   - the 1.2 Particles mod is merged into Particle Multiplier, which can now also hide block-breaking
     and block-mining particles
   - Item Scale (held and dropped items from 25% to 400%), Item Physics (dropped items lie on the
@@ -269,7 +284,8 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.8+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.4.9+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+   that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the

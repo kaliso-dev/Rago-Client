@@ -2,11 +2,14 @@ package gg.rago.hypixel;
 
 /**
  * Rago's own 1 to 5 danger level for a Bed Wars player, from their final kill/death ratio (which
- * weighs most) and their star. 1 is a newcomer, 5 a player to deal with first.
+ * weighs most) and their star. 1 is a newcomer, 5 a player to deal with first. Players see it as a
+ * tier letter, D to S, so it does not read like one more stat.
  */
 public final class Danger {
 	/** Chat colour codes by level, 1 to 5: grey, green, dark green, red, dark red. */
 	private static final char[] COLORS = {'7', '7', 'a', '2', 'c', '4'};
+	/** Tier letters by level, 1 to 5: D (weak), C (average), B (decent), A (very good), S (elite). */
+	private static final char[] TIERS = {'D', 'D', 'C', 'B', 'A', 'S'};
 
 	private Danger() {
 	}
@@ -31,6 +34,11 @@ public final class Danger {
 	/** "§c" and the like, for a level (or for {@link #fkdrScore}). */
 	public static String color(int level) {
 		return "§" + COLORS[Math.max(0, Math.min(5, level))];
+	}
+
+	/** The tier letter of a level: D for 1 up to S for 5. */
+	public static char tier(int level) {
+		return TIERS[Math.max(0, Math.min(5, level))];
 	}
 
 	/**
