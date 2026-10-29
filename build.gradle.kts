@@ -60,6 +60,11 @@ tasks.withType<JavaExec>().configureEach {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(8)) })
 }
 
+// OptiFine is bundled only when its jar is placed in libs/optifine/ (git ignores that folder,
+// so the repository never contains OptiFine). Forge extracts a jar listed in ContainedDeps to
+// mods/1.8.9/ on first launch and loads it like any other mod.
+val optifineJar = fileTree("libs/optifine") { include("OptiFine*.jar") }.files.sortedBy { it.name }.lastOrNull()
+
 // The jar is both a Forge mod and a coremod: the transformer raises the menu frame-rate cap
 tasks.jar {
     manifest.attributes(
@@ -67,6 +72,10 @@ tasks.jar {
         "FMLCorePluginContainsFMLMod" to "true",
         "ForceLoadAsMod" to "true",
     )
+    if (optifineJar != null) {
+        from(optifineJar)
+        manifest.attributes("ContainedDeps" to optifineJar.name)
+    }
 }
 
 tasks.test {

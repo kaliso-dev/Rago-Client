@@ -8,3 +8,5 @@ out/
 bench/results/*.csv
 !bench/results/.gitkeep
 __pycache__/
+libs/optifine/*.jar
+logs/

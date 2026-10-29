@@ -193,6 +193,7 @@ public final class RagoMenuScreen extends GuiScreen {
 		} else {
 			Ui.rect(0, 0, w, h, Ui.alpha(0xFF000000, 0.35f * p));
 		}
+		Ui.captureGlass();
 
 		float ww = Math.min(w - 24, Math.max(680, Math.min(820, w - 80)));
 		float wh = Math.min(h - 40, 500);
@@ -202,7 +203,7 @@ public final class RagoMenuScreen extends GuiScreen {
 		if (p < 1) {
 			Ui.pushTransform(w / 2, h / 2, 0.955f + 0.045f * p, 0, (1 - p) * 10);
 		}
-		Ui.roundBorder(x, y, ww, wh, 14, 0xF50E0D10, 0x22FFFFFF);
+		Ui.glassBorder(x, y, ww, wh, 14, 0xF50E0D10, 0x22FFFFFF);
 		header(x, y, ww);
 		Ui.rect(x + 1, y + 46, ww - 2, 1 / Ui.scale(), 0x14FFFFFF);
 		float c = Anim.progress(contentNs, 200);
@@ -283,7 +284,7 @@ public final class RagoMenuScreen extends GuiScreen {
 		float boxY = ry + 4;
 		float boxH = y + h - 72 - boxY;
 		if (boxH > 40) {
-			Ui.roundBorder(x, boxY, w, boxH, 8, 0x66000000, 0x12FFFFFF);
+			Ui.glassBorder(x, boxY, w, boxH, 8, 0x66000000, 0x12FFFFFF);
 			int on = 0;
 			for (Module m : RagoClient.modules().all()) {
 				if (m.isEnabled()) {
@@ -397,7 +398,7 @@ public final class RagoMenuScreen extends GuiScreen {
 
 	private void searchField(float x, float y, float w) {
 		boolean focused = !query.isEmpty();
-		Ui.roundBorder(x, y, w, 22, 11, 0xFF141316, focused ? 0x55F2392C : 0x1FFFFFFF);
+		Ui.glassBorder(x, y, w, 22, 11, 0xFF141316, focused ? 0x55F2392C : 0x1FFFFFFF);
 		Ui.icon("search", x + 9, y + 5.5f, 11, 0xFF8A888F);
 		String shown = query.isEmpty() ? t(tab == Tab.MODS ? "rago.menu.search_mods" : "rago.menu.search_settings") : query;
 		Ui.text(Ui.REGULAR, shown, x + 26, y + (22 - 9.5f * 1.21f) / 2, 9.5f, query.isEmpty() ? 0xFF7C7A82 : Theme.TEXT);
@@ -458,7 +459,7 @@ public final class RagoMenuScreen extends GuiScreen {
 		float hv = Widgets.hoverAmount("card:" + m.id(), x, y, w, topH);
 		float on = Anim.to("cardon:" + m.id(), m.isEnabled() ? 1 : 0, 160);
 		float lift = hv * 2;
-		Ui.roundBorder(x, y - lift, w, topH, 8, Ui.mix(0xFF141316, 0xFF1A191D, hv), Ui.mix(0x14FFFFFF, 0x26FFFFFF, hv));
+		Ui.glassBorder(x, y - lift, w, topH, 8, Ui.mix(0xFF141316, 0xFF1A191D, hv), Ui.mix(0x14FFFFFF, 0x26FFFFFF, hv));
 		float is = fourColumns ? 26 : 30;
 		int iconColor = Ui.mix(0xFF8A888F, Theme.ACCENT, on);
 		Ui.icon(ModuleInfo.icon(m), x + (w - is) / 2, y - lift + topH / 2 - is / 2 - 10, is, iconColor);
@@ -471,10 +472,10 @@ public final class RagoMenuScreen extends GuiScreen {
 		float oy = y + topH + 4;
 		float bw = w - 28;
 		float oh = Widgets.hoverAmount("opt:" + m.id(), x, oy, bw, 24);
-		Ui.roundBorder(x, oy, bw, 24, 5, Ui.mix(0xFF151417, 0xFF1D1C20, oh), 0x14FFFFFF);
+		Ui.glassBorder(x, oy, bw, 24, 5, Ui.mix(0xFF151417, 0xFF1D1C20, oh), 0x14FFFFFF);
 		Ui.textCentered(Ui.REGULAR, t("rago.menu.options"), x + bw / 2, oy + (24 - 9.5f * 1.21f) / 2, 9.5f, 0xFFC4C2CA);
 		float sh = Widgets.hoverAmount("optico:" + m.id(), x + w - 24, oy, 24, 24);
-		Ui.roundBorder(x + w - 24, oy, 24, 24, 5, Ui.mix(0xFF151417, 0xFF1D1C20, sh), 0x14FFFFFF);
+		Ui.glassBorder(x + w - 24, oy, 24, 24, 5, Ui.mix(0xFF151417, 0xFF1D1C20, sh), 0x14FFFFFF);
 		Ui.icon("sliders-horizontal", x + w - 18, oy + 6, 12, 0xFFB4B2B9);
 		if (inside) {
 			Runnable open = () -> switchContent(() -> module = m);
@@ -485,7 +486,8 @@ public final class RagoMenuScreen extends GuiScreen {
 		float ey = oy + 28;
 		float eh = Widgets.hoverAmount("en:" + m.id(), x, ey, w, 24);
 		int fill = Ui.mix(Ui.mix(0xFF1D1C20, 0xFF26252A, eh), Ui.mix(Theme.ACCENT, Theme.ACCENT_HOVER, eh), on);
-		Ui.round(x, ey, w, 24, 5, fill);
+		Ui.glass(x, ey, w, 24, 5, 0);
+		Ui.round(x, ey, w, 24, 5, Ui.alpha(fill, 0.72f + 0.16f * on));
 		String label = t(m.isEnabled() ? "rago.menu.enabled" : "rago.menu.disabled");
 		Ui.textCentered(Ui.MEDIUM, label, x + w / 2, ey + (24 - 9.5f * 1.21f) / 2, 9.5f, Ui.mix(0xFF9A98A0, 0xFFFFFFFF, on));
 		if (inside) {
@@ -574,7 +576,7 @@ public final class RagoMenuScreen extends GuiScreen {
 	}
 
 	private static void rowFrame(float x, float y, float w, float h) {
-		Ui.roundBorder(x, y, w, h, 7, 0xFF131215, 0x12FFFFFF);
+		Ui.glassBorder(x, y, w, h, 7, 0xFF131215, 0x12FFFFFF);
 	}
 
 	private void optionRow(Option<?> option, float x, float y, float w, boolean inside) {
@@ -628,7 +630,7 @@ public final class RagoMenuScreen extends GuiScreen {
 
 	/** Draws the HUD element itself, with sample data when there is no live data. */
 	private void preview(HudElement e, float x, float y, float w, float h) {
-		Ui.roundBorder(x, y, w, h, 10, 0xFF121114, 0x14FFFFFF);
+		Ui.glassBorder(x, y, w, h, 10, 0xFF121114, 0x14FFFFFF);
 		for (float gx = x + 12; gx < x + w - 6; gx += 12) {
 			for (float gy = y + 12; gy < y + h - 6; gy += 12) {
 				Ui.rect(gx, gy, 1.2f, 1.2f, 0x12FFFFFF);
@@ -822,7 +824,7 @@ public final class RagoMenuScreen extends GuiScreen {
 		} else if (s instanceof Button) {
 			Button b = (Button) s;
 			float bw = 170;
-			Widgets.button(right - bw, y + 3, bw, 24, null, t(s.labelKey() + ".button"), false, 9.5f);
+			Widgets.button(right - bw, y + 3, bw, 24, null, t(s.labelKey() + ".button"), b.isPrimary(), 9.5f);
 			if (inside) {
 				Ui.click(right - bw, y + 3, bw, 24, b::press);
 			}
@@ -895,7 +897,7 @@ public final class RagoMenuScreen extends GuiScreen {
 		}
 		float bx = x + w - bw;
 		float hv = Widgets.hoverAmount("key:" + k.getKeyDescription(), bx, y, bw, 24);
-		Ui.roundBorder(bx, y, bw, 24, 6, Ui.mix(0xFF151417, 0xFF1D1C20, hv), waiting ? Theme.ACCENT : conflict ? 0x99F2392C : 0x1FFFFFFF);
+		Ui.glassBorder(bx, y, bw, 24, 6, Ui.mix(0xFF151417, 0xFF1D1C20, hv), waiting ? Theme.ACCENT : conflict ? 0x99F2392C : 0x1FFFFFFF);
 		String label = waiting ? "> ? <" : keyName(k.getKeyCode());
 		int color = waiting ? Theme.ACCENT : conflict ? 0xFFFF6B5E : Theme.TEXT;
 		Ui.textCentered(Ui.MEDIUM, fit(Ui.MEDIUM, label, 9.5f, bw - 8), bx + bw / 2, y + (24 - 9.5f * 1.21f) / 2, 9.5f, color);
@@ -957,7 +959,7 @@ public final class RagoMenuScreen extends GuiScreen {
 		float bh = lines.size() * 13 + 10;
 		float x = Math.min(Ui.mouseX() + 12, w - bw - 6);
 		float y = Ui.mouseY() + 14;
-		Ui.roundBorder(x, y, bw, bh, 6, 0xF7151417, 0x2EFFFFFF);
+		Ui.glassBorder(x, y, bw, bh, 6, 0xF7151417, 0x2EFFFFFF);
 		float ly = y + 5;
 		for (String l : lines) {
 			Ui.text(Ui.REGULAR, l, x + 8, ly, size, 0xFFD4D2D9);
