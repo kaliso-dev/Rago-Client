@@ -32,7 +32,7 @@ final class BundledOptiFine {
 			if (!self.isFile()) {
 				return; // development run from class folders
 			}
-			String bundled = containedDep(self);
+			String bundled = containedDep(self, "OptiFine");
 			if (bundled == null) {
 				return;
 			}
@@ -70,7 +70,8 @@ final class BundledOptiFine {
 		}
 	}
 
-	private static String containedDep(File self) throws Exception {
+	/** The file name of the jar inside Rago's jar whose name starts with {@code prefix}, or null. */
+	static String containedDep(File self, String prefix) throws Exception {
 		try (JarFile jar = new JarFile(self)) {
 			Manifest manifest = jar.getManifest();
 			String deps = manifest == null ? null : manifest.getMainAttributes().getValue("ContainedDeps");
@@ -78,7 +79,7 @@ final class BundledOptiFine {
 				return null;
 			}
 			for (String dep : deps.trim().split(" ")) {
-				if (dep.startsWith("OptiFine")) {
+				if (dep.startsWith(prefix)) {
 					return dep;
 				}
 			}

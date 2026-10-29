@@ -11,6 +11,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
 - frosted glass panels and buttons in every Rago screen (they blur what is behind them, also with
   OptiFine's Fast Render), with a switch to use solid panels instead
 - OptiFine inside the Rago jar for builds that bundle it (see [Bundling OptiFine](#bundling-optifine))
+- [PolyPatcher](#patcher) (Patcher's fixes and optimisations) inside the Rago jar; its settings open
+  with `/patcher`
 - an **Accounts** screen in Rago's style (top right of the home screen, or the head button in the
   server list): add Microsoft accounts and switch between them in one click. The sign-in itself is
   done by [In-Game Account Switcher](#account-switcher), which is bundled
@@ -163,6 +165,18 @@ its `.iasms` file, encrypted with a key stored on the same PC: that stops casual
 malware running as you. If you already have In-Game Account Switcher in your mods folder, Rago uses
 that copy.
 
+### Patcher
+
+[PolyPatcher](https://github.com/Polyfrost/PolyPatcher) 1.10.4, the Polyfrost fork of Sk1er's
+Patcher, is bundled unmodified like In-Game Account Switcher. It is licensed under CC BY-NC-SA 4.0,
+so **Rago builds that contain it may only be shared non-commercially**; see `libs/patcher/README.md`.
+The build downloads it from Modrinth and checks its SHA-512, so the repository never stores it;
+`./gradlew build -PnoPatcher` leaves it out. On the first launch Forge extracts it to
+`mods/1.8.9/`, Rago starts it with its access transformer, and Patcher downloads OneConfig, its
+settings library. Rago turns off Forge's loading screen (`config/splash.properties`), which can crash
+while Patcher starts. Right Shift still opens Rago's window; Patcher's settings open with `/patcher`.
+If Patcher or PolyPatcher is already in your mods folder, Rago uses that copy.
+
 ### Bundling OptiFine
 
 OptiFine's licence does not allow redistributing it without permission from its author (sp614x), so
@@ -201,6 +215,9 @@ Name tags have their own benchmark: start the game with `-Drago.bench.nametags=6
 singleplayer world. It adds 60 fake players in front of you, switches the Nametags mod off and on
 every 10 seconds and logs `[bench]` lines with the frame time and the time spent drawing names.
 
+`-Drago.bench.frame=true` logs a `[profile]` line every 5 seconds with the frame time, the time Rago
+spends per frame on occlusion culling, the HUD, name tags and its tick, and the slowest HUD elements.
+
 ## What the numbers mean
 
 | Value | Definition |
@@ -216,4 +233,4 @@ every 10 seconds and logs `[bench]` lines with the frame time and the time spent
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE). The bundled In-Game Account Switcher is LGPL-3.0 (see
-`libs/ias/`), the Poppins font is under the SIL Open Font License (see `Poppins-OFL.txt` next to it).
+`libs/ias/`), the bundled PolyPatcher is CC BY-NC-SA 4.0 (see `libs/patcher/`), the Poppins font is under the SIL Open Font License (see `Poppins-OFL.txt` next to it).

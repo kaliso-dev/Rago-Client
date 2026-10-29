@@ -39,11 +39,11 @@ public final class MotionBlur extends Module {
 	/** GL_RGBA16F, the same value in OpenGL 3.0 and ARB_texture_float. */
 	private static final int RGBA16F = 0x881A;
 	/** At 60 FPS the trail keeps at most this much of the previous frame. */
-	private static final float MAX_KEEP = 0.92f;
+	private static final float MAX_KEEP = 0.82f;
 	/** Without a floating-point image, a long trail would leave a ghost: keep less per frame. */
-	private static final float MAX_KEEP_8BIT = 0.85f;
+	private static final float MAX_KEEP_8BIT = 0.78f;
 
-	private final IntOption strength = addOption(new IntOption("blur_strength", 50, 1, 100));
+	private final IntOption strength = addOption(new IntOption("blur_strength", 35, 1, 100));
 	private final ChoiceOption mode = addOption(new ChoiceOption("blur_mode", "always", "always", "turning", "moving"));
 	private final IntOption sensitivity = addOption(new IntOption("blur_sensitivity", 50, 1, 100));
 	private final BooleanOption frameIndependent = addOption(new BooleanOption("blur_frame_independent", true));
@@ -177,7 +177,9 @@ public final class MotionBlur extends Module {
 	/** How much of the trail stays this frame (0 none, close to 1 a long trail). */
 	private float keep(float dt, float motion) {
 		float max = floatHistory ? MAX_KEEP : MAX_KEEP_8BIT;
-		float at60 = max * strength.get() / 100f * motion;
+		// a curve, so the lower half of the slider gives the light trails most players want
+		float s = strength.get() / 100f;
+		float at60 = max * s * (float) Math.sqrt(s) * motion;
 		if (at60 <= 0) {
 			return 0;
 		}

@@ -16,6 +16,7 @@ import gg.rago.render.HudText;
 import gg.rago.render.Paint;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.settings.GameSettings;
 import net.minecraft.client.settings.KeyBinding;
 import org.lwjgl.input.Keyboard;
@@ -193,26 +194,96 @@ public final class KeystrokesHud extends HudElement implements Styled {
 		int k = keySize.get();
 		int g = gap.get();
 		int w = width();
-		key(o.keyBindForward, k + g, 0, k, k, placeholder, null, dt);
+		int n = 0;
+		keys[n++].set(o.keyBindForward, k + g, 0, k, k, null);
 		int y = k + g;
-		key(o.keyBindLeft, 0, y, k, k, placeholder, null, dt);
-		key(o.keyBindBack, k + g, y, k, k, placeholder, null, dt);
-		key(o.keyBindRight, (k + g) * 2, y, k, k, placeholder, null, dt);
+		keys[n++].set(o.keyBindLeft, 0, y, k, k, null);
+		keys[n++].set(o.keyBindBack, k + g, y, k, k, null);
+		keys[n++].set(o.keyBindRight, (k + g) * 2, y, k, k, null);
 		y += k + g;
 		if (showMouse.get()) {
 			int half = (w - g) / 2;
 			String left = showCps.get() ? (placeholder ? 9 : input.attackCps(now)) + " CPS" : null;
 			String right = showCps.get() ? (placeholder ? 4 : input.useCps(now)) + " CPS" : null;
-			key(o.keyBindAttack, 0, y, half, k, placeholder, left, dt);
-			key(o.keyBindUseItem, half + g, y, w - half - g, k, placeholder, right, dt);
+			keys[n++].set(o.keyBindAttack, 0, y, half, k, left);
+			keys[n++].set(o.keyBindUseItem, half + g, y, w - half - g, k, right);
 			y += k + g;
+		}
+		for (int i = 0; i < n; i++) {
+			keys[i].level = level(keys[i].binding, !placeholder && keys[i].binding.isKeyDown(), dt);
+		}
+		float space = showSpace.get() ? level(o.keyBindJump, !placeholder && o.keyBindJump.isKeyDown(), dt) : 0;
+
+		// every box and border in one draw call, then every label in one more (two with CPS)
+		WorldRenderer shapes = Paint.beginShapes();
+		for (int i = 0; i < n; i++) {
+			Key key = keys[i];
+			box(shapes, key.x, key.y, key.w, key.h, key.level);
 		}
 		if (showSpace.get()) {
 			int sh = spaceHeight();
-			float lv = level(o.keyBindJump, !placeholder && o.keyBindJump.isKeyDown(), dt);
-			box(0, y, w, sh, lv);
-			int bar = Paint.mix(textColor.get(), pressedText.get(), lv);
-			Paint.round(w / 2f - k * 0.55f, y + sh / 2f - 0.75f, k * 1.1f, 1.5f, 0.75f, bar);
+			box(shapes, 0, y, w, sh, space);
+			int bar = Paint.mix(textColor.get(), pressedText.get(), space);
+			Paint.roundInto(shapes, w / 2f - k * 0.55f, y + sh / 2f - 0.75f, k * 1.1f, 1.5f, 0.75f, bar);
+		}
+		Paint.endShapes();
+
+		HudText.Batch labels = new HudText.Batch(font.get());
+		boolean subs = false;
+		for (int i = 0; i < n; i++) {
+			Key key = keys[i];
+			int color = Paint.mix(textColor.get(), pressedText.get(), key.level);
+			String label = fit(keyName(key.binding.getKeyCode()), key.w - 4);
+			float top = key.sub == null ? key.y + (key.h - 8) / 2f : key.y + (key.h - 17) / 2f;
+			labels.add(label, key.x + key.w / 2f - textWidth(label) / 2f, top, color, shadow.get());
+			subs |= key.sub != null;
+		}
+		labels.end();
+		if (subs) {
+			// the CPS lines at 70 %, scaled around their own line so they stay centred under the label
+			float lineY = 0;
+			for (int i = 0; i < n; i++) {
+				if (keys[i].sub != null) {
+					lineY = keys[i].y + (keys[i].h - 17) / 2f + 10;
+				}
+			}
+			GlScale.push(0, lineY, SUB_SCALE);
+			HudText.Batch small = new HudText.Batch(font.get());
+			for (int i = 0; i < n; i++) {
+				Key key = keys[i];
+				if (key.sub != null) {
+					int color = Paint.mix(textColor.get(), pressedText.get(), key.level);
+					float cx = key.x + key.w / 2f;
+					// scaling around (0, lineY) instead of the key's centre moves x; this undoes it
+					float x = cx - textWidth(key.sub) / 2f + cx * (1 - SUB_SCALE) / SUB_SCALE;
+					small.add(key.sub, x, lineY, color, shadow.get());
+				}
+			}
+			small.end();
+			GlScale.pop();
+		}
+	}
+
+	private static final float SUB_SCALE = 0.7f;
+	private final Key[] keys = {new Key(), new Key(), new Key(), new Key(), new Key(), new Key()};
+
+	/** One key of the current frame, reused from frame to frame. */
+	private static final class Key {
+		KeyBinding binding;
+		int x;
+		int y;
+		int w;
+		int h;
+		String sub;
+		float level;
+
+		void set(KeyBinding binding, int x, int y, int w, int h, String sub) {
+			this.binding = binding;
+			this.x = x;
+			this.y = y;
+			this.w = w;
+			this.h = h;
+			this.sub = sub;
 		}
 	}
 
@@ -231,33 +302,12 @@ public final class KeystrokesHud extends HudElement implements Styled {
 		return l[0];
 	}
 
-	private void key(KeyBinding binding, int x, int y, int w, int h, boolean placeholder, String sub, float dt) {
-		boolean down = !placeholder && binding.isKeyDown();
-		float lv = level(binding, down, dt);
-		box(x, y, w, h, lv);
-		int color = Paint.mix(textColor.get(), pressedText.get(), lv);
-		String label = fit(keyName(binding.getKeyCode()), w - 4);
-		if (sub == null) {
-			drawLabel(label, x + w / 2f, y + (h - 8) / 2f, color, lv);
-		} else {
-			float top = y + (h - 17) / 2f;
-			drawLabel(label, x + w / 2f, top, color, lv);
-			GlScale.push(x + w / 2f, top + 10, 0.7f);
-			drawLabel(sub, x + w / 2f, top + 10, color, lv);
-			GlScale.pop();
-		}
-	}
-
-	private void drawLabel(String s, float centerX, float y, int color, float lv) {
-		drawText(null, s, centerX - textWidth(s) / 2f, y, color);
-	}
-
-	private void box(float x, float y, float w, float h, float lv) {
+	private void box(WorldRenderer b, float x, float y, float w, float h, float lv) {
 		int idle = background.get() ? idleColor.get() : idleColor.get() & 0x00FFFFFF;
 		int fill = Paint.mix(idle, pressedColor.get(), lv);
-		Paint.round(x, y, w, h, radius.get(), fill);
+		Paint.roundInto(b, x, y, w, h, radius.get(), fill);
 		if (border.get()) {
-			Paint.outline(x, y, w, h, radius.get(), 1, borderColor.get());
+			Paint.outlineInto(b, x, y, w, h, radius.get(), 1, borderColor.get());
 		}
 	}
 

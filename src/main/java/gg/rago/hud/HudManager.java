@@ -44,7 +44,11 @@ public final class HudManager {
 		}
 		stack(shown, mc.fontRendererObj, window.getScaledHeight(), e -> false);
 		for (HudElement element : shown) {
+			long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
 			draw(element, mc.fontRendererObj, window.getScaledWidth(), window.getScaledHeight(), false);
+			if (gg.rago.debug.FrameProfile.ON) {
+				gg.rago.debug.FrameProfile.element(element.id(), System.nanoTime() - t);
+			}
 		}
 	}
 

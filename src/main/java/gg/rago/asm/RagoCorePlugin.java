@@ -9,7 +9,7 @@ import java.util.Map;
  * menus and unfocused windows comes from Rago's settings instead of vanilla's fixed 30 FPS. It also
  * starts the OptiFine bundled in the jar, if there is one ({@link BundledOptiFine}), and makes sure
  * the bundled account switcher does not clash with a copy the player installed
- * ({@link BundledAccountSwitcher}).
+ * ({@link BundledAccountSwitcher}), and starts the bundled PolyPatcher ({@link BundledPatcher}).
  */
 @IFMLLoadingPlugin.MCVersion("1.8.9")
 @IFMLLoadingPlugin.Name("Rago")
@@ -19,6 +19,7 @@ public final class RagoCorePlugin implements IFMLLoadingPlugin {
 	public RagoCorePlugin() {
 		BundledOptiFine.start();
 		BundledAccountSwitcher.start();
+		BundledPatcher.start();
 	}
 
 	@Override

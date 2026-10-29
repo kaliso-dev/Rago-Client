@@ -47,33 +47,60 @@ public final class Paint {
 
 	/** Filled rectangle with anti-aliased round corners. */
 	public static void round(float x, float y, float w, float h, float radius, int argb) {
-		float r = Math.min(radius, Math.min(w, h) / 2);
-		if (r <= 0.05f) {
-			rect(x, y, w, h, argb);
+		if (argb >>> 24 == 0 || w <= 0 || h <= 0) {
 			return;
 		}
-		if (argb >>> 24 == 0) {
-			return;
-		}
-		float x1 = x + w;
-		float y1 = y + h;
-		GlStateManager.disableTexture2D();
+		roundInto(beginShapes(), x, y, w, h, radius, argb);
+		endShapes();
+	}
+
+	/**
+	 * Starts a batch of shapes drawn with one draw call: add them with {@link #roundInto} and
+	 * {@link #outlineInto}, in back-to-front order, then call {@link #endShapes}.
+	 */
+	public static WorldRenderer beginShapes() {
 		blend();
-		Tessellator t = Tessellator.getInstance();
-		WorldRenderer b = t.getWorldRenderer();
-		b.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
-		quad(b, x + r, y, x1 - r, y1, argb);
-		quad(b, x, y + r, x + r, y1 - r, argb);
-		quad(b, x1 - r, y + r, x1, y1 - r, argb);
-		t.draw();
 		GlStateManager.enableTexture2D();
 		GlStateManager.bindTexture(Ui.cornerTextureId());
+		WorldRenderer b = Tessellator.getInstance().getWorldRenderer();
 		b.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+		return b;
+	}
+
+	public static void endShapes() {
+		Tessellator.getInstance().draw();
+	}
+
+	/** Adds a round rectangle to a shape batch. */
+	public static void roundInto(WorldRenderer b, float x, float y, float w, float h, float radius, int argb) {
+		if (argb >>> 24 == 0 || w <= 0 || h <= 0) {
+			return;
+		}
+		float r = Math.min(radius, Math.min(w, h) / 2);
+		float x1 = x + w;
+		float y1 = y + h;
+		if (r <= 0.05f) {
+			solid(b, x, y, x1, y1, argb);
+			return;
+		}
+		// the straight parts sample the corner texture's solid bottom-right texel
+		solid(b, x + r, y, x1 - r, y1, argb);
+		solid(b, x, y + r, x + r, y1 - r, argb);
+		solid(b, x1 - r, y + r, x1, y1 - r, argb);
 		corner(b, x, y, r, 0, 0, argb);
 		corner(b, x1 - r, y, r, 1, 0, argb);
 		corner(b, x, y1 - r, r, 0, 1, argb);
 		corner(b, x1 - r, y1 - r, r, 1, 1, argb);
-		t.draw();
+	}
+
+	/** Centre of the corner texture's last texel, which is fully opaque (64 texels wide). */
+	private static final float SOLID_UV = 1 - 0.5f / 64;
+
+	private static void solid(WorldRenderer b, float x0, float y0, float x1, float y1, int argb) {
+		color(b.pos(x0, y1, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+		color(b.pos(x1, y1, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+		color(b.pos(x1, y0, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+		color(b.pos(x0, y0, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
 	}
 
 	private static void corner(WorldRenderer b, float x, float y, float r, int flipX, int flipY, int argb) {
@@ -87,41 +114,59 @@ public final class Paint {
 		color(b.pos(x, y, 0).tex(u0, v0), argb).endVertex();
 	}
 
+	/** Segments per quarter circle of an outline. */
+	private static final int SEG = 8;
+	/** cos and sin around the outline, clockwise from the top: 4 corners of SEG + 1 points. */
+	private static final float[] COS = new float[4 * (SEG + 1)];
+	private static final float[] SIN = new float[4 * (SEG + 1)];
+
+	static {
+		for (int c = 0; c < 4; c++) {
+			for (int i = 0; i <= SEG; i++) {
+				double a = Math.toRadians(-90 + c * 90 + 90.0 * i / SEG);
+				COS[c * (SEG + 1) + i] = (float) Math.cos(a);
+				SIN[c * (SEG + 1) + i] = (float) Math.sin(a);
+			}
+		}
+	}
+
 	/** An outline {@code width} units thick, inside the given bounds, following round corners. */
 	public static void outline(float x, float y, float w, float h, float radius, float width, int argb) {
 		if (argb >>> 24 == 0 || width <= 0) {
 			return;
 		}
-		float r = Math.min(radius, Math.min(w, h) / 2);
-		if (r <= 0.05f) {
-			rect(x, y, w, width, argb);
-			rect(x, y + h - width, w, width, argb);
-			rect(x, y + width, width, h - 2 * width, argb);
-			rect(x + w - width, y + width, width, h - 2 * width, argb);
+		outlineInto(beginShapes(), x, y, w, h, radius, width, argb);
+		endShapes();
+	}
+
+	/** Adds an outline to a shape batch. */
+	public static void outlineInto(WorldRenderer b, float x, float y, float w, float h, float radius, float width, int argb) {
+		if (argb >>> 24 == 0 || width <= 0) {
 			return;
 		}
-		GlStateManager.disableTexture2D();
-		blend();
-		Tessellator t = Tessellator.getInstance();
-		WorldRenderer b = t.getWorldRenderer();
-		b.begin(GL11.GL_TRIANGLE_STRIP, DefaultVertexFormats.POSITION_COLOR);
-		float inner = Math.max(0, r - width);
-		int seg = 8;
-		float[][] centers = {{x + w - r, y + r}, {x + w - r, y + h - r}, {x + r, y + h - r}, {x + r, y + r}};
-		float start = -90;
-		for (int c = 0; c < 4; c++) {
-			for (int i = 0; i <= seg; i++) {
-				double a = Math.toRadians(start + c * 90 + 90.0 * i / seg);
-				float cos = (float) Math.cos(a);
-				float sin = (float) Math.sin(a);
-				color(b.pos(centers[c][0] + cos * r, centers[c][1] + sin * r, 0), argb).endVertex();
-				color(b.pos(centers[c][0] + cos * inner, centers[c][1] + sin * inner, 0), argb).endVertex();
-			}
+		float r = Math.min(radius, Math.min(w, h) / 2);
+		if (r <= 0.05f) {
+			solid(b, x, y, x + w, y + width, argb);
+			solid(b, x, y + h - width, x + w, y + h, argb);
+			solid(b, x, y + width, x + width, y + h - width, argb);
+			solid(b, x + w - width, y + width, x + w, y + h - width, argb);
+			return;
 		}
-		color(b.pos(centers[0][0], centers[0][1] - r, 0), argb).endVertex();
-		color(b.pos(centers[0][0], centers[0][1] - inner, 0), argb).endVertex();
-		t.draw();
-		GlStateManager.enableTexture2D();
+		float inner = Math.max(0, r - width);
+		float[] cxs = {x + w - r, x + w - r, x + r, x + r};
+		float[] cys = {y + r, y + h - r, y + h - r, y + r};
+		int n = COS.length;
+		for (int i = 0; i < n; i++) {
+			int j = (i + 1) % n;
+			int ci = i / (SEG + 1);
+			int cj = j / (SEG + 1);
+			// a ring quad from point i to point j (the step between corners is a straight edge)
+			// same winding as vanilla's GUI quads, so face culling never drops it
+			color(b.pos(cxs[ci] + COS[i] * inner, cys[ci] + SIN[i] * inner, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+			color(b.pos(cxs[cj] + COS[j] * inner, cys[cj] + SIN[j] * inner, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+			color(b.pos(cxs[cj] + COS[j] * r, cys[cj] + SIN[j] * r, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+			color(b.pos(cxs[ci] + COS[i] * r, cys[ci] + SIN[i] * r, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+		}
 	}
 
 	/** Linear blend between two colours, alpha included. */

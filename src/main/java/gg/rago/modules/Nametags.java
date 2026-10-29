@@ -254,6 +254,10 @@ public final class Nametags extends Module implements Styled {
 
 	@SubscribeEvent
 	public void onWorldDrawn(RenderWorldLastEvent event) {
+		long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
 		batch.flush();
+		if (gg.rago.debug.FrameProfile.ON) {
+			gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.NAMETAGS, System.nanoTime() - t);
+		}
 	}
 }

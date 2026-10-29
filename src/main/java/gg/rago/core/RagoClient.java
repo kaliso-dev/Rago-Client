@@ -4,6 +4,7 @@ import gg.rago.accounts.Accounts;
 import gg.rago.gui.AccountsButton;
 import gg.rago.config.BooleanOption;
 import gg.rago.config.ConfigStore;
+import gg.rago.debug.FrameProfile;
 import gg.rago.gui.ui.Anim;
 import gg.rago.gui.ui.Ui;
 import gg.rago.optimize.OptiFineFields;
@@ -438,13 +439,22 @@ public final class RagoClient {
 			return;
 		}
 		boolean ownHud = overlayVisible && !(mc.gameSettings.showDebugInfo && !hudInDebug.get());
+		long t = FrameProfile.ON ? System.nanoTime() : 0;
 		HUD.render(!ownHud);
+		if (FrameProfile.ON) {
+			FrameProfile.add(FrameProfile.HUD, System.nanoTime() - t);
+		}
 	}
 
 	@SubscribeEvent
 	public void onGuiOpen(GuiOpenEvent event) {
 		if (event.gui instanceof GuiMainMenu && useMainMenu()) {
 			event.gui = new RagoTitleScreen();
+		} else if (event.gui != null && event.gui.getClass().getName().startsWith("cc.polyfrost.oneconfig.gui.")
+			&& menuKeyHeld()) {
+			// the bundled Patcher's settings library opens on Right Shift too; that key is Rago's
+			// menu (Patcher's settings open with /patcher)
+			event.gui = new RagoMenuScreen(null);
 		} else if (event.gui != null && "the_fireplace.ias.gui.GuiAccountSelector".equals(event.gui.getClass().getName())) {
 			// the account switcher's own list (its button in the server list): show Rago's instead
 			GuiScreen prev = null;
@@ -455,6 +465,11 @@ public final class RagoClient {
 			}
 			event.gui = new AccountsScreen(prev);
 		}
+	}
+
+	private static boolean menuKeyHeld() {
+		int code = menuKey.getKeyCode();
+		return code > 0 && code < Keyboard.KEYBOARD_SIZE && Keyboard.isKeyDown(code);
 	}
 
 	/** The server list gets a button for the Accounts screen, right of Cancel. */
@@ -475,7 +490,11 @@ public final class RagoClient {
 	@SubscribeEvent
 	public void onClientTick(TickEvent.ClientTickEvent event) {
 		if (event.phase == TickEvent.Phase.END) {
+			long t = FrameProfile.ON ? System.nanoTime() : 0;
 			onTick(Minecraft.getMinecraft());
+			if (FrameProfile.ON) {
+				FrameProfile.add(FrameProfile.TICK, System.nanoTime() - t);
+			}
 		}
 	}
 
