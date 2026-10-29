@@ -115,6 +115,21 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return false;
 			}));
+		add("net.minecraft.client.gui.inventory.GuiContainer", new Patch("fast shop clicks",
+			"func_146984_a", "handleMouseClick", "(Lnet/minecraft/inventory/Slot;III)V",
+			m -> returnIf(m, "containerClick", "(Lnet/minecraft/client/gui/inventory/GuiContainer;Lnet/minecraft/inventory/Slot;III)Z",
+				new int[] {Opcodes.ALOAD, 0, Opcodes.ALOAD, 1, Opcodes.ILOAD, 2, Opcodes.ILOAD, 3, Opcodes.ILOAD, 4}, -1, Opcodes.RETURN)));
+		add("net.minecraft.client.gui.inventory.GuiContainer", new Patch("fast shop highlights",
+			"func_146977_a", "drawSlot", "(Lnet/minecraft/inventory/Slot;)V",
+			m -> {
+				InsnList head = new InsnList();
+				head.add(new VarInsnNode(Opcodes.ALOAD, 0));
+				head.add(new VarInsnNode(Opcodes.ALOAD, 1));
+				head.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "beforeSlot",
+					"(Lnet/minecraft/client/gui/inventory/GuiContainer;Lnet/minecraft/inventory/Slot;)V", false));
+				m.instructions.insert(head);
+				return true;
+			}));
 		add("net.minecraft.client.Minecraft", new Patch("hit delay fix",
 			"func_147116_af", "clickMouse", "()V",
 			m -> {

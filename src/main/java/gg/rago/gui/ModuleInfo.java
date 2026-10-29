@@ -62,6 +62,8 @@ final class ModuleInfo {
 		ICONS.put("particles", "party-popper");
 		ICONS.put("color_grading", "contrast");
 		ICONS.put("hit_delay_fix", "swords");
+		ICONS.put("fast_shop", "shopping-cart");
+		ICONS.put("cosmetics", "crown");
 	}
 
 	private ModuleInfo() {

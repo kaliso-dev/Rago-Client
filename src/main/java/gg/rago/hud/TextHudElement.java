@@ -208,8 +208,25 @@ public abstract class TextHudElement extends HudElement implements Styled {
 		}
 	}
 
-	/** Each line as coloured pieces: [ label separator value ] or [ value separator label ]. */
+	/** The lines and width worked out for this frame: one element asks for them several times a frame. */
+	private List<List<Seg>> frameLines;
+	private int frameWidth = -1;
+	private int frameId = -1;
+	private boolean framePlaceholder;
+
 	private List<List<Seg>> lines(boolean placeholder) {
+		int frame = HudManager.frame();
+		if (frameLines == null || frame != frameId || placeholder != framePlaceholder) {
+			frameLines = buildLines(placeholder);
+			frameWidth = -1;
+			frameId = frame;
+			framePlaceholder = placeholder;
+		}
+		return frameLines;
+	}
+
+	/** Each line as coloured pieces: [ label separator value ] or [ value separator label ]. */
+	private List<List<Seg>> buildLines(boolean placeholder) {
 		String[] raw = value(placeholder).split("\n", -1);
 		List<List<Seg>> out = new ArrayList<>(raw.length);
 		if (raw.length > 1) {
@@ -285,11 +302,15 @@ public abstract class TextHudElement extends HudElement implements Styled {
 
 	@Override
 	public int width(FontRenderer text, boolean placeholder) {
-		int w = 0;
-		for (List<Seg> line : lines(placeholder)) {
-			w = Math.max(w, lineWidth(line));
+		List<List<Seg>> lines = lines(placeholder);
+		if (frameWidth < 0) {
+			int w = 0;
+			for (List<Seg> line : lines) {
+				w = Math.max(w, lineWidth(line));
+			}
+			frameWidth = w;
 		}
-		return Math.max(w + pad() * 2, minWidth.get());
+		return Math.max(frameWidth + pad() * 2, minWidth.get());
 	}
 
 	@Override

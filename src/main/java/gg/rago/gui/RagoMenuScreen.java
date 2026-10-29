@@ -843,6 +843,8 @@ public final class RagoMenuScreen extends GuiScreen {
 		}
 		Ui.textSpaced(Ui.MONO, t("rago.menu.preview"), x + 12, y + 10, 8, 1.6f, 0xFF6B6970);
 		boolean placeholder = !e.hasContent();
+		// a new frame for the element's text: options changed in this menu show at once
+		gg.rago.hud.HudManager.nextFrame();
 		int ew = Math.max(1, e.width(fontRendererObj, placeholder));
 		int eh = Math.max(1, e.height(fontRendererObj, placeholder));
 		float s = Ui.scale();

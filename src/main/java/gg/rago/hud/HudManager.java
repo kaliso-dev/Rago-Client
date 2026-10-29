@@ -7,10 +7,7 @@ import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Predicate;
 
 /**
@@ -25,8 +22,18 @@ public final class HudManager {
 		this.registry = registry;
 	}
 
+	private List<HudElement> elements = new ArrayList<>();
+	private int elementsFor = -1;
+	/** Reused every frame so drawing the HUD allocates nothing. */
+	private final List<HudElement> shown = new ArrayList<>();
+
 	public List<HudElement> elements() {
-		return registry.allOf(HudElement.class);
+		// modules are only registered at start-up: no need to filter the registry every frame
+		if (elementsFor != registry.size()) {
+			elements = registry.allOf(HudElement.class);
+			elementsFor = registry.size();
+		}
+		return elements;
 	}
 
 	/**
@@ -34,15 +41,16 @@ public final class HudManager {
 	 * elements that replace vanilla ones, for when Rago's own HUD is hidden.
 	 */
 	public void render(boolean onlyVanilla) {
+		nextFrame();
 		Minecraft mc = Minecraft.getMinecraft();
 		ScaledResolution window = new ScaledResolution(mc);
-		List<HudElement> shown = new ArrayList<>();
+		shown.clear();
 		for (HudElement element : elements()) {
 			if (element.isEnabled() && (!onlyVanilla || element.replacesVanilla()) && element.hasContent()) {
 				shown.add(element);
 			}
 		}
-		stack(shown, mc.fontRendererObj, window.getScaledHeight(), e -> false);
+		stack(shown, mc.fontRendererObj, window.getScaledHeight(), NO_PLACEHOLDER);
 		for (HudElement element : shown) {
 			long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
 			draw(element, mc.fontRendererObj, window.getScaledWidth(), window.getScaledHeight(), false);
@@ -50,6 +58,17 @@ public final class HudManager {
 				gg.rago.debug.FrameProfile.element(element.id(), System.nanoTime() - t);
 			}
 		}
+	}
+
+	private static int frame;
+
+	/** Counts HUD frames, so elements can work out their text once per frame. */
+	public static int frame() {
+		return frame;
+	}
+
+	public static void nextFrame() {
+		frame++;
 	}
 
 	/** Gap between stacked elements, in scaled pixels. */
@@ -60,27 +79,39 @@ public final class HudManager {
 	 * down just enough to clear the one above. Elements the player has moved keep their place exactly.
 	 */
 	public static void stack(List<HudElement> shown, FontRenderer text, int screenH, Predicate<HudElement> placeholder) {
-		List<HudElement> column = new ArrayList<>();
-		Map<HudElement, int[]> natural = new HashMap<>();
+		List<HudElement> column = COLUMN;
+		column.clear();
 		for (HudElement e : shown) {
 			e.stackShift = 0;
 			HudPosition p = e.position();
 			if (p.isDefault() && p.anchor().fx == 0 && p.anchor().fy < 1) {
 				int h = Math.round(e.height(text, placeholder.test(e)) * p.scale());
-				natural.put(e, new int[]{p.screenY(h, screenH), h});
+				e.stackY = p.screenY(h, screenH);
+				e.stackH = h;
 				column.add(e);
 			}
 		}
-		// stable sort: elements starting at the same height keep the registry's order
-		column.sort(Comparator.comparingInt(e -> natural.get(e)[0]));
+		// stable insertion sort (a handful of elements): same height keeps the registry's order
+		for (int i = 1; i < column.size(); i++) {
+			HudElement e = column.get(i);
+			int j = i - 1;
+			while (j >= 0 && column.get(j).stackY > e.stackY) {
+				column.set(j + 1, column.get(j));
+				j--;
+			}
+			column.set(j + 1, e);
+		}
 		int cursor = Integer.MIN_VALUE;
 		for (HudElement e : column) {
-			int[] yh = natural.get(e);
-			int placed = Math.max(yh[0], cursor);
-			e.stackShift = placed - yh[0];
-			cursor = placed + yh[1] + STACK_GAP;
+			int placed = Math.max(e.stackY, cursor);
+			e.stackShift = placed - e.stackY;
+			cursor = placed + e.stackH + STACK_GAP;
 		}
+		column.clear();
 	}
+
+	private static final List<HudElement> COLUMN = new ArrayList<>();
+	private static final Predicate<HudElement> NO_PLACEHOLDER = e -> false;
 
 	/** Draws one element and returns its on-screen bounds as {x, y, w, h}. */
 	public static int[] draw(HudElement element, FontRenderer text, int screenW, int screenH, boolean placeholder) {

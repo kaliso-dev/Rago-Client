@@ -692,3 +692,49 @@ rago.module.hit_delay_fix.desc=A missed click no longer blocks your next attack 
 # 1.2: eating fix
 rago.option.eating_fix=Eating fix
 rago.option.eating_fix.help=When the server re-sends the item in your hand while you eat or drink, keep eating instead of starting over.
+
+# 1.2: fast shop
+rago.module.fast_shop=Fast Shop
+rago.module.fast_shop.desc=Bed Wars shop on Hypixel: clicks sent as middle clicks so buying is faster on high ping, affordable items highlighted, no duplicate swords.
+rago.option.shop_fast_clicks=Fast clicks
+rago.option.shop_highlight=Highlight affordable items
+rago.option.shop_highlight_opacity=Highlight opacity
+rago.option.shop_highlight_opacity.format=%d%%
+rago.option.shop_no_duplicates=No duplicate swords or knockback stick
+
+# 1.2: cosmetics
+rago.module.cosmetics=Cosmetics
+rago.module.cosmetics.desc=A hat (top hat, crown or halo) and wings (angel or dragon) on your player, each with its colour. Only you see them.
+rago.option.cosmetic_hat=Hat
+rago.option.cosmetic_hat.none=None
+rago.option.cosmetic_hat.top_hat=Top hat
+rago.option.cosmetic_hat.crown=Crown
+rago.option.cosmetic_hat.halo=Halo
+rago.option.cosmetic_hat_color=Hat colour
+rago.option.cosmetic_wings=Wings
+rago.option.cosmetic_wings.none=None
+rago.option.cosmetic_wings.angel=Angel
+rago.option.cosmetic_wings.dragon=Dragon
+rago.option.cosmetic_wings_color=Wings colour
+rago.option.cosmetic_wings_flap=Flapping
+
+# 1.2: resource packs screen
+rago.packs.title=Resource packs
+rago.packs.subtitle=%s in use out of %s. Type to search.
+rago.packs.search=Search packs
+rago.packs.all=All packs
+rago.packs.active=In use
+rago.packs.folders=Folders
+rago.packs.new_folder=New folder
+rago.packs.no_folder=No folder
+rago.packs.folder_name=Folder name
+rago.packs.create=Create
+rago.packs.open_folder=Open folder
+rago.packs.refresh=Refresh
+rago.packs.classic=Classic screen
+rago.packs.none=No resource packs yet. Open the folder and drop .zip packs in it, then press Refresh.
+rago.packs.no_match=No pack matches.
+rago.packs.incompatible=Made for another version (format %s)
+
+# 1.2: conflicting mods
+rago.conflict.nohitdelay=The separate "Rago NoHitDelay" mod is in your mods folder. Its NoUseDelay lets go of right click before the server has finished your bite, so golden apples get cancelled and start over. Remove that jar: Rago has Hit Delay Fix built in (Mods > Hit Delay Fix).

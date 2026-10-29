@@ -63,6 +63,7 @@ public final class HudEditorScreen extends GuiScreen {
 	public void drawScreen(int mouseX, int mouseY, float delta) {
 		lastMouseX = mouseX;
 		lastMouseY = mouseY;
+		HudManager.nextFrame();
 		HudManager.stack(elements(), fontRendererObj, height, HudEditorScreen::placeholder);
 		drawGradientRect(0, 0, width, height, 0x44000000, 0x44000000);
 

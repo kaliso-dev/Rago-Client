@@ -85,6 +85,18 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     10 ticks. Check the rules of the server you play on
   - eating fix (in gameplay fixes): when the server re-sends the stack in your hand while you eat or
     drink, the bite continues instead of starting over
+  - Fast Shop (input class, off by default, Hypixel only): one click buys in the Bed Wars shop,
+    affordable items are highlighted in their resource colour, and a sword or knockback stick you
+    already own is not bought twice
+  - Cosmetics (off by default, seen only by you): a hat (top hat, crown, halo) and wings (angel or
+    dragon, with flapping), each with its colour
+  - resource packs screen: every pack as a card with its icon, description and the textures it
+    changes (sword, pearl, golden apple, wool...), search by typing, your own folders to sort packs,
+    priority arrows; the vanilla screen stays one click away
+  - a warning in chat when the separate "Rago NoHitDelay" test mod is loaded: its NoUseDelay lets go
+    of right click before the server has finished the bite, so golden apples are cancelled on servers
+  - the HUD works out each element's text once per frame instead of several times, and no longer
+    filters the module list every frame
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)

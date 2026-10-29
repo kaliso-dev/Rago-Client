@@ -19,6 +19,7 @@ import gg.rago.gui.HudEditorScreen;
 import gg.rago.gui.RagoMenuScreen;
 import gg.rago.gui.RagoTitleScreen;
 import gg.rago.gui.AccountsScreen;
+import gg.rago.gui.PacksScreen;
 import gg.rago.hud.HudManager;
 import gg.rago.hooks.Hooks;
 import gg.rago.hud.elements.ArmorHud;
@@ -48,6 +49,7 @@ import gg.rago.input.InputState;
 import gg.rago.modules.BlockOverlay;
 import gg.rago.modules.Chat;
 import gg.rago.modules.ColorGrading;
+import gg.rago.modules.Cosmetics;
 import gg.rago.modules.CompetitiveProfile;
 import gg.rago.modules.Crosshair;
 import gg.rago.modules.F5Crosshair;
@@ -66,6 +68,7 @@ import gg.rago.modules.NoWaterOverlay;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.Particles;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.FastShop;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.HitColor;
 import gg.rago.modules.HitDelayFix;
@@ -82,6 +85,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiMultiplayer;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.client.gui.GuiScreenResourcePacks;
+import net.minecraftforge.fml.relauncher.ReflectionHelper;
 import net.minecraft.client.network.NetHandlerPlayClient;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.settings.KeyBinding;
@@ -153,6 +159,11 @@ public final class RagoClient {
 	private static ConfigStore config;
 	private static Path configDir;
 
+	/** Forge's config folder, where Rago keeps its files. */
+	public static Path configDir() {
+		return configDir;
+	}
+
 	private static KeyBinding toggleOverlayKey;
 	private static KeyBinding captureKey;
 	private static KeyBinding menuKey;
@@ -206,6 +217,7 @@ public final class RagoClient {
 		Hooks.tabList = MODULES.register(new TabList());
 		Hooks.particles = MODULES.register(new Particles());
 		Hooks.hitDelay = MODULES.register(new HitDelayFix());
+		Hooks.fastShop = MODULES.register(new FastShop());
 		Chat chat = MODULES.register(new Chat());
 		Nametags nametags = MODULES.register(new Nametags());
 		HypixelApi hypixel = new HypixelApi(configDir);
@@ -224,6 +236,7 @@ public final class RagoClient {
 		MODULES.register(new MotionBlur(zoom));
 		MODULES.register(new ColorGrading());
 		RagoCape cape = MODULES.register(new RagoCape());
+		MODULES.register(new Cosmetics());
 		GlintColor glint = MODULES.register(new GlintColor());
 		mainMenu = MODULES.register(new MainMenu());
 		profile = MODULES.register(new CompetitiveProfile(configDir));
@@ -478,6 +491,15 @@ public final class RagoClient {
 			// the bundled Patcher's settings library opens on Right Shift too; that key is Rago's
 			// menu (Patcher's settings open with /patcher)
 			event.gui = new RagoMenuScreen(null);
+		} else if (event.gui instanceof GuiScreenResourcePacks && !PacksScreen.takeVanilla()) {
+			GuiScreen prev = null;
+			try {
+				prev = ReflectionHelper.getPrivateValue(GuiScreenResourcePacks.class, (GuiScreenResourcePacks) event.gui,
+					"parentScreen", "field_146965_f");
+			} catch (RuntimeException e) {
+				LOG.debug("Resource packs screen without a previous screen", e);
+			}
+			event.gui = new PacksScreen(prev);
 		} else if (event.gui != null && "the_fireplace.ias.gui.GuiAccountSelector".equals(event.gui.getClass().getName())) {
 			// the account switcher's own list (its button in the server list): show Rago's instead
 			GuiScreen prev = null;
@@ -518,6 +540,28 @@ public final class RagoClient {
 			if (FrameProfile.ON) {
 				FrameProfile.add(FrameProfile.TICK, System.nanoTime() - t);
 			}
+			warnConflicts(Minecraft.getMinecraft());
+		}
+	}
+
+	private static boolean conflictsChecked;
+
+	/**
+	 * Once per launch, in the player's own chat: mods known to break something Rago players do. The
+	 * separate "Rago NoHitDelay" test mod lets go of right click as soon as the client has counted a
+	 * full bite, which is before the server has (by the ping), so the server cancels the golden
+	 * apple and the bite starts over. Rago's own Hit Delay Fix replaces it.
+	 */
+	private static void warnConflicts(Minecraft mc) {
+		if (conflictsChecked || mc.thePlayer == null) {
+			return;
+		}
+		conflictsChecked = true;
+		if (net.minecraftforge.fml.common.Loader.isModLoaded("ragonohitdelay")) {
+			LOG.warn("The separate Rago NoHitDelay mod is loaded; its NoUseDelay cancels eating on servers");
+			mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText(
+				net.minecraft.util.EnumChatFormatting.RED + "[Rago] " + net.minecraft.util.EnumChatFormatting.RESET
+					+ I18n.format("rago.conflict.nohitdelay")));
 		}
 	}
 

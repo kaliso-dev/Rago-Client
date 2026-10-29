@@ -31,6 +31,11 @@ public final class ModuleRegistry {
 		return modules.values().stream().filter(type::isInstance).map(type::cast).collect(Collectors.toList());
 	}
 
+	/** How many modules are registered; changes only while the client starts. */
+	public int size() {
+		return modules.size();
+	}
+
 	public void tick() {
 		for (Module m : modules.values()) {
 			if (m.isEnabled()) {

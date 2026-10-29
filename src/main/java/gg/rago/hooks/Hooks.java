@@ -1,6 +1,7 @@
 package gg.rago.hooks;
 
 import gg.rago.modules.Chat;
+import gg.rago.modules.FastShop;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.GlintColor;
 import gg.rago.modules.HitColor;
@@ -18,6 +19,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.EffectRenderer;
 import net.minecraft.client.particle.EntityFX;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.inventory.Slot;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.entity.Entity;
@@ -46,6 +49,7 @@ public final class Hooks {
 	public static volatile TabList tabList;
 	public static volatile Particles particles;
 	public static volatile HitDelayFix hitDelay;
+	public static volatile FastShop fastShop;
 	public static volatile Chat chat;
 	public static volatile GameplayFixes fixes;
 	public static volatile HitColor hitColor;
@@ -194,6 +198,20 @@ public final class Hooks {
 		}
 		GameplayFixes f = fixes;
 		return f != null && f.isEnabled() && f.keepUsing(current, inUse, player);
+	}
+
+	/** GuiContainer.handleMouseClick: true when the fast shop sent (or dropped) the click itself. */
+	public static boolean containerClick(GuiContainer gui, Slot slot, int slotId, int button, int type) {
+		FastShop f = fastShop;
+		return f != null && f.isEnabled() && f.onClick(gui, slot, slotId, button, type);
+	}
+
+	/** GuiContainer.drawSlot, first thing. */
+	public static void beforeSlot(GuiContainer gui, Slot slot) {
+		FastShop f = fastShop;
+		if (f != null && f.isEnabled()) {
+			f.beforeSlot(gui, slot);
+		}
 	}
 
 	/** Minecraft.clickMouse: ticks the attack key is locked after a click that hits nothing. */

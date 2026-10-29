@@ -692,3 +692,49 @@ rago.module.hit_delay_fix.desc=Un clic dans le vide ne bloque plus ta prochaine 
 # 1.2: eating fix
 rago.option.eating_fix=Correctif de la mange
 rago.option.eating_fix.help=Quand le serveur renvoie l'objet en main pendant que tu manges ou bois, tu continues au lieu de recommencer.
+
+# 1.2: fast shop
+rago.module.fast_shop=Fast Shop
+rago.module.fast_shop.desc=Shop Bed Wars sur Hypixel : clics envoyés en clic molette pour acheter plus vite avec du ping, objets abordables surlignés, pas d'épée en double.
+rago.option.shop_fast_clicks=Clics rapides
+rago.option.shop_highlight=Surligner ce que tu peux acheter
+rago.option.shop_highlight_opacity=Opacité du surlignage
+rago.option.shop_highlight_opacity.format=%d%%
+rago.option.shop_no_duplicates=Pas d'épée ni de stick knockback en double
+
+# 1.2: cosmetics
+rago.module.cosmetics=Cosmétiques
+rago.module.cosmetics.desc=Un chapeau (haut-de-forme, couronne ou auréole) et des ailes (ange ou dragon) sur ton joueur, chacun avec sa couleur. Toi seul les vois.
+rago.option.cosmetic_hat=Chapeau
+rago.option.cosmetic_hat.none=Aucun
+rago.option.cosmetic_hat.top_hat=Haut-de-forme
+rago.option.cosmetic_hat.crown=Couronne
+rago.option.cosmetic_hat.halo=Auréole
+rago.option.cosmetic_hat_color=Couleur du chapeau
+rago.option.cosmetic_wings=Ailes
+rago.option.cosmetic_wings.none=Aucune
+rago.option.cosmetic_wings.angel=Ange
+rago.option.cosmetic_wings.dragon=Dragon
+rago.option.cosmetic_wings_color=Couleur des ailes
+rago.option.cosmetic_wings_flap=Battement
+
+# 1.2: écran des packs de ressources
+rago.packs.title=Packs de ressources
+rago.packs.subtitle=%s actifs sur %s. Tape pour chercher.
+rago.packs.search=Chercher un pack
+rago.packs.all=Tous les packs
+rago.packs.active=Actifs
+rago.packs.folders=Dossiers
+rago.packs.new_folder=Nouveau dossier
+rago.packs.no_folder=Aucun dossier
+rago.packs.folder_name=Nom du dossier
+rago.packs.create=Créer
+rago.packs.open_folder=Ouvrir le dossier
+rago.packs.refresh=Actualiser
+rago.packs.classic=Écran classique
+rago.packs.none=Aucun pack pour l'instant. Ouvre le dossier, mets-y tes packs .zip, puis Actualiser.
+rago.packs.no_match=Aucun pack ne correspond.
+rago.packs.incompatible=Fait pour une autre version (format %s)
+
+# 1.2: mods en conflit
+rago.conflict.nohitdelay=Le mod séparé "Rago NoHitDelay" est dans ton dossier mods. Son NoUseDelay lâche le clic droit avant que le serveur ait fini ta bouchée : la gapple est annulée et recommence. Enlève ce jar, Rago a Hit Delay Fix intégré (Mods > Hit Delay Fix).
