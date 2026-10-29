@@ -46,7 +46,7 @@ the vanilla settings.
 
 ## Requirements (developers)
 
-- A JDK 17 or newer to run Gradle (the wrapper downloads Gradle 8.8). The mod and the game use
+- A JDK 17 to 21 to run Gradle (the wrapper downloads Gradle 8.8, which cannot run on Java 22+). The mod and the game use
   **Java 8**, which Gradle downloads by itself on the first build.
 - Python 3.8+ for `bench/analyse.py` (no extra packages)
 
