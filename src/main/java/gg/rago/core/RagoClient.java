@@ -64,6 +64,7 @@ import gg.rago.modules.CompetitiveProfile;
 import gg.rago.modules.Crosshair;
 import gg.rago.modules.Emotes;
 import gg.rago.modules.RagoBadge;
+import gg.rago.modules.AntiArmor;
 import gg.rago.modules.F5Crosshair;
 import gg.rago.modules.Fullbright;
 import gg.rago.modules.GlintColor;
@@ -258,6 +259,7 @@ public final class RagoClient {
 		MODULES.register(new RawInput());
 		Hooks.emotes = MODULES.register(new Emotes());
 		Hooks.ragoBadge = MODULES.register(new RagoBadge());
+		Hooks.antiArmor = MODULES.register(new AntiArmor());
 		autoText = MODULES.register(new AutoText());
 		MODULES.register(new AutoMessages());
 		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());

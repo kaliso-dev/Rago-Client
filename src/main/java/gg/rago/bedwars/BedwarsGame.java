@@ -38,6 +38,7 @@ public final class BedwarsGame {
 	private static boolean titleFieldMissing;
 	private static long readAt;
 	private static Map<Character, Boolean> beds = Collections.emptyMap();
+	private static Map<Character, Boolean> alive = Collections.emptyMap();
 
 	private BedwarsGame() {
 	}
@@ -64,6 +65,7 @@ public final class BedwarsGame {
 		}
 		readAt = now;
 		Map<Character, Boolean> out = new LinkedHashMap<>();
+		Map<Character, Boolean> teamsAlive = new LinkedHashMap<>();
 		Minecraft mc = Minecraft.getMinecraft();
 		if (inBedwars()) {
 			Scoreboard board = mc.theWorld.getScoreboard();
@@ -74,12 +76,31 @@ public final class BedwarsGame {
 				Boolean bed = bed(line);
 				if (bed != null) {
 					out.put(line.charAt(0), bed);
+					teamsAlive.put(line.charAt(0), alive(line));
 				}
 			}
 		}
 		// a single line could be something else: a game has at least two teams
 		beds = out.size() >= 2 ? out : Collections.<Character, Boolean>emptyMap();
+		alive = out.size() >= 2 ? teamsAlive : Collections.<Character, Boolean>emptyMap();
 		return beds;
+	}
+
+	/** Each team in the game now, by letter: true while it has a bed or players left (not ✗). */
+	public static Map<Character, Boolean> teamsAlive() {
+		teamBeds();
+		return alive;
+	}
+
+	/** A team line's team still in the game: a bed (✓) or players left (a number above 0). */
+	static boolean alive(String line) {
+		Matcher m = TEAM_LINE.matcher(line);
+		if (!m.find()) {
+			return false;
+		}
+		String state = m.group(2);
+		char c = state.charAt(0);
+		return c == '\u2713' || c == '\u2714' || Character.isDigit(c) && Integer.parseInt(state) > 0;
 	}
 
 	/** A sidebar line's team bed: true standing, false gone, null for a line that is not a team's. */

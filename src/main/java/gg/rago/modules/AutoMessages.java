@@ -7,6 +7,7 @@ import gg.rago.config.StringOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
+import gg.rago.core.RagoClient;
 import gg.rago.hypixel.Hypixel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.EnumChatFormatting;
@@ -16,6 +17,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -52,6 +54,8 @@ public final class AutoMessages extends Module {
 	private int nextTip = 20 * 30;
 	/** Most players seen in your team this game: 1 in solo. */
 	private int teamSize;
+	/** Most teams seen alive this game, to know when only one is left. */
+	private int teamsSeen;
 
 	public AutoMessages() {
 		super("auto_messages", FeatureClass.AUTO_CHAT, false);
@@ -77,6 +81,7 @@ public final class AutoMessages extends Module {
 			inGame = false;
 			ended = false;
 			teamSize = 0;
+			teamsSeen = 0;
 			queue.clear();
 		}
 		if (mc.thePlayer == null || !Hypixel.connected()) {
@@ -85,24 +90,20 @@ public final class AutoMessages extends Module {
 		if (!inGame && BedwarsGame.playing()) {
 			inGame = true;
 			ended = false;
+			RagoClient.LOG.info("Auto Messages: Bed Wars game started");
 		}
-		if (inGame && !ended && ticks % 20 == 0) {
+		if (inGame && !ended && ticks % 10 == 0) {
 			teamSize = Math.max(teamSize, BedwarsGame.ownTeamSize());
+			String end = endFromSidebar();
+			if (end != null) {
+				end(end);
+			}
 		}
 		String title = BedwarsGame.title();
 		if (!title.equals(lastTitle)) {
 			lastTitle = title;
 			if (inGame && !ended && (BedwarsGame.isVictory(title) || BedwarsGame.isGameOver(title))) {
-				ended = true;
-				if (gg.get()) {
-					if (solo()) {
-						enqueue(toAll(ggText.get()));
-						enqueue(toAll(endText.get()));
-					} else {
-						// /shout waits a while between two uses: both in one message
-						enqueue(toAll((ggText.get().trim() + " " + endText.get().trim()).trim()));
-					}
-				}
+				end("title \"" + title + "\"");
 			}
 		}
 		if (tip.get() && ticks >= nextTip) {
@@ -111,7 +112,52 @@ public final class AutoMessages extends Module {
 		}
 		if (!queue.isEmpty() && ticks >= nextSend && mc.currentScreen == null) {
 			nextSend = ticks + SPACING_TICKS;
-			mc.thePlayer.sendChatMessage(queue.poll());
+			String message = queue.poll();
+			RagoClient.LOG.info("Auto Messages: sending \"{}\"", message);
+			mc.thePlayer.sendChatMessage(message);
+		}
+	}
+
+	/**
+	 * The game is over for you when the sidebar shows one team left (out of several), or your own
+	 * team out of the game (✗); titles say the same, but in words that change with the language.
+	 */
+	private String endFromSidebar() {
+		Map<Character, Boolean> teams = BedwarsGame.teamsAlive();
+		if (teams.isEmpty()) {
+			return null;
+		}
+		int left = 0;
+		for (boolean a : teams.values()) {
+			if (a) {
+				left++;
+			}
+		}
+		teamsSeen = Math.max(teamsSeen, left);
+		if (teamsSeen >= 2 && left <= 1) {
+			return "one team left";
+		}
+		Boolean own = teams.get(BedwarsGame.ownTeam());
+		return own != null && !own ? "your team is out" : null;
+	}
+
+	private void end(String why) {
+		ended = true;
+		RagoClient.LOG.info("Auto Messages: game over ({}), GG {}", why, gg.get() ? "on" : "off");
+		if (!gg.get()) {
+			return;
+		}
+		Minecraft mc = Minecraft.getMinecraft();
+		if (mc.thePlayer != null) {
+			// only in your own chat: says the end was seen, so a GG that never shows can be told apart
+			mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText("§7" + net.minecraft.client.resources.I18n.format("rago.messages.end_seen")));
+		}
+		if (solo()) {
+			enqueue(toAll(ggText.get()));
+			enqueue(toAll(endText.get()));
+		} else {
+			// /shout waits a while between two uses: both in one message
+			enqueue(toAll((ggText.get().trim() + " " + endText.get().trim()).trim()));
 		}
 	}
 

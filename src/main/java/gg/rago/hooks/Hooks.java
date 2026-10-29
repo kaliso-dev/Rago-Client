@@ -14,6 +14,7 @@ import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
 import gg.rago.modules.BedwarsStats;
 import gg.rago.modules.RagoBadge;
+import gg.rago.modules.AntiArmor;
 import gg.rago.modules.ClientFixes;
 import gg.rago.modules.RagoCape;
 import gg.rago.modules.Screenshots;
@@ -71,6 +72,13 @@ public final class Hooks {
 	public static volatile Screenshots screenshots;
 	public static volatile Emotes emotes;
 	public static volatile RagoBadge ragoBadge;
+	public static volatile AntiArmor antiArmor;
+
+	/** LayerArmorBase.doRenderLayer: true to draw no armour on this entity. */
+	public static boolean hideArmor(EntityLivingBase entity) {
+		AntiArmor a = antiArmor;
+		return a != null && a.isEnabled() && a.hides(entity);
+	}
 	public static volatile GlintColor glint;
 
 	private Hooks() {

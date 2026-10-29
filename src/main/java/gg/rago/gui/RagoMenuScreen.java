@@ -732,7 +732,7 @@ public final class RagoMenuScreen extends GuiScreen {
 
 	/** What the numbers next to the names in the tab list mean, with the FKDR colours. */
 	private float statsLegend(BedwarsStats stats, float x, float y, float w) {
-		float h = 112;
+		float h = 130;
 		rowFrame(x, y, w, h);
 		Ui.icon("list-ordered", x + 12, y + 10, 13, Theme.ACCENT);
 		Ui.text(Ui.MEDIUM, t("rago.stats.legend_title"), x + 32, y + 10, 10.5f, Theme.TEXT);
@@ -753,6 +753,9 @@ public final class RagoMenuScreen extends GuiScreen {
 		ly += 18;
 		Ui.icon("triangle-alert", x + 12, ly - 1, 11, 0xFFAA0000);
 		Ui.text(Ui.REGULAR, t("rago.stats.legend_mark", stats.strongFkdr(), stats.strongStar()), x + 28, ly, 9.5f, 0xFFD4D2D9);
+		ly += 18;
+		Ui.text(Ui.MEDIUM, "[S]", x + 12, ly, 9.5f, 0xFFFF55FF);
+		Ui.text(Ui.REGULAR, t("rago.stats.legend_sniper"), x + 12 + Ui.textWidth(Ui.MEDIUM, "[S]", 9.5f) + 6, ly, 9.5f, 0xFFD4D2D9);
 		return y + h;
 	}
 

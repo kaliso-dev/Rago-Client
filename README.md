@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.6.** What it contains:
+**Current version: 1.4.7.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -116,6 +116,14 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     Control once, with a chat message
   - Patcher's Chat Delay works again next to Rago's chat look: Rago leaves the game's chat text call
     where Patcher looks for it
+  - Bed Wars stats in the tab list as numbers only: `[star] Name FKDR/Danger`; the game-start alert
+    waits 3 seconds for every player to be in a team, then for their stats
+  - Anti-sniper (in Bed Wars Stats): enemies with a name alt and cheat accounts often carry, few
+    final kills for a high FKDR, or (off by default) chainmail and an iron sword in the first
+    minute are marked `[S]` in the tab list and named in the alert, with a sound
+  - Anti Armor: your own armour is not drawn, so your skin shows in F5 (only on your screen)
+  - Auto Messages also sees the end of a game from the sidebar (one team left, or yours out), and
+    says so in your own chat before sending the GG
   - the 1.2 Particles mod is merged into Particle Multiplier, which can now also hide block-breaking
     and block-mining particles
   - Item Scale (held and dropped items from 25% to 400%), Item Physics (dropped items lie on the
@@ -250,7 +258,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.6+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.4.7+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the

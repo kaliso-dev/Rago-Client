@@ -293,6 +293,10 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.renderer.entity.RenderItem", new Patch("glint colour on items",
 			"func_180451_a", "renderEffect", "(Lnet/minecraft/client/resources/model/IBakedModel;)V",
 			RagoTransformer::itemGlint));
+		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("anti armor",
+			"func_177141_a", "doRenderLayer", "(Lnet/minecraft/entity/EntityLivingBase;FFFFFFF)V",
+			m -> returnIf(m, "hideArmor", "(Lnet/minecraft/entity/EntityLivingBase;)Z",
+				new int[] {Opcodes.ALOAD, 1}, -1, Opcodes.RETURN)));
 		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("glint colour on armour",
 			"func_177183_a", "renderGlint",
 			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
