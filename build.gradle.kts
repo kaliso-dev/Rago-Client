@@ -1,3 +1,6 @@
+import java.net.URI
+import java.security.MessageDigest
+
 plugins {
     java
     id("gg.essential.loom") version "1.6.21"
@@ -72,6 +75,37 @@ val optifineJar = fileTree("libs/optifine") { include("OptiFine*.jar") }.files.s
 // Rago's Accounts screen uses it for the Microsoft sign-in.
 val iasJar = fileTree("libs/ias") { include("InGameAccountSwitcher*.jar") }.files.sortedBy { it.name }.lastOrNull()
 
+// PolyPatcher (CC BY-NC-SA 4.0, see libs/patcher/README.md) is bundled unmodified the same way. It is
+// downloaded from Modrinth at build time and checked against its published SHA-512, so the
+// repository never stores it; -PnoPatcher builds without it.
+val patcherName = "PolyPatcher-1.8.9-forge-1.10.4.jar"
+val patcherUrl = "https://cdn.modrinth.com/data/YknNc5nN/versions/iNjGeSxM/$patcherName"
+val patcherSha512 = "dc4979fce67d4e1c18143bb369ef0f597438a925baa47cea30aebb027b813a2520fe16e58f6eb4a55e80a8d22bfab86f100009e9a2b35fdd9d219564e300d0b4"
+val patcherFile = layout.buildDirectory.file("patcher/$patcherName")
+val bundlePatcher = !project.hasProperty("noPatcher")
+
+val downloadPatcher by tasks.registering {
+    onlyIf { bundlePatcher }
+    outputs.file(patcherFile)
+    doLast {
+        val out = patcherFile.get().asFile
+        fun sha512(f: File) = MessageDigest.getInstance("SHA-512").digest(f.readBytes())
+            .joinToString("") { "%02x".format(it) }
+        if (out.isFile && sha512(out) == patcherSha512) {
+            return@doLast
+        }
+        out.parentFile.mkdirs()
+        val tmp = File(out.parentFile, "$patcherName.part")
+        URI(patcherUrl).toURL().openStream().use { input -> tmp.outputStream().use { input.copyTo(it) } }
+        val got = sha512(tmp)
+        if (got != patcherSha512) {
+            tmp.delete()
+            throw GradleException("$patcherName from Modrinth has SHA-512 $got, expected $patcherSha512")
+        }
+        tmp.renameTo(out)
+    }
+}
+
 // The jar is both a Forge mod and a coremod: the transformer raises the menu frame-rate cap
 tasks.jar {
     manifest.attributes(
@@ -79,8 +113,16 @@ tasks.jar {
         "FMLCorePluginContainsFMLMod" to "true",
         "ForceLoadAsMod" to "true",
     )
-    val contained = listOfNotNull(optifineJar, iasJar)
+    dependsOn(downloadPatcher)
+    val patcherJar = if (bundlePatcher) patcherFile.get().asFile else null
+    val contained = listOfNotNull(optifineJar, iasJar, patcherJar)
     contained.forEach { from(it) }
+    if (patcherJar != null) {
+        from("libs/patcher") {
+            include("LICENSE.md", "README.md")
+            into("META-INF/licenses/polypatcher")
+        }
+    }
     if (iasJar != null) {
         from("libs/ias") {
             include("LICENSE", "COPYING", "README.md")

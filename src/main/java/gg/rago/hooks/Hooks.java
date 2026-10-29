@@ -2,19 +2,23 @@ package gg.rago.hooks;
 
 import gg.rago.modules.Chat;
 import gg.rago.modules.GameplayFixes;
+import gg.rago.modules.GlintColor;
 import gg.rago.modules.HitColor;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.OldAnimations;
+import gg.rago.modules.RagoCape;
 import gg.rago.modules.TabPing;
 import gg.rago.optimize.EngineTweaks;
 import gg.rago.optimize.OcclusionCuller;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3;
 
 /**
@@ -34,6 +38,8 @@ public final class Hooks {
 	public static volatile GameplayFixes fixes;
 	public static volatile HitColor hitColor;
 	public static volatile EngineTweaks engine;
+	public static volatile RagoCape cape;
+	public static volatile GlintColor glint;
 
 	private Hooks() {
 	}
@@ -180,5 +186,28 @@ public final class Hooks {
 		Chat c = chat;
 		boolean shadow = c == null || !c.isEnabled() || c.textShadow();
 		return font.drawString(text, x, y, color, shadow);
+	}
+
+	/** AbstractClientPlayer.getLocationCape: the Rago cape for players who wear it. */
+	public static ResourceLocation cape(ResourceLocation vanilla, AbstractClientPlayer player) {
+		RagoCape c = cape;
+		return c != null && c.isEnabled() ? c.capeFor(player, vanilla) : vanilla;
+	}
+
+	/** RenderItem.renderEffect: the colour of the glint on items (vanilla -8372020, purple). */
+	public static int glintColor(int vanilla) {
+		GlintColor g = glint;
+		return g != null && g.isEnabled() ? g.argb() : vanilla;
+	}
+
+	/** LayerArmorBase.renderLayer, after the glint colour is set: sets the chosen one instead. */
+	public static void armorGlint() {
+		GlintColor g = glint;
+		if (g != null && g.isEnabled()) {
+			int c = g.argb();
+			// vanilla dims the armour glint to 76 %
+			float f = 0.76f / 255f;
+			net.minecraft.client.renderer.GlStateManager.color((c >> 16 & 0xFF) * f, (c >> 8 & 0xFF) * f, (c & 0xFF) * f, 1f);
+		}
 	}
 }

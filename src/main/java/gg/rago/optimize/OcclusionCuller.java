@@ -29,6 +29,12 @@ import java.util.function.BooleanSupplier;
  */
 public final class OcclusionCuller {
 	private static final long BUDGET_NS = 350_000L;
+	/**
+	 * Least time between two passes. At a few hundred FPS a pass on every frame would cost a large
+	 * share of each frame for no visible gain; 120 passes a second keep up with the camera.
+	 */
+	private static final long PASS_INTERVAL_NS = 8_000_000L;
+	private long lastPassNs;
 	/** Closer than this, things are always drawn: the camera can be inside their box. */
 	private static final double ALWAYS_VISIBLE_SQ = 3.5 * 3.5;
 	private static final int MAX_RAY_STEPS = 512;
@@ -82,11 +88,16 @@ public final class OcclusionCuller {
 			clear();
 			world = mc.theWorld;
 		}
+		long now = System.nanoTime();
+		if (now - lastPassNs < PASS_INTERVAL_NS) {
+			return;
+		}
+		lastPassNs = now;
 		cx = viewer.lastTickPosX + (viewer.posX - viewer.lastTickPosX) * partialTicks;
 		cy = viewer.lastTickPosY + (viewer.posY - viewer.lastTickPosY) * partialTicks + viewer.getEyeHeight();
 		cz = viewer.lastTickPosZ + (viewer.posZ - viewer.lastTickPosZ) * partialTicks;
 		chunk = null;
-		long deadline = System.nanoTime() + BUDGET_NS;
+		long deadline = now + BUDGET_NS;
 
 		List<Entity> entities = world.loadedEntityList;
 		int n = entities.size();

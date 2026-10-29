@@ -213,6 +213,12 @@ final class VideoBackdrop {
 			}
 			// the menu is gone: give the memory back, it is read again next time
 			jpegs = null;
+			synchronized (LOCK) {
+				for (int i = 0; i < QUEUE; i++) {
+					slotFrame[i] = -1;
+					slots[i] = null;
+				}
+			}
 		}
 	}
 

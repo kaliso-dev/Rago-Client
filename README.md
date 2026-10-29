@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.0.0.** What it contains:
+**Current version: 1.1.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -11,6 +11,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
 - frosted glass panels and buttons in every Rago screen (they blur what is behind them, also with
   OptiFine's Fast Render), with a switch to use solid panels instead
 - OptiFine inside the Rago jar for builds that bundle it (see [Bundling OptiFine](#bundling-optifine))
+- [PolyPatcher](#patcher) (Patcher's fixes and optimisations) inside the Rago jar; its settings open
+  with `/patcher`
 - an **Accounts** screen in Rago's style (top right of the home screen, or the head button in the
   server list): add Microsoft accounts and switch between them in one click. The sign-in itself is
   done by [In-Game Account Switcher](#account-switcher), which is bundled
@@ -53,6 +55,19 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   size, server or custom colour, background, round corners, border, faint through walls, your own
   name in F5), a movable scoreboard (scale, background opacity, red numbers optional, or hidden) and boss
   bar, reach display, combo counter, speed, clock, memory and server address HUDs
+- new in 1.1:
+  - name tags drawn in one batch per frame instead of one draw call per piece of text (about 5.8 →
+    3.3 ms per frame for 60 players in the Rago style, 1.3 ms in the vanilla style, measured with
+    `-Drago.bench.nametags=60`, see below)
+  - motion blur: strength, always / when turning / when turning or moving, sensitivity, the same
+    look at any frame rate, paused while zooming; the HUD stays sharp
+  - the Rago cape (on by default, can be switched off; only you see it for now)
+  - Bed Wars: Height Limit (blocks left before the map's build limit, learned from the server and
+    kept per map in `config/rago-height-limits.json`, or set by hand), Block Counter (wool, clay,
+    glass, wood, end stone, obsidian, ladders), and critical particles on every hit
+  - Direction HUD, Pack Display HUD, enchantment glint colour (or rainbow) on items and armour
+  - less memory: Rago's textures no longer keep a copy of their pixels in Java memory, and text is
+    measured without building a 48-pixel glyph texture
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -79,7 +94,7 @@ draws. The jar contains one class transformer (`gg.rago.asm`) with a few small p
 calling `gg.rago.hooks.Hooks`: the frame-rate cap for menus and unfocused windows, occlusion culling
 of entities, the hurt camera strength, the 1.7 animations and held item, the hit colour, the tab list
 ping, the chat history, background and shadow, the mouse delay fix, the world-switch clean-up,
-dropped stacks and borderless fullscreen. Each one keeps vanilla behaviour while its feature is off, and a patch that
+dropped stacks, borderless fullscreen, the Rago cape and the glint colour. Each one keeps vanilla behaviour while its feature is off, and a patch that
 does not fit (another mod changed the method) is skipped and logged. Start the game with
 `-Drago.dumpClasses=true` to save such a class to `rago-dump/` for a bug report. Everything else
 uses Forge events.
@@ -103,10 +118,15 @@ every few seconds (3 to 60, your choice) it opens a separate connection to the s
 and times one status ping, exactly like the server list does. Choose *Server (tab)* to show the
 server's value instead.
 
+Comparing with another client: both run on the same network, so the real latency is the same.
+Different numbers come from how and when each client measures (a status ping on a new connection,
+the server's tab value, or a value averaged over time), and from the moment of the sample. To
+compare like for like, set the Ping HUD to *Server (tab)* on both.
+
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.0.0+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.1.0+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the
@@ -145,6 +165,18 @@ its `.iasms` file, encrypted with a key stored on the same PC: that stops casual
 malware running as you. If you already have In-Game Account Switcher in your mods folder, Rago uses
 that copy.
 
+### Patcher
+
+[PolyPatcher](https://github.com/Polyfrost/PolyPatcher) 1.10.4, the Polyfrost fork of Sk1er's
+Patcher, is bundled unmodified like In-Game Account Switcher. It is licensed under CC BY-NC-SA 4.0,
+so **Rago builds that contain it may only be shared non-commercially**; see `libs/patcher/README.md`.
+The build downloads it from Modrinth and checks its SHA-512, so the repository never stores it;
+`./gradlew build -PnoPatcher` leaves it out. On the first launch Forge extracts it to
+`mods/1.8.9/`, Rago starts it with its access transformer, and Patcher downloads OneConfig, its
+settings library. Rago turns off Forge's loading screen (`config/splash.properties`), which can crash
+while Patcher starts. Right Shift still opens Rago's window; Patcher's settings open with `/patcher`.
+If Patcher or PolyPatcher is already in your mods folder, Rago uses that copy.
+
 ### Bundling OptiFine
 
 OptiFine's licence does not allow redistributing it without permission from its author (sp614x), so
@@ -179,6 +211,13 @@ python3 bench/analyse.py bench/results/forge --vs bench/results/optifine --label
 
 Report the numbers as measured, with the hardware lines from the CSV headers.
 
+Name tags have their own benchmark: start the game with `-Drago.bench.nametags=60` and enter a
+singleplayer world. It adds 60 fake players in front of you, switches the Nametags mod off and on
+every 10 seconds and logs `[bench]` lines with the frame time and the time spent drawing names.
+
+`-Drago.bench.frame=true` logs a `[profile]` line every 5 seconds with the frame time, the time Rago
+spends per frame on occlusion culling, the HUD, name tags and its tick, and the slowest HUD elements.
+
 ## What the numbers mean
 
 | Value | Definition |
@@ -194,4 +233,4 @@ Report the numbers as measured, with the hardware lines from the CSV headers.
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE). The bundled In-Game Account Switcher is LGPL-3.0 (see
-`libs/ias/`), the Poppins font is under the SIL Open Font License (see `Poppins-OFL.txt` next to it).
+`libs/ias/`), the bundled PolyPatcher is CC BY-NC-SA 4.0 (see `libs/patcher/`), the Poppins font is under the SIL Open Font License (see `Poppins-OFL.txt` next to it).

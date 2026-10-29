@@ -1,11 +1,11 @@
 package gg.rago.gui.ui;
 
 import gg.rago.core.RagoClient;
+import gg.rago.render.StaticTexture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
@@ -68,6 +68,51 @@ public final class TtfFont {
 		return a;
 	}
 
+	/** Advances at {@link #METRICS_PX}, for measuring text without building a texture. */
+	private float[] metrics;
+	private float metricsSpace;
+	/** Size the size-independent measurements are taken at. */
+	public static final int METRICS_PX = 48;
+
+	/** Width of {@code s} without § codes at {@link #METRICS_PX} pixels; no texture is created. */
+	public float measure(String s) {
+		if (metrics == null) {
+			Font f = base().deriveFont((float) METRICS_PX);
+			FontRenderContext frc = new FontRenderContext(null, true, true);
+			float[] m = new float[256];
+			for (char c = 32; c < 256; c++) {
+				m[c] = (float) f.getStringBounds(String.valueOf(c), frc).getWidth();
+			}
+			metricsSpace = m[' '];
+			metrics = m;
+		}
+		float w = 0;
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			if (c == '\u00a7' && i + 1 < s.length()) {
+				i++;
+			} else if (c < 256) {
+				w += c < 32 ? metricsSpace : metrics[c];
+			} else {
+				w += extraAdvance(c);
+			}
+		}
+		return w;
+	}
+
+	private final Map<Character, Float> extraMetrics = new HashMap<>();
+
+	private float extraAdvance(char c) {
+		Float a = extraMetrics.get(c);
+		if (a == null) {
+			a = EXTRA.indexOf(c) >= 0
+				? (float) base().deriveFont((float) METRICS_PX).getStringBounds(String.valueOf(c), new FontRenderContext(null, true, true)).getWidth()
+				: metricsSpace;
+			extraMetrics.put(c, a);
+		}
+		return a;
+	}
+
 	/** Width in real pixels of {@code s} drawn at {@code px} pixels. */
 	public float width(String s, float px) {
 		Atlas a = atlas(Math.max(1, Math.round(px)));
@@ -83,45 +128,65 @@ public final class TtfFont {
 		return atlas(Math.max(1, Math.round(px))).ascent;
 	}
 
+	/** Receives one glyph quad: corners in real pixels, atlas coordinates and colour. */
+	public interface QuadSink {
+		void quad(float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1, int argb);
+	}
+
+	/** GL texture of the atlas used at {@code px} pixels, for callers that batch glyphs themselves. */
+	public int textureId(float px) {
+		return atlas(Math.max(1, Math.round(px))).texture.getGlTextureId();
+	}
+
 	/**
 	 * Draws {@code s} with its line box starting at (x, y) in real pixels. The line box is the
 	 * font's ascent plus descent, so text of different sizes lines up by its top.
 	 */
 	public void draw(String s, float x, float y, float px, int argb) {
-		Atlas a = atlas(Math.max(1, Math.round(px)));
-		x = Math.round(x);
-		y = Math.round(y);
+		begin(px);
+		emit(s, x, y, px, argb, TESSELLATOR_SINK);
+		Tessellator.getInstance().draw();
+	}
+
+	private void begin(float px) {
 		GlStateManager.enableTexture2D();
 		GlStateManager.enableBlend();
 		GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
-		GlStateManager.bindTexture(a.texture.getGlTextureId());
+		GlStateManager.bindTexture(textureId(px));
 		GlStateManager.color(1, 1, 1, 1);
-		float r = (argb >> 16 & 0xFF) / 255f;
-		float g = (argb >> 8 & 0xFF) / 255f;
-		float b = (argb & 0xFF) / 255f;
-		float al = (argb >>> 24) / 255f;
-		Tessellator t = Tessellator.getInstance();
-		WorldRenderer w = t.getWorldRenderer();
-		w.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
-		float cx = x;
+		Tessellator.getInstance().getWorldRenderer().begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+	}
+
+	private static final QuadSink TESSELLATOR_SINK = (x0, y0, x1, y1, u0, v0, u1, v1, argb) -> {
+		WorldRenderer w = Tessellator.getInstance().getWorldRenderer();
+		int r = argb >> 16 & 0xFF;
+		int g = argb >> 8 & 0xFF;
+		int b = argb & 0xFF;
+		int a = argb >>> 24;
+		w.pos(x0, y1, 0).tex(u0, v1).color(r, g, b, a).endVertex();
+		w.pos(x1, y1, 0).tex(u1, v1).color(r, g, b, a).endVertex();
+		w.pos(x1, y0, 0).tex(u1, v0).color(r, g, b, a).endVertex();
+		w.pos(x0, y0, 0).tex(u0, v0).color(r, g, b, a).endVertex();
+	};
+
+	/** Sends the glyph quads of {@code s} (no § codes) to {@code sink}; returns the advance in pixels. */
+	private float emit(CharSequence s, float x, float y, float px, int argb, QuadSink sink) {
+		Atlas a = atlas(Math.max(1, Math.round(px)));
+		float cx = Math.round(x);
+		float gy = Math.round(y) - PAD;
+		float inv = 1f / a.size;
 		for (int i = 0; i < s.length(); i++) {
-			Glyph gl = a.glyph(s.charAt(i));
+			char c = s.charAt(i);
+			Glyph gl = a.glyph(c);
 			if (gl == null) {
+				cx += a.spaceAdvance;
 				continue;
 			}
 			float gx = cx - PAD;
-			float gy = y - PAD;
-			float u0 = gl.x / (float) a.size;
-			float v0 = gl.y / (float) a.size;
-			float u1 = (gl.x + gl.w) / (float) a.size;
-			float v1 = (gl.y + gl.h) / (float) a.size;
-			w.pos(gx, gy + gl.h, 0).tex(u0, v1).color(r, g, b, al).endVertex();
-			w.pos(gx + gl.w, gy + gl.h, 0).tex(u1, v1).color(r, g, b, al).endVertex();
-			w.pos(gx + gl.w, gy, 0).tex(u1, v0).color(r, g, b, al).endVertex();
-			w.pos(gx, gy, 0).tex(u0, v0).color(r, g, b, al).endVertex();
+			sink.quad(gx, gy, gx + gl.w, gy + gl.h, gl.x * inv, gl.y * inv, (gl.x + gl.w) * inv, (gl.y + gl.h) * inv, argb);
 			cx += gl.advance;
 		}
-		t.draw();
+		return cx - Math.round(x);
 	}
 
 	/** Minecraft's sixteen formatting colours (§0 to §f), as RGB. */
@@ -165,45 +230,53 @@ public final class TtfFont {
 	/**
 	 * Draws {@code s} honouring Minecraft's § colour codes (§r goes back to {@code argb}; styles such
 	 * as bold are ignored). With {@code shadow} a darker copy is drawn {@code shadowOffset} pixels
-	 * down and right first, like the vanilla font's shadow.
+	 * down and right first, like the vanilla font's shadow. One draw call for the whole string.
 	 */
 	public void drawFormatted(String s, float x, float y, float px, int argb, boolean shadow, float shadowOffset) {
-		if (shadow) {
-			drawRuns(s, x + shadowOffset, y + shadowOffset, px, argb, true);
-		}
-		drawRuns(s, x, y, px, argb, false);
+		begin(px);
+		emitFormatted(s, x, y, px, argb, shadow, shadowOffset, TESSELLATOR_SINK);
+		Tessellator.getInstance().draw();
 	}
 
-	private void drawRuns(String s, float x, float y, float px, int argb, boolean shadow) {
+	/** {@link #drawFormatted} into {@code sink} instead of the screen, for batched drawing. */
+	public void emitFormatted(String s, float x, float y, float px, int argb, boolean shadow, float shadowOffset, QuadSink sink) {
+		if (shadow) {
+			emitRuns(s, x + shadowOffset, y + shadowOffset, px, argb, true, sink);
+		}
+		emitRuns(s, x, y, px, argb, false, sink);
+	}
+
+	private void emitRuns(String s, float x, float y, float px, int argb, boolean shadow, QuadSink sink) {
+		if (s.indexOf('\u00a7') < 0) {
+			emit(s, x, y, px, shadow ? shade(argb) : argb, sink);
+			return;
+		}
 		int alpha = argb & 0xFF000000;
 		int color = argb;
-		StringBuilder run = new StringBuilder();
+		int start = 0;
 		float cx = x;
 		for (int i = 0; i < s.length(); i++) {
-			char c = s.charAt(i);
-			if (c == '\u00a7' && i + 1 < s.length()) {
-				cx = flush(run, cx, y, px, color, shadow);
-				int code = "0123456789abcdef".indexOf(Character.toLowerCase(s.charAt(++i)));
-				if (code >= 0) {
-					color = alpha | CODE_COLORS[code];
-				} else if (Character.toLowerCase(s.charAt(i)) == 'r') {
+			if (s.charAt(i) == '\u00a7' && i + 1 < s.length()) {
+				if (i > start) {
+					cx += emit(s.subSequence(start, i), cx, y, px, shadow ? shade(color) : color, sink);
+				}
+				char code = Character.toLowerCase(s.charAt(++i));
+				int index = "0123456789abcdef".indexOf(code);
+				if (index >= 0) {
+					color = alpha | CODE_COLORS[index];
+				} else if (code == 'r') {
 					color = argb;
 				}
-			} else {
-				run.append(c);
+				start = i + 1;
 			}
 		}
-		flush(run, cx, y, px, color, shadow);
+		if (start < s.length()) {
+			emit(s.subSequence(start, s.length()), cx, y, px, shadow ? shade(color) : color, sink);
+		}
 	}
 
-	private float flush(StringBuilder run, float x, float y, float px, int color, boolean shadow) {
-		if (run.length() == 0) {
-			return x;
-		}
-		String text = run.toString();
-		run.setLength(0);
-		draw(text, x, y, px, shadow ? (color & 0xFF000000) | (color & 0xFCFCFC) >> 2 : color);
-		return x + width(text, px);
+	private static int shade(int color) {
+		return color & 0xFF000000 | (color & 0xFCFCFC) >> 2;
 	}
 
 	private static final class Glyph {
@@ -225,7 +298,7 @@ public final class TtfFont {
 	private static final class Atlas {
 		final Glyph[] latin = new Glyph[256];
 		final Map<Character, Glyph> extra = new HashMap<>();
-		final DynamicTexture texture;
+		final StaticTexture texture;
 		final int size;
 		final float ascent;
 		final float spaceAdvance;
@@ -281,7 +354,7 @@ public final class TtfFont {
 			}
 			g.dispose();
 			spaceAdvance = latin[' '].advance;
-			texture = new DynamicTexture(img);
+			texture = new StaticTexture(img);
 			GlStateManager.bindTexture(texture.getGlTextureId());
 			GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
 			GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);

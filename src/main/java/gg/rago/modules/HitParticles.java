@@ -18,10 +18,11 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 /**
  * More hit particles when you hit something: critical and sharpness particles multiplied, and
- * optionally sharpness particles on every hit. Particles only exist on your screen.
+ * optionally critical or sharpness particles on every hit. Particles only exist on your screen.
  */
 public final class HitParticles extends Module {
 	private final IntOption multiplier = addOption(new IntOption("particle_multiplier", 3, 1, 10));
+	private final BooleanOption alwaysCrit = addOption(new BooleanOption("always_crit", false));
 	private final BooleanOption alwaysSharpness = addOption(new BooleanOption("always_sharpness", false));
 
 	public HitParticles() {
@@ -49,7 +50,7 @@ public final class HitParticles extends Module {
 		boolean sharp = EnchantmentHelper.getModifierForCreature(p.getHeldItem(), attr) > 0;
 		int extra = multiplier.get() - 1;
 		// vanilla already emits one of each it wants
-		emit(mc, target, EnumParticleTypes.CRIT, crit ? extra : 0);
+		emit(mc, target, EnumParticleTypes.CRIT, crit ? extra : alwaysCrit.get() ? multiplier.get() : 0);
 		emit(mc, target, EnumParticleTypes.CRIT_MAGIC, sharp ? extra : alwaysSharpness.get() ? multiplier.get() : 0);
 	}
 

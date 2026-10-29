@@ -1,11 +1,11 @@
 package gg.rago.gui.ui;
 
+import gg.rago.render.StaticTexture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.input.Mouse;
@@ -33,9 +33,9 @@ public final class Ui {
 	/** How much of a panel's own fill stays when glass is on; the rest is the blurred background. */
 	private static final float GLASS_FILL = 0.5f;
 	private static final int CORNER_TEX = 64;
-	private static DynamicTexture corner;
-	private static DynamicTexture glow;
-	private static DynamicTexture ring;
+	private static StaticTexture corner;
+	private static StaticTexture glow;
+	private static StaticTexture ring;
 
 	/** Real pixels per design unit. */
 	private static float s = 1f;
@@ -693,7 +693,7 @@ public final class Ui {
 		return cornerTexture().getGlTextureId();
 	}
 
-	static DynamicTexture cornerTexture() {
+	static StaticTexture cornerTexture() {
 		if (corner == null) {
 			// Quarter of a disc with an anti-aliased edge: the disc's centre is the texture's bottom-right
 			corner = generated(CORNER_TEX, (x, y) -> {
@@ -706,7 +706,7 @@ public final class Ui {
 		return corner;
 	}
 
-	private static DynamicTexture glowTexture() {
+	private static StaticTexture glowTexture() {
 		if (glow == null) {
 			int n = 128;
 			glow = generated(n, (x, y) -> {
@@ -720,7 +720,7 @@ public final class Ui {
 		return glow;
 	}
 
-	private static DynamicTexture ringTexture() {
+	private static StaticTexture ringTexture() {
 		if (ring == null) {
 			int n = 512;
 			double width = 1.6;
@@ -742,7 +742,7 @@ public final class Ui {
 		return Math.max(0, Math.min(1, v));
 	}
 
-	private static DynamicTexture generated(int n, AlphaFn fn) {
+	private static StaticTexture generated(int n, AlphaFn fn) {
 		BufferedImage img = new BufferedImage(n, n, BufferedImage.TYPE_INT_ARGB);
 		for (int y = 0; y < n; y++) {
 			for (int x = 0; x < n; x++) {
@@ -750,7 +750,7 @@ public final class Ui {
 				img.setRGB(x, y, a << 24 | 0xFFFFFF);
 			}
 		}
-		DynamicTexture t = new DynamicTexture(img);
+		StaticTexture t = new StaticTexture(img);
 		GlStateManager.bindTexture(t.getGlTextureId());
 		linear();
 		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP);
