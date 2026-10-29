@@ -53,6 +53,7 @@ import gg.rago.hypixel.HypixelApi;
 import gg.rago.input.InputState;
 import gg.rago.modules.BlockOverlay;
 import gg.rago.modules.ActionSounds;
+import gg.rago.modules.AutoMessages;
 import gg.rago.modules.AutoText;
 import gg.rago.modules.BedwarsStats;
 import gg.rago.modules.Chat;
@@ -256,6 +257,7 @@ public final class RagoClient {
 		MODULES.register(new RawInput());
 		Hooks.emotes = MODULES.register(new Emotes());
 		autoText = MODULES.register(new AutoText());
+		MODULES.register(new AutoMessages());
 		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());
 		OldAnimations animations = MODULES.register(new OldAnimations());
 		GameplayFixes fixes = MODULES.register(new GameplayFixes());

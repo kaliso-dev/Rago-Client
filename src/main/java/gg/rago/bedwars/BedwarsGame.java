@@ -150,6 +150,11 @@ public final class BedwarsGame {
 		return t.contains("TRAP") || t.contains("PIÈGE") || t.contains("PIEGE");
 	}
 
+	/** Whether {@code text} has the player name {@code name} as a whole word. */
+	public static boolean mentionsName(String text, String name) {
+		return mentions(text, name);
+	}
+
 	static boolean mentions(String text, String name) {
 		return Pattern.compile("(^|[^A-Za-z0-9_])" + Pattern.quote(name) + "($|[^A-Za-z0-9_])").matcher(text).find();
 	}

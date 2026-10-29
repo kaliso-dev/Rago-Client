@@ -81,6 +81,7 @@ final class ModuleInfo {
 		ICONS.put("raw_input", "mouse-pointer-click");
 		ICONS.put("emotes", "party-popper");
 		ICONS.put("auto_text", "message-square");
+		ICONS.put("auto_messages", "sparkles");
 	}
 
 	private ModuleInfo() {

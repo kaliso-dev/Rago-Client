@@ -11,6 +11,11 @@ public enum FeatureClass {
 	INFORMATIONAL,
 	/** Changes how inputs become actions (toggle sprint). Must default to off. */
 	INPUT,
+	/**
+	 * Sends chat messages on its own (Auto GG, Auto Tip): what is sent is a normal chat line the
+	 * player wrote or chose, never a changed packet. Must default to off, like input modules.
+	 */
+	AUTO_CHAT,
 	/** Changes what, when or whether packets are sent. Never allowed in Rago. */
 	PACKET
 }

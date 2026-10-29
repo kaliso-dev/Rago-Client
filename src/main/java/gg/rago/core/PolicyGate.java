@@ -4,8 +4,8 @@ package gg.rago.core;
  * Registration-time rules from the Stage 1 plan:
  * <ul>
  *   <li>{@link FeatureClass#PACKET} modules are refused outright.</li>
- *   <li>{@link FeatureClass#INPUT} modules must be off by default, so a player
- *       always opts in knowingly (and can check the server's rules first).</li>
+ *   <li>{@link FeatureClass#INPUT} and {@link FeatureClass#AUTO_CHAT} modules must be off by
+ *       default, so a player always opts in knowingly (and can check the server's rules first).</li>
  * </ul>
  */
 public final class PolicyGate {
@@ -18,9 +18,10 @@ public final class PolicyGate {
 				throw new IllegalArgumentException(
 					"Module '" + module.id() + "' is packet-affecting; Rago does not allow those");
 			case INPUT:
+			case AUTO_CHAT:
 				if (module.defaultEnabled()) {
 					throw new IllegalArgumentException(
-						"Input-affecting module '" + module.id() + "' must be disabled by default");
+						"Module '" + module.id() + "' acts on its own (" + module.featureClass() + ") and must be disabled by default");
 				}
 				break;
 			default:

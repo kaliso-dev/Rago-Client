@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.2.** What it contains:
+**Current version: 1.4.3.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -153,6 +153,9 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     clap, macarena; the camera turns to face you, and only you see them
   - Message Hotkeys (input class, off by default): up to four keys that each type one of your
     messages in the chat, at most once every two seconds
+  - Auto Messages (auto-chat class, off by default, Hypixel only): GG and a message of yours when a
+    game ends, a message when you kill someone (final kills only by default, at least 15 seconds
+    apart), and `/tip all` every 15 minutes; at most one message every 1.25 seconds
   - HUD cache: at high frame rates Rago's HUD is drawn 144 times per second (a setting) into an
     image reused in between, drawn over black and white so translucent backgrounds stay exact
   - Bed Wars Stats: each number in the tab list is named ("FKDR 1.3", "Danger 2/5"), and Hypixel's
@@ -195,8 +198,9 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   stop are shown in chat)
 - `bench/analyse.py` to compare two sets of captures (e.g. without vs. with OptiFine)
 
-Every module declares a policy class (visual, informational, input, packet). Input-class modules
-are off by default, and packet-class modules are refused at registration: Rago does not ship them.
+Every module declares a policy class (visual, informational, input, auto chat, packet). Input and
+auto-chat modules are off by default, and packet-class modules are refused at registration: Rago
+does not ship them.
 
 Rago never adds, delays or alters packets, and every optimisation only changes what this client
 draws. The jar contains one class transformer (`gg.rago.asm`) with a few small patches, each
@@ -235,7 +239,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.2+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.4.3+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the
