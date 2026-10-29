@@ -200,7 +200,7 @@ public final class BedwarsStats extends Module {
 				continue;
 			}
 			enemies.add(info);
-			if (Hypixel.realPlayer(id) && api.get(id) == null && api.status() == HypixelApi.Status.OK) {
+			if (Hypixel.realPlayer(id) && api.get(id) == null && (api.status() == HypixelApi.Status.OK || api.status() == HypixelApi.Status.CHECKING)) {
 				waiting = true;
 			}
 		}

@@ -1,5 +1,6 @@
 package gg.rago.core;
 
+import gg.rago.modules.Screenshots;
 import gg.rago.hypixel.HypixelApi;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
@@ -58,12 +59,17 @@ final class RagoCommand extends CommandBase {
 				return;
 			}
 			try {
-				api.setKey(args[1].trim());
+				api.setKey(args[1].trim(), RagoClient.ownId());
 				sender.addChatMessage(message("rago.command.key_saved", EnumChatFormatting.GREEN));
 			} catch (IOException e) {
 				RagoClient.LOG.error("Could not save the Hypixel API key", e);
 				sender.addChatMessage(message("rago.command.key_failed", EnumChatFormatting.RED));
 			}
+			return;
+		}
+		if (args[0].equalsIgnoreCase("screenshot") && args.length >= 3) {
+			// the buttons after "Saved screenshot as ..."; the file name may hold spaces
+			Screenshots.command(args[1], String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length)));
 			return;
 		}
 		sender.addChatMessage(message("rago.command.usage", EnumChatFormatting.GRAY));

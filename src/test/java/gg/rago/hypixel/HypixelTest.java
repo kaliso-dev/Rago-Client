@@ -39,7 +39,7 @@ class HypixelTest {
 		assertTrue(HypixelApi.isKey(key));
 		HypixelApi api = new HypixelApi(dir);
 		assertEquals(HypixelApi.Status.NO_KEY, api.status());
-		api.setKey(key);
+		api.setKey(key, null);
 		assertEquals(key, new String(Files.readAllBytes(dir.resolve("rago-hypixel-key.txt")), "UTF-8"));
 		assertEquals(HypixelApi.Status.OK, new HypixelApi(dir).status());
 	}

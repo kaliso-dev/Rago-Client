@@ -98,6 +98,11 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return found;
 			}));
+		add("net.minecraft.util.ScreenShotHelper", new Patch("screenshot buttons",
+			"func_148259_a", "saveScreenshot",
+			"(Ljava/io/File;Ljava/lang/String;IILnet/minecraft/client/shader/Framebuffer;)Lnet/minecraft/util/IChatComponent;",
+			m -> beforeReturns(m, Opcodes.ARETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "screenshot",
+				"(Lnet/minecraft/util/IChatComponent;)Lnet/minecraft/util/IChatComponent;", false))));
 		add("net.minecraft.network.play.server.S48PacketResourcePackSend", new Patch("server resource pack check",
 			"func_179783_a", "getURL", "()Ljava/lang/String;",
 			m -> beforeReturns(m, Opcodes.ARETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "resourcePackUrl",

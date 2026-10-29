@@ -14,6 +14,7 @@ import gg.rago.modules.ItemScale;
 import gg.rago.modules.BedwarsStats;
 import gg.rago.modules.ClientFixes;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.Screenshots;
 import gg.rago.modules.SkinChanger;
 import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
@@ -63,6 +64,7 @@ public final class Hooks {
 	public static volatile SkinChanger skins;
 	public static volatile BedwarsStats bedwarsStats;
 	public static volatile ClientFixes clientFixes;
+	public static volatile Screenshots screenshots;
 	public static volatile GlintColor glint;
 
 	private Hooks() {
@@ -307,6 +309,12 @@ public final class Hooks {
 		Chat c = chat;
 		boolean shadow = c == null || !c.isEnabled() || c.textShadow();
 		return font.drawString(text, x, y, color, shadow);
+	}
+
+	/** ScreenShotHelper.saveScreenshot: copy, open, folder and delete buttons after the chat line. */
+	public static IChatComponent screenshot(IChatComponent line) {
+		Screenshots s = screenshots;
+		return s != null && s.isEnabled() ? s.decorate(line) : line;
 	}
 
 	/** EntityRenderer.orientCamera: the first-person camera offset (parallax fix). */

@@ -1,6 +1,7 @@
 package gg.rago.hud.elements;
 
 import gg.rago.config.BooleanOption;
+import gg.rago.config.IntOption;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.RagoClient;
 import gg.rago.hud.Anchor;
@@ -22,9 +23,10 @@ import java.util.List;
  * in the colours the pack's author gave it (§ codes in the file name), each optional.
  */
 public final class PackDisplayHud extends TextHudElement {
-	private static final int GAP = 3;
+	private static final int GAP = 2;
 
 	private final BooleanOption logo = addOption(new BooleanOption("pack_logo", true));
+	private final IntOption logoSize = addOption(new IntOption("pack_logo_size", 28, 12, 64));
 	private final BooleanOption colors = addOption(new BooleanOption("pack_colors", true));
 
 	private ResourcePackRepository.Entry shown;
@@ -34,6 +36,7 @@ public final class PackDisplayHud extends TextHudElement {
 
 	public PackDisplayHud() {
 		super("pack_display", FeatureClass.INFORMATIONAL, false, Anchor.TOP_LEFT, 4, 116);
+		logoSize.showIf(logo::get);
 	}
 
 	@Override
@@ -58,7 +61,7 @@ public final class PackDisplayHud extends TextHudElement {
 			return "";
 		}
 		String s = keepColors ? file : EnumChatFormatting.getTextWithoutFormattingCodes(file);
-		s = s.replace('_', ' ').trim();
+		s = s.replace('_', ' ');
 		String plain = EnumChatFormatting.getTextWithoutFormattingCodes(s);
 		if (plain.regionMatches(true, Math.max(0, plain.length() - 4), ".zip", 0, 4)) {
 			// cut ".zip" and any colour codes around it
@@ -77,7 +80,42 @@ public final class PackDisplayHud extends TextHudElement {
 		while (s.length() >= 2 && s.charAt(s.length() - 2) == '§') {
 			s = s.substring(0, s.length() - 2);
 		}
-		return s.trim();
+		return squeeze(s);
+	}
+
+	/**
+	 * Drops the characters packs put in front of their name to sort first ("! ", "#", "~") and runs
+	 * of spaces, keeping the colour codes where they are.
+	 */
+	static String squeeze(String s) {
+		StringBuilder out = new StringBuilder(s.length());
+		boolean started = false;
+		boolean space = false;
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			if (c == '§' && i + 1 < s.length()) {
+				if (space) {
+					out.append(' ');
+					space = false;
+				}
+				out.append(c).append(s.charAt(++i));
+				continue;
+			}
+			if (Character.isWhitespace(c)) {
+				space = started;
+				continue;
+			}
+			if (!started && "!#.-~".indexOf(c) >= 0) {
+				continue;
+			}
+			if (space) {
+				out.append(' ');
+				space = false;
+			}
+			started = true;
+			out.append(c);
+		}
+		return out.toString();
 	}
 
 	static String clean(String file) {
@@ -92,33 +130,40 @@ public final class PackDisplayHud extends TextHudElement {
 		return clean(raw, colors.get());
 	}
 
-	private int iconSize(FontRenderer text, boolean placeholder) {
-		return logo.get() ? super.height(text, placeholder) : 0;
+	private int iconSize() {
+		return logo.get() ? logoSize.get() : 0;
 	}
 
 	@Override
 	public int width(FontRenderer text, boolean placeholder) {
-		int icon = iconSize(text, placeholder);
-		return super.width(text, placeholder) + (icon > 0 ? icon + GAP : 0);
+		int icon = iconSize();
+		return boxWidth(placeholder) + (icon > 0 ? icon + GAP : 0);
+	}
+
+	@Override
+	public int height(FontRenderer text, boolean placeholder) {
+		return Math.max(boxHeight(placeholder), iconSize());
 	}
 
 	@Override
 	public void render(FontRenderer text, boolean placeholder) {
-		int icon = iconSize(text, placeholder);
-		if (icon > 0) {
-			if (bindIcon(placeholder)) {
-				GlStateManager.enableTexture2D();
-				GlStateManager.enableBlend();
-				GlStateManager.color(1, 1, 1, 1);
-				Gui.drawScaledCustomSizeModalRect(0, 0, 0, 0, 1, 1, icon, icon, 1, 1);
-			}
-			GlStateManager.pushMatrix();
-			GlStateManager.translate(icon + GAP, 0, 0);
+		int icon = iconSize();
+		if (icon <= 0) {
+			super.render(text, placeholder);
+			return;
 		}
+		if (bindIcon(placeholder)) {
+			GlStateManager.enableTexture2D();
+			GlStateManager.enableBlend();
+			GlStateManager.color(1, 1, 1, 1);
+			Gui.drawScaledCustomSizeModalRect(0, 0, 0, 0, 1, 1, icon, icon, 1, 1);
+		}
+		// the name sits level with the middle of the logo
+		int boxH = boxHeight(placeholder);
+		GlStateManager.pushMatrix();
+		GlStateManager.translate(icon + GAP, Math.max(0, (icon - boxH) / 2f), 0);
 		super.render(text, placeholder);
-		if (icon > 0) {
-			GlStateManager.popMatrix();
-		}
+		GlStateManager.popMatrix();
 	}
 
 	/** Binds the logo of the pack shown, or the default pack's; returns false when there is none. */

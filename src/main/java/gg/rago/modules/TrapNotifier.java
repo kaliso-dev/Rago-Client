@@ -6,10 +6,8 @@ import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
-import gg.rago.core.RagoClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
-import net.minecraft.client.gui.GuiIngame;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
@@ -17,9 +15,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.relauncher.ReflectionHelper;
 
-import java.lang.reflect.Field;
 import java.util.Locale;
 
 /**
@@ -34,7 +30,6 @@ public final class TrapNotifier extends Module {
 	private final BooleanOption onEmpty = addOption(new BooleanOption("trap_empty", true));
 	private final IntOption emptyAfter = addOption(new IntOption("trap_empty_after", 30, 5, 180));
 	private final IntOption repeat = addOption(new IntOption("trap_repeat", 60, 0, 300));
-	private final BooleanOption title = addOption(new BooleanOption("trap_title", true));
 	private final BooleanOption sound = addOption(new BooleanOption("trap_sound", true));
 
 	private World world;
@@ -47,8 +42,6 @@ public final class TrapNotifier extends Module {
 	private int remindedAt = -1;
 	private int lastTrigger = -100;
 	private String lastTitle = "";
-	private static Field titleField;
-	private static boolean titleFieldMissing;
 
 	public TrapNotifier() {
 		super("trap_notifier", FeatureClass.INFORMATIONAL, false);
@@ -80,7 +73,7 @@ public final class TrapNotifier extends Module {
 		if (!inGame || mc.thePlayer == null) {
 			return;
 		}
-		readTitle(mc.ingameGUI);
+		readTitle();
 		if (!onEmpty.get() || bedGone || traps > 0 || ticks % 10 != 0) {
 			return;
 		}
@@ -89,7 +82,7 @@ public final class TrapNotifier extends Module {
 		boolean again = remindedAt >= 0 && repeat.get() > 0 && ticks - remindedAt >= repeat.get() * 20;
 		if (first || again) {
 			remindedAt = ticks;
-			alert(mc, "§c§l" + I18n.format("rago.trap.none_title"), I18n.format("rago.trap.none"), 1.0f);
+			alert(mc, I18n.format("rago.trap.none"), 1.0f);
 		}
 	}
 
@@ -128,26 +121,14 @@ public final class TrapNotifier extends Module {
 		return s.contains("trap");
 	}
 
-	/** Hypixel shows "TRAP TRIGGERED!" as a title when a trap goes off; titles fire no event. */
-	private void readTitle(GuiIngame gui) {
-		if (titleFieldMissing || gui == null) {
-			return;
-		}
-		try {
-			if (titleField == null) {
-				titleField = ReflectionHelper.findField(GuiIngame.class, "displayedTitle", "field_175201_x");
+	/** Hypixel shows "TRAP TRIGGERED!" as a title when a trap goes off. */
+	private void readTitle() {
+		String t = BedwarsGame.title();
+		if (!t.equals(lastTitle)) {
+			lastTitle = t;
+			if (t.toUpperCase(Locale.ROOT).contains("TRAP TRIGGERED")) {
+				triggered(null);
 			}
-			String t = (String) titleField.get(gui);
-			t = t == null ? "" : t;
-			if (!t.equals(lastTitle)) {
-				lastTitle = t;
-				if (EnumChatFormatting.getTextWithoutFormattingCodes(t).toUpperCase(Locale.ROOT).contains("TRAP TRIGGERED")) {
-					triggered(null);
-				}
-			}
-		} catch (ReflectiveOperationException | RuntimeException e) {
-			titleFieldMissing = true;
-			RagoClient.LOG.warn("Trap Notifier cannot read titles: {}", e.toString());
 		}
 	}
 
@@ -159,8 +140,7 @@ public final class TrapNotifier extends Module {
 		lastTrigger = ticks;
 		setTraps(Math.max(0, traps - 1));
 		if (onTrigger.get()) {
-			alert(Minecraft.getMinecraft(), "§c§l" + I18n.format("rago.trap.triggered_title"),
-				I18n.format("rago.trap.triggered"), 0.5f);
+			alert(Minecraft.getMinecraft(), I18n.format("rago.trap.triggered"), 0.5f);
 		}
 	}
 
@@ -174,17 +154,11 @@ public final class TrapNotifier extends Module {
 		traps = n;
 	}
 
-	private void alert(Minecraft mc, String big, String line, float pitch) {
+	private void alert(Minecraft mc, String line, float pitch) {
 		if (mc.thePlayer == null) {
 			return;
 		}
 		mc.thePlayer.addChatMessage(new ChatComponentText("§c§lRago §8» §f" + line));
-		if (title.get()) {
-			mc.ingameGUI.displayTitle(null, null, 2, 30, 8);
-			mc.ingameGUI.displayTitle(big, null, -1, -1, -1);
-			mc.ingameGUI.displayTitle(null, "§7" + line, -1, -1, -1);
-			lastTitle = big;
-		}
 		if (sound.get()) {
 			mc.getSoundHandler().playSound(PositionedSoundRecord.create(new ResourceLocation("note.pling"), pitch));
 		}

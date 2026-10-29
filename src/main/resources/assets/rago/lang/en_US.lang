@@ -415,12 +415,12 @@ rago.option.compact_chat=Stack repeated messages
 rago.option.chat_history=History
 rago.option.chat_history.format=%d lines
 rago.module.level_head=Level Head
-rago.module.level_head.desc=Hypixel level or Bed Wars star above names. Needs /rago hypixelkey <key>.
+rago.module.level_head.desc=Hypixel level or Bed Wars star above names. Needs your Hypixel API key (in its settings).
 rago.option.level_display=Show
 rago.option.level_display.0=Network level
 rago.option.level_display.1=Bed Wars star
-rago.levelhead.no_key=[Rago] Level Head needs your Hypixel API key: get one at developer.hypixel.net, then type /rago hypixelkey <key>
-rago.levelhead.bad_key=[Rago] Hypixel refused your API key (keys expire). Get a new one at developer.hypixel.net, then type /rago hypixelkey <key>
+rago.levelhead.no_key=[Rago] Level Head needs your Hypixel API key: get one at developer.hypixel.net, then paste it in the mod's settings (Right Shift) or type /rago hypixelkey <key>
+rago.levelhead.bad_key=[Rago] Hypixel refused your API key (keys expire). Get a new one at developer.hypixel.net, then paste it in the mod's settings (Right Shift) or type /rago hypixelkey <key>
 rago.command.usage=Usage: /rago (menu) or /rago hypixelkey <key>
 rago.command.key_format=That is not a Hypixel API key (it looks like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).
 rago.command.key_saved=Hypixel API key saved. It stays on this computer only.
@@ -678,7 +678,7 @@ rago.option.shop_no_duplicates=No duplicate swords or knockback stick
 
 # 1.2: cosmetics
 rago.module.cosmetics=Cosmetics
-rago.module.cosmetics.desc=A hat (Rago cap, Rago beanie, top hat, wizard hat, red cap, mushrooms, crown or halo), 3D voxel wings (angel, butterfly or dragon) and a Rago shield in your right hand (five styles) on your player, each with its colour and size. Only you see them.
+rago.module.cosmetics.desc=A hat (Rago cap, Rago beanie, top hat, wizard hat, red cap, mushrooms, crown or halo), 3D voxel wings (angel, butterfly or dragon) and a Rago shield in your left hand (five styles) on your player, each with its colour and size. Only you see them.
 rago.option.cosmetic_hat=Hat
 rago.option.cosmetic_hat.none=None
 rago.option.cosmetic_hat.top_hat=Top hat
@@ -822,7 +822,7 @@ rago.option.cosmetic_shield.crimson=Crimson
 rago.option.cosmetic_shield.gold=Gold
 rago.option.cosmetic_shield.frost=Frost
 rago.option.cosmetic_shield.void=Void
-rago.option.cosmetic_shield.help=A Rago Optimizer shield in your right hand, seen in third person (F5).
+rago.option.cosmetic_shield.help=A Rago Optimizer shield in your left hand, seen in third person (F5).
 rago.option.cosmetic_shield_scale=Shield size
 rago.option.cosmetic_shield_scale.format=%d%%
 rago.dock.locker=Locker
@@ -863,7 +863,7 @@ rago.locker.more=Colours and sizes
 
 # 1.4: Bed Wars stats, trap notifier
 rago.module.bedwars_stats=Bed Wars Stats
-rago.module.bedwars_stats.desc=Each player's star and final kill/death ratio (FKDR) in the tab list, coloured by a danger level out of 5, nicked players marked, and a chat alert listing the most dangerous enemies when a game starts. Needs /rago hypixelkey <key>.
+rago.module.bedwars_stats.desc=Each player's star and final kill/death ratio (FKDR) in the tab list, coloured by a danger level out of 5, nicked players marked, and a chat alert listing the most dangerous enemies when a game starts. Needs your Hypixel API key (in its settings).
 rago.option.stats_tab_star=Star before names
 rago.option.stats_tab_fkdr=FKDR after names
 rago.option.stats_tab_danger=Danger level after names
@@ -873,7 +873,7 @@ rago.option.stats_alert_min=Alert from danger
 rago.option.stats_alert_min.format=%d/5
 rago.option.stats_alert_sound=Alert sound
 rago.option.stats_alert.help=The danger level is Rago's own: FKDR counts most, then the star. 1 is a newcomer, 5 a player to deal with first.
-rago.stats.no_key=[Rago] Bed Wars Stats needs your Hypixel API key: get one at developer.hypixel.net, then type /rago hypixelkey <key>
+rago.stats.no_key=[Rago] Bed Wars Stats needs your Hypixel API key: get one at developer.hypixel.net, then paste it in the mod's settings (Right Shift) or type /rago hypixelkey <key>
 rago.stats.alert_title=Most dangerous players this game:
 rago.stats.alert_none=No dangerous player in this game.
 rago.stats.danger=danger %d/5
@@ -886,11 +886,8 @@ rago.option.trap_empty_after.format=%ds
 rago.option.trap_repeat=Then every
 rago.option.trap_repeat.format=%ds
 rago.option.trap_repeat.help=0 reminds only once until the next trap.
-rago.option.trap_title=Title on screen
 rago.option.trap_sound=Sound
-rago.trap.none_title=NO TRAP
 rago.trap.none=Your team has no trap left: buy one at the upgrades shop.
-rago.trap.triggered_title=TRAP TRIGGERED
 rago.trap.triggered=One of your traps went off: an enemy is at your base!
 
 # 1.4: action sounds
@@ -942,3 +939,67 @@ rago.option.parallax_fix=Parallax fix
 rago.option.parallax_fix.help=Puts the first-person camera at your eyes instead of a tenth of a block in front, so the world no longer slides a little when you look around.
 rago.option.resource_pack_check=Check server resource packs
 rago.option.resource_pack_check.help=Refuses resource pack links a server could use to find out which files are on your computer (a known 1.8 flaw).
+
+rago.option.pack_logo_size=Logo size
+
+# 1.4: screenshots
+rago.module.screenshots=Screenshots
+rago.module.screenshots.desc=Buttons under each screenshot (F2) in the chat: copy it to paste it straight into Discord, open it, open its folder, or delete it.
+rago.option.screenshot_auto_copy=Copy each screenshot automatically
+rago.shot.copy=COPY
+rago.shot.copy_tip=Copy the image, then paste it anywhere with Ctrl+V
+rago.shot.open=OPEN
+rago.shot.open_tip=Open the image
+rago.shot.folder=FOLDER
+rago.shot.folder_tip=Open the screenshots folder
+rago.shot.delete=DELETE
+rago.shot.delete_tip=Delete this screenshot
+rago.shot.copied=Screenshot copied, paste it with Ctrl+V.
+rago.shot.copy_failed=Could not copy the screenshot.
+rago.shot.deleted=Screenshot deleted.
+rago.shot.missing=That screenshot no longer exists.
+
+# 1.4: Hypixel API key in the menu
+rago.apikey.title=Hypixel API key
+rago.apikey.none=No key
+rago.apikey.checking=Checking...
+rago.apikey.ok=Key OK (...%s)
+rago.apikey.bad=Key refused or expired
+rago.apikey.unreachable=Hypixel unreachable
+rago.apikey.click=Click here, then paste your key with Ctrl+V
+rago.apikey.paste=Paste your key with Ctrl+V, then Enter
+rago.apikey.replace=Click here to paste a new key
+rago.apikey.save=Save
+rago.apikey.get=Get a key
+rago.apikey.note=Your key stays on this PC (config/rago-hypixel-key.txt), never in profiles. Don't share it.
+rago.apikey.format=That is not a key: it looks like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.
+
+# 1.4: Bed Wars quests
+rago.module.bedwars_quests=Bed Wars Quests
+rago.module.bedwars_quests.desc=Your Hypixel Bed Wars daily and weekly quests and what is left of each, updated live during the game (final kills, beds, wins). Needs your Hypixel API key.
+rago.option.quests_daily=Daily quests
+rago.option.quests_weekly=Weekly quests
+rago.option.quests_show_done=Show completed quests
+rago.option.quests_show_not_started=Show quests not accepted
+rago.option.quests_only_bedwars=Only in Bed Wars
+rago.quests.daily=Daily
+rago.quests.weekly=Weekly
+rago.quests.done=done
+rago.quests.not_started=not accepted
+rago.quests.loading=Quests: loading...
+rago.quests.no_key=Quests: add your Hypixel API key
+rago.quests.bad_key=Quests: API key refused
+rago.quest.bedwars_daily_win=Win a game
+rago.quest.bedwars_daily_one_more=Games played
+rago.quest.bedwars_daily_bed_breaker=Beds broken
+rago.quest.bedwars_daily_final_killer=Final kills
+rago.quest.bedwars_weekly_bed_elims=Beds broken
+rago.quest.bedwars_weekly_dream_win=Dream wins
+rago.quest.bedwars_weekly_challenges_win=Challenges
+rago.quest.bedwars_weekly_final_killer=Final kills
+
+# 1.4: raw input
+rago.module.raw_input=Raw Input
+rago.module.raw_input.desc=The camera turns by what your mouse itself reports, read straight from the device, instead of the Windows cursor: no "Enhance pointer precision" acceleration and no movement dropped at high polling rates. Your sensitivity setting stays the same.
+rago.option.raw_input_all_mice=Read every mouse plugged in
+rago.raw_input.no_mouse=Raw Input could not read your mouse on this computer, the game's own mouse stays.

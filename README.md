@@ -127,18 +127,28 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - the Locker (shirt button on the home screen): add any player's skin by name and wear it with a
     click (only you see it in game), or set it on your Minecraft account so everyone sees it; pick
     your cape, hat, wings and shield there too, on a 3D preview of your player you can turn
-  - a Rago Optimizer shield in your right hand, seen in third person, in five styles (Rago, Crimson,
+  - a Rago Optimizer shield in your left hand, seen in third person, in five styles (Rago, Crimson,
     Gold, Frost, Void); the blue cap is now red and the green one is gone
   - Bed Wars Stats: each player's star and FKDR in the tab list, coloured by a danger level out of 5
     (Rago's own formula: FKDR first, then star), nicked players marked, and a chat alert listing the
     most dangerous enemies when a game starts; needs your Hypixel API key
-  - Trap Notifier: a sound, a title and a chat line when one of your traps goes off, and a reminder
+  - Trap Notifier: a sound and a chat line (no title) when one of your traps goes off, and a reminder
     when your team has had no trap for a while
   - Action Sounds: your own sounds for hitting a player (once the server confirms the hit), getting
     hit and breaking a block: seven sounds made by `tools/sounds.py`, satisfying 1.8 sounds (arrow
     ding, XP orb, item pop), or the attack sounds of recent versions, read from your own Minecraft
     install when one was launched (Rago ships none of Mojang's files)
-  - Pack Display shows the pack's logo and keeps the colours in its name (both optional)
+  - Bed Wars Quests: your daily and weekly Bed Wars quests and what is left of each (final kills,
+    beds, wins, games), from the Hypixel API, counted on live during the game from the chat
+  - the Hypixel API key can be pasted on the page of each Hypixel mod (Level Head, Bed Wars Stats,
+    Bed Wars Quests), which says whether the key works, is refused or is missing
+  - Screenshots: COPY, OPEN, FOLDER and DELETE buttons under each F2 screenshot in the chat; COPY
+    puts the image on the clipboard, ready to paste in Discord (optionally every time)
+  - Raw Input (input class, off by default): the camera turns by what the mouse reports, read from
+    the device through JInput (shipped with 1.8.9), without Windows pointer acceleration; the
+    game's own mouse stays when no mouse can be read that way
+  - Pack Display shows the pack's logo (its size is a setting) and keeps the colours in its name
+    (both optional); sorting characters and extra spaces are dropped from the name
   - Client Fixes: the inventory stays centred with potion effects, an optional parallax fix, and
     servers can no longer probe your files through a resource pack link
   - the home screen's third button joins the Rago Optimizer Discord

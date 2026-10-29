@@ -13,6 +13,8 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,6 +53,8 @@ public final class HypixelApi {
 		public final int winstreak;
 		final long time;
 		final boolean failed;
+		/** Bed Wars quests by id; only filled for players Hypixel knows. */
+		Map<String, Quest> quests = Collections.emptyMap();
 
 		Stats(double level, int star, long time, boolean failed) {
 			this(level, star, false, 0, 0, 0, 0, 0, -1, time, failed);
@@ -79,9 +83,35 @@ public final class HypixelApi {
 		public double wlr() {
 			return wins / (double) Math.max(1, losses);
 		}
+
+		public Map<String, Quest> quests() {
+			return quests;
+		}
+
+		/** When Hypixel answered, in milliseconds since 1970. */
+		public long time() {
+			return time;
+		}
 	}
 
-	public enum Status { NO_KEY, OK, BAD_KEY, UNREACHABLE }
+	/** A player's state for one quest, as the API tells it. */
+	public static final class Quest {
+		/** When the quest was accepted, or 0 when it is not running. */
+		public final long started;
+		/** Progress by objective id. */
+		public final Map<String, Integer> progress;
+		/** When it was last completed, or 0. */
+		public final long completed;
+
+		Quest(long started, Map<String, Integer> progress, long completed) {
+			this.started = started;
+			this.progress = progress;
+			this.completed = completed;
+		}
+	}
+
+	/** CHECKING: a new key was given and its first answer has not come yet. */
+	public enum Status { NO_KEY, CHECKING, OK, BAD_KEY, UNREACHABLE }
 
 	private final Path keyFile;
 	private final Map<UUID, Stats> cache = new ConcurrentHashMap<>();
@@ -116,14 +146,49 @@ public final class HypixelApi {
 		return status;
 	}
 
-	/** Stores a new key (only in this file, never in rago.json or profiles) and forgets failures. */
-	public void setKey(String k) throws IOException {
+	/** Whether a key is saved (it is never shown again, only its last characters). */
+	public boolean hasKey() {
+		return key != null;
+	}
+
+	/** The last four characters of the saved key, to tell keys apart, or null. */
+	public String keyHint() {
+		String k = key;
+		return k == null ? null : k.substring(k.length() - 4);
+	}
+
+	/**
+	 * Stores a new key (only in this file, never in rago.json or profiles), forgets failures, and
+	 * tries it at once by asking for {@code probe} (the player's own stats), when given.
+	 */
+	public void setKey(String k, UUID probe) throws IOException {
 		Files.createDirectories(keyFile.getParent());
 		Files.write(keyFile, k.getBytes(StandardCharsets.UTF_8));
 		key = k;
-		status = Status.OK;
 		cache.values().removeIf(s -> s.failed);
 		pausedUntil = 0;
+		status = probe == null ? Status.OK : Status.CHECKING;
+		if (probe != null) {
+			refresh(probe);
+		}
+	}
+
+	/** Removes the saved key. */
+	public void clearKey() throws IOException {
+		Files.deleteIfExists(keyFile);
+		key = null;
+		status = Status.NO_KEY;
+	}
+
+	/** Asks for a player's stats again now, ahead of the others (the cached ones stay until then). */
+	public void refresh(UUID player) {
+		if (key == null || status == Status.BAD_KEY) {
+			return;
+		}
+		queue.remove(player);
+		queued.put(player, Boolean.TRUE);
+		queue.offerFirst(player);
+		startWorker();
 	}
 
 	/** The cached stats, or null; asks for them in the background when missing or stale. */
@@ -194,6 +259,9 @@ public final class HypixelApi {
 				return;
 			}
 			if (code != 200) {
+				if (status == Status.CHECKING) {
+					status = Status.OK; // the key was accepted, the player was not
+				}
 				cache.put(id, new Stats(-1, -1, now, true));
 				return;
 			}
@@ -215,7 +283,7 @@ public final class HypixelApi {
 		}
 	}
 
-	static Stats parse(JsonElement json, long now) {
+	public static Stats parse(JsonElement json, long now) {
 		if (!json.isJsonObject() || !json.getAsJsonObject().has("player") || !json.getAsJsonObject().get("player").isJsonObject()) {
 			// the player never joined Hypixel, or is nicked
 			return new Stats(-1, -1, now, false);
@@ -245,7 +313,49 @@ public final class HypixelApi {
 			beds = number(b, "beds_broken_bedwars", 0);
 			ws = number(b, "winstreak", -1);
 		}
-		return new Stats(networkLevel(exp), star, true, fk, fd, wins, losses, beds, ws, now, false);
+		Stats stats = new Stats(networkLevel(exp), star, true, fk, fd, wins, losses, beds, ws, now, false);
+		if (p.has("quests") && p.get("quests").isJsonObject()) {
+			stats.quests = quests(p.getAsJsonObject("quests"));
+		}
+		return stats;
+	}
+
+	/** The Bed Wars entries of a player's "quests" object. */
+	static Map<String, Quest> quests(JsonObject all) {
+		Map<String, Quest> out = new HashMap<>();
+		for (Map.Entry<String, JsonElement> e : all.entrySet()) {
+			if (!e.getKey().startsWith("bedwars_") || !e.getValue().isJsonObject()) {
+				continue;
+			}
+			JsonObject q = e.getValue().getAsJsonObject();
+			long started = 0;
+			Map<String, Integer> progress = new HashMap<>();
+			if (q.has("active") && q.get("active").isJsonObject()) {
+				JsonObject active = q.getAsJsonObject("active");
+				started = time(active.get("started"));
+				if (active.has("objectives") && active.get("objectives").isJsonObject()) {
+					for (Map.Entry<String, JsonElement> o : active.getAsJsonObject("objectives").entrySet()) {
+						if (o.getValue().isJsonPrimitive() && o.getValue().getAsJsonPrimitive().isNumber()) {
+							progress.put(o.getKey(), o.getValue().getAsInt());
+						}
+					}
+				}
+			}
+			long completed = 0;
+			if (q.has("completions") && q.get("completions").isJsonArray()) {
+				for (JsonElement c : q.getAsJsonArray("completions")) {
+					if (c.isJsonObject()) {
+						completed = Math.max(completed, time(c.getAsJsonObject().get("time")));
+					}
+				}
+			}
+			out.put(e.getKey(), new Quest(started, progress, completed));
+		}
+		return out;
+	}
+
+	private static long time(JsonElement e) {
+		return e != null && e.isJsonPrimitive() && e.getAsJsonPrimitive().isNumber() ? e.getAsLong() : 0;
 	}
 
 	private static int number(JsonObject o, String key, int fallback) {

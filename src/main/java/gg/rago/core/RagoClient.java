@@ -24,6 +24,7 @@ import gg.rago.gui.PacksScreen;
 import gg.rago.hud.HudManager;
 import gg.rago.hooks.Hooks;
 import gg.rago.hud.elements.ArmorHud;
+import gg.rago.hud.elements.BedwarsQuestsHud;
 import gg.rago.hud.elements.BedwarsResourcesHud;
 import gg.rago.hud.elements.BlockCounterHud;
 import gg.rago.hud.elements.DirectionHud;
@@ -78,6 +79,8 @@ import gg.rago.modules.NoPumpkin;
 import gg.rago.modules.NoWaterOverlay;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.RawInput;
+import gg.rago.modules.Screenshots;
 import gg.rago.modules.SkinChanger;
 import gg.rago.modules.FastShop;
 import gg.rago.modules.GameplayFixes;
@@ -129,6 +132,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -169,6 +173,7 @@ public final class RagoClient {
 	private static BooleanOption hudInDebug;
 	private static ConfigStore config;
 	private static Path configDir;
+	private static HypixelApi hypixel;
 
 	/** Forge's config folder, where Rago keeps its files. */
 	public static Path configDir() {
@@ -237,15 +242,18 @@ public final class RagoClient {
 		Hooks.fastShop = MODULES.register(new FastShop());
 		Chat chat = MODULES.register(new Chat());
 		Nametags nametags = MODULES.register(new Nametags());
-		HypixelApi hypixel = new HypixelApi(configDir);
+		hypixel = new HypixelApi(configDir);
 		MODULES.register(new LevelHead(hypixel, nametags));
 		Hooks.bedwarsStats = MODULES.register(new BedwarsStats(hypixel));
+		MODULES.register(new BedwarsQuestsHud());
 		MODULES.register(new TrapNotifier());
 		MODULES.register(new ActionSounds());
+		MODULES.register(new RawInput());
 		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());
 		OldAnimations animations = MODULES.register(new OldAnimations());
 		GameplayFixes fixes = MODULES.register(new GameplayFixes());
 		Hooks.clientFixes = MODULES.register(new ClientFixes());
+		Hooks.screenshots = MODULES.register(new Screenshots());
 		HitColor hitColor = MODULES.register(new HitColor());
 		MODULES.register(new LowFire());
 		MODULES.register(new NoPumpkin());
@@ -326,6 +334,20 @@ public final class RagoClient {
 
 	public static ModuleRegistry modules() {
 		return MODULES;
+	}
+
+	/** The Hypixel API with the player's own key. */
+	public static HypixelApi hypixel() {
+		return hypixel;
+	}
+
+	/** The signed-in account's UUID, or null when the session has none (offline). */
+	public static UUID ownId() {
+		try {
+			return Minecraft.getMinecraft().getSession().getProfile().getId();
+		} catch (RuntimeException e) {
+			return null;
+		}
 	}
 
 	public static HudManager hud() {

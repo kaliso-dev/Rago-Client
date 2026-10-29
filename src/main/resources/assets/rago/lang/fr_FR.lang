@@ -415,12 +415,12 @@ rago.option.compact_chat=Empiler les messages répétés
 rago.option.chat_history=Historique
 rago.option.chat_history.format=%d lignes
 rago.module.level_head=Level Head
-rago.module.level_head.desc=Niveau Hypixel ou étoile Bed Wars au-dessus des pseudos. Il faut /rago hypixelkey <clé>.
+rago.module.level_head.desc=Niveau Hypixel ou étoile Bed Wars au-dessus des pseudos. Il faut ta clé API Hypixel (dans ses réglages).
 rago.option.level_display=Afficher
 rago.option.level_display.0=Niveau réseau
 rago.option.level_display.1=Étoile Bed Wars
-rago.levelhead.no_key=[Rago] Level Head a besoin de ta clé API Hypixel : crée-la sur developer.hypixel.net, puis tape /rago hypixelkey <clé>
-rago.levelhead.bad_key=[Rago] Hypixel a refusé ta clé API (elles expirent). Crée-en une nouvelle sur developer.hypixel.net, puis tape /rago hypixelkey <clé>
+rago.levelhead.no_key=[Rago] Level Head a besoin de ta clé API Hypixel : crée-la sur developer.hypixel.net, puis colle-la dans les réglages du mod (Shift droit) ou tape /rago hypixelkey <clé>
+rago.levelhead.bad_key=[Rago] Hypixel a refusé ta clé API (elles expirent). Crée-en une nouvelle sur developer.hypixel.net, puis colle-la dans les réglages du mod (Shift droit) ou tape /rago hypixelkey <clé>
 rago.command.usage=Utilisation : /rago (menu) ou /rago hypixelkey <clé>
 rago.command.key_format=Ce n'est pas une clé API Hypixel (elle ressemble à xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).
 rago.command.key_saved=Clé API Hypixel enregistrée. Elle reste uniquement sur ce PC.
@@ -678,7 +678,7 @@ rago.option.shop_no_duplicates=Pas d'épée ni de stick knockback en double
 
 # 1.2: cosmetics
 rago.module.cosmetics=Cosmétiques
-rago.module.cosmetics.desc=Un chapeau (casquette Rago, bonnet Rago, haut-de-forme, chapeau de sorcier, casquette rouge, champignons, couronne ou auréole), des ailes 3D en voxels (ange, papillon ou dragon) et un bouclier Rago dans la main droite (cinq styles) sur ton joueur, chacun avec sa couleur et sa taille. Toi seul les vois.
+rago.module.cosmetics.desc=Un chapeau (casquette Rago, bonnet Rago, haut-de-forme, chapeau de sorcier, casquette rouge, champignons, couronne ou auréole), des ailes 3D en voxels (ange, papillon ou dragon) et un bouclier Rago dans la main gauche (cinq styles) sur ton joueur, chacun avec sa couleur et sa taille. Toi seul les vois.
 rago.option.cosmetic_hat=Chapeau
 rago.option.cosmetic_hat.none=Aucun
 rago.option.cosmetic_hat.top_hat=Haut-de-forme
@@ -822,7 +822,7 @@ rago.option.cosmetic_shield.crimson=Pourpre
 rago.option.cosmetic_shield.gold=Or
 rago.option.cosmetic_shield.frost=Givre
 rago.option.cosmetic_shield.void=Néant
-rago.option.cosmetic_shield.help=Un bouclier Rago Optimizer dans ta main droite, visible à la troisième personne (F5).
+rago.option.cosmetic_shield.help=Un bouclier Rago Optimizer dans ta main gauche, visible à la troisième personne (F5).
 rago.option.cosmetic_shield_scale=Taille du bouclier
 rago.option.cosmetic_shield_scale.format=%d%%
 rago.dock.locker=Casier
@@ -863,7 +863,7 @@ rago.locker.more=Couleurs et tailles
 
 # 1.4: Bed Wars stats, trap notifier
 rago.module.bedwars_stats=Stats Bed Wars
-rago.module.bedwars_stats.desc=L'étoile et le ratio finals/morts finales (FKDR) de chaque joueur dans la liste tab, colorés selon un niveau de danger sur 5, les joueurs nick signalés, et une alerte dans le chat avec les ennemis les plus dangereux au début de la partie. Il faut /rago hypixelkey <clé>.
+rago.module.bedwars_stats.desc=L'étoile et le ratio finals/morts finales (FKDR) de chaque joueur dans la liste tab, colorés selon un niveau de danger sur 5, les joueurs nick signalés, et une alerte dans le chat avec les ennemis les plus dangereux au début de la partie. Il faut ta clé API Hypixel (dans ses réglages).
 rago.option.stats_tab_star=Étoile avant les pseudos
 rago.option.stats_tab_fkdr=FKDR après les pseudos
 rago.option.stats_tab_danger=Niveau de danger après les pseudos
@@ -873,7 +873,7 @@ rago.option.stats_alert_min=Alerter à partir du danger
 rago.option.stats_alert_min.format=%d/5
 rago.option.stats_alert_sound=Son de l'alerte
 rago.option.stats_alert.help=Le niveau de danger est propre à Rago : le FKDR compte le plus, puis l'étoile. 1 pour un débutant, 5 pour un joueur à gérer en premier.
-rago.stats.no_key=[Rago] Stats Bed Wars a besoin de ta clé API Hypixel : crée-la sur developer.hypixel.net, puis tape /rago hypixelkey <clé>
+rago.stats.no_key=[Rago] Stats Bed Wars a besoin de ta clé API Hypixel : crée-la sur developer.hypixel.net, puis colle-la dans les réglages du mod (Shift droit) ou tape /rago hypixelkey <clé>
 rago.stats.alert_title=Joueurs les plus dangereux de la partie :
 rago.stats.alert_none=Aucun joueur dangereux dans cette partie.
 rago.stats.danger=danger %d/5
@@ -886,11 +886,8 @@ rago.option.trap_empty_after.format=%ds
 rago.option.trap_repeat=Puis toutes les
 rago.option.trap_repeat.format=%ds
 rago.option.trap_repeat.help=0 ne rappelle qu'une fois jusqu'au prochain piège.
-rago.option.trap_title=Titre à l'écran
 rago.option.trap_sound=Son
-rago.trap.none_title=PLUS DE PIÈGE
 rago.trap.none=Ton équipe n'a plus de piège : achètes-en un au shop des améliorations.
-rago.trap.triggered_title=PIÈGE DÉCLENCHÉ
 rago.trap.triggered=Un de tes pièges s'est déclenché : un ennemi est dans ta base !
 
 # 1.4: action sounds
@@ -942,3 +939,67 @@ rago.option.parallax_fix=Parallax fix
 rago.option.parallax_fix.help=Place la caméra à la première personne au niveau de tes yeux au lieu d'un dixième de bloc devant, pour que le monde ne glisse plus un peu quand tu regardes autour.
 rago.option.resource_pack_check=Vérifier les packs des serveurs
 rago.option.resource_pack_check.help=Refuse les liens de pack de ressources qu'un serveur pourrait utiliser pour savoir quels fichiers sont sur ton ordinateur (une faille connue de la 1.8).
+
+rago.option.pack_logo_size=Taille du logo
+
+# 1.4: screenshots
+rago.module.screenshots=Captures d'écran
+rago.module.screenshots.desc=Des boutons sous chaque capture (F2) dans le chat : la copier pour la coller direct sur Discord, l'ouvrir, ouvrir son dossier, ou la supprimer.
+rago.option.screenshot_auto_copy=Copier chaque capture automatiquement
+rago.shot.copy=COPIER
+rago.shot.copy_tip=Copie l'image, puis colle-la où tu veux avec Ctrl+V
+rago.shot.open=OUVRIR
+rago.shot.open_tip=Ouvre l'image
+rago.shot.folder=DOSSIER
+rago.shot.folder_tip=Ouvre le dossier des captures
+rago.shot.delete=SUPPRIMER
+rago.shot.delete_tip=Supprime cette capture
+rago.shot.copied=Capture copiée, colle-la avec Ctrl+V.
+rago.shot.copy_failed=Impossible de copier la capture.
+rago.shot.deleted=Capture supprimée.
+rago.shot.missing=Cette capture n'existe plus.
+
+# 1.4: Hypixel API key in the menu
+rago.apikey.title=Clé API Hypixel
+rago.apikey.none=Aucune clé
+rago.apikey.checking=Vérification...
+rago.apikey.ok=Clé OK (...%s)
+rago.apikey.bad=Clé refusée ou expirée
+rago.apikey.unreachable=Hypixel injoignable
+rago.apikey.click=Clique ici, puis colle ta clé avec Ctrl+V
+rago.apikey.paste=Colle ta clé avec Ctrl+V, puis Entrée
+rago.apikey.replace=Clique ici pour coller une nouvelle clé
+rago.apikey.save=Enregistrer
+rago.apikey.get=Obtenir une clé
+rago.apikey.note=Ta clé reste sur ce PC (config/rago-hypixel-key.txt), jamais dans les profils. Ne la partage pas.
+rago.apikey.format=Ce n'est pas une clé : elle ressemble à xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.
+
+# 1.4: Bed Wars quests
+rago.module.bedwars_quests=Quêtes Bed Wars
+rago.module.bedwars_quests.desc=Tes quêtes Bed Wars Hypixel quotidiennes et hebdomadaires et ce qu'il te reste pour chacune, mis à jour en direct pendant la partie (finals, lits, victoires). Il faut ta clé API Hypixel.
+rago.option.quests_daily=Quêtes quotidiennes
+rago.option.quests_weekly=Quêtes hebdomadaires
+rago.option.quests_show_done=Afficher les quêtes terminées
+rago.option.quests_show_not_started=Afficher les quêtes non acceptées
+rago.option.quests_only_bedwars=Seulement en Bed Wars
+rago.quests.daily=Quotidiennes
+rago.quests.weekly=Hebdomadaires
+rago.quests.done=terminée
+rago.quests.not_started=non acceptée
+rago.quests.loading=Quêtes : chargement...
+rago.quests.no_key=Quêtes : ajoute ta clé API Hypixel
+rago.quests.bad_key=Quêtes : clé API refusée
+rago.quest.bedwars_daily_win=Gagner une partie
+rago.quest.bedwars_daily_one_more=Parties jouées
+rago.quest.bedwars_daily_bed_breaker=Lits cassés
+rago.quest.bedwars_daily_final_killer=Finals
+rago.quest.bedwars_weekly_bed_elims=Lits cassés
+rago.quest.bedwars_weekly_dream_win=Victoires Dream
+rago.quest.bedwars_weekly_challenges_win=Défis
+rago.quest.bedwars_weekly_final_killer=Finals
+
+# 1.4: raw input
+rago.module.raw_input=Raw Input
+rago.module.raw_input.desc=La caméra tourne selon ce que ta souris envoie, lu directement sur l'appareil, au lieu du curseur Windows : plus d'accélération "Améliorer la précision du pointeur" et plus de mouvements perdus avec un polling élevé. Ta sensibilité reste la même.
+rago.option.raw_input_all_mice=Lire toutes les souris branchées
+rago.raw_input.no_mouse=Raw Input n'arrive pas à lire ta souris sur ce PC, la souris normale du jeu est gardée.

@@ -27,7 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Cosmetics on your own player: a hat, wings and a shield on the right arm, each with its size (and
+ * Cosmetics on your own player: a hat, wings and a shield in the left hand, each with its size (and
  * colour for the hat and wings). The Rago cap and beanie are textured boxes; the voxel hats, wings
  * and shields are {@link CosmeticModel}s built by tools/models.py (credits in
  * tools/models/CREDITS.md); the crown and halo are simple shapes. Off by default, and each piece can
@@ -159,7 +159,7 @@ public final class Cosmetics extends Module {
 					if (player.isSneaking()) {
 						GlStateManager.translate(0, 0.2f, 0);
 					}
-					model.bipedRightArm.postRender(0.0625f);
+					model.bipedLeftArm.postRender(0.0625f);
 					drawShield();
 					GlStateManager.popMatrix();
 				}
@@ -464,11 +464,12 @@ public final class Cosmetics extends Module {
 		untextured();
 	}
 
-	// ---- shield: right arm space, the arm from x -3 to 1 pixels, the shoulder at y = -2 -----------
+	// ---- shield: left arm space, the arm from x -1 to 3 pixels, the shoulder at y = -2 -----------
 
 	/**
-	 * A Rago shield held in the right hand, on the outside of the arm. Only seen in third person, like
-	 * the rest of the player.
+	 * A Rago shield held in the left hand as recent versions hold one: upright in front of the forearm,
+	 * its face forward and turned a little outward. Only seen in third person, like the rest of the
+	 * player.
 	 */
 	private void drawShield() {
 		CosmeticModel m = SHIELD_MODELS.get(shield.get());
@@ -478,10 +479,9 @@ public final class Cosmetics extends Module {
 		// the model is one unit tall (48 texture pixels): 12 pixels on the player at 100%
 		float size = 0.75f * shieldScale.get() / 100f;
 		GlStateManager.pushMatrix();
-		// held at the hand, its face turned half forward and half outward so it shows from the front and
-		// the side
-		GlStateManager.translate(-3.2f * PX - size * 1.5f / 48, 7.5f * PX, -1.5f * PX);
-		GlStateManager.rotate(-50, 0, 1, 0);
+		// centred just above the hand, in front of the arm (its front face is at z = -2)
+		GlStateManager.translate(1.5f * PX, 8.5f * PX, -2 * PX - size * 2.5f / 48);
+		GlStateManager.rotate(-20, 0, 1, 0);
 		GlStateManager.scale(size, size, size);
 		GlStateManager.disableBlend();
 		m.render("shield", 0xFFFFFFFF);

@@ -13,6 +13,7 @@ import gg.rago.gui.ui.Ui;
 import gg.rago.gui.ui.Widgets;
 import gg.rago.hud.HudElement;
 import gg.rago.hud.HudPosition;
+import gg.rago.hypixel.HypixelApi;
 import gg.rago.optimize.OptiFineFields;
 import gg.rago.profile.ModProfiles;
 import gg.rago.settings.Button;
@@ -49,6 +50,7 @@ import java.util.function.Consumer;
 public final class RagoMenuScreen extends GuiScreen {
 	private static final int[] SWATCHES = {0xFFF2392C, 0xFFFFFFFF, 0xFF34D399, 0xFF60A5FA, 0xFFFACC15};
 	private static final String OPTIFINE_URL = "https://optifine.net/downloads";
+	private static final String HYPIXEL_DEV_URL = "https://developer.hypixel.net/dashboard";
 
 	private enum Tab { MODS, SETTINGS }
 
@@ -74,6 +76,10 @@ public final class RagoMenuScreen extends GuiScreen {
 	private boolean sortByName;
 	private String renaming;
 	private String renameText = "";
+	/** The Hypixel API key being typed on a Hypixel module's page; never saved in rago.json. */
+	private String keyText = "";
+	private boolean keyEditing;
+	private boolean keyWrong;
 	private KeyBinding binding;
 	private SliderDrag dragging;
 	private String tooltip;
@@ -560,6 +566,9 @@ public final class RagoMenuScreen extends GuiScreen {
 			cy += 14;
 		}
 		cy += 8;
+		if (ModuleInfo.usesHypixelKey(m)) {
+			cy = hypixelKey(x, cy, w - 8, inside) + 10;
+		}
 		if (m instanceof HudElement) {
 			preview((HudElement) m, x, cy, w - 8, 110);
 			cy += 122;
@@ -621,6 +630,93 @@ public final class RagoMenuScreen extends GuiScreen {
 		float total = cy + sc - top;
 		setBody(x, top, w, area, total);
 		scrollbar(x + w - 3, top, area, total, sc);
+	}
+
+	/** The Hypixel API key: where it stands, a field to paste a new one, and where to get one. */
+	private float hypixelKey(float x, float y, float w, boolean inside) {
+		HypixelApi api = RagoClient.hypixel();
+		HypixelApi.Status st = api.status();
+		float h = 86;
+		rowFrame(x, y, w, h);
+		Ui.icon("key-round", x + 12, y + 10, 13, Theme.ACCENT);
+		Ui.text(Ui.MEDIUM, t("rago.apikey.title"), x + 32, y + 10, 10.5f, Theme.TEXT);
+		int dot;
+		String state;
+		switch (st) {
+			case OK:
+				dot = Theme.GREEN;
+				state = t("rago.apikey.ok", api.keyHint());
+				break;
+			case CHECKING:
+				dot = Theme.YELLOW;
+				state = t("rago.apikey.checking");
+				break;
+			case BAD_KEY:
+				dot = Theme.ACCENT;
+				state = t("rago.apikey.bad");
+				break;
+			case UNREACHABLE:
+				dot = Theme.YELLOW;
+				state = t("rago.apikey.unreachable");
+				break;
+			default:
+				dot = Theme.ACCENT;
+				state = t("rago.apikey.none");
+		}
+		float sw = Ui.textWidth(Ui.REGULAR, state, 9) + 22;
+		Ui.roundBorder(x + w - 12 - sw, y + 7, sw, 18, 9, 0xCC141316, 0x1FFFFFFF);
+		Ui.circle(x + w - 12 - sw + 10, y + 16, 3, dot);
+		Ui.text(Ui.REGULAR, state, x + w - 12 - sw + 17, y + 7 + (18 - 9 * 1.21f) / 2, 9, 0xFFD4D2D9);
+
+		float fy = y + 32;
+		float bw = 96;
+		float lw = 120;
+		float fw = w - 24 - bw - lw - 12;
+		Ui.glassBorder(x + 12, fy, fw, 24, 6, 0xFF0E0D10, keyEditing ? 0x66F2392C : keyWrong ? 0x99F2392C : 0x1FFFFFFF);
+		String shown;
+		int color;
+		if (keyText.isEmpty()) {
+			shown = t(keyEditing ? "rago.apikey.paste" : api.hasKey() ? "rago.apikey.replace" : "rago.apikey.click");
+			color = 0xFF7C7A82;
+		} else {
+			// the key is a password for the account: only its end is shown
+			StringBuilder b = new StringBuilder();
+			for (int i = 0; i < Math.max(0, keyText.length() - 4); i++) {
+				b.append(keyText.charAt(i) == '-' ? '-' : '*');
+			}
+			shown = b + keyText.substring(Math.max(0, keyText.length() - 4));
+			color = Theme.TEXT;
+		}
+		boolean caret = keyEditing && (System.currentTimeMillis() / 500) % 2 == 0;
+		Ui.text(Ui.MONO, shown + (caret && !keyText.isEmpty() ? "_" : ""), x + 20, fy + (24 - 9 * 1.3f) / 2, 9, color);
+		Widgets.button(x + 12 + fw + 6, fy, bw, 24, "check", t("rago.apikey.save"), true, 9.5f);
+		Widgets.button(x + w - 12 - lw, fy, lw, 24, "external-link", t("rago.apikey.get"), false, 9.5f);
+		if (inside) {
+			Ui.click(x + 12, fy, fw, 24, () -> keyEditing = true);
+			Ui.click(x + 12 + fw + 6, fy, bw, 24, this::saveKey);
+			Ui.click(x + w - 12 - lw, fy, lw, 24, () -> Sys.openURL(HYPIXEL_DEV_URL));
+		}
+		String note = keyWrong ? t("rago.apikey.format") : t("rago.apikey.note");
+		Ui.text(Ui.REGULAR, note, x + 12, fy + 32, 8.5f, keyWrong ? Theme.ACCENT : 0xFF7C7A82);
+		return y + h;
+	}
+
+	private void saveKey() {
+		String k = keyText.trim();
+		if (!HypixelApi.isKey(k)) {
+			keyWrong = true;
+			keyEditing = true;
+			return;
+		}
+		try {
+			RagoClient.hypixel().setKey(k, RagoClient.ownId());
+			keyText = "";
+			keyWrong = false;
+			keyEditing = false;
+		} catch (IOException e) {
+			RagoClient.LOG.error("Could not save the Hypixel API key", e);
+			keyWrong = true;
+		}
 	}
 
 	private static void rowFrame(float x, float y, float w, float h) {
@@ -1222,6 +1318,24 @@ public final class RagoMenuScreen extends GuiScreen {
 	protected void keyTyped(char typedChar, int keyCode) throws IOException {
 		if (binding != null) {
 			setKey(keyCode == Keyboard.KEY_ESCAPE ? 0 : keyCode);
+			return;
+		}
+		if (keyEditing && module != null && ModuleInfo.usesHypixelKey(module)) {
+			if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
+				saveKey();
+			} else if (keyCode == Keyboard.KEY_ESCAPE) {
+				keyEditing = false;
+				keyText = "";
+				keyWrong = false;
+			} else if (keyCode == Keyboard.KEY_BACK) {
+				keyText = isCtrlKeyDown() || keyText.isEmpty() ? "" : keyText.substring(0, keyText.length() - 1);
+			} else if (isKeyComboCtrlV(keyCode)) {
+				keyText = getClipboardString().trim();
+				keyWrong = false;
+			} else if ((Character.digit(typedChar, 16) >= 0 || typedChar == '-') && keyText.length() < 36) {
+				keyText += typedChar;
+				keyWrong = false;
+			}
 			return;
 		}
 		if (renaming != null) {
