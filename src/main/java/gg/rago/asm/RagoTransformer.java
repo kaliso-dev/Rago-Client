@@ -145,27 +145,12 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return found;
 			}));
-		add("net.minecraft.client.particle.EffectRenderer", new Patch("particle styles",
-			"func_78873_a", "addEffect", "(Lnet/minecraft/client/particle/EntityFX;)V",
-			m -> returnIf(m, "dropParticle", "(Lnet/minecraft/client/particle/EntityFX;)Z", new int[] {Opcodes.ALOAD, 1}, -1, Opcodes.RETURN)));
-		add("net.minecraft.client.particle.EffectRenderer", new Patch("more block breaking particles",
+		add("net.minecraft.client.particle.EffectRenderer", new Patch("no block breaking particles",
 			"func_180533_a", "addBlockDestroyEffects", "(Lnet/minecraft/util/BlockPos;Lnet/minecraft/block/state/IBlockState;)V",
-			m -> {
-				boolean found = false;
-				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
-					if (insn.getOpcode() == Opcodes.RETURN) {
-						InsnList call = new InsnList();
-						call.add(new VarInsnNode(Opcodes.ALOAD, 0));
-						call.add(new VarInsnNode(Opcodes.ALOAD, 1));
-						call.add(new VarInsnNode(Opcodes.ALOAD, 2));
-						call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "blockBroken",
-							"(Lnet/minecraft/client/particle/EffectRenderer;Lnet/minecraft/util/BlockPos;Lnet/minecraft/block/state/IBlockState;)V", false));
-						m.instructions.insertBefore(insn, call);
-						found = true;
-					}
-				}
-				return found;
-			}));
+			m -> returnIf(m, "hideBlockBreak", "()Z", new int[0], -1, Opcodes.RETURN)));
+		add("net.minecraft.client.particle.EffectRenderer", new Patch("no block mining particles",
+			"func_180532_a", "addBlockHitEffects", "(Lnet/minecraft/util/BlockPos;Lnet/minecraft/util/EnumFacing;)V",
+			m -> returnIf(m, "hideBlockHit", "()Z", new int[0], -1, Opcodes.RETURN)));
 		add("net.minecraft.client.gui.GuiNewChat", new Patch("longer chat history",
 			"func_146237_a", "setChatLine", "(Lnet/minecraft/util/IChatComponent;IIZ)V",
 			RagoTransformer::chatLimit));
@@ -208,6 +193,9 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.renderer.entity.RenderEntityItem", new Patch("unstacked dropped items",
 			"func_177078_a", "func_177078_a", "(Lnet/minecraft/item/ItemStack;)I",
 			m -> beforeReturns(m, Opcodes.IRETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "itemCopies", "(I)I", false))));
+		add("net.minecraft.client.renderer.entity.RenderEntityItem", new Patch("dropped item physics and size",
+			"func_177077_a", "func_177077_a", "(Lnet/minecraft/entity/item/EntityItem;DDDFLnet/minecraft/client/resources/model/IBakedModel;)I",
+			RagoTransformer::droppedItem));
 		add("net.minecraft.client.Minecraft", new Patch("fast world switching",
 			"func_71353_a", "loadWorld", "(Lnet/minecraft/client/multiplayer/WorldClient;Ljava/lang/String;)V",
 			m -> {
@@ -377,6 +365,27 @@ public final class RagoTransformer implements IClassTransformer {
 		head.add(new FrameNode(Opcodes.F_SAME, 0, null, 0, null));
 		m.instructions.insert(head);
 		return true;
+	}
+
+	/** Every returned copy count goes through {@code Hooks.droppedItem} with the method's arguments. */
+	private static boolean droppedItem(MethodNode m) {
+		boolean found = false;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == Opcodes.IRETURN) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ALOAD, 1));
+				call.add(new VarInsnNode(Opcodes.DLOAD, 2));
+				call.add(new VarInsnNode(Opcodes.DLOAD, 4));
+				call.add(new VarInsnNode(Opcodes.DLOAD, 6));
+				call.add(new VarInsnNode(Opcodes.FLOAD, 8));
+				call.add(new VarInsnNode(Opcodes.ALOAD, 9));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "droppedItem",
+					"(ILnet/minecraft/entity/item/EntityItem;DDDFLnet/minecraft/client/resources/model/IBakedModel;)I", false));
+				m.instructions.insertBefore(insn, call);
+				found = true;
+			}
+		}
+		return found;
 	}
 
 	/** The 14° tilt when the player is hurt becomes {@code Hooks.hurtShake(14)}; the death tilt is kept. */

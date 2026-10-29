@@ -1,5 +1,6 @@
 package gg.rago.hud.elements;
 
+import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
@@ -13,15 +14,16 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 /**
  * Hits landed in a row: a hit counts when the target shows the hurt animation shortly after you
- * hit it; the combo ends when you are hurt or after three seconds without a hit.
+ * hit it; the combo ends when you are hurt or after a few seconds (3 by default) without a hit.
  */
 public final class ComboHud extends TextHudElement {
 	private static final long CONFIRM_NS = 500_000_000L;
-	private static final long EXPIRE_NS = 3_000_000_000L;
 	private EntityLivingBase pending;
 	private long pendingTime;
 	private int combo;
 	private long lastHit;
+	private final IntOption expire = addOption(new IntOption("combo_expire", 3, 1, 10));
+	private final IntOption minimum = addOption(new IntOption("combo_minimum", 1, 1, 5));
 
 	public ComboHud() {
 		super("combo", FeatureClass.INFORMATIONAL, false, Anchor.TOP_LEFT, 4, 125);
@@ -57,14 +59,14 @@ public final class ComboHud extends TextHudElement {
 				pending = null;
 			}
 		}
-		if (combo > 0 && now - lastHit > EXPIRE_NS) {
+		if (combo > 0 && now - lastHit > expire.get() * 1_000_000_000L) {
 			combo = 0;
 		}
 	}
 
 	@Override
 	public boolean hasContent() {
-		return combo > 0;
+		return combo >= minimum.get();
 	}
 
 	@Override

@@ -18,12 +18,15 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 /**
  * More hit particles when you hit something: critical and sharpness particles multiplied, and
- * optionally critical or sharpness particles on every hit. Particles only exist on your screen.
+ * optionally critical or sharpness particles on every hit; and no particles from blocks being
+ * broken or mined, if you like. Particles only exist on your screen.
  */
 public final class HitParticles extends Module {
 	private final IntOption multiplier = addOption(new IntOption("particle_multiplier", 3, 1, 10));
 	private final BooleanOption alwaysCrit = addOption(new BooleanOption("always_crit", false));
 	private final BooleanOption alwaysSharpness = addOption(new BooleanOption("always_sharpness", false));
+	private final BooleanOption hideBlockBreak = addOption(new BooleanOption("hide_block_break", false));
+	private final BooleanOption hideBlockHit = addOption(new BooleanOption("hide_block_hit", false));
 
 	public HitParticles() {
 		super("hit_particles", FeatureClass.VISUAL, false);
@@ -32,6 +35,14 @@ public final class HitParticles extends Module {
 	@Override
 	public Category category() {
 		return Category.PVP;
+	}
+
+	public boolean hideBlockBreak() {
+		return hideBlockBreak.get();
+	}
+
+	public boolean hideBlockHit() {
+		return hideBlockHit.get();
 	}
 
 	@SubscribeEvent

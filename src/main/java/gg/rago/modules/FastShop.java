@@ -16,7 +16,9 @@ import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemSword;
+import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
+import net.minecraft.network.play.client.C0EPacketClickWindow;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.EnumChatFormatting;
@@ -28,9 +30,10 @@ import java.util.regex.Pattern;
  * Faster Bed Wars shopping on Hypixel, in a shop window (a chest window whose items show a
  * "Cost:" line):
  * <ul>
- *   <li>Fast clicks: a click on a shop item is sent as a middle click. The shop sells on either, and
- *   the item no longer lands on your cursor while the server answers, so the next click can follow
- *   at once, which matters most on high ping. Still one click sent per click.</li>
+ *   <li>Fast clicks: a click on a shop item buys it without the item landing on your cursor. The
+ *   client sends the same click it always sends, but skips its own guess of the result (picking the
+ *   item up until the server puts it back), so the next click can follow at once, which matters most
+ *   on high ping. Still one click sent per click, as Meowtils' shop helper does.</li>
  *   <li>Affordable items get a background in the colour of the resource they cost.</li>
  *   <li>No duplicates: a click that would buy a sword or knockback stick you already carry is not
  *   sent.</li>
@@ -57,7 +60,7 @@ public final class FastShop extends Module {
 
 	/** Called for every click in a container window; true when this sent (or dropped) the click. */
 	public boolean onClick(GuiContainer gui, Slot slot, int slotId, int button, int type) {
-		if (!(fastClicks.get() || noDuplicates.get()) || type != 0 || button > 1 || !isShopSlot(gui, slot)) {
+		if (!(fastClicks.get() || noDuplicates.get()) || type > 1 || button > 1 || !isShopSlot(gui, slot)) {
 			return false;
 		}
 		Minecraft mc = Minecraft.getMinecraft();
@@ -68,8 +71,12 @@ public final class FastShop extends Module {
 		if (!fastClicks.get()) {
 			return false;
 		}
-		// middle click (button 2, mode 3): the shop buys, and the client puts nothing on the cursor
-		mc.playerController.windowClick(gui.inventorySlots.windowId, slot.slotNumber, 2, 3, mc.thePlayer);
+		// PlayerControllerMP.windowClick without Container.slotClick: the packet is the one a normal
+		// click sends (the slot's stack as the clicked item), the cursor stays empty
+		Container c = gui.inventorySlots;
+		short action = c.getNextTransactionID(mc.thePlayer.inventory);
+		mc.getNetHandler().addToSendQueue(new C0EPacketClickWindow(c.windowId, slot.slotNumber, button, type,
+			stack.copy(), action));
 		return true;
 	}
 

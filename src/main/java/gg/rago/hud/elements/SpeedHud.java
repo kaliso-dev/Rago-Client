@@ -1,5 +1,7 @@
 package gg.rago.hud.elements;
 
+import gg.rago.config.ChoiceOption;
+import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
@@ -14,6 +16,8 @@ public final class SpeedHud extends TextHudElement {
 	private static final int SAMPLES = 5;
 	private final double[] samples = new double[SAMPLES];
 	private int next;
+	private final ChoiceOption unit = addOption(new ChoiceOption("speed_unit", "bps", "bps", "kmh"));
+	private final IntOption decimals = addOption(new IntOption("decimals", 2, 0, 3));
 
 	public SpeedHud() {
 		super("speed", FeatureClass.INFORMATIONAL, false, Anchor.TOP_LEFT, 4, 92);
@@ -38,7 +42,10 @@ public final class SpeedHud extends TextHudElement {
 
 	@Override
 	protected String label(boolean after) {
-		return after ? "m/s" : "Speed";
+		if (!after) {
+			return "Speed";
+		}
+		return unit.is("kmh") ? "km/h" : "m/s";
 	}
 
 	@Override
@@ -47,6 +54,7 @@ public final class SpeedHud extends TextHudElement {
 		for (double s : samples) {
 			sum += s;
 		}
-		return String.format(Locale.ROOT, "%.2f", placeholder ? 5.61 : sum / SAMPLES);
+		double speed = placeholder ? 5.61 : sum / SAMPLES;
+		return String.format(Locale.ROOT, "%." + decimals.get() + "f", unit.is("kmh") ? speed * 3.6 : speed);
 	}
 }
