@@ -34,7 +34,7 @@ public final class Hitboxes extends Module {
 	private final BooleanOption items = addOption(new BooleanOption("hitbox_items", false));
 	private final BooleanOption projectiles = addOption(new BooleanOption("hitbox_projectiles", true));
 	private final ColorOption color = addOption(new ColorOption("hitbox_color", 0xFFFFFFFF));
-	private final IntOption width = addOption(new IntOption("line_width", 2, 1, 5));
+	private final IntOption width = addOption(new IntOption("line_width", 2, 1, 10));
 	private final BooleanOption eyeLine = addOption(new BooleanOption("eye_line", true));
 	private final BooleanOption lookLine = addOption(new BooleanOption("look_line", false));
 	private final Frustum frustum = new Frustum();

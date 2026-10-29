@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import gg.rago.core.Module;
 import gg.rago.core.ModuleRegistry;
 import gg.rago.hud.HudElement;
+import gg.rago.hud.Styled;
 import gg.rago.profile.ModProfiles;
 import gg.rago.settings.Settings;
 
@@ -111,6 +112,10 @@ public final class ConfigStore {
 					}
 				}
 			}
+			if (module instanceof Styled && (options == null || !options.has("style"))) {
+				// saved before styles existed: start from the default style rather than a mix
+				((Styled) module).applyStyle(((Styled) module).defaultStyle());
+			}
 			if (module instanceof HudElement) {
 				HudElement hud = (HudElement) module;
 				JsonObject pos = object(m, "hud");
@@ -131,6 +136,10 @@ public final class ConfigStore {
 				options.add(option.key(), option.toJson());
 			}
 			m.add("options", options);
+			if (module instanceof Styled && (options == null || !options.has("style"))) {
+				// saved before styles existed: start from the default style rather than a mix
+				((Styled) module).applyStyle(((Styled) module).defaultStyle());
+			}
 			if (module instanceof HudElement) {
 				HudElement hud = (HudElement) module;
 				m.add("hud", hud.position().toJson());

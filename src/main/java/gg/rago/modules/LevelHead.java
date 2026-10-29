@@ -17,7 +17,6 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
-import java.util.function.BooleanSupplier;
 
 /**
  * On Hypixel, shows each player's network level or Bedwars star above their name, read from the
@@ -30,13 +29,13 @@ public final class LevelHead extends Module {
 	private final IntOption display = addOption(new IntOption("level_display", NETWORK_LEVEL, 0, 1));
 	private final BooleanOption background = addOption(new BooleanOption("background", true));
 	private final HypixelApi api;
-	private final BooleanSupplier ownNameShown;
+	private final Nametags nametags;
 	private boolean warned;
 
-	public LevelHead(HypixelApi api, BooleanSupplier ownNameShown) {
+	public LevelHead(HypixelApi api, Nametags nametags) {
 		super("level_head", FeatureClass.INFORMATIONAL, false);
 		this.api = api;
-		this.ownNameShown = ownNameShown;
+		this.nametags = nametags;
 	}
 
 	@Override
@@ -72,7 +71,7 @@ public final class LevelHead extends Module {
 		EntityPlayer p = (EntityPlayer) event.entity;
 		Minecraft mc = Minecraft.getMinecraft();
 		boolean self = p == mc.thePlayer;
-		if (self ? !(ownNameShown.getAsBoolean() && mc.gameSettings.thirdPersonView != 0) : !NameTags.visible(p)) {
+		if (self ? !nametags.ownShown() : !NameTags.visible(p)) {
 			return;
 		}
 		if (!Hypixel.realPlayer(p.getUniqueID())) {
@@ -81,8 +80,13 @@ public final class LevelHead extends Module {
 		HypixelApi.Stats stats = api.get(p.getUniqueID());
 		String text = stats == null ? null : text(stats);
 		if (text != null) {
-			double top = NameTags.nameTop(p, event.y) + NameTags.LINE;
-			WorldDraw.label(text, event.x, top, event.z, background.get());
+			double line = nametags.lineHeight();
+			double top = NameTags.nameTop(p, event.y, line) + line;
+			if (nametags.isEnabled()) {
+				nametags.label(text, event.x, top, event.z, 0, nametags.throughWalls(), 0xFF);
+			} else {
+				WorldDraw.label(text, event.x, top, event.z, background.get());
+			}
 		}
 	}
 

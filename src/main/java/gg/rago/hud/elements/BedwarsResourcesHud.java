@@ -79,7 +79,7 @@ public final class BedwarsResourcesHud extends HudElement {
 	}
 
 	private int cell(FontRenderer text, int count) {
-		return ICON + 2 + text.getStringWidth(Integer.toString(count));
+		return ICON + 2 + textWidth(Integer.toString(count));
 	}
 
 	@Override

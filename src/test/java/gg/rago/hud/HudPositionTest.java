@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HudPositionTest {
 	@Test
@@ -74,5 +76,17 @@ class HudPositionTest {
 		q.fromJson(bad);
 		assertEquals(Anchor.TOP_LEFT, q.anchor());
 		assertEquals(4, q.offsetX());
+	}
+
+	@Test
+	void defaultUntilMoved() {
+		HudPosition p = new HudPosition(Anchor.TOP_LEFT, 4, 26);
+		assertTrue(p.isDefault());
+		p.setScale(1.5f);
+		assertTrue(p.isDefault());
+		p.moveTo(100, 100, 40, 10, 400, 300);
+		assertFalse(p.isDefault());
+		p.reset();
+		assertTrue(p.isDefault());
 	}
 }

@@ -1,5 +1,7 @@
 package gg.rago.core;
 
+import gg.rago.accounts.Accounts;
+import gg.rago.gui.AccountsButton;
 import gg.rago.config.BooleanOption;
 import gg.rago.config.ConfigStore;
 import gg.rago.gui.ui.Anim;
@@ -14,12 +16,12 @@ import gg.rago.settings.Settings;
 import gg.rago.gui.HudEditorScreen;
 import gg.rago.gui.RagoMenuScreen;
 import gg.rago.gui.RagoTitleScreen;
+import gg.rago.gui.AccountsScreen;
 import gg.rago.hud.HudManager;
 import gg.rago.hooks.Hooks;
 import gg.rago.hud.elements.ArmorHud;
 import gg.rago.hud.elements.BedwarsResourcesHud;
 import gg.rago.hud.elements.BossBarHud;
-import gg.rago.hud.elements.CaptureHud;
 import gg.rago.hud.elements.ClockHud;
 import gg.rago.hud.elements.ComboHud;
 import gg.rago.hud.elements.CoordsHud;
@@ -53,7 +55,9 @@ import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.NoPumpkin;
 import gg.rago.modules.NoWaterOverlay;
 import gg.rago.modules.OldAnimations;
-import gg.rago.modules.OwnNametag;
+import gg.rago.modules.GameplayFixes;
+import gg.rago.modules.HitColor;
+import gg.rago.modules.Nametags;
 import gg.rago.modules.TabPing;
 import gg.rago.modules.TimeChanger;
 import gg.rago.modules.WeatherChanger;
@@ -63,12 +67,15 @@ import gg.rago.perf.FrameCapture;
 import gg.rago.perf.FrameTimer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiMainMenu;
+import net.minecraft.client.gui.GuiMultiplayer;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.network.NetHandlerPlayClient;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.client.event.EntityViewRenderEvent;
 import net.minecraftforge.client.event.GuiOpenEvent;
+import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -144,8 +151,6 @@ public final class RagoClient {
 	private static boolean overlayVisible = true;
 	private static boolean openMenu;
 	private static int tickCounter;
-	private static volatile String status = "";
-	private static volatile long statusTimeNs;
 	private static Map<String, String> captureMeta;
 
 	@Mod.EventHandler
@@ -158,7 +163,6 @@ public final class RagoClient {
 		MODULES.register(new FpsHud(FRAMES));
 		MODULES.register(new FrameTimeHud(FRAMES));
 		MODULES.register(new PingHud(PING));
-		MODULES.register(new CaptureHud(FRAMES, () -> status, () -> statusTimeNs));
 		MODULES.register(new CpsHud(INPUT));
 		MODULES.register(new CoordsHud());
 		MODULES.register(new KeystrokesHud(INPUT));
@@ -183,11 +187,13 @@ public final class RagoClient {
 		MODULES.register(new HitParticles());
 		TabPing tabPing = MODULES.register(new TabPing());
 		Chat chat = MODULES.register(new Chat());
-		OwnNametag ownNametag = MODULES.register(new OwnNametag());
+		Nametags nametags = MODULES.register(new Nametags());
 		HypixelApi hypixel = new HypixelApi(configDir);
-		MODULES.register(new LevelHead(hypixel, ownNametag::shown));
+		MODULES.register(new LevelHead(hypixel, nametags));
 		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());
 		OldAnimations animations = MODULES.register(new OldAnimations());
+		GameplayFixes fixes = MODULES.register(new GameplayFixes());
+		HitColor hitColor = MODULES.register(new HitColor());
 		MODULES.register(new LowFire());
 		MODULES.register(new NoPumpkin());
 		MODULES.register(new NoWaterOverlay());
@@ -201,7 +207,14 @@ public final class RagoClient {
 		registerPresetRows();
 		optimizations = new Optimizations(SETTINGS);
 		VideoRows.register(SETTINGS);
-		Hooks.install(optimizations.culler(), noHurtCam, animations, tabPing, chat);
+		Hooks.culler = optimizations.culler();
+		Hooks.noHurtCam = noHurtCam;
+		Hooks.animations = animations;
+		Hooks.tabPing = tabPing;
+		Hooks.chat = chat;
+		Hooks.engine = optimizations.engine();
+		Hooks.fixes = fixes;
+		Hooks.hitColor = hitColor;
 		ClientCommandHandler.instance.registerCommand(new RagoCommand(hypixel, () -> openMenu = true));
 
 		config = new ConfigStore(configDir.resolve("rago.json"));
@@ -314,9 +327,15 @@ public final class RagoClient {
 		}
 	}
 
+	/** Frame capture progress, shown in chat (may be called from the writer thread). */
 	private static void setStatus(String text) {
-		status = text;
-		statusTimeNs = System.nanoTime();
+		Minecraft mc = Minecraft.getMinecraft();
+		mc.addScheduledTask(() -> {
+			if (mc.thePlayer != null) {
+				mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText(
+					net.minecraft.util.EnumChatFormatting.RED + "Rago " + net.minecraft.util.EnumChatFormatting.GRAY + "frame capture: " + text));
+			}
+		});
 	}
 
 	public static Zoom zoom() {
@@ -406,6 +425,30 @@ public final class RagoClient {
 	public void onGuiOpen(GuiOpenEvent event) {
 		if (event.gui instanceof GuiMainMenu && useMainMenu()) {
 			event.gui = new RagoTitleScreen();
+		} else if (event.gui != null && "the_fireplace.ias.gui.GuiAccountSelector".equals(event.gui.getClass().getName())) {
+			// the account switcher's own list (its button in the server list): show Rago's instead
+			GuiScreen prev = null;
+			try {
+				prev = (GuiScreen) event.gui.getClass().getField("prev").get(event.gui);
+			} catch (ReflectiveOperationException | RuntimeException e) {
+				LOG.debug("Account list without a previous screen", e);
+			}
+			event.gui = new AccountsScreen(prev);
+		}
+	}
+
+	/** The server list gets a button for the Accounts screen, right of Cancel. */
+	@SubscribeEvent
+	public void onGuiInit(GuiScreenEvent.InitGuiEvent.Post event) {
+		if (event.gui instanceof GuiMultiplayer && Accounts.available()) {
+			event.buttonList.add(new AccountsButton(event.gui.width / 2 + 159, event.gui.height - 28));
+		}
+	}
+
+	@SubscribeEvent
+	public void onGuiAction(GuiScreenEvent.ActionPerformedEvent.Post event) {
+		if (event.gui instanceof GuiMultiplayer && event.button.id == AccountsButton.ID) {
+			Minecraft.getMinecraft().displayGuiScreen(new AccountsScreen(event.gui));
 		}
 	}
 

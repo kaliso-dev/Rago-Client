@@ -26,7 +26,7 @@ public final class CoordsHud extends TextHudElement {
 	}
 
 	@Override
-	protected String text(boolean placeholder) {
+	protected String value(boolean placeholder) {
 		Entity p = Minecraft.getMinecraft().thePlayer;
 		double x = placeholder || p == null ? 12.5 : p.posX;
 		double y = placeholder || p == null ? 64 : p.posY;

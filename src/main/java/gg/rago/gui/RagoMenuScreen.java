@@ -1,6 +1,7 @@
 package gg.rago.gui;
 
 import gg.rago.config.BooleanOption;
+import gg.rago.config.ChoiceOption;
 import gg.rago.config.ColorOption;
 import gg.rago.config.IntOption;
 import gg.rago.config.Option;
@@ -92,13 +93,42 @@ public final class RagoMenuScreen extends GuiScreen {
 		final float x;
 		final float w;
 		final Consumer<Float> set;
+		final float y;
+		final float h;
+		final java.util.function.BiConsumer<Float, Float> set2;
 
 		SliderDrag(float x, float w, Consumer<Float> set) {
 			this.x = x;
 			this.w = w;
 			this.set = set;
+			this.y = 0;
+			this.h = 1;
+			this.set2 = null;
+		}
+
+		/** A drag over an area, reporting both fractions (colour square). */
+		SliderDrag(float x, float y, float w, float h, java.util.function.BiConsumer<Float, Float> set2) {
+			this.x = x;
+			this.w = w;
+			this.y = y;
+			this.h = h;
+			this.set = null;
+			this.set2 = set2;
+		}
+
+		void apply() {
+			float fx = Math.max(0f, Math.min(1f, (Ui.mouseX() - x) / w));
+			if (set2 != null) {
+				set2.accept(fx, Math.max(0f, Math.min(1f, (Ui.mouseY() - y) / h)));
+			} else {
+				set.accept(fx);
+			}
 		}
 	}
+
+	/** The colour option whose editor is open, and the hue it was last given (kept while grey). */
+	private ColorOption editingColor;
+	private float editHue;
 
 	public RagoMenuScreen(GuiScreen parent) {
 		this.parent = parent;
@@ -172,7 +202,7 @@ public final class RagoMenuScreen extends GuiScreen {
 		tooltip = null;
 		if (dragging != null) {
 			if (Mouse.isButtonDown(0)) {
-				dragging.set.accept(Math.max(0f, Math.min(1f, (Ui.mouseX() - dragging.x) / dragging.w)));
+				dragging.apply();
 			} else {
 				dragging = null;
 			}
@@ -539,9 +569,26 @@ public final class RagoMenuScreen extends GuiScreen {
 			Ui.text(Ui.REGULAR, t("rago.menu.no_options"), x + 2, cy, 10, Theme.MUTED);
 			cy += 20;
 		}
+		Map<String, List<Option<?>>> groups = new LinkedHashMap<>();
 		for (Option<?> o : opts) {
-			optionRow(o, x, cy, w - 8, inside);
-			cy += 34;
+			List<Option<?>> group = groups.computeIfAbsent(o.section() == null ? "" : o.section(), k -> new java.util.ArrayList<>());
+			if (o instanceof ChoiceOption && "style".equals(o.key())) {
+				group.add(0, o); // the preset comes before the details it fills in
+			} else {
+				group.add(o);
+			}
+		}
+		for (Map.Entry<String, List<Option<?>>> g : groups.entrySet()) {
+			if (!g.getKey().isEmpty()) {
+				cy += 6;
+				Ui.textSpaced(Ui.SEMIBOLD, t("rago.modsection." + g.getKey()).toUpperCase(Locale.ROOT), x + 2, cy, 8.5f, 1.4f, 0xFF7C7A82);
+				cy += 18;
+			}
+			for (Option<?> o : g.getValue()) {
+				if (o.visible()) {
+					cy += optionRow(o, x, cy, w - 8, inside) + 4;
+				}
+			}
 		}
 		if (m instanceof HudElement) {
 			HudPosition p = ((HudElement) m).position();
@@ -580,8 +627,9 @@ public final class RagoMenuScreen extends GuiScreen {
 		Ui.glassBorder(x, y, w, h, 7, 0xFF131215, 0x12FFFFFF);
 	}
 
-	private void optionRow(Option<?> option, float x, float y, float w, boolean inside) {
-		rowFrame(x, y, w, 30);
+	private float optionRow(Option<?> option, float x, float y, float w, boolean inside) {
+		boolean editing = option == editingColor;
+		rowFrame(x, y, w, editing ? 30 + COLOR_EDITOR_H : 30);
 		String label = fit(Ui.REGULAR, t("rago.option." + option.key()), 10.5f, w * 0.45f);
 		Ui.text(Ui.REGULAR, label, x + 12, y + (30 - 10.5f * 1.21f) / 2, 10.5f, Theme.TEXT);
 		float right = x + w - 12;
@@ -599,22 +647,177 @@ public final class RagoMenuScreen extends GuiScreen {
 			String value = has(key) ? t(key) : has(format) ? t(format, io.get()) : Integer.toString(io.get());
 			sliderControl("opt:" + io.key() + System.identityHashCode(io), right - 46 - 170, y, 170, f, value, right, inside,
 				v -> io.set(io.min() + Math.round(v * (io.max() - io.min()))));
+		} else if (option instanceof ChoiceOption) {
+			choiceControl((ChoiceOption) option, x + w * 0.42f, y, right, inside);
 		} else if (option instanceof ColorOption) {
 			ColorOption co = (ColorOption) option;
-			float sx = right - SWATCHES.length * 22 + 4;
+			float sx = right - (SWATCHES.length + 1) * 22 - 64;
+			Ui.textRight(Ui.MONO, ColorOption.format(co.get()), right, y + (30 - 9 * 1.3f) / 2, 9, 0xFF8A888F);
 			for (int color : SWATCHES) {
-				boolean sel = co.get() == color;
+				boolean sel = (co.get() | 0xFF000000) == color;
 				if (sel) {
 					Ui.circle(sx + 9, y + 15, 10, Theme.ACCENT);
 					Ui.circle(sx + 9, y + 15, 8.5f, 0xFF131215);
 				}
 				Ui.circle(sx + 9, y + 15, 7, color);
 				if (inside) {
-					Ui.click(sx, y + 4, 20, 22, () -> co.set(color));
+					// presets keep the option's own transparency
+					Ui.click(sx, y + 4, 20, 22, () -> co.set(color & 0xFFFFFF | co.get() & 0xFF000000));
 				}
 				sx += 22;
 			}
+			// custom colour: a ring around the current colour opens the editor
+			Ui.annulus(sx + 9, y + 15, 8.5f, 1.6f, editing ? Theme.ACCENT : 0xFF8A888F);
+			Ui.circle(sx + 9, y + 15, 5.5f, co.get() | 0xFF000000);
+			if (inside) {
+				Ui.click(sx, y + 4, 20, 22, () -> {
+					editingColor = editing ? null : co;
+					editHue = hsb(co.get())[0];
+				});
+			}
+			if (editing) {
+				colorEditor(co, x + 12, y + 34, w - 24, inside);
+				return 30 + COLOR_EDITOR_H;
+			}
 		}
+		return 30;
+	}
+
+	private static final float COLOR_EDITOR_H = 96;
+
+	private static float[] hsb(int argb) {
+		return java.awt.Color.RGBtoHSB(argb >> 16 & 0xFF, argb >> 8 & 0xFF, argb & 0xFF, null);
+	}
+
+	/** Saturation/brightness square, hue bar and opacity bar for one colour. */
+	private void colorEditor(ColorOption co, float x, float y, float w, boolean inside) {
+		int argb = co.get();
+		float[] hsb = hsb(argb);
+		if (hsb[1] > 0.02f && hsb[2] > 0.02f) {
+			editHue = hsb[0];
+		}
+		float hue = editHue;
+		int alpha = argb >>> 24;
+		float sqW = 130;
+		float sqH = 80;
+		int pure = 0xFF000000 | java.awt.Color.HSBtoRGB(hue, 1, 1);
+		Ui.hgradient(x, y, sqW, sqH, 0xFFFFFFFF, pure);
+		Ui.gradient(x, y, sqW, sqH, 0x00000000, 0xFF000000);
+		Ui.outline(x, y, sqW, sqH, 0, 0x30FFFFFF);
+		float mx = x + hsb[1] * sqW;
+		float my = y + (1 - hsb[2]) * sqH;
+		Ui.annulus(mx, my, 4, 1.5f, 0xFFFFFFFF);
+		if (inside) {
+			SliderDrag d = new SliderDrag(x, y, sqW, sqH, (fx, fy) ->
+				co.set(co.get() & 0xFF000000 | java.awt.Color.HSBtoRGB(editHue, fx, 1 - fy) & 0xFFFFFF));
+			Ui.click(x - 4, y - 4, sqW + 8, sqH + 8, () -> {
+				dragging = d;
+				d.apply();
+			});
+		}
+		float bx = x + sqW + 16;
+		float bw = w - sqW - 16 - 64;
+		// hue
+		Ui.text(Ui.REGULAR, t("rago.color.hue"), bx, y, 9, Theme.MUTED);
+		float hy = y + 14;
+		for (int i = 0; i < 6; i++) {
+			int c0 = 0xFF000000 | java.awt.Color.HSBtoRGB(i / 6f, 1, 1);
+			int c1 = 0xFF000000 | java.awt.Color.HSBtoRGB((i + 1) / 6f, 1, 1);
+			Ui.hgradient(bx + bw * i / 6f, hy, bw / 6f + 0.5f, 10, c0, c1);
+		}
+		Ui.rect(bx + hue * bw - 1, hy - 2, 2, 14, 0xFFFFFFFF);
+		if (inside) {
+			SliderDrag d = new SliderDrag(bx, bw, f -> {
+				editHue = Math.min(0.999f, f);
+				float[] cur = hsb(co.get());
+				float sat = cur[1] < 0.02f ? 1 : cur[1];
+				float bri = cur[2] < 0.02f ? 1 : cur[2];
+				co.set(co.get() & 0xFF000000 | java.awt.Color.HSBtoRGB(editHue, sat, bri) & 0xFFFFFF);
+			});
+			Ui.click(bx - 4, hy - 4, bw + 8, 18, () -> {
+				dragging = d;
+				d.apply();
+			});
+		}
+		// opacity
+		Ui.text(Ui.REGULAR, t("rago.color.opacity"), bx, y + 40, 9, Theme.MUTED);
+		Ui.textRight(Ui.MONO, Math.round(alpha / 2.55f) + "%", bx + bw, y + 40, 9, 0xFFD4D4D8);
+		float ay = y + 54;
+		for (int i = 0; i * 5 < bw; i++) {
+			Ui.rect(bx + i * 5, ay + (i % 2) * 5, Math.min(5, bw - i * 5), 5, 0xFF3A383E);
+			Ui.rect(bx + i * 5, ay + (1 - i % 2) * 5, Math.min(5, bw - i * 5), 5, 0xFF222125);
+		}
+		Ui.hgradient(bx, ay, bw, 10, argb & 0xFFFFFF, argb | 0xFF000000);
+		Ui.rect(bx + alpha / 255f * bw - 1, ay - 2, 2, 14, 0xFFFFFFFF);
+		if (inside) {
+			SliderDrag d = new SliderDrag(bx, bw, f -> co.set(Math.round(f * 255) << 24 | co.get() & 0xFFFFFF));
+			Ui.click(bx - 4, ay - 4, bw + 8, 18, () -> {
+				dragging = d;
+				d.apply();
+			});
+		}
+		// preview
+		float px = x + w - 52;
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				Ui.rect(px + i * 13, y + j * 13 + 14, 13, 13, (i + j) % 2 == 0 ? 0xFF3A383E : 0xFF222125);
+			}
+		}
+		Ui.rect(px, y + 14, 52, 52, argb);
+		Ui.outline(px, y + 14, 52, 52, 0, 0x30FFFFFF);
+		Ui.text(Ui.REGULAR, t("rago.color.preview"), px, y, 9, Theme.MUTED);
+	}
+
+	/** Segmented buttons when the choices fit, otherwise arrows around the current choice. */
+	private void choiceControl(ChoiceOption co, float left, float y, float right, boolean inside) {
+		List<String> ids = co.ids();
+		float total = 0;
+		String[] labels = new String[ids.size()];
+		for (int i = 0; i < labels.length; i++) {
+			labels[i] = choiceLabel(co, ids.get(i));
+			total += Ui.textWidth(Ui.MEDIUM, labels[i], 9.5f) + 18;
+		}
+		if (total <= right - left) {
+			float cx = right - total;
+			Ui.roundBorder(cx - 3, y + 4, total + 6, 22, 11, 0xFF0F0E11, 0x14FFFFFF);
+			for (int i = 0; i < labels.length; i++) {
+				String id = ids.get(i);
+				float bw = Ui.textWidth(Ui.MEDIUM, labels[i], 9.5f) + 18;
+				boolean sel = co.is(id);
+				float hv = Widgets.hoverAmount("ch:" + co.key() + System.identityHashCode(co) + id, cx, y + 6, bw, 18);
+				if (sel) {
+					Ui.round(cx, y + 6, bw, 18, 9, Theme.ACCENT);
+				} else if (hv > 0) {
+					Ui.round(cx, y + 6, bw, 18, 9, Ui.alpha(0x1AFFFFFF, hv));
+				}
+				Ui.textCentered(Ui.MEDIUM, labels[i], cx + bw / 2, y + 6 + (18 - 9.5f * 1.21f) / 2, 9.5f, sel ? 0xFFFFFFFF : 0xFFB4B2B9);
+				if (inside) {
+					Ui.click(cx, y + 6, bw, 18, () -> co.select(id));
+				}
+				cx += bw;
+			}
+			return;
+		}
+		String label = choiceLabel(co, co.get());
+		float lw = Math.max(90, Ui.textWidth(Ui.MEDIUM, label, 9.5f) + 16);
+		float bx = right - lw - 44;
+		Ui.roundBorder(bx, y + 4, lw + 44, 22, 11, 0xFF0F0E11, 0x14FFFFFF);
+		Ui.icon("chevron-left", bx + 6, y + 9, 12, 0xFFB4B2B9);
+		Ui.icon("chevron-right", bx + lw + 26, y + 9, 12, 0xFFB4B2B9);
+		Ui.textCentered(Ui.MEDIUM, label, bx + 22 + lw / 2, y + 4 + (22 - 9.5f * 1.21f) / 2, 9.5f, Theme.TEXT);
+		if (inside) {
+			Ui.click(bx, y + 4, 22, 22, () -> co.cycle(-1));
+			Ui.click(bx + 22, y + 4, lw + 22, 22, () -> co.cycle(1));
+		}
+	}
+
+	private String choiceLabel(ChoiceOption co, String id) {
+		String own = "rago.option." + co.key() + "." + id;
+		if (has(own)) {
+			return t(own);
+		}
+		String shared = "rago.choice." + id;
+		return has(shared) ? t(shared) : id;
 	}
 
 	private void sliderControl(String key, float x, float y, float w, float f, String value, float right, boolean inside, Consumer<Float> set) {
@@ -625,7 +828,7 @@ public final class RagoMenuScreen extends GuiScreen {
 			SliderDrag s = new SliderDrag(x, w, set);
 			Ui.click(x - 8, y, w + 16, 30, () -> {
 				dragging = s;
-				s.set.accept(Math.max(0f, Math.min(1f, (Ui.mouseX() - s.x) / s.w)));
+				s.apply();
 			});
 		}
 	}

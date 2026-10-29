@@ -59,7 +59,7 @@ public final class BossBarHud extends HudElement {
 	public int width(FontRenderer text, boolean placeholder) {
 		String n = name(placeholder);
 		int w = showBar.get() ? BAR_W : 0;
-		return showName.get() && n != null ? Math.max(w, text.getStringWidth(n)) : Math.max(w, 1);
+		return showName.get() && n != null ? Math.max(w, textWidth(n)) : Math.max(w, 1);
 	}
 
 	@Override
@@ -74,7 +74,7 @@ public final class BossBarHud extends HudElement {
 		int w = width(text, placeholder);
 		int y = 0;
 		if (showName.get() && n != null) {
-			drawText(text, n, (w - text.getStringWidth(n)) / 2, 0, textColor.get());
+			drawText(text, n, (w - textWidth(n)) / 2, 0, textColor.get());
 			y = 10;
 		}
 		if (showBar.get()) {

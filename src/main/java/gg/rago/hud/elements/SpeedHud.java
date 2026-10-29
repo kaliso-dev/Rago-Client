@@ -37,11 +37,16 @@ public final class SpeedHud extends TextHudElement {
 	}
 
 	@Override
-	protected String text(boolean placeholder) {
+	protected String label(boolean after) {
+		return after ? "m/s" : "Speed";
+	}
+
+	@Override
+	protected String value(boolean placeholder) {
 		double sum = 0;
 		for (double s : samples) {
 			sum += s;
 		}
-		return String.format(Locale.ROOT, "%.2f m/s", placeholder ? 5.61 : sum / SAMPLES);
+		return String.format(Locale.ROOT, "%.2f", placeholder ? 5.61 : sum / SAMPLES);
 	}
 }

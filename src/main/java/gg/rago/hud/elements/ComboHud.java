@@ -68,8 +68,13 @@ public final class ComboHud extends TextHudElement {
 	}
 
 	@Override
-	protected String text(boolean placeholder) {
+	protected String label(boolean after) {
+		return after ? "hits" : "Combo";
+	}
+
+	@Override
+	protected String value(boolean placeholder) {
 		int n = placeholder && combo == 0 ? 4 : combo;
-		return n + (n == 1 ? " hit" : " hits");
+		return Integer.toString(n);
 	}
 }

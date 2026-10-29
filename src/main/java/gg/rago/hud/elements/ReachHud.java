@@ -46,7 +46,12 @@ public final class ReachHud extends TextHudElement {
 	}
 
 	@Override
-	protected String text(boolean placeholder) {
-		return String.format(Locale.ROOT, "%.2f blocks", placeholder && !hasContent() ? 2.94 : reach);
+	protected String label(boolean after) {
+		return after ? "blocks" : "Reach";
+	}
+
+	@Override
+	protected String value(boolean placeholder) {
+		return String.format(Locale.ROOT, "%.2f", placeholder && !hasContent() ? 2.94 : reach);
 	}
 }

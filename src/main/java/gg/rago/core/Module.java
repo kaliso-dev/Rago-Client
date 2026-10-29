@@ -16,6 +16,7 @@ public abstract class Module {
 	private final boolean defaultEnabled;
 	private final List<Option<?>> options = new ArrayList<>();
 	private boolean enabled;
+	private String section;
 
 	protected Module(String id, FeatureClass featureClass, boolean defaultEnabled) {
 		if (!id.matches("[a-z0-9_]+")) {
@@ -75,8 +76,16 @@ public abstract class Module {
 				throw new IllegalArgumentException("Duplicate option '" + option.key() + "' in module " + id);
 			}
 		}
+		if (option.section() == null) {
+			option.setSection(section);
+		}
 		options.add(option);
 		return option;
+	}
+
+	/** Options added after this call are listed under the heading {@code rago.modsection.<key>}. */
+	protected final void section(String key) {
+		this.section = key;
 	}
 
 	/** Restores the enabled state and every option to its default. */

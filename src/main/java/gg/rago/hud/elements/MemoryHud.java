@@ -17,10 +17,15 @@ public final class MemoryHud extends TextHudElement {
 	}
 
 	@Override
-	protected String text(boolean placeholder) {
+	protected String label(boolean after) {
+		return after ? "RAM" : "RAM";
+	}
+
+	@Override
+	protected String value(boolean placeholder) {
 		Runtime rt = Runtime.getRuntime();
 		long max = rt.maxMemory() / (1024 * 1024);
 		long used = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
-		return "Mem " + used * 100 / Math.max(1, max) + "% " + used + "/" + max + " MB";
+		return used * 100 / Math.max(1, max) + "% \u00b7 " + used + "/" + max + " MB";
 	}
 }

@@ -2,11 +2,15 @@ package gg.rago.config;
 
 import com.google.gson.JsonElement;
 
+import java.util.function.BooleanSupplier;
+
 /** A typed, persisted setting. Invalid stored values fall back to the default. */
 public abstract class Option<T> {
 	private final String key;
-	private final T defaultValue;
+	private T defaultValue;
 	private T value;
+	private String section;
+	private BooleanSupplier visible = () -> true;
 
 	protected Option(String key, T defaultValue) {
 		this.key = key;
@@ -16,6 +20,26 @@ public abstract class Option<T> {
 
 	public final String key() {
 		return key;
+	}
+
+	/** The heading this option is listed under in the menu, or null. */
+	public final String section() {
+		return section;
+	}
+
+	public final void setSection(String section) {
+		this.section = section;
+	}
+
+	/** Shows the option in the menu only while {@code condition} holds (for options that depend on another). */
+	@SuppressWarnings("unchecked")
+	public final <O extends Option<T>> O showIf(BooleanSupplier condition) {
+		this.visible = condition;
+		return (O) this;
+	}
+
+	public final boolean visible() {
+		return visible.getAsBoolean();
 	}
 
 	public final T get() {
@@ -28,6 +52,11 @@ public abstract class Option<T> {
 
 	public void set(T value) {
 		this.value = value == null ? defaultValue : sanitize(value);
+	}
+
+	/** Makes the current value the one {@link #reset} goes back to (for presets applied at start-up). */
+	public final void makeCurrentDefault() {
+		defaultValue = value;
 	}
 
 	public final void reset() {

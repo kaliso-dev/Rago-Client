@@ -94,7 +94,7 @@ public final class ToggleSprintHud extends TextHudElement {
 	}
 
 	@Override
-	protected String text(boolean placeholder) {
+	protected String value(boolean placeholder) {
 		if (!placeholder && sneakToggled) {
 			return I18n.format(sprintToggled ? "rago.status.sprinting_sneaking" : "rago.status.sneaking");
 		}

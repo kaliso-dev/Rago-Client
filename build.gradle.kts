@@ -46,6 +46,9 @@ dependencies {
     mappings("de.oceanlabs.mcp:mcp_stable:${property("mcp_mappings")}")
     forge("net.minecraftforge:forge:${property("forge_version")}")
 
+    // compiled against for the Accounts screen; at run time the bundled copy is loaded as a mod
+    compileOnly(files("libs/ias/InGameAccountSwitcher-Forge-1.8.9-7.1.2.jar"))
+
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -65,6 +68,10 @@ tasks.withType<JavaExec>().configureEach {
 // mods/1.8.9/ on first launch and loads it like any other mod.
 val optifineJar = fileTree("libs/optifine") { include("OptiFine*.jar") }.files.sortedBy { it.name }.lastOrNull()
 
+// In-Game Account Switcher (LGPL-3.0, see libs/ias/README.md) is bundled unmodified the same way;
+// Rago's Accounts screen uses it for the Microsoft sign-in.
+val iasJar = fileTree("libs/ias") { include("InGameAccountSwitcher*.jar") }.files.sortedBy { it.name }.lastOrNull()
+
 // The jar is both a Forge mod and a coremod: the transformer raises the menu frame-rate cap
 tasks.jar {
     manifest.attributes(
@@ -72,9 +79,16 @@ tasks.jar {
         "FMLCorePluginContainsFMLMod" to "true",
         "ForceLoadAsMod" to "true",
     )
-    if (optifineJar != null) {
-        from(optifineJar)
-        manifest.attributes("ContainedDeps" to optifineJar.name)
+    val contained = listOfNotNull(optifineJar, iasJar)
+    contained.forEach { from(it) }
+    if (iasJar != null) {
+        from("libs/ias") {
+            include("LICENSE", "COPYING", "README.md")
+            into("META-INF/licenses/in-game-account-switcher")
+        }
+    }
+    if (contained.isNotEmpty()) {
+        manifest.attributes("ContainedDeps" to contained.joinToString(" ") { it.name })
     }
 }
 

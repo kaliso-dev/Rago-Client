@@ -23,13 +23,18 @@ public final class CpsHud extends TextHudElement {
 	}
 
 	@Override
-	protected String text(boolean placeholder) {
+	protected String label(boolean after) {
+		return after ? "CPS" : "CPS";
+	}
+
+	@Override
+	protected String value(boolean placeholder) {
 		long now = System.nanoTime();
 		int left = placeholder ? 9 : input.attackCps(now);
 		if (!showRight.get()) {
-			return left + " CPS";
+			return Integer.toString(left);
 		}
 		int right = placeholder ? 4 : input.useCps(now);
-		return left + " | " + right + " CPS";
+		return left + " | " + right;
 	}
 }

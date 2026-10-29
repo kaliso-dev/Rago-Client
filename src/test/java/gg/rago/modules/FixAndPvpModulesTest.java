@@ -1,5 +1,6 @@
 package gg.rago.modules;
 
+import gg.rago.config.ChoiceOption;
 import gg.rago.config.IntOption;
 import gg.rago.config.Option;
 import gg.rago.core.Module;
@@ -26,10 +27,11 @@ class FixAndPvpModulesTest {
 	Path dir;
 
 	private List<Module> modules() {
+		Nametags nametags = new Nametags();
 		return Arrays.asList(new NoHurtCam(), new OldAnimations(), new LowFire(), new NoPumpkin(), new NoWaterOverlay(),
 			new HideAchievements(), new F5Crosshair(), new WeatherChanger(), new TimeChanger(), new HitParticles(),
-			new BlockOverlay(), new TabPing(), new Chat(), new OwnNametag(), new LevelHead(new HypixelApi(dir), () -> false),
-			new ClockHud(), new MemoryHud(), new ScoreboardHud());
+			new BlockOverlay(), new TabPing(), new Chat(), nametags, new LevelHead(new HypixelApi(dir), nametags),
+			new ClockHud(), new MemoryHud(), new ScoreboardHud(), new GameplayFixes(), new HitColor());
 	}
 
 	/** Every new module has a name, a description and a label for each option, in both languages. */
@@ -106,5 +108,26 @@ class FixAndPvpModulesTest {
 		assertEquals(0xFF123456, BlockOverlay.withAlpha(0xFF123456, 100));
 		assertEquals(0x00123456, BlockOverlay.withAlpha(0xFF123456, 0) & 0xFFFFFFFF);
 		assertEquals(0x80, BlockOverlay.withAlpha(0xFFFFFFFF, 50) >>> 24);
+	}
+
+	/** Every value of every choice has a label of its own or a shared one, in both languages. */
+	@Test
+	void choicesHaveLabels() throws IOException {
+		for (String file : new String[] {"en_US", "fr_FR"}) {
+			Properties lang = new Properties();
+			try (InputStream in = getClass().getResourceAsStream("/assets/rago/lang/" + file + ".lang")) {
+				lang.load(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8));
+			}
+			for (Module m : modules()) {
+				for (Option<?> o : m.options()) {
+					if (o instanceof ChoiceOption) {
+						for (String id : ((ChoiceOption) o).ids()) {
+							assertTrue(lang.containsKey("rago.option." + o.key() + "." + id) || lang.containsKey("rago.choice." + id),
+								file + ": " + o.key() + "." + id);
+						}
+					}
+				}
+			}
+		}
 	}
 }

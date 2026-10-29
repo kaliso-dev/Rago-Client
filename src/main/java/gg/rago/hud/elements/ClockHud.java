@@ -20,7 +20,7 @@ public final class ClockHud extends TextHudElement {
 	}
 
 	@Override
-	protected String text(boolean placeholder) {
+	protected String value(boolean placeholder) {
 		return LocalTime.now().format(format.get() == 1 ? H12 : H24);
 	}
 }

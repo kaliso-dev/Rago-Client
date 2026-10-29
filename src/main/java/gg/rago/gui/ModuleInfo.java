@@ -13,7 +13,6 @@ final class ModuleInfo {
 		ICONS.put("fps", "gauge");
 		ICONS.put("frame_time", "timer");
 		ICONS.put("ping", "wifi");
-		ICONS.put("capture", "activity");
 		ICONS.put("cps", "mouse-pointer-click");
 		ICONS.put("coords", "map-pin");
 		ICONS.put("keystrokes", "keyboard");
@@ -39,7 +38,9 @@ final class ModuleInfo {
 		ICONS.put("hitboxes", "scan");
 		ICONS.put("tab_ping", "signal");
 		ICONS.put("chat", "message-square");
-		ICONS.put("own_nametag", "tag");
+		ICONS.put("nametags", "tag");
+		ICONS.put("gameplay_fixes", "check");
+		ICONS.put("hit_color", "palette");
 		ICONS.put("level_head", "star");
 		ICONS.put("scoreboard", "list-ordered");
 		ICONS.put("boss_bar", "skull");
