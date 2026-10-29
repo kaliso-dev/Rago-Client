@@ -53,6 +53,7 @@ import gg.rago.modules.BlockOverlay;
 import gg.rago.modules.ActionSounds;
 import gg.rago.modules.BedwarsStats;
 import gg.rago.modules.Chat;
+import gg.rago.modules.ClientFixes;
 import gg.rago.modules.ColorGrading;
 import gg.rago.modules.Cosmetics;
 import gg.rago.modules.CompetitiveProfile;
@@ -244,6 +245,7 @@ public final class RagoClient {
 		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());
 		OldAnimations animations = MODULES.register(new OldAnimations());
 		GameplayFixes fixes = MODULES.register(new GameplayFixes());
+		Hooks.clientFixes = MODULES.register(new ClientFixes());
 		HitColor hitColor = MODULES.register(new HitColor());
 		MODULES.register(new LowFire());
 		MODULES.register(new NoPumpkin());

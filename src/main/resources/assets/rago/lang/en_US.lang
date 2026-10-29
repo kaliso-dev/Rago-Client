@@ -933,3 +933,12 @@ rago.choice.modern_amethyst=Amethyst chime
 rago.option.pack_logo=Pack logo
 rago.option.pack_colors=Colours of the pack name
 rago.option.pack_colors.help=Keeps the colours the pack's author put in its name.
+
+# 1.4: client fixes
+rago.module.client_fixes=Client Fixes
+rago.module.client_fixes.desc=Fixes for 1.8 in the spirit of Patcher's: the inventory stays centred with potion effects, an optional parallax fix, and servers can no longer probe your files through a resource pack link.
+rago.option.inventory_position_fix=Centred inventory with potions
+rago.option.parallax_fix=Parallax fix
+rago.option.parallax_fix.help=Puts the first-person camera at your eyes instead of a tenth of a block in front, so the world no longer slides a little when you look around.
+rago.option.resource_pack_check=Check server resource packs
+rago.option.resource_pack_check.help=Refuses resource pack links a server could use to find out which files are on your computer (a known 1.8 flaw).

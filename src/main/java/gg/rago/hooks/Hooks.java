@@ -12,6 +12,7 @@ import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
 import gg.rago.modules.BedwarsStats;
+import gg.rago.modules.ClientFixes;
 import gg.rago.modules.RagoCape;
 import gg.rago.modules.SkinChanger;
 import gg.rago.modules.TabList;
@@ -61,6 +62,7 @@ public final class Hooks {
 	public static volatile RagoCape cape;
 	public static volatile SkinChanger skins;
 	public static volatile BedwarsStats bedwarsStats;
+	public static volatile ClientFixes clientFixes;
 	public static volatile GlintColor glint;
 
 	private Hooks() {
@@ -305,6 +307,18 @@ public final class Hooks {
 		Chat c = chat;
 		boolean shadow = c == null || !c.isEnabled() || c.textShadow();
 		return font.drawString(text, x, y, color, shadow);
+	}
+
+	/** EntityRenderer.orientCamera: the first-person camera offset (parallax fix). */
+	public static float cameraOffset(float vanilla) {
+		ClientFixes f = clientFixes;
+		return f != null && f.isEnabled() ? f.cameraOffset(vanilla) : vanilla;
+	}
+
+	/** S48PacketResourcePackSend.getURL: unsafe server pack links become a pack that does not exist. */
+	public static String resourcePackUrl(String url) {
+		ClientFixes f = clientFixes;
+		return f != null && f.isEnabled() ? f.resourcePackUrl(url) : url;
 	}
 
 	/** GuiPlayerTabOverlay.getPlayerName: Bed Wars star and ratio around the name. */

@@ -933,3 +933,12 @@ rago.choice.modern_amethyst=Carillon d'améthyste
 rago.option.pack_logo=Logo du pack
 rago.option.pack_colors=Couleurs du nom du pack
 rago.option.pack_colors.help=Garde les couleurs que l'auteur du pack a mises dans son nom.
+
+# 1.4: client fixes
+rago.module.client_fixes=Correctifs du client
+rago.module.client_fixes.desc=Des correctifs pour la 1.8 dans l'esprit de Patcher : l'inventaire reste centré avec des effets de potion, un parallax fix en option, et les serveurs ne peuvent plus fouiller tes fichiers avec un lien de pack de ressources.
+rago.option.inventory_position_fix=Inventaire centré avec les potions
+rago.option.parallax_fix=Parallax fix
+rago.option.parallax_fix.help=Place la caméra à la première personne au niveau de tes yeux au lieu d'un dixième de bloc devant, pour que le monde ne glisse plus un peu quand tu regardes autour.
+rago.option.resource_pack_check=Vérifier les packs des serveurs
+rago.option.resource_pack_check.help=Refuse les liens de pack de ressources qu'un serveur pourrait utiliser pour savoir quels fichiers sont sur ton ordinateur (une faille connue de la 1.8).

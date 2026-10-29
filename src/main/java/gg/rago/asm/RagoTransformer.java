@@ -86,6 +86,22 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return false;
 			}));
+		add("net.minecraft.client.renderer.EntityRenderer", new Patch("parallax fix",
+			"func_78467_g", "orientCamera", "(F)V",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn instanceof LdcInsnNode && Float.valueOf(-0.1f).equals(((LdcInsnNode) insn).cst)) {
+						m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "cameraOffset", "(F)F", false));
+						found = true;
+					}
+				}
+				return found;
+			}));
+		add("net.minecraft.network.play.server.S48PacketResourcePackSend", new Patch("server resource pack check",
+			"func_179783_a", "getURL", "()Ljava/lang/String;",
+			m -> beforeReturns(m, Opcodes.ARETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "resourcePackUrl",
+				"(Ljava/lang/String;)Ljava/lang/String;", false))));
 		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("1.7 armour damage tint",
 			"func_177142_b", "shouldCombineTextures", "()Z",
 			m -> beforeReturns(m, Opcodes.IRETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "armorDamageTint", "(Z)Z", false))));
