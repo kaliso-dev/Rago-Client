@@ -7,66 +7,92 @@ import gg.rago.config.Option;
 import gg.rago.core.Category;
 import gg.rago.core.Module;
 import gg.rago.core.RagoClient;
+import gg.rago.gui.ui.Anim;
 import gg.rago.gui.ui.Ui;
 import gg.rago.gui.ui.Widgets;
 import gg.rago.hud.HudElement;
 import gg.rago.hud.HudPosition;
-import gg.rago.perf.FrameStats;
+import gg.rago.optimize.OptiFineFields;
+import gg.rago.profile.ModProfiles;
+import gg.rago.settings.Button;
+import gg.rago.settings.Choice;
+import gg.rago.settings.Setting;
+import gg.rago.settings.Slider;
+import gg.rago.settings.Toggle;
+import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.util.ChatAllowedCharacters;
+import net.minecraft.util.ResourceLocation;
+import org.lwjgl.Sys;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
- * The Rago mods menu (Right Shift, or Mods on the home screen), after the design mock-up:
- * categories on the left, mods as cards in the middle, the selected mod's settings with a live
- * preview on the right. Typing anywhere searches.
+ * The Rago window (Right Shift): a Mods tab with profiles and mod cards, and a Settings tab with
+ * General, Performance and Controls pages. Typing anywhere searches the current tab.
  */
 public final class RagoMenuScreen extends GuiScreen {
 	private static final int[] SWATCHES = {0xFFF2392C, 0xFFFFFFFF, 0xFF34D399, 0xFF60A5FA, 0xFFFACC15};
-	private static final float CARD_H = 158;
-	private static final float GAP = 16;
-	private static final float ROW_H = 54;
+	private static final String OPTIFINE_URL = "https://optifine.net/downloads";
 
-	private enum Filter { ALL, ON, OFF }
+	private enum Tab { MODS, SETTINGS }
+
+	private enum Chip {
+		ALL(null), ON(null), HUD(Category.HUD), PVP(Category.PVP), VISUAL(Category.VISUAL), PERFORMANCE(Category.PERFORMANCE);
+
+		final Category category;
+
+		Chip(Category category) {
+			this.category = category;
+		}
+	}
 
 	private final GuiScreen parent;
-	private Category category;           // null = all
-	private Filter filter = Filter.ALL;
-	private Module selected;
+	private Tab tab = Tab.MODS;
+	private Setting.Tab page = Setting.Tab.GENERAL;
+	private Chip chip = Chip.ALL;
+	private Module module;
 	private String query = "";
-	private float scroll;
-	private float settingsScroll;
-	private boolean confirmReset;
-	private Slider dragging;
+	private final Map<String, Float> scrolls = new LinkedHashMap<>();
+	private boolean fourColumns;
+	private boolean sortByName;
+	private String renaming;
+	private String renameText = "";
+	private KeyBinding binding;
+	private SliderDrag dragging;
+	private String tooltip;
+	private long openedNs;
+	private long closingNs;
+	private long contentNs;
+	private boolean blurOn;
 
-	// Layout of the last frame, used for scrolling
-	private float gridX;
-	private float gridY;
-	private float gridW;
-	private float gridH;
-	private float gridContentH;
-	private float setX;
-	private float setY;
-	private float setW;
-	private float setH;
-	private float setContentH;
+	// layout of the last frame, for the mouse wheel
+	private float bodyX;
+	private float bodyY;
+	private float bodyW;
+	private float bodyH;
+	private float contentH;
 
-	/** A slider registered while drawing; dragging it calls {@code set} with 0..1. */
-	private static final class Slider {
+	private static final class SliderDrag {
 		final float x;
 		final float w;
 		final Consumer<Float> set;
 
-		Slider(float x, float w, Consumer<Float> set) {
+		SliderDrag(float x, float w, Consumer<Float> set) {
 			this.x = x;
 			this.w = w;
 			this.set = set;
@@ -75,11 +101,34 @@ public final class RagoMenuScreen extends GuiScreen {
 
 	public RagoMenuScreen(GuiScreen parent) {
 		this.parent = parent;
-		this.selected = RagoClient.modules().get("keystrokes").orElse(null);
+	}
+
+	/** Opens the window on the Settings tab. */
+	public static RagoMenuScreen settings(GuiScreen parent) {
+		RagoMenuScreen s = new RagoMenuScreen(parent);
+		s.tab = Tab.SETTINGS;
+		return s;
 	}
 
 	private static String t(String key, Object... args) {
 		return I18n.format(key, args);
+	}
+
+	private static boolean has(String key) {
+		return !I18n.format(key).equals(key);
+	}
+
+	@Override
+	public void initGui() {
+		if (openedNs == 0) {
+			openedNs = System.nanoTime();
+			contentNs = openedNs;
+		}
+		Keyboard.enableRepeatEvents(true);
+		if (mc.theWorld != null && RagoClient.menuBlur() && OpenGlHelper.shadersSupported && !mc.entityRenderer.isShaderActive()) {
+			mc.entityRenderer.loadShader(new ResourceLocation("shaders/post/blur.json"));
+			blurOn = true;
+		}
 	}
 
 	@Override
@@ -87,47 +136,39 @@ public final class RagoMenuScreen extends GuiScreen {
 		return false;
 	}
 
-	// ---- data -----------------------------------------------------------------------------------
-
-	private List<Module> inCategory() {
-		List<Module> list = new ArrayList<>();
-		for (Module m : RagoClient.modules().all()) {
-			if (category == null || m.category() == category) {
-				list.add(m);
-			}
-		}
-		return list;
+	private String scrollKey() {
+		return tab == Tab.MODS ? (module != null ? "module:" + module.id() : "mods") : "settings:" + page;
 	}
 
-	private List<Module> visible() {
-		String q = query.trim().toLowerCase(Locale.ROOT);
-		List<Module> list = new ArrayList<>();
-		for (Module m : inCategory()) {
-			if (filter == Filter.ON && !m.isEnabled() || filter == Filter.OFF && m.isEnabled()) {
-				continue;
-			}
-			if (!q.isEmpty() && !I18n.format(m.nameKey()).toLowerCase(Locale.ROOT).contains(q)
-				&& !I18n.format(ModuleInfo.descKey(m)).toLowerCase(Locale.ROOT).contains(q)) {
-				continue;
-			}
-			list.add(m);
-		}
-		return list;
+	private float scroll() {
+		Float v = scrolls.get(scrollKey());
+		return v == null ? 0 : v;
 	}
 
-	private static int countOn(List<Module> modules) {
-		int n = 0;
-		for (Module m : modules) {
-			n += m.isEnabled() ? 1 : 0;
-		}
-		return n;
+	private void switchContent(Runnable change) {
+		change.run();
+		contentNs = System.nanoTime();
 	}
 
-	// ---- drawing --------------------------------------------------------------------------------
+	private void close() {
+		if (closingNs == 0) {
+			closingNs = System.nanoTime();
+			if (!Anim.enabled()) {
+				finishClose();
+			}
+		}
+	}
+
+	private void finishClose() {
+		mc.displayGuiScreen(parent);
+	}
+
+	// ---- frame ----------------------------------------------------------------------------------
 
 	@Override
 	public void drawScreen(int mouseX, int mouseY, float partialTicks) {
 		Ui.begin();
+		tooltip = null;
 		if (dragging != null) {
 			if (Mouse.isButtonDown(0)) {
 				dragging.set.accept(Math.max(0f, Math.min(1f, (Ui.mouseX() - dragging.x) / dragging.w)));
@@ -137,331 +178,470 @@ public final class RagoMenuScreen extends GuiScreen {
 		}
 		float w = Ui.width();
 		float h = Ui.height();
-		if (mc.theWorld == null) {
-			Ui.rect(0, 0, w, h, Theme.BG);
-			Ui.glow(w * 0.2f, h, 640, Ui.alpha(0xFF5A0E0A, 0.35f));
-			Ui.glow(w * 0.85f, 0, 520, Ui.alpha(0xFF5A0E0A, 0.25f));
-		} else {
-			Ui.rect(0, 0, w, h, 0x99000000);
-		}
-
-		FrameStats s = RagoClient.frames().stats();
-		int ping = RagoClient.ping().latest();
-		String top = (s == FrameStats.EMPTY ? "--" : String.format(Locale.ROOT, "%.0f", s.avgFps)) + " FPS"
-			+ (ping >= 0 ? " · " + ping + " ms" : "");
-		Ui.text(Ui.MONO, top, 28, 20, 12, Theme.MUTED);
-
-		float pw = Math.min(w - 48, 1240);
-		float ph = Math.min(h - 70, 680);
-		float px = (w - pw) / 2;
-		float py = (h - ph) / 2 + 12;
-		Ui.roundBorder(px, py, pw, ph, 24, Theme.PANEL, Theme.BORDER_STRONG);
-
-		float sw = pw >= 1000 ? 236 : 196;
-		float rw = pw >= 1080 ? 340 : 0;
-		Ui.rect(px + sw, py + 1, 1 / Ui.scale(), ph - 2, Theme.BORDER);
-		if (rw > 0) {
-			Ui.rect(px + pw - rw, py + 1, 1 / Ui.scale(), ph - 2, Theme.BORDER);
-		}
-		sidebar(px, py, sw, ph);
-		if (rw == 0 && selected != null && showSettingsOnly) {
-			settings(px + sw, py, pw - sw, ph);
-		} else {
-			main(px + sw, py, pw - sw - rw, ph);
-			if (rw > 0) {
-				settings(px + pw - rw, py, rw, ph);
+		float p = Anim.progress(openedNs, 240);
+		if (closingNs != 0) {
+			float c = Anim.progress(closingNs, 150);
+			p = Math.min(p, 1 - c);
+			if (c >= 1) {
+				Ui.end();
+				finishClose();
+				return;
 			}
+		}
+		if (mc.theWorld == null) {
+			Ui.backdrop(0.62f);
+		} else {
+			Ui.rect(0, 0, w, h, Ui.alpha(0xFF000000, 0.35f * p));
+		}
+
+		float ww = Math.min(w - 24, Math.max(680, Math.min(820, w - 80)));
+		float wh = Math.min(h - 40, 500);
+		float x = (w - ww) / 2;
+		float y = (h - wh) / 2;
+		Ui.opacity(p);
+		if (p < 1) {
+			Ui.pushTransform(w / 2, h / 2, 0.955f + 0.045f * p, 0, (1 - p) * 10);
+		}
+		Ui.roundBorder(x, y, ww, wh, 14, 0xF50E0D10, 0x22FFFFFF);
+		header(x, y, ww);
+		Ui.rect(x + 1, y + 46, ww - 2, 1 / Ui.scale(), 0x14FFFFFF);
+		float c = Anim.progress(contentNs, 200);
+		Ui.opacity(p * c);
+		if (tab == Tab.MODS) {
+			modsTab(x, y + 47, ww, wh - 47, c);
+		} else {
+			settingsTab(x, y + 47, ww, wh - 47, c);
+		}
+		Ui.opacity(p);
+		Ui.popTransform();
+		if (tooltip != null && closingNs == 0) {
+			drawTooltip(tooltip, w);
 		}
 		Ui.end();
 	}
 
-	/** On narrow windows the settings replace the grid until Esc or Back. */
-	private boolean showSettingsOnly;
+	private void header(float x, float y, float w) {
+		Ui.logo(x + 18, y + 14, 18, Theme.ACCENT);
+		float ts = 14;
+		float rw = Ui.text(Ui.SEMIBOLD, "Rago ", x + 44, y + 14, ts, Theme.TEXT);
+		Ui.text(Ui.REGULAR, "Client", x + 44 + rw, y + 14, ts, 0xFFB4B2B9);
+
+		String[] labels = {t("rago.menu.tab.mods"), t("rago.menu.tab.settings")};
+		Tab[] tabs = {Tab.MODS, Tab.SETTINGS};
+		float pw = 92;
+		float gap = 10;
+		float px = x + w / 2 - (pw * 2 + gap) / 2;
+		for (int i = 0; i < 2; i++) {
+			Tab target = tabs[i];
+			boolean active = tab == target;
+			float hv = Widgets.hoverAmount("tab:" + i, px, y + 11, pw, 24);
+			int fill = active ? 0x30FFFFFF : Ui.mix(0x00FFFFFF, 0x12FFFFFF, hv);
+			Ui.roundBorder(px, y + 11, pw, 24, 12, fill, active ? 0x40FFFFFF : 0x22FFFFFF);
+			Ui.textCentered(Ui.MEDIUM, labels[i], px + pw / 2, y + 11 + (24 - 10.5f * 1.21f) / 2, 10.5f, active ? Theme.TEXT : 0xFFC4C2CA);
+			Ui.click(px, y + 11, pw, 24, () -> {
+				if (tab != target) {
+					switchContent(() -> {
+						tab = target;
+						query = "";
+					});
+				}
+			});
+			px += pw + gap;
+		}
+
+		float cs = 24;
+		float cx = x + w - 14 - cs;
+		float hv = Widgets.hoverAmount("close", cx, y + 11, cs, cs);
+		Ui.roundBorder(cx, y + 11, cs, cs, cs / 2, Ui.mix(0x00FFFFFF, 0x1AFFFFFF, hv), 0x26FFFFFF);
+		Ui.icon("x", cx + 6, y + 17, 12, Ui.mix(0xFFB4B2B9, Theme.TEXT, hv));
+		Ui.click(cx, y + 11, cs, cs, this::close);
+	}
+
+	// ---- Mods tab -------------------------------------------------------------------------------
+
+	private void modsTab(float x, float y, float w, float h, float c) {
+		float sw = 168;
+		sidebar(x + 10, y + 10, sw, h - 20);
+		float mx = x + 10 + sw + 12;
+		float mw = x + w - 12 - mx;
+		if (module != null) {
+			modulePage(module, mx, y + 10, mw, h - 20, c);
+		} else {
+			chips(mx, y + 10, mw);
+			grid(mx, y + 42 + (1 - c) * 6, mw, h - 52);
+		}
+	}
 
 	private void sidebar(float x, float y, float w, float h) {
-		Ui.logo(x + 26, y + 26, 22, Theme.ACCENT);
-		float tx = x + 58;
-		tx += Ui.text(Ui.BOLD, "Rago", tx, y + 26, 17, Theme.TEXT);
-		Ui.text(Ui.REGULAR, " Client", tx, y + 26, 17, 0xFFD4D4D8);
-
-		float ry = y + 76;
-		String[] icons = {"layout-grid", "monitor", "swords", "eye", "zap"};
-		for (int i = -1; i < Category.values().length; i++) {
-			Category c = i < 0 ? null : Category.values()[i];
-			String label = c == null ? t("rago.menu.all_mods") : t(c.key());
-			int count = 0;
+		ModProfiles profiles = RagoClient.profiles();
+		Ui.textSpaced(Ui.MONO, t("rago.menu.profiles"), x + 4, y + 2, 8, 1.6f, 0xFF7C7A82);
+		float ry = y + 18;
+		for (String name : profiles.names()) {
+			profileRow(profiles, name, x, ry, w);
+			ry += 27;
+		}
+		float boxY = ry + 4;
+		float boxH = y + h - 72 - boxY;
+		if (boxH > 40) {
+			Ui.roundBorder(x, boxY, w, boxH, 8, 0x66000000, 0x12FFFFFF);
+			int on = 0;
 			for (Module m : RagoClient.modules().all()) {
-				count += c == null || m.category() == c ? 1 : 0;
+				if (m.isEnabled()) {
+					on++;
+				}
 			}
-			boolean active = c == category;
-			boolean hover = Ui.hover(x + 14, ry, w - 28, 40);
-			if (active || hover) {
-				Ui.round(x + 14, ry, w - 28, 40, 12, active ? 0xFF1F1E22 : 0xFF19181B);
+			float ty = boxY + 12;
+			Ui.text(Ui.MEDIUM, t("rago.menu.profile_active", profiles.active()), x + 12, ty, 9.5f, Theme.TEXT);
+			ty += 15;
+			Ui.text(Ui.REGULAR, t("rago.menu.mods_enabled", on, RagoClient.modules().all().size()), x + 12, ty, 9, Theme.MUTED);
+			ty += 18;
+			if (boxY + boxH - ty > 30) {
+				for (String line : Ui.wrap(Ui.REGULAR, t("rago.menu.profile_hint"), 8.5f, w - 24)) {
+					if (ty > boxY + boxH - 14) {
+						break;
+					}
+					Ui.text(Ui.REGULAR, line, x + 12, ty, 8.5f, 0xFF7C7A82);
+					ty += 12;
+				}
 			}
-			int color = active ? Theme.TEXT : 0xFFB4B2BA;
-			Ui.icon(icons[i + 1], x + 28, ry + 12, 16, active ? Theme.ACCENT : color);
-			Ui.text(active ? Ui.SEMIBOLD : Ui.MEDIUM, label, x + 54, ry + 11, 14, color);
-			Ui.textRight(Ui.MONO, Integer.toString(count), x + w - 28, ry + 12, 12, Theme.DIM);
-			Category target = c;
-			Ui.click(x + 14, ry, w - 28, 40, () -> {
-				category = target;
-				scroll = 0;
-			});
-			ry += 44;
 		}
+		float by = y + h - 62;
+		float hv = Widgets.hoverAmount("saveprofile", x + 8, by, w - 16, 22);
+		Ui.roundBorder(x + 8, by, w - 16, 22, 11, Ui.mix(0x00FFFFFF, 0x14FFFFFF, hv), 0x2EFFFFFF);
+		Ui.textCentered(Ui.MEDIUM, t("rago.menu.save_profile"), x + w / 2, by + (22 - 9.5f * 1.21f) / 2, 9.5f, Theme.TEXT);
+		Ui.click(x + 8, by, w - 16, 22, () -> {
+			String name = profiles.saveAsNew(RagoClient.modules());
+			renaming = name;
+			renameText = name;
+		});
+		Ui.rect(x, by + 30, w, 1 / Ui.scale(), 0x14FFFFFF);
+		float eh = 24;
+		float ey = y + h - eh;
+		hv = Widgets.hoverAmount("edithud", x + 4, ey, w - 8, eh);
+		Ui.round(x + 4, ey, w - 8, eh, eh / 2, Ui.mix(Theme.ACCENT, Theme.ACCENT_HOVER, hv));
+		Ui.textCentered(Ui.SEMIBOLD, t("rago.menu.edit_layout"), x + w / 2, ey + (eh - 10 * 1.21f) / 2, 10, 0xFF1A0605);
+		Ui.click(x + 4, ey, w - 8, eh, () -> mc.displayGuiScreen(new HudEditorScreen(this)));
+	}
 
-		ry += 18;
-		Ui.textSpaced(Ui.MONO, t("rago.menu.profiles"), x + 28, ry, 10.5f, 2, Theme.DIM);
-		ry += 22;
-		Module profile = RagoClient.competitiveProfile();
-		if (profile != null) {
-			boolean hover = Ui.hover(x + 14, ry, w - 28, 38);
-			if (hover) {
-				Ui.round(x + 14, ry, w - 28, 38, 12, 0xFF19181B);
-			}
-			Ui.circle(x + 32, ry + 19, 3.5f, profile.isEnabled() ? Theme.ACCENT : Theme.DIM);
-			Ui.text(Ui.MEDIUM, t(profile.nameKey()), x + 46, ry + 10, 14, profile.isEnabled() ? Theme.TEXT : 0xFFB4B2BA);
-			Ui.click(x + 14, ry, w - 28, 38, () -> profile.setEnabled(!profile.isEnabled()));
-		}
-
-		float by = y + h - 104;
-		Ui.roundBorder(x + 14, by, w - 28, 88, 14, 0xFF141316, Theme.BORDER);
-		List<Module> all = RagoClient.modules().all();
-		Ui.textSpaced(Ui.MONO, t("rago.menu.status", countOn(all), all.size()), x + 28, by + 16, 10.5f, 1.5f, Theme.MUTED);
-		float ly = by + 38;
-		for (String line : Ui.wrap(Ui.REGULAR, t("rago.menu.autosave"), 12, w - 60)) {
-			Ui.text(Ui.REGULAR, line, x + 28, ly, 12, 0xFFB4B2BA);
-			ly += 16;
+	private void profileRow(ModProfiles profiles, String name, float x, float y, float w) {
+		boolean active = name.equals(profiles.active());
+		float rh = 23;
+		float hv = Widgets.hoverAmount("profile:" + name, x, y, w, rh);
+		int fill = active ? 0x26FFFFFF : Ui.mix(0x0AFFFFFF, 0x16FFFFFF, hv);
+		Ui.roundBorder(x, y, w, rh, 6, fill, active ? 0x33FFFFFF : 0x12FFFFFF);
+		Ui.icon(profiles.icon(name), x + 9, y + 6, 11, active ? Theme.ACCENT : 0xFF9A98A0);
+		boolean editing = name.equals(renaming);
+		String label = editing ? renameText + ((System.currentTimeMillis() / 500) % 2 == 0 ? "|" : "") : name;
+		Ui.text(Ui.MEDIUM, label, x + 27, y + (rh - 10 * 1.21f) / 2, 10, editing ? Theme.ACCENT : Theme.TEXT);
+		Ui.click(x, y, w, rh, () -> {
+			renaming = null;
+			profiles.switchTo(name, RagoClient.modules());
+		});
+		float ix = x + w - 18;
+		Ui.icon("pencil", ix, y + 6.5f, 10, hv > 0.5f || editing ? 0xFFD4D2D9 : 0xFF6B6970);
+		Ui.click(ix - 4, y, 18, rh, () -> {
+			renaming = name;
+			renameText = name;
+		});
+		if (hv > 0.5f && profiles.names().size() > 1 && !editing) {
+			ix -= 16;
+			Ui.icon("trash-2", ix, y + 6.5f, 10, 0xFF9A98A0);
+			Ui.click(ix - 3, y, 15, rh, () -> profiles.delete(name, RagoClient.modules()));
 		}
 	}
 
-	private void main(float x, float y, float w, float h) {
-		float cx = x + 28;
-		float cw = w - 56;
-		Ui.textSpaced(Ui.MONO, t("rago.menu.mods"), cx, y + 28, 10.5f, 2, Theme.DIM);
-		String title = category == null ? t("rago.menu.all_mods") : t(category.key());
-		float tw = Ui.text(Ui.BOLD, title, cx, y + 44, 30, Theme.TEXT);
-		Ui.text(Ui.MONO, t("rago.menu.on_count", countOn(inCategory())), cx + tw + 12, y + 60, 13, Theme.MUTED);
-
-		// Header buttons, right-aligned: search, reset, edit HUD
-		float bx = cx + cw;
-		float by = y + 38;
-		float ew = Ui.textWidth(Ui.SEMIBOLD, t("rago.menu.edit_layout"), 14) + 62;
-		bx -= ew;
-		Widgets.button(bx, by, ew, 44, "move", t("rago.menu.edit_layout"), true, 14);
-		Ui.click(bx, by, ew, 44, () -> mc.displayGuiScreen(new HudEditorScreen(this)));
-		String resetLabel = confirmReset ? t("rago.menu.reset_confirm") : t("rago.menu.reset");
-		float rw = Ui.textWidth(Ui.SEMIBOLD, resetLabel, 14) + 40;
-		bx -= rw + 10;
-		boolean rh = Ui.hover(bx, by, rw, 44);
-		Ui.roundBorder(bx, by, rw, 44, 22, confirmReset ? 0x40F2392C : rh ? 0xFF222126 : 0xFF19181C, Theme.BORDER_STRONG);
-		Ui.textCentered(Ui.SEMIBOLD, resetLabel, bx + rw / 2, by + 13, 14, confirmReset ? Theme.ACCENT : Theme.TEXT);
-		Ui.click(bx, by, rw, 44, () -> {
-			if (confirmReset) {
-				for (Module m : RagoClient.modules().all()) {
-					m.reset();
-				}
-				confirmReset = false;
+	private void chips(float x, float y, float w) {
+		float cx = x;
+		for (Chip ch : Chip.values()) {
+			String label = t("rago.menu.chip." + ch.name().toLowerCase(Locale.ROOT));
+			float cw = Ui.textWidth(Ui.MEDIUM, label, 9.5f) + 24;
+			boolean active = chip == ch;
+			float hv = Widgets.hoverAmount("chip:" + ch, cx, y, cw, 22);
+			int fill;
+			int border;
+			int text;
+			if (active && ch == Chip.ON) {
+				fill = 0x3334D399;
+				border = 0x6634D399;
+				text = Theme.GREEN;
+			} else if (active) {
+				fill = Theme.ACCENT;
+				border = Theme.ACCENT;
+				text = 0xFFFFFFFF;
 			} else {
-				confirmReset = true;
+				fill = Ui.mix(0x0FFFFFFF, 0x1CFFFFFF, hv);
+				border = 0x1FFFFFFF;
+				text = ch == Chip.ON ? Theme.GREEN : 0xFFC4C2CA;
 			}
-		});
-		// Filter chips
-		float fy = y + 104;
-		float fx = cx;
-		List<Module> cat = inCategory();
-		int on = countOn(cat);
-		fx = chip(fx, fy, t("rago.menu.filter_all"), cat.size(), Filter.ALL);
-		fx = chip(fx, fy, t("rago.menu.filter_on"), on, Filter.ON);
-		fx = chip(fx, fy, t("rago.menu.filter_off"), cat.size() - on, Filter.OFF);
-		searchField(Math.max(fx + 12, cx + cw - 280), fy - 4, Math.min(280, cx + cw - fx - 12));
-
-		// Grid
-		gridX = cx;
-		gridY = y + 152;
-		gridW = cw;
-		gridH = y + h - 18 - gridY;
-		List<Module> modules = visible();
-		int cols = Math.max(1, (int) ((cw + GAP) / (250 + GAP)));
-		float cardW = (cw - (cols - 1) * GAP) / cols;
-		int rows = (modules.size() + cols - 1) / cols;
-		gridContentH = rows * (CARD_H + GAP) - GAP;
-		scroll = Math.max(0, Math.min(Math.max(0, gridContentH - gridH), scroll));
-		if (modules.isEmpty()) {
-			Ui.textCentered(Ui.REGULAR, t("rago.menu.no_results"), cx + cw / 2, gridY + 40, 14, Theme.MUTED);
+			Ui.roundBorder(cx, y, cw, 22, 11, fill, border);
+			Ui.textCentered(Ui.MEDIUM, label, cx + cw / 2, y + (22 - 9.5f * 1.21f) / 2, 9.5f, text);
+			Ui.click(cx, y, cw, 22, () -> {
+				chip = ch;
+				scrolls.remove("mods");
+			});
+			cx += cw + 6;
 		}
-		Ui.scissor(cx - 4, gridY - 4, cw + 8, gridH + 8);
-		for (int i = 0; i < modules.size(); i++) {
-			float x0 = cx + (i % cols) * (cardW + GAP);
-			float y0 = gridY + (i / cols) * (CARD_H + GAP) - scroll;
-			if (y0 + CARD_H < gridY - 4 || y0 > gridY + gridH + 4) {
+		float sw = Math.max(110, Math.min(170, x + w - cx - 58));
+		float sx = x + w - sw;
+		searchField(sx, y, sw);
+		float ix = sx - 50;
+		iconToggle("grid-3x3", ix, y, fourColumns, () -> fourColumns = !fourColumns);
+		iconToggle("arrow-up-down", ix + 24, y, sortByName, () -> sortByName = !sortByName);
+	}
+
+	private void iconToggle(String icon, float x, float y, boolean on, Runnable action) {
+		float hv = Widgets.hoverAmount("it:" + icon, x, y, 22, 22);
+		Ui.icon(icon, x + 4, y + 4, 14, on ? Theme.ACCENT : Ui.mix(0xFF9A98A0, Theme.TEXT, hv));
+		Ui.click(x, y, 22, 22, action);
+	}
+
+	private void searchField(float x, float y, float w) {
+		boolean focused = !query.isEmpty();
+		Ui.roundBorder(x, y, w, 22, 11, 0xFF141316, focused ? 0x55F2392C : 0x1FFFFFFF);
+		Ui.icon("search", x + 9, y + 5.5f, 11, 0xFF8A888F);
+		String shown = query.isEmpty() ? t(tab == Tab.MODS ? "rago.menu.search_mods" : "rago.menu.search_settings") : query;
+		Ui.text(Ui.REGULAR, shown, x + 26, y + (22 - 9.5f * 1.21f) / 2, 9.5f, query.isEmpty() ? 0xFF7C7A82 : Theme.TEXT);
+		if (!query.isEmpty()) {
+			Ui.icon("x", x + w - 18, y + 6, 10, 0xFF9A98A0);
+			Ui.click(x + w - 22, y, 22, 22, () -> query = "");
+		}
+	}
+
+	private List<Module> visibleModules() {
+		String q = query.trim().toLowerCase(Locale.ROOT);
+		List<Module> list = new ArrayList<>();
+		for (Module m : RagoClient.modules().all()) {
+			if (chip == Chip.ON && !m.isEnabled() || chip.category != null && m.category() != chip.category) {
 				continue;
 			}
-			card(modules.get(i), x0, y0, cardW, Ui.hover(cx, gridY, cw, gridH));
+			if (!q.isEmpty() && !t(m.nameKey()).toLowerCase(Locale.ROOT).contains(q)
+				&& !t(ModuleInfo.descKey(m)).toLowerCase(Locale.ROOT).contains(q)) {
+				continue;
+			}
+			list.add(m);
+		}
+		if (sortByName) {
+			list.sort(Comparator.comparing(m -> t(m.nameKey()).toLowerCase(Locale.ROOT)));
+		}
+		return list;
+	}
+
+	private void grid(float x, float y, float w, float h) {
+		List<Module> mods = visibleModules();
+		int cols = fourColumns ? 4 : 3;
+		float gap = 10;
+		float cw = (w - 8 - gap * (cols - 1)) / cols;
+		float ch = fourColumns ? 136 : 152;
+		int rows = (mods.size() + cols - 1) / cols;
+		float total = rows * (ch + gap) - gap;
+		setBody(x, y, w, h, total);
+		float sc = scroll();
+		Ui.scissor(x - 2, y, w + 4, h);
+		boolean inside = true;
+		for (int i = 0; i < mods.size(); i++) {
+			float cx = x + (i % cols) * (cw + gap);
+			float cy = y + (i / cols) * (ch + gap) - sc;
+			if (cy + ch < y || cy > y + h) {
+				continue;
+			}
+			card(mods.get(i), cx, cy, cw, ch, inside);
+		}
+		if (mods.isEmpty()) {
+			Ui.textCentered(Ui.REGULAR, t("rago.menu.no_results"), x + w / 2, y + 40, 11, Theme.MUTED);
 		}
 		Ui.endScissor();
-		if (gridContentH > gridH) {
-			float bar = gridH * gridH / gridContentH;
-			float pos = (gridH - bar) * scroll / (gridContentH - gridH);
-			Ui.round(cx + cw + 10, gridY + pos, 3, bar, 1.5f, 0x33FFFFFF);
+		scrollbar(x + w - 3, y, h, total, sc);
+	}
+
+	private void card(Module m, float x, float y, float w, float h, boolean inside) {
+		float topH = h - 58;
+		float hv = Widgets.hoverAmount("card:" + m.id(), x, y, w, topH);
+		float on = Anim.to("cardon:" + m.id(), m.isEnabled() ? 1 : 0, 160);
+		float lift = hv * 2;
+		Ui.roundBorder(x, y - lift, w, topH, 8, Ui.mix(0xFF141316, 0xFF1A191D, hv), Ui.mix(0x14FFFFFF, 0x26FFFFFF, hv));
+		float is = fourColumns ? 26 : 30;
+		int iconColor = Ui.mix(0xFF8A888F, Theme.ACCENT, on);
+		Ui.icon(ModuleInfo.icon(m), x + (w - is) / 2, y - lift + topH / 2 - is / 2 - 10, is, iconColor);
+		String name = fit(Ui.REGULAR, t(m.nameKey()), fourColumns ? 11.5f : 13, w - 12);
+		Ui.textCentered(Ui.REGULAR, name, x + w / 2, y - lift + topH / 2 + 14, fourColumns ? 11.5f : 13, Ui.mix(0xFFB4B2B9, Theme.TEXT, on));
+		if (inside) {
+			Ui.click(x, y, w, topH, () -> m.setEnabled(!m.isEnabled()));
+		}
+
+		float oy = y + topH + 4;
+		float bw = w - 28;
+		float oh = Widgets.hoverAmount("opt:" + m.id(), x, oy, bw, 24);
+		Ui.roundBorder(x, oy, bw, 24, 5, Ui.mix(0xFF151417, 0xFF1D1C20, oh), 0x14FFFFFF);
+		Ui.textCentered(Ui.REGULAR, t("rago.menu.options"), x + bw / 2, oy + (24 - 9.5f * 1.21f) / 2, 9.5f, 0xFFC4C2CA);
+		float sh = Widgets.hoverAmount("optico:" + m.id(), x + w - 24, oy, 24, 24);
+		Ui.roundBorder(x + w - 24, oy, 24, 24, 5, Ui.mix(0xFF151417, 0xFF1D1C20, sh), 0x14FFFFFF);
+		Ui.icon("sliders-horizontal", x + w - 18, oy + 6, 12, 0xFFB4B2B9);
+		if (inside) {
+			Runnable open = () -> switchContent(() -> module = m);
+			Ui.click(x, oy, bw, 24, open);
+			Ui.click(x + w - 24, oy, 24, 24, open);
+		}
+
+		float ey = oy + 28;
+		float eh = Widgets.hoverAmount("en:" + m.id(), x, ey, w, 24);
+		int fill = Ui.mix(Ui.mix(0xFF1D1C20, 0xFF26252A, eh), Ui.mix(Theme.ACCENT, Theme.ACCENT_HOVER, eh), on);
+		Ui.round(x, ey, w, 24, 5, fill);
+		String label = t(m.isEnabled() ? "rago.menu.enabled" : "rago.menu.disabled");
+		Ui.textCentered(Ui.MEDIUM, label, x + w / 2, ey + (24 - 9.5f * 1.21f) / 2, 9.5f, Ui.mix(0xFF9A98A0, 0xFFFFFFFF, on));
+		if (inside) {
+			Ui.click(x, ey, w, 24, () -> m.setEnabled(!m.isEnabled()));
 		}
 	}
 
-	/** Search box; it is always focused, so typing anywhere in the menu searches. */
-	private void searchField(float x, float y, float w) {
-		if (w < 120) {
-			return;
+	private static String fit(gg.rago.gui.ui.TtfFont font, String s, float size, float max) {
+		if (Ui.textWidth(font, s, size) <= max) {
+			return s;
 		}
-		float h = 40;
-		Ui.roundBorder(x, y, w, h, 14, Theme.FIELD, Theme.BORDER_STRONG);
-		Ui.icon("search", x + 14, y + 12, 16, Theme.MUTED);
-		boolean caret = System.currentTimeMillis() / 500 % 2 == 0;
-		if (query.isEmpty()) {
-			Ui.text(Ui.REGULAR, t("rago.menu.search"), x + 40, y + 11, 14, Theme.DIM);
-		} else {
-			float qw = Ui.text(Ui.REGULAR, query, x + 40, y + 11, 14, Theme.TEXT);
-			if (caret) {
-				Ui.rect(x + 41 + qw, y + 11, 1.2f, 17, Theme.TEXT);
+		String r = s;
+		while (r.length() > 2 && Ui.textWidth(font, r + "…", size) > max) {
+			r = r.substring(0, r.length() - 1);
+		}
+		return r.trim() + "…";
+	}
+
+	// ---- one mod's options ----------------------------------------------------------------------
+
+	private void modulePage(Module m, float x, float y, float w, float h, float c) {
+		float bh = Widgets.hoverAmount("back", x, y, 24, 24);
+		Ui.roundBorder(x, y, 24, 24, 12, Ui.mix(0x00FFFFFF, 0x1AFFFFFF, bh), 0x26FFFFFF);
+		Ui.icon("arrow-left", x + 6, y + 6, 12, Theme.TEXT);
+		Ui.click(x, y, 24, 24, () -> switchContent(() -> module = null));
+		Ui.icon(ModuleInfo.icon(m), x + 36, y + 3, 18, m.isEnabled() ? Theme.ACCENT : 0xFF8A888F);
+		Ui.text(Ui.SEMIBOLD, t(m.nameKey()), x + 60, y + 2, 14, Theme.TEXT);
+		Widgets.pill("modpill:" + m.id(), x + w - Widgets.PILL_W - 6, y + 2, m.isEnabled());
+		Ui.click(x + w - Widgets.PILL_W - 6, y + 2, Widgets.PILL_W, Widgets.PILL_H, () -> m.setEnabled(!m.isEnabled()));
+
+		float top = y + 34;
+		float area = h - 34;
+		float sc = scroll();
+		float cy = top - sc + (1 - c) * 6;
+		Ui.scissor(x - 2, top, w + 4, area);
+		boolean inside = true;
+		for (String line : Ui.wrap(Ui.REGULAR, t(ModuleInfo.descKey(m)), 10, w - 12)) {
+			Ui.text(Ui.REGULAR, line, x + 2, cy, 10, Theme.MUTED);
+			cy += 14;
+		}
+		cy += 8;
+		if (m instanceof HudElement) {
+			preview((HudElement) m, x, cy, w - 8, 110);
+			cy += 122;
+		}
+		List<Option<?>> opts = m.options();
+		if (opts.isEmpty() && !(m instanceof HudElement)) {
+			Ui.text(Ui.REGULAR, t("rago.menu.no_options"), x + 2, cy, 10, Theme.MUTED);
+			cy += 20;
+		}
+		for (Option<?> o : opts) {
+			optionRow(o, x, cy, w - 8, inside);
+			cy += 34;
+		}
+		if (m instanceof HudElement) {
+			HudPosition p = ((HudElement) m).position();
+			float f = (p.scale() - HudPosition.MIN_SCALE) / (HudPosition.MAX_SCALE - HudPosition.MIN_SCALE);
+			rowFrame(x, cy, w - 8, 30);
+			Ui.text(Ui.REGULAR, t("rago.option.scale"), x + 12, cy + (30 - 10.5f * 1.21f) / 2, 10.5f, Theme.TEXT);
+			sliderControl("scale:" + m.id(), x + w - 8 - 12 - 46 - 170, cy, 170, f, String.format(Locale.ROOT, "%.1f×", p.scale()), x + w - 20, inside,
+				v -> p.setScale(Math.round((HudPosition.MIN_SCALE + v * (HudPosition.MAX_SCALE - HudPosition.MIN_SCALE)) * 10) / 10f));
+			cy += 40;
+			float half = (w - 8 - 10) / 2;
+			Widgets.button(x, cy, half, 26, "rotate-ccw", t("rago.menu.reset_default"), false, 10);
+			Widgets.button(x + half + 10, cy, half, 26, "move", t("rago.menu.move"), true, 10);
+			if (inside) {
+				Ui.click(x, cy, half, 26, m::reset);
+				Ui.click(x + half + 10, cy, half, 26, () -> mc.displayGuiScreen(new HudEditorScreen(this)));
+			}
+			cy += 36;
+		} else if (!opts.isEmpty()) {
+			Widgets.button(x, cy, 160, 26, "rotate-ccw", t("rago.menu.reset_default"), false, 10);
+			if (inside) {
+				Ui.click(x, cy, 160, 26, () -> {
+					boolean on = m.isEnabled();
+					m.reset();
+					m.setEnabled(on);
+				});
+			}
+			cy += 36;
+		}
+		Ui.endScissor();
+		float total = cy + sc - top;
+		setBody(x, top, w, area, total);
+		scrollbar(x + w - 3, top, area, total, sc);
+	}
+
+	private static void rowFrame(float x, float y, float w, float h) {
+		Ui.roundBorder(x, y, w, h, 7, 0xFF131215, 0x12FFFFFF);
+	}
+
+	private void optionRow(Option<?> option, float x, float y, float w, boolean inside) {
+		rowFrame(x, y, w, 30);
+		String label = fit(Ui.REGULAR, t("rago.option." + option.key()), 10.5f, w * 0.45f);
+		Ui.text(Ui.REGULAR, label, x + 12, y + (30 - 10.5f * 1.21f) / 2, 10.5f, Theme.TEXT);
+		float right = x + w - 12;
+		if (option instanceof BooleanOption) {
+			BooleanOption b = (BooleanOption) option;
+			Widgets.pill("opt:" + option.key() + System.identityHashCode(option), right - Widgets.PILL_W, y + 5, b.get());
+			if (inside) {
+				Ui.click(x, y, w, 30, b::toggle);
+			}
+		} else if (option instanceof IntOption) {
+			IntOption io = (IntOption) option;
+			float f = io.max() == io.min() ? 0 : (float) (io.get() - io.min()) / (io.max() - io.min());
+			String key = "rago.option." + io.key() + "." + io.get();
+			String value = has(key) ? t(key) : Integer.toString(io.get());
+			sliderControl("opt:" + io.key() + System.identityHashCode(io), right - 46 - 170, y, 170, f, value, right, inside,
+				v -> io.set(io.min() + Math.round(v * (io.max() - io.min()))));
+		} else if (option instanceof ColorOption) {
+			ColorOption co = (ColorOption) option;
+			float sx = right - SWATCHES.length * 22 + 4;
+			for (int color : SWATCHES) {
+				boolean sel = co.get() == color;
+				if (sel) {
+					Ui.circle(sx + 9, y + 15, 10, Theme.ACCENT);
+					Ui.circle(sx + 9, y + 15, 8.5f, 0xFF131215);
+				}
+				Ui.circle(sx + 9, y + 15, 7, color);
+				if (inside) {
+					Ui.click(sx, y + 4, 20, 22, () -> co.set(color));
+				}
+				sx += 22;
 			}
 		}
 	}
 
-	private float chip(float x, float y, String label, int count, Filter f) {
-		boolean active = filter == f;
-		float lw = Ui.textWidth(Ui.MEDIUM, label, 13);
-		String c = Integer.toString(count);
-		float w = 16 + lw + 8 + Ui.textWidth(Ui.MONO, c, 11) + 16;
-		boolean hover = Ui.hover(x, y, w, 32);
-		if (active) {
-			Ui.round(x, y, w, 32, 16, Theme.CHIP_ACTIVE);
-		} else {
-			Ui.roundBorder(x, y, w, 32, 16, hover ? 0xFF222126 : Theme.CHIP, Theme.BORDER_STRONG);
-		}
-		Ui.text(Ui.MEDIUM, label, x + 16, y + 8, 13, active ? 0xFF0B0A0D : 0xFFD4D4D8);
-		Ui.text(Ui.MONO, c, x + 24 + lw, y + 10, 11, active ? 0xFF55535A : Theme.DIM);
-		Ui.click(x, y, w, 32, () -> {
-			filter = f;
-			scroll = 0;
-		});
-		return x + w + 8;
-	}
-
-	private void card(Module m, float x, float y, float w, boolean gridHover) {
-		boolean isSelected = m == selected;
-		boolean hover = gridHover && Ui.hover(x, y, w, CARD_H);
-		if (isSelected) {
-			Ui.glow(x + w / 2, y + CARD_H / 2, w * 0.7f, Ui.alpha(Theme.ACCENT, 0.10f));
-		}
-		Ui.roundBorder(x, y, w, CARD_H, 16, hover ? Theme.CARD_HOVER : Theme.CARD,
-			isSelected ? Ui.alpha(Theme.ACCENT, 0.85f) : Theme.BORDER_STRONG);
-		Ui.round(x + 18, y + 18, 38, 38, 11, m.isEnabled() ? 0xFF2A1313 : 0xFF222126);
-		Ui.icon(ModuleInfo.icon(m), x + 28, y + 28, 18, m.isEnabled() ? Theme.ACCENT : Theme.MUTED);
-		Ui.text(Ui.SEMIBOLD, I18n.format(m.nameKey()), x + 68, y + 18, 15, Theme.TEXT);
-		Ui.textSpaced(Ui.MONO, t(m.isEnabled() ? "rago.menu.on_label" : "rago.menu.off_label"), x + 68, y + 40, 10, 1.2f, Theme.DIM);
-		float dy = y + 72;
-		List<String> lines = Ui.wrap(Ui.REGULAR, I18n.format(ModuleInfo.descKey(m)), 12.5f, w - 36);
-		for (int i = 0; i < Math.min(2, lines.size()); i++) {
-			Ui.text(Ui.REGULAR, lines.get(i), x + 18, dy, 12.5f, 0xFFB4B2BA);
-			dy += 18;
-		}
-		float fy = y + CARD_H - 38;
-		if (!m.options().isEmpty() || m instanceof HudElement) {
-			Ui.icon("sliders-horizontal", x + 18, fy + 4, 13, Theme.MUTED);
-			Ui.text(Ui.MEDIUM, t("rago.menu.options"), x + 38, fy + 2, 13, Theme.MUTED);
-		}
-		float tx = x + w - 18 - Widgets.SWITCH_W;
-		Widgets.toggle(tx, fy, m.isEnabled());
-		if (gridHover) {
-			Ui.click(x, y, w, CARD_H, () -> {
-				selected = m;
-				settingsScroll = 0;
-				showSettingsOnly = true;
+	private void sliderControl(String key, float x, float y, float w, float f, String value, float right, boolean inside, Consumer<Float> set) {
+		float fa = Anim.to("slider:" + key, f, 90);
+		Widgets.slider(x, y + 15 - 9, w, dragging != null ? f : fa);
+		Ui.textRight(Ui.MONO, value, right, y + (30 - 9.5f * 1.3f) / 2, 9.5f, 0xFFD4D4D8);
+		if (inside) {
+			SliderDrag s = new SliderDrag(x, w, set);
+			Ui.click(x - 8, y, w + 16, 30, () -> {
+				dragging = s;
+				s.set.accept(Math.max(0f, Math.min(1f, (Ui.mouseX() - s.x) / s.w)));
 			});
-			Ui.click(tx - 6, fy - 6, Widgets.SWITCH_W + 12, Widgets.SWITCH_H + 12, () -> m.setEnabled(!m.isEnabled()));
 		}
-	}
-
-	private void settings(float x, float y, float w, float h) {
-		float cx = x + 24;
-		float cw = w - 48;
-		boolean overlay = w > 400; // narrow window: settings shown instead of the grid
-		if (selected == null) {
-			Ui.textSpaced(Ui.MONO, t("rago.menu.settings"), cx, y + 28, 10.5f, 2, Theme.DIM);
-			for (String line : Ui.wrap(Ui.REGULAR, t("rago.menu.select"), 14, cw)) {
-				Ui.text(Ui.REGULAR, line, cx, y + 56, 14, Theme.MUTED);
-				y += 20;
-			}
-			return;
-		}
-		Module m = selected;
-		if (overlay) {
-			float bw = Ui.textWidth(Ui.MEDIUM, t("gui.back"), 13) + 30;
-			Ui.roundBorder(x + w - 24 - bw, y + 22, bw, 30, 15, 0xFF19181C, Theme.BORDER_STRONG);
-			Ui.textCentered(Ui.MEDIUM, t("gui.back"), x + w - 24 - bw / 2, y + 29, 13, Theme.TEXT);
-			Ui.click(x + w - 24 - bw, y + 22, bw, 30, () -> showSettingsOnly = false);
-		} else {
-			Ui.textSpaced(Ui.MONO, t("rago.menu.settings"), cx, y + 28, 10.5f, 2, Theme.DIM);
-		}
-		Ui.text(Ui.BOLD, I18n.format(m.nameKey()), cx, y + (overlay ? 26 : 48), 24, Theme.TEXT);
-		float tgx = overlay ? x + w - 24 - Widgets.SWITCH_W - 110 : cx + cw - Widgets.SWITCH_W;
-		float tgy = y + (overlay ? 28 : 52);
-		Widgets.toggle(tgx, tgy, m.isEnabled());
-		Ui.click(tgx - 6, tgy - 6, Widgets.SWITCH_W + 12, Widgets.SWITCH_H + 12, () -> m.setEnabled(!m.isEnabled()));
-		float ty = y + (overlay ? 64 : 88);
-		for (String line : Ui.wrap(Ui.REGULAR, I18n.format(ModuleInfo.descKey(m)), 13, cw)) {
-			Ui.text(Ui.REGULAR, line, cx, ty, 13, 0xFFB4B2BA);
-			ty += 18;
-		}
-
-		boolean hud = m instanceof HudElement;
-		float bottomH = 64;
-		setX = cx;
-		setY = ty + 14;
-		setW = cw;
-		setH = y + h - bottomH - setY - 8;
-		setContentH = (hud ? 168 : 0) + rowsHeight(m);
-		settingsScroll = Math.max(0, Math.min(Math.max(0, setContentH - setH), settingsScroll));
-		Ui.scissor(cx - 2, setY, cw + 4, setH);
-		float sy = setY - settingsScroll;
-		if (hud) {
-			preview((HudElement) m, cx, sy, cw, 154);
-			sy += 168;
-		}
-		options(m, cx, sy, cw);
-		Ui.endScissor();
-
-		// Bottom buttons
-		float by = y + h - bottomH + 8;
-		float half = hud ? (cw - 10) / 2 : cw;
-		Widgets.button(cx, by, half, 44, null, t("rago.menu.reset_default"), false, 13);
-		Ui.click(cx, by, half, 44, m::reset);
-		if (hud) {
-			Widgets.button(cx + half + 10, by, half, 44, "move", t("rago.menu.move"), false, 13);
-			Ui.click(cx + half + 10, by, half, 44, () -> mc.displayGuiScreen(new HudEditorScreen(this)));
-		}
-	}
-
-	private float rowsHeight(Module m) {
-		int rows = m.options().size() + (m instanceof HudElement ? 1 : 0);
-		return Math.max(1, rows) * ROW_H;
 	}
 
 	/** Draws the HUD element itself, with sample data when there is no live data. */
 	private void preview(HudElement e, float x, float y, float w, float h) {
-		Ui.roundBorder(x, y, w, h, 16, 0xFF141316, Theme.BORDER);
-		for (float gx = x + 16; gx < x + w - 8; gx += 16) {
-			for (float gy = y + 16; gy < y + h - 8; gy += 16) {
-				Ui.rect(gx, gy, 1.5f, 1.5f, 0x14FFFFFF);
+		Ui.roundBorder(x, y, w, h, 10, 0xFF121114, 0x14FFFFFF);
+		for (float gx = x + 12; gx < x + w - 6; gx += 12) {
+			for (float gy = y + 12; gy < y + h - 6; gy += 12) {
+				Ui.rect(gx, gy, 1.2f, 1.2f, 0x12FFFFFF);
 			}
 		}
-		Ui.textSpaced(Ui.MONO, t("rago.menu.preview"), x + 16, y + 14, 9.5f, 2, Theme.DIM);
+		Ui.textSpaced(Ui.MONO, t("rago.menu.preview"), x + 12, y + 10, 8, 1.6f, 0xFF6B6970);
 		boolean placeholder = !e.hasContent();
 		int ew = Math.max(1, e.width(fontRendererObj, placeholder));
 		int eh = Math.max(1, e.height(fontRendererObj, placeholder));
 		float s = Ui.scale();
-		float k = Math.min(2.2f * s, Math.min((w - 40) * s / ew, (h - 50) * s / eh));
+		float k = Math.min(2.2f * s, Math.min((w - 40) * s / ew, (h - 36) * s / eh));
 		float dx = (x + w / 2) * s - ew * k / 2;
-		float dy = (y + 12 + h / 2) * s - eh * k / 2;
+		float dy = (y + 8 + h / 2) * s - eh * k / 2;
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(Math.round(dx), Math.round(dy), 0);
 		GlStateManager.scale(k, k, 1);
@@ -474,88 +654,314 @@ public final class RagoMenuScreen extends GuiScreen {
 		GlStateManager.disableAlpha();
 	}
 
-	private void options(Module m, float x, float y, float w) {
-		List<Option<?>> opts = m.options();
-		int rows = opts.size() + (m instanceof HudElement ? 1 : 0);
-		if (rows == 0) {
-			Ui.roundBorder(x, y, w, ROW_H, 14, 0xFF141316, Theme.BORDER);
-			Ui.text(Ui.REGULAR, t("rago.menu.no_options"), x + 18, y + 18, 13, Theme.MUTED);
+	// ---- Settings tab ---------------------------------------------------------------------------
+
+	private void settingsTab(float x, float y, float w, float h, float c) {
+		float cx = x + 14;
+		float ty = y + 10;
+		Setting.Tab[] pages = Setting.Tab.values();
+		String[] icons = {"settings", "gauge", "keyboard"};
+		for (int i = 0; i < pages.length; i++) {
+			Setting.Tab pg = pages[i];
+			String label = t("rago.settings.tab." + pg.name().toLowerCase(Locale.ROOT));
+			float cw = Ui.textWidth(Ui.MEDIUM, label, 9.5f) + 38;
+			boolean active = page == pg;
+			float hv = Widgets.hoverAmount("page:" + pg, cx, ty, cw, 22);
+			Ui.roundBorder(cx, ty, cw, 22, 11, active ? Theme.ACCENT : Ui.mix(0x0FFFFFFF, 0x1CFFFFFF, hv), active ? Theme.ACCENT : 0x1FFFFFFF);
+			Ui.icon(icons[i], cx + 11, ty + 5.5f, 11, active ? 0xFFFFFFFF : 0xFFB4B2B9);
+			Ui.text(Ui.MEDIUM, label, cx + 27, ty + (22 - 9.5f * 1.21f) / 2, 9.5f, active ? 0xFFFFFFFF : 0xFFC4C2CA);
+			Ui.click(cx, ty, cw, 22, () -> {
+				if (page != pg) {
+					switchContent(() -> {
+						page = pg;
+						binding = null;
+					});
+				}
+			});
+			cx += cw + 6;
+		}
+		searchField(x + w - 14 - 190, ty, 190);
+
+		float top = y + 42;
+		float area = h - 52;
+		float left = x + 14;
+		float cw = w - 28 - 8;
+		float sc = scroll();
+		float cy = top - sc + (1 - c) * 6;
+		Ui.scissor(x + 2, top, w - 4, area);
+		boolean inside = true;
+		if (page == Setting.Tab.CONTROLS) {
+			cy = controls(left, cy, cw, inside);
+		} else {
+			cy = settingRows(left, cy, cw, inside);
+		}
+		Ui.endScissor();
+		float total = cy + sc - top;
+		setBody(x, top, w, area, total);
+		scrollbar(x + w - 9, top, area, total, sc);
+	}
+
+	private boolean matches(String... texts) {
+		String q = query.trim().toLowerCase(Locale.ROOT);
+		if (q.isEmpty()) {
+			return true;
+		}
+		for (String s : texts) {
+			if (s.toLowerCase(Locale.ROOT).contains(q)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private float settingRows(float x, float y, float w, boolean inside) {
+		List<Setting> rows = new ArrayList<>();
+		for (Setting s : RagoClient.settings().rows()) {
+			if (s.tab() == page && s.visible() && matches(t(s.labelKey()), t(s.section()), has(s.helpKey()) ? t(s.helpKey()) : "")) {
+				rows.add(s);
+			}
+		}
+		if (page == Setting.Tab.PERFORMANCE && !OptiFineFields.installed() && query.isEmpty()) {
+			y = optifineHint(x, y, w);
+		}
+		String section = null;
+		float colW = (w - 12) / 2;
+		int col = 0;
+		for (Setting s : rows) {
+			if (!s.section().equals(section)) {
+				if (col == 1) {
+					y += 32;
+					col = 0;
+				}
+				section = s.section();
+				y += section == null ? 0 : 6;
+				Ui.textSpaced(Ui.SEMIBOLD, t(section).toUpperCase(Locale.ROOT), x + 2, y, 8.5f, 1.4f, 0xFF8A888F);
+				y += 18;
+			}
+			if (s.wide()) {
+				if (col == 1) {
+					y += 32;
+					col = 0;
+				}
+				wideRow(s, x, y, w, inside);
+				y += 34;
+			} else {
+				toggleRow((Toggle) s, x + col * (colW + 12), y, colW, inside);
+				if (col == 1) {
+					y += 32;
+				}
+				col = 1 - col;
+			}
+		}
+		if (col == 1) {
+			y += 32;
+		}
+		if (rows.isEmpty()) {
+			Ui.textCentered(Ui.REGULAR, t("rago.menu.no_results"), x + w / 2, y + 30, 11, Theme.MUTED);
+			y += 60;
+		}
+		if (page == Setting.Tab.PERFORMANCE && query.isEmpty()) {
+			y += 4;
+			for (String line : Ui.wrap(Ui.REGULAR, t("rago.settings.perf_note"), 8.5f, w)) {
+				Ui.text(Ui.REGULAR, line, x + 2, y, 8.5f, 0xFF6B6970);
+				y += 12;
+			}
+		}
+		return y + 10;
+	}
+
+	private float optifineHint(float x, float y, float w) {
+		Ui.roundBorder(x, y, w, 40, 8, 0x1AF2392C, 0x40F2392C);
+		Ui.icon("triangle-alert", x + 12, y + 13, 14, Theme.ACCENT);
+		Ui.text(Ui.MEDIUM, t("rago.settings.no_optifine"), x + 34, y + 8, 10, Theme.TEXT);
+		Ui.text(Ui.REGULAR, t("rago.settings.no_optifine.sub"), x + 34, y + 22, 8.5f, Theme.MUTED);
+		Widgets.button(x + w - 150, y + 8, 140, 24, "download", t("rago.optifine.download"), true, 9.5f);
+		Ui.click(x + w - 150, y + 8, 140, 24, () -> Sys.openURL(OPTIFINE_URL));
+		return y + 50;
+	}
+
+	private void hoverHelp(Setting s, float x, float y, float w, float h) {
+		if (Ui.hover(x, y, w, h) && has(s.helpKey())) {
+			tooltip = t(s.helpKey());
+		}
+	}
+
+	private void toggleRow(Toggle s, float x, float y, float w, boolean inside) {
+		float hv = Widgets.hoverAmount("row:" + s.id(), x, y, w, 26);
+		Ui.round(x, y, w, 26, 6, Ui.mix(0x00FFFFFF, 0x0CFFFFFF, hv));
+		boolean on = s.get();
+		Widgets.pill("set:" + s.id(), x + 4, y + 3, on);
+		String label = fit(Ui.REGULAR, t(s.labelKey()), 10.5f, w - Widgets.PILL_W - 22);
+		Ui.text(Ui.REGULAR, label, x + Widgets.PILL_W + 14, y + (26 - 10.5f * 1.21f) / 2, 10.5f, Theme.TEXT);
+		if (inside) {
+			Ui.click(x, y, w, 26, () -> s.set(!s.get()));
+			hoverHelp(s, x, y, w, 26);
+		}
+	}
+
+	private void wideRow(Setting s, float x, float y, float w, boolean inside) {
+		float hv = Widgets.hoverAmount("row:" + s.id(), x, y, w, 30);
+		Ui.round(x, y, w, 30, 6, Ui.mix(0x00FFFFFF, 0x0CFFFFFF, hv));
+		Ui.text(Ui.REGULAR, fit(Ui.REGULAR, t(s.labelKey()), 10.5f, w * 0.42f), x + 8, y + (30 - 10.5f * 1.21f) / 2, 10.5f, Theme.TEXT);
+		float right = x + w - 8;
+		if (s instanceof Slider) {
+			Slider sl = (Slider) s;
+			float f = sl.max() == sl.min() ? 0 : (float) (sl.get() - sl.min()) / (sl.max() - sl.min());
+			float sw = Math.min(300, w * 0.45f);
+			sliderControl("set:" + sl.id(), right - 70 - sw, y, sw, f, sl.display(), right, inside,
+				v -> sl.set(sl.min() + Math.round(v * (sl.max() - sl.min()))));
+		} else if (s instanceof Choice) {
+			Choice ch = (Choice) s;
+			float cw = 170;
+			Widgets.chooser(right - cw, y + 4, cw, 22, t(ch.valueKey()));
+			if (inside) {
+				Ui.click(right - cw, y + 4, 22, 22, () -> ch.cycle(-1));
+				Ui.click(right - 22, y + 4, 22, 22, () -> ch.cycle(1));
+				Ui.click(right - cw + 22, y + 4, cw - 44, 22, () -> ch.cycle(1));
+			}
+		} else if (s instanceof Button) {
+			Button b = (Button) s;
+			float bw = 170;
+			Widgets.button(right - bw, y + 3, bw, 24, null, t(s.labelKey() + ".button"), false, 9.5f);
+			if (inside) {
+				Ui.click(right - bw, y + 3, bw, 24, b::press);
+			}
+		}
+		if (inside) {
+			hoverHelp(s, x, y, w, 30);
+		}
+	}
+
+	// ---- Controls -------------------------------------------------------------------------------
+
+	private float controls(float x, float y, float w, boolean inside) {
+		Widgets.button(x + w - 160, y, 160, 24, "rotate-ccw", t("rago.settings.reset_keys"), false, 9.5f);
+		if (inside) {
+			Ui.click(x + w - 160, y, 160, 24, () -> {
+				for (KeyBinding k : mc.gameSettings.keyBindings) {
+					k.setKeyCode(k.getKeyCodeDefault());
+				}
+				KeyBinding.resetKeyBindingArrayAndHash();
+				mc.gameSettings.saveOptions();
+				binding = null;
+			});
+		}
+		Ui.text(Ui.REGULAR, t("rago.settings.keys_hint"), x + 2, y + 6, 9, Theme.MUTED);
+		y += 34;
+		KeyBinding[] keys = Arrays.copyOf(mc.gameSettings.keyBindings, mc.gameSettings.keyBindings.length);
+		Arrays.sort(keys);
+		String category = null;
+		float colW = (w - 12) / 2;
+		int col = 0;
+		for (KeyBinding k : keys) {
+			String name = t(k.getKeyDescription());
+			if (!matches(name, t(k.getKeyCategory()))) {
+				continue;
+			}
+			if (!k.getKeyCategory().equals(category)) {
+				if (col == 1) {
+					y += 30;
+					col = 0;
+				}
+				category = k.getKeyCategory();
+				y += 6;
+				Ui.textSpaced(Ui.SEMIBOLD, t(category).toUpperCase(Locale.ROOT), x + 2, y, 8.5f, 1.4f, 0xFF8A888F);
+				y += 18;
+			}
+			keyRow(k, name, x + col * (colW + 12), y, colW, inside);
+			if (col == 1) {
+				y += 30;
+			}
+			col = 1 - col;
+		}
+		if (col == 1) {
+			y += 30;
+		}
+		return y + 10;
+	}
+
+	private void keyRow(KeyBinding k, String name, float x, float y, float w, boolean inside) {
+		float bw = 96;
+		Ui.text(Ui.REGULAR, fit(Ui.REGULAR, name, 10, w - bw - 16), x + 4, y + (24 - 10 * 1.21f) / 2, 10, Theme.TEXT);
+		boolean waiting = k == binding;
+		boolean conflict = false;
+		if (k.getKeyCode() != 0) {
+			for (KeyBinding o : mc.gameSettings.keyBindings) {
+				if (o != k && o.getKeyCode() == k.getKeyCode()) {
+					conflict = true;
+					break;
+				}
+			}
+		}
+		float bx = x + w - bw;
+		float hv = Widgets.hoverAmount("key:" + k.getKeyDescription(), bx, y, bw, 24);
+		Ui.roundBorder(bx, y, bw, 24, 6, Ui.mix(0xFF151417, 0xFF1D1C20, hv), waiting ? Theme.ACCENT : conflict ? 0x99F2392C : 0x1FFFFFFF);
+		String label = waiting ? "> ? <" : keyName(k.getKeyCode());
+		int color = waiting ? Theme.ACCENT : conflict ? 0xFFFF6B5E : Theme.TEXT;
+		Ui.textCentered(Ui.MEDIUM, fit(Ui.MEDIUM, label, 9.5f, bw - 8), bx + bw / 2, y + (24 - 9.5f * 1.21f) / 2, 9.5f, color);
+		if (inside) {
+			Ui.click(bx, y, bw, 24, () -> binding = k);
+		}
+	}
+
+	private static String keyName(int code) {
+		if (code == 0) {
+			return I18n.format("rago.settings.key_none");
+		}
+		if (code < 0) {
+			return I18n.format("rago.settings.mouse", code + 101);
+		}
+		String n = Keyboard.getKeyName(code);
+		return n == null ? "#" + code : n;
+	}
+
+	private void setKey(int code) {
+		binding.setKeyCode(code);
+		KeyBinding.resetKeyBindingArrayAndHash();
+		mc.gameSettings.saveOptions();
+		binding = null;
+	}
+
+	// ---- shared bits ----------------------------------------------------------------------------
+
+	private void setBody(float x, float y, float w, float h, float content) {
+		bodyX = x;
+		bodyY = y;
+		bodyW = w;
+		bodyH = h;
+		contentH = content;
+		float max = Math.max(0, content - h);
+		float sc = scroll();
+		if (sc > max || sc < 0) {
+			scrolls.put(scrollKey(), Math.max(0, Math.min(max, sc)));
+		}
+	}
+
+	private static void scrollbar(float x, float y, float h, float content, float scroll) {
+		if (content <= h) {
 			return;
 		}
-		Ui.roundBorder(x, y, w, rows * ROW_H, 16, 0xFF141316, Theme.BORDER);
-		float ry = y;
-		boolean inside = Ui.hover(setX, setY, setW, setH);
-		for (int i = 0; i < opts.size(); i++) {
-			optionRow(opts.get(i), x, ry, w, inside);
-			ry += ROW_H;
-			if (i < rows - 1) {
-				Ui.rect(x + 1, ry, w - 2, 1 / Ui.scale(), Theme.BORDER);
-			}
-		}
-		if (m instanceof HudElement) {
-			HudPosition p = ((HudElement) m).position();
-			Ui.text(Ui.MEDIUM, t("rago.option.scale"), x + 18, ry + 18, 14, Theme.TEXT);
-			float f = (p.scale() - HudPosition.MIN_SCALE) / (HudPosition.MAX_SCALE - HudPosition.MIN_SCALE);
-			slider(x + w - 18 - 50 - 100, ry, 100, f, String.format(Locale.ROOT, "%.1f×", p.scale()), x + w - 18, inside,
-				v -> p.setScale(Math.round((HudPosition.MIN_SCALE + v * (HudPosition.MAX_SCALE - HudPosition.MIN_SCALE)) * 10) / 10f));
-		}
+		float bh = Math.max(24, h * h / content);
+		float by = y + (h - bh) * scroll / (content - h);
+		Ui.round(x, by, 3, bh, 1.5f, 0x40FFFFFF);
 	}
 
-	private void optionRow(Option<?> option, float x, float y, float w, boolean inside) {
-		String label = I18n.format("rago.option." + option.key());
-		float right = x + w - 18;
-		if (option instanceof BooleanOption) {
-			BooleanOption b = (BooleanOption) option;
-			Ui.text(Ui.MEDIUM, label, x + 18, y + 18, 14, Theme.TEXT);
-			Widgets.toggle(right - Widgets.SWITCH_W, y + 16, b.get());
-			if (inside) {
-				Ui.click(x, y, w, ROW_H, b::toggle);
-			}
-		} else if (option instanceof IntOption) {
-			IntOption io = (IntOption) option;
-			fitLabel(label, x + 18, y + 18, w - 36 - 50 - 100 - 12);
-			float f = io.max() == io.min() ? 0 : (float) (io.get() - io.min()) / (io.max() - io.min());
-			String key = "rago.option." + io.key() + "." + io.get();
-			String named = I18n.format(key);
-			String value = named.equals(key) ? Integer.toString(io.get()) : named;
-			slider(right - 50 - 100, y, 100, f, value, right, inside,
-				v -> io.set(io.min() + Math.round(v * (io.max() - io.min()))));
-		} else if (option instanceof ColorOption) {
-			ColorOption c = (ColorOption) option;
-			fitLabel(label, x + 18, y + 18, w - 200);
-			float sx = right - SWATCHES.length * 26 + 4;
-			for (int color : SWATCHES) {
-				boolean sel = c.get() == color;
-				if (sel) {
-					Ui.circle(sx + 11, y + ROW_H / 2, 13, Theme.ACCENT);
-					Ui.circle(sx + 11, y + ROW_H / 2, 11.5f, 0xFF141316);
-				}
-				Ui.circle(sx + 11, y + ROW_H / 2, 9.5f, color);
-				if (inside) {
-					Ui.click(sx, y + ROW_H / 2 - 12, 24, 24, () -> c.set(color));
-				}
-				sx += 26;
-			}
+	private static void drawTooltip(String text, float w) {
+		float size = 9;
+		List<String> lines = Ui.wrap(Ui.REGULAR, text, size, 260);
+		float tw = 0;
+		for (String l : lines) {
+			tw = Math.max(tw, Ui.textWidth(Ui.REGULAR, l, size));
 		}
-	}
-
-	private static void fitLabel(String label, float x, float y, float maxW) {
-		String s = label;
-		while (s.length() > 3 && Ui.textWidth(Ui.MEDIUM, s, 14) > maxW) {
-			s = s.substring(0, s.length() - 2);
-		}
-		Ui.text(Ui.MEDIUM, s.equals(label) ? s : s.trim() + "…", x, y, 14, Theme.TEXT);
-	}
-
-	private void slider(float x, float y, float w, float f, String value, float right, boolean inside, Consumer<Float> set) {
-		Widgets.slider(x, y + ROW_H / 2 - 9, w, f);
-		Ui.textRight(Ui.MONO, value, right, y + 19, 12, 0xFFD4D4D8);
-		if (inside) {
-			Slider s = new Slider(x, w, set);
-			Ui.click(x - 10, y, w + 20, ROW_H, () -> {
-				dragging = s;
-				s.set.accept(Math.max(0f, Math.min(1f, (Ui.mouseX() - s.x) / s.w)));
-			});
+		float bw = tw + 16;
+		float bh = lines.size() * 13 + 10;
+		float x = Math.min(Ui.mouseX() + 12, w - bw - 6);
+		float y = Ui.mouseY() + 14;
+		Ui.roundBorder(x, y, bw, bh, 6, 0xF7151417, 0x2EFFFFFF);
+		float ly = y + 5;
+		for (String l : lines) {
+			Ui.text(Ui.REGULAR, l, x + 8, ly, size, 0xFFD4D2D9);
+			ly += 13;
 		}
 	}
 
@@ -563,14 +969,24 @@ public final class RagoMenuScreen extends GuiScreen {
 
 	@Override
 	protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
-		if (button != 0) {
+		Ui.updateMouse();
+		if (binding != null) {
+			if (button == 0 && !Ui.hover(bodyX, bodyY, bodyW, bodyH)) {
+				binding = null;
+			} else {
+				setKey(button - 100);
+				return;
+			}
+		}
+		if (button != 0 || closingNs != 0) {
 			return;
 		}
-		Ui.updateMouse();
-		boolean wasConfirming = confirmReset;
-		Ui.dispatchClick();
-		if (wasConfirming) {
-			confirmReset = false;
+		String wasRenaming = renaming;
+		if (Ui.dispatchClick()) {
+			mc.getSoundHandler().playSound(PositionedSoundRecord.create(new ResourceLocation("gui.button.press"), 1.0F));
+		}
+		if (wasRenaming != null && wasRenaming.equals(renaming)) {
+			commitRename();
 		}
 	}
 
@@ -581,47 +997,76 @@ public final class RagoMenuScreen extends GuiScreen {
 		if (wheel == 0) {
 			return;
 		}
-		Ui.updateMouse();
-		float step = Integer.signum(wheel) * 60;
-		if (Ui.hover(setX, setY, setW, setH)) {
-			settingsScroll -= step;
-		} else {
-			scroll -= step;
+		float max = Math.max(0, contentH - bodyH);
+		float next = scroll() - Integer.signum(wheel) * 40;
+		scrolls.put(scrollKey(), Math.max(0, Math.min(max, next)));
+	}
+
+	private void commitRename() {
+		if (renaming != null) {
+			RagoClient.profiles().rename(renaming, renameText);
+			renaming = null;
 		}
 	}
 
 	@Override
 	protected void keyTyped(char typedChar, int keyCode) throws IOException {
+		if (binding != null) {
+			setKey(keyCode == Keyboard.KEY_ESCAPE ? 0 : keyCode);
+			return;
+		}
+		if (renaming != null) {
+			if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
+				commitRename();
+			} else if (keyCode == Keyboard.KEY_ESCAPE) {
+				renaming = null;
+			} else if (keyCode == Keyboard.KEY_BACK) {
+				if (!renameText.isEmpty()) {
+					renameText = renameText.substring(0, renameText.length() - 1);
+				}
+			} else if (ChatAllowedCharacters.isAllowedCharacter(typedChar) && renameText.length() < 24) {
+				renameText += typedChar;
+			}
+			return;
+		}
 		if (keyCode == Keyboard.KEY_ESCAPE) {
-			if (showSettingsOnly && Ui.width() < 1120) {
-				showSettingsOnly = false;
-			} else if (!query.isEmpty()) {
+			if (!query.isEmpty()) {
 				query = "";
+			} else if (module != null) {
+				switchContent(() -> module = null);
 			} else {
-				mc.displayGuiScreen(parent);
+				close();
 			}
 			return;
 		}
 		if (keyCode == RagoClient.menuKeyCode()) {
-			mc.displayGuiScreen(parent);
+			close();
 			return;
 		}
 		if (keyCode == Keyboard.KEY_BACK) {
 			if (!query.isEmpty()) {
 				query = isCtrlKeyDown() ? "" : query.substring(0, query.length() - 1);
-				scroll = 0;
+				scrolls.remove(scrollKey());
 			}
 			return;
 		}
 		if (ChatAllowedCharacters.isAllowedCharacter(typedChar) && query.length() < 32) {
+			if (module != null) {
+				module = null;
+			}
 			query += typedChar;
-			scroll = 0;
-			showSettingsOnly = false;
+			scrolls.remove(scrollKey());
 		}
 	}
 
 	@Override
 	public void onGuiClosed() {
+		Keyboard.enableRepeatEvents(false);
+		if (blurOn && mc.entityRenderer.isShaderActive()) {
+			mc.entityRenderer.stopUseShader();
+		}
+		blurOn = false;
+		Anim.clear();
 		RagoClient.saveConfig();
 	}
 }

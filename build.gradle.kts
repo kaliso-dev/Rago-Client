@@ -18,6 +18,8 @@ loom {
         remove(getByName("server"))
         named("client") {
             runDir = "run"
+            // Load Rago's class transformer in the dev client too (a normal install reads it from the jar manifest)
+            property("fml.coreMods.load", "gg.rago.asm.RagoCorePlugin")
             if (System.getProperty("os.name").lowercase().contains("mac")) {
                 vmArgs.remove("-XstartOnFirstThread")
             }
@@ -56,6 +58,15 @@ tasks.withType<JavaCompile>().configureEach {
 // runClient and tests must use Java 8 even when Gradle itself runs on a newer JDK
 tasks.withType<JavaExec>().configureEach {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(8)) })
+}
+
+// The jar is both a Forge mod and a coremod: the transformer raises the menu frame-rate cap
+tasks.jar {
+    manifest.attributes(
+        "FMLCorePlugin" to "gg.rago.asm.RagoCorePlugin",
+        "FMLCorePluginContainsFMLMod" to "true",
+        "ForceLoadAsMod" to "true",
+    )
 }
 
 tasks.test {

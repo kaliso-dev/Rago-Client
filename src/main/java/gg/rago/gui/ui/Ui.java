@@ -40,6 +40,19 @@ public final class Ui {
 	private static float mouseX;
 	private static float mouseY;
 	private static final List<Target> targets = new ArrayList<>();
+	/** Multiplies the alpha of everything drawn, for fades. */
+	private static float opacity = 1f;
+	private static float tScale = 1f;
+	private static float tCx;
+	private static float tCy;
+	private static float tDx;
+	private static float tDy;
+	private static boolean transformed;
+	private static boolean clipping;
+	private static float clipX;
+	private static float clipY;
+	private static float clipW;
+	private static float clipH;
 
 	private Ui() {
 	}
@@ -70,6 +83,7 @@ public final class Ui {
 		mouseX = Mouse.getX() / s;
 		mouseY = (mc.displayHeight - Mouse.getY() - 1) / s;
 		targets.clear();
+		clipping = false;
 		GlStateManager.pushMatrix();
 		GlStateManager.scale(1f / guiScale, 1f / guiScale, 1f);
 		GlStateManager.disableLighting();
@@ -79,7 +93,51 @@ public final class Ui {
 		GlStateManager.disableAlpha();
 	}
 
+	/** Sets the alpha multiplier for everything drawn until it is set again (0..1). */
+	public static void opacity(float value) {
+		opacity = Math.max(0, Math.min(1, value));
+	}
+
+	public static float opacity() {
+		return opacity;
+	}
+
+	/** Applies a colour's alpha multiplied by the current opacity. */
+	public static int fade(int argb) {
+		return opacity >= 1f ? argb : Math.round((argb >>> 24) * opacity) << 24 | (argb & 0xFFFFFF);
+	}
+
+	/**
+	 * Scales everything drawn around (cx, cy) and moves it by (dx, dy), for open and close
+	 * animations. Clipping follows; click targets do not, so use it only while animating.
+	 */
+	public static void pushTransform(float cx, float cy, float scale, float dx, float dy) {
+		popTransform();
+		tScale = scale;
+		tCx = cx;
+		tCy = cy;
+		tDx = dx;
+		tDy = dy;
+		transformed = true;
+		GlStateManager.pushMatrix();
+		GlStateManager.translate(px(cx + dx), px(cy + dy), 0);
+		GlStateManager.scale(scale, scale, 1);
+		GlStateManager.translate(-px(cx), -px(cy), 0);
+	}
+
+	public static void popTransform() {
+		if (transformed) {
+			GlStateManager.popMatrix();
+			transformed = false;
+			tScale = 1f;
+			tDx = 0;
+			tDy = 0;
+		}
+	}
+
 	public static void end() {
+		popTransform();
+		opacity = 1f;
 		GlStateManager.enableAlpha();
 		GlStateManager.enableDepth();
 		GlStateManager.popMatrix();
@@ -108,11 +166,30 @@ public final class Ui {
 	}
 
 	public static boolean hover(float x, float y, float w, float h) {
+		if (clipping && !(mouseX >= clipX && mouseY >= clipY && mouseX < clipX + clipW && mouseY < clipY + clipH)) {
+			return false;
+		}
 		return mouseX >= x && mouseY >= y && mouseX < x + w && mouseY < y + h;
 	}
 
-	/** Registers a click target; later registrations sit on top of earlier ones. */
+	/**
+	 * Registers a click target; later registrations sit on top of earlier ones. While a
+	 * {@link #scissor} is active the target is cut to the visible area.
+	 */
 	public static void click(float x, float y, float w, float h, Runnable action) {
+		if (clipping) {
+			float x0 = Math.max(x, clipX);
+			float y0 = Math.max(y, clipY);
+			float x1 = Math.min(x + w, clipX + clipW);
+			float y1 = Math.min(y + h, clipY + clipH);
+			if (x1 <= x0 || y1 <= y0) {
+				return;
+			}
+			x = x0;
+			y = y0;
+			w = x1 - x0;
+			h = y1 - y0;
+		}
 		targets.add(new Target(x, y, w, h, action));
 	}
 
@@ -183,7 +260,7 @@ public final class Ui {
 	}
 
 	private static WorldRenderer color(WorldRenderer r, int argb) {
-		return r.color(argb >> 16 & 0xFF, argb >> 8 & 0xFF, argb & 0xFF, argb >>> 24);
+		return r.color(argb >> 16 & 0xFF, argb >> 8 & 0xFF, argb & 0xFF, Math.round((argb >>> 24) * opacity));
 	}
 
 	private static void blend() {
@@ -295,6 +372,16 @@ public final class Ui {
 		circle((px[count - 1]) / s, py[count - 1] / s, 3, color);
 	}
 
+	/** The blurred block landscape stretched to cover the whole screen, darkened by {@code dim} (0..1). */
+	public static void backdrop(float dim) {
+		float w = width();
+		float h = height();
+		float bw = Math.max(w, h * Backdrop.aspect());
+		float bh = bw / Backdrop.aspect();
+		texturedQuad(Backdrop.textureId(), (w - bw) / 2, (h - bh) / 2, bw, bh, 0xFFFFFFFF);
+		rect(0, 0, w, h, alpha(0xFF050406, dim));
+	}
+
 	/** Soft radial glow, strongest in the centre. */
 	public static void glow(float cx, float cy, float radius, int argb) {
 		texturedQuad(glowTexture().getGlTextureId(), cx - radius, cy - radius, radius * 2, radius * 2, argb);
@@ -367,7 +454,7 @@ public final class Ui {
 
 	/** Draws text with its line box top at y; size in design units. Returns the width drawn. */
 	public static float text(TtfFont font, String s, float x, float y, float size, int argb) {
-		font.draw(s, px(x), px(y), px(size), argb);
+		font.draw(s, px(x), px(y), px(size), fade(argb));
 		return font.width(s, px(size)) / Ui.s;
 	}
 
@@ -419,6 +506,17 @@ public final class Ui {
 	// ---- clipping -------------------------------------------------------------------------------
 
 	public static void scissor(float x, float y, float w, float h) {
+		clipping = true;
+		clipX = x;
+		clipY = y;
+		clipW = w;
+		clipH = h;
+		if (transformed) {
+			x = tCx + (x - tCx) * tScale + tDx;
+			y = tCy + (y - tCy) * tScale + tDy;
+			w *= tScale;
+			h *= tScale;
+		}
 		Minecraft mc = Minecraft.getMinecraft();
 		int x0 = Math.round(px(x));
 		int y0 = Math.round(px(y));
@@ -429,6 +527,7 @@ public final class Ui {
 	}
 
 	public static void endScissor() {
+		clipping = false;
 		GL11.glDisable(GL11.GL_SCISSOR_TEST);
 	}
 

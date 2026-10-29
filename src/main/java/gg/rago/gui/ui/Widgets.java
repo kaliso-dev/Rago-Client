@@ -63,6 +63,45 @@ public final class Widgets {
 		return w;
 	}
 
+	public static final float PILL_W = 44;
+	public static final float PILL_H = 20;
+
+	/**
+	 * Settings-page switch: a pill that reads ON (accent) or OFF (grey), with a knob that slides.
+	 * {@code key} identifies it for the animation.
+	 */
+	public static void pill(Object key, float x, float y, boolean on) {
+		float t = Anim.to(key, on ? 1f : 0f, 160);
+		boolean hover = Ui.hover(x, y, PILL_W, PILL_H);
+		int track = Ui.mix(hover ? 0xFF46434A : Theme.SWITCH_OFF, hover ? Theme.ACCENT_HOVER : Theme.ACCENT, t);
+		Ui.round(x, y, PILL_W, PILL_H, PILL_H / 2, track);
+		float k = PILL_H - 6;
+		float kx = Anim.lerp(x + 3, x + PILL_W - 3 - k, t);
+		Ui.circle(kx + k / 2, y + PILL_H / 2, k / 2, on ? 0xFFFFFFFF : Theme.KNOB_OFF);
+		float size = 8;
+		String label = on ? "ON" : "OFF";
+		float lw = Ui.textWidth(Ui.BOLD, label, size);
+		float lx = on ? x + 7 : x + PILL_W - 7 - lw;
+		Ui.text(Ui.BOLD, label, lx, y + (PILL_H - size * 1.21f) / 2, size, on ? 0xFFFFFFFF : 0xFFB9B7BE);
+	}
+
+	/** Hover amount 0..1 of an area, eased; for colour transitions. */
+	public static float hoverAmount(Object key, float x, float y, float w, float h) {
+		return Anim.to(key, Ui.hover(x, y, w, h) ? 1f : 0f, 120);
+	}
+
+	/** ‹ value › selector; returns nothing, the caller registers clicks on the arrows. */
+	public static void chooser(float x, float y, float w, float h, String value) {
+		boolean lh = Ui.hover(x, y, h, h);
+		boolean rh = Ui.hover(x + w - h, y, h, h);
+		Ui.roundBorder(x, y, w, h, h / 2, 0xFF151417, Theme.BORDER);
+		float i = h * 0.5f;
+		Ui.icon("chevron-left", x + (h - i) / 2, y + (h - i) / 2, i, lh ? Theme.TEXT : Theme.MUTED);
+		Ui.icon("chevron-right", x + w - h + (h - i) / 2, y + (h - i) / 2, i, rh ? Theme.TEXT : Theme.MUTED);
+		float size = 10;
+		Ui.textCentered(Ui.MEDIUM, value, x + w / 2, y + (h - size * 1.21f) / 2, size, Theme.TEXT);
+	}
+
 	/** Thin horizontal slider: track, filled part and knob. {@code f} is 0..1. */
 	public static void slider(float x, float y, float w, float f) {
 		float cy = y + 9;

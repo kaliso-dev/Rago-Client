@@ -3,13 +3,23 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 0.6.0.** What it contains:
+**Current version: 0.7.0.** What it contains:
 
-- a Rago home screen instead of the vanilla title screen: play Hypixel Bedwars in one click, quick
-  join for Hypixel and Minemen Club, Bedwars quick play (Solo, Doubles, 3v3v3v3, 4v4v4v4), and a live
-  performance card (FPS, 1% low, frame time, ping, OptiFine status)
-- the Rago mods menu (Right Shift, or *Mods* on the home screen): categories, search, filters,
-  mod cards with switches and a settings panel with a live preview, sliders and colour swatches
+- a clean home screen (emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of shortcuts) over a
+  blurred landscape, and a helper that links to the OptiFine download when OptiFine is missing
+- the Rago window (Right Shift): a **Mods** tab with mod profiles (Default, Bedwars, Practice,
+  Skywars, or your own), mod cards with Enabled/Disabled, filters, sorting and search, and a page per
+  mod with a live preview; a **Settings** tab with General, Performance and Controls pages
+- menu animations (fades, slides, hover transitions), with a switch to turn them off, and an optional
+  blur of the game behind the window
+- a Performance page with Rago's own optimisations, Minecraft's video settings and, when OptiFine is
+  installed, its performance, detail, animation and particle settings in one searchable list:
+  - frame caps: menus above vanilla's fixed 30 FPS, and a lower cap while the window is unfocused
+  - entity render distances for players, hostile mobs, passive mobs and other entities
+  - hide arrows stuck in players, item frames, paintings, armor stands, XP orbs, fireworks, falling blocks
+  - tile entity distance, and hide skulls, signs, enchanting books, banners, beacon beams, end portals
+  - hide tall grass, ferns, flowers and dead bushes, a particle cap and a fog switch
+- a Controls page to rebind every key (keyboard or mouse), with conflicts shown in red
 - a module system: every feature is a module with an on/off switch and its own options
 - a HUD editor: drag elements, snap them to the screen centre, resize them with the mouse wheel
 - settings saved to `config/rago.json` (a broken file is set aside and defaults are used)
@@ -29,7 +39,11 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
 Every module declares a policy class (visual, informational, input, packet). Input-class modules
 are off by default, and packet-class modules are refused at registration: Rago does not ship them.
 
-Rago never changes what is sent to the server. Toggle sprint/sneak is the only module that affects
+Rago never changes what is sent to the server. Every optimisation only changes what this client
+draws. The jar contains one class transformer (`gg.rago.asm`), which only replaces the frame-rate
+cap vanilla uses for menus and unfocused windows; everything else uses Forge events.
+
+Toggle sprint/sneak is the only module that affects
 input: it makes the vanilla key read as held, nothing more, and it is off until you turn it on.
 
 ## Install (players)
@@ -38,7 +52,7 @@ input: it makes the vanilla key read as held, nothing more, and it is off until 
 2. Download **OptiFine 1.8.9 HD U M5** yourself from [optifine.net](https://optifine.net/downloads)
    and put the jar in `.minecraft/mods`. Rago does not ship OptiFine: its license does not allow
    redistribution without permission from its author.
-3. Put `rago-0.6.0+1.8.9.jar` in `.minecraft/mods`.
+3. Put `rago-0.7.0+1.8.9.jar` in `.minecraft/mods`.
 4. Start the *forge* profile in the Minecraft launcher.
 
 OptiFine is optional: without it Rago runs on plain Forge, and the competitive profile only changes
@@ -53,7 +67,7 @@ the vanilla settings.
 ## Build and test
 
 ```sh
-./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.6.0+1.8.9.jar
+./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.7.0+1.8.9.jar
 ./gradlew test           # unit tests only
 ./gradlew runClient      # starts Minecraft 1.8.9 + Forge with Rago in ./run (offline dev account, no OptiFine)
 ```
