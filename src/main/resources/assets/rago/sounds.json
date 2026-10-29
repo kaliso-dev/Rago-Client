@@ -1,0 +1,65 @@
+{
+  "action.pop": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "action/pop",
+        "stream": false
+      }
+    ]
+  },
+  "action.click": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "action/click",
+        "stream": false
+      }
+    ]
+  },
+  "action.tick": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "action/tick",
+        "stream": false
+      }
+    ]
+  },
+  "action.bubble": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "action/bubble",
+        "stream": false
+      }
+    ]
+  },
+  "action.ding": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "action/ding",
+        "stream": false
+      }
+    ]
+  },
+  "action.thud": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "action/thud",
+        "stream": false
+      }
+    ]
+  },
+  "action.crunch": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "action/crunch",
+        "stream": false
+      }
+    ]
+  }
+}

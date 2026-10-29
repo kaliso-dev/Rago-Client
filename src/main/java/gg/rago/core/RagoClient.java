@@ -50,6 +50,7 @@ import gg.rago.hud.elements.ToggleSprintHud;
 import gg.rago.hypixel.HypixelApi;
 import gg.rago.input.InputState;
 import gg.rago.modules.BlockOverlay;
+import gg.rago.modules.ActionSounds;
 import gg.rago.modules.BedwarsStats;
 import gg.rago.modules.Chat;
 import gg.rago.modules.ColorGrading;
@@ -68,6 +69,7 @@ import gg.rago.modules.TntTimer;
 import gg.rago.modules.TrapNotifier;
 import gg.rago.modules.LevelHead;
 import gg.rago.modules.LowFire;
+import gg.rago.modules.ModernSounds;
 import gg.rago.modules.MotionBlur;
 import gg.rago.modules.MainMenu;
 import gg.rago.modules.NoHurtCam;
@@ -188,6 +190,8 @@ public final class RagoClient {
 	@Mod.EventHandler
 	public void preInit(FMLPreInitializationEvent event) {
 		configDir = event.getModConfigurationDirectory().toPath();
+		// before the first resource load, so recent sounds need no reload
+		ModernSounds.install();
 	}
 
 	@Mod.EventHandler
@@ -236,6 +240,7 @@ public final class RagoClient {
 		MODULES.register(new LevelHead(hypixel, nametags));
 		Hooks.bedwarsStats = MODULES.register(new BedwarsStats(hypixel));
 		MODULES.register(new TrapNotifier());
+		MODULES.register(new ActionSounds());
 		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());
 		OldAnimations animations = MODULES.register(new OldAnimations());
 		GameplayFixes fixes = MODULES.register(new GameplayFixes());
