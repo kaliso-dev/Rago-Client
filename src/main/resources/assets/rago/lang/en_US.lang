@@ -614,7 +614,7 @@ rago.module.direction=Direction
 rago.module.direction.desc=The direction you face (N, NE, E...) and its bearing.
 rago.option.show_degrees=Show degrees
 rago.module.pack_display=Pack Display
-rago.module.pack_display.desc=The name of the resource pack you use.
+rago.module.pack_display.desc=The resource pack you use: its logo and its name, in the pack's own colours.
 
 # 1.2: tab list
 rago.module.tab_list=Tab List
@@ -928,3 +928,8 @@ rago.choice.modern_knockback=1.21 knockback
 rago.choice.modern_sweep=1.21 sweep
 rago.choice.modern_weak=1.21 weak
 rago.choice.modern_amethyst=Amethyst chime
+
+# 1.4: pack display
+rago.option.pack_logo=Pack logo
+rago.option.pack_colors=Colours of the pack name
+rago.option.pack_colors.help=Keeps the colours the pack's author put in its name.

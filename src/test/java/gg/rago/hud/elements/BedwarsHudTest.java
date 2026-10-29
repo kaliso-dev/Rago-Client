@@ -36,5 +36,8 @@ class BedwarsHudTest {
 	void packNames() {
 		assertEquals("Rago 16x", PackDisplayHud.clean("§aRago_16x.zip"));
 		assertEquals("Default", PackDisplayHud.clean("Default"));
+		assertEquals("§aRago 16x", PackDisplayHud.clean("§aRago_16x.zip", true));
+		assertEquals("§bBlue §f16x", PackDisplayHud.clean("§bBlue §f16x§r.zip", true));
+		assertEquals("§cPack", PackDisplayHud.clean("§cPack.z§rip", true));
 	}
 }

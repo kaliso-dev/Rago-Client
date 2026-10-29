@@ -614,7 +614,7 @@ rago.module.direction=Direction
 rago.module.direction.desc=La direction où tu regardes (N, NE, E...) et son cap.
 rago.option.show_degrees=Afficher les degrés
 rago.module.pack_display=Pack de textures
-rago.module.pack_display.desc=Le nom du pack de ressources que tu utilises.
+rago.module.pack_display.desc=Le pack de ressources que tu utilises : son logo et son nom, dans les couleurs du pack.
 
 # 1.2: tab list
 rago.module.tab_list=Tab
@@ -928,3 +928,8 @@ rago.choice.modern_knockback=Recul 1.21
 rago.choice.modern_sweep=Balayage 1.21
 rago.choice.modern_weak=Faible 1.21
 rago.choice.modern_amethyst=Carillon d'améthyste
+
+# 1.4: pack display
+rago.option.pack_logo=Logo du pack
+rago.option.pack_colors=Couleurs du nom du pack
+rago.option.pack_colors.help=Garde les couleurs que l'auteur du pack a mises dans son nom.
