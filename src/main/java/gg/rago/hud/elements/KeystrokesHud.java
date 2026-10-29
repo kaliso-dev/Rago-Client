@@ -8,10 +8,10 @@ import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
 import gg.rago.input.InputState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiElement;
-import net.minecraft.client.options.GameOptions;
-import net.minecraft.client.options.KeyBinding;
-import net.minecraft.client.render.TextRenderer;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.settings.GameSettings;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.client.gui.FontRenderer;
 import org.lwjgl.input.Keyboard;
 
 /**
@@ -42,12 +42,12 @@ public final class KeystrokesHud extends HudElement {
 	}
 
 	@Override
-	public int width(TextRenderer text, boolean placeholder) {
+	public int width(FontRenderer text, boolean placeholder) {
 		return WIDTH;
 	}
 
 	@Override
-	public int height(TextRenderer text, boolean placeholder) {
+	public int height(FontRenderer text, boolean placeholder) {
 		int h = KEY * 2 + GAP;
 		if (showMouse.get()) {
 			h += GAP + KEY;
@@ -60,52 +60,52 @@ public final class KeystrokesHud extends HudElement {
 
 	@Override
 	public boolean hasContent() {
-		return Minecraft.getInstance().options != null;
+		return Minecraft.getMinecraft().gameSettings != null;
 	}
 
 	@Override
-	public void render(TextRenderer text, boolean placeholder) {
-		GameOptions o = Minecraft.getInstance().options;
+	public void render(FontRenderer text, boolean placeholder) {
+		GameSettings o = Minecraft.getMinecraft().gameSettings;
 		long now = System.nanoTime();
-		key(text, o.forwardKey, KEY + GAP, 0, KEY, KEY, placeholder, null);
+		key(text, o.keyBindForward, KEY + GAP, 0, KEY, KEY, placeholder, null);
 		int y = KEY + GAP;
-		key(text, o.leftKey, 0, y, KEY, KEY, placeholder, null);
-		key(text, o.backKey, KEY + GAP, y, KEY, KEY, placeholder, null);
-		key(text, o.rightKey, (KEY + GAP) * 2, y, KEY, KEY, placeholder, null);
+		key(text, o.keyBindLeft, 0, y, KEY, KEY, placeholder, null);
+		key(text, o.keyBindBack, KEY + GAP, y, KEY, KEY, placeholder, null);
+		key(text, o.keyBindRight, (KEY + GAP) * 2, y, KEY, KEY, placeholder, null);
 		y += KEY + GAP;
 		if (showMouse.get()) {
 			int half = (WIDTH - GAP) / 2;
 			String left = showCps.get() ? (placeholder ? 9 : input.attackCps(now)) + " CPS" : null;
 			String right = showCps.get() ? (placeholder ? 4 : input.useCps(now)) + " CPS" : null;
-			key(text, o.attackKey, 0, y, half, KEY, placeholder, left);
-			key(text, o.useKey, half + GAP, y, WIDTH - half - GAP, KEY, placeholder, right);
+			key(text, o.keyBindAttack, 0, y, half, KEY, placeholder, left);
+			key(text, o.keyBindUseItem, half + GAP, y, WIDTH - half - GAP, KEY, placeholder, right);
 			y += KEY + GAP;
 		}
 		if (showSpace.get()) {
-			boolean down = !placeholder && o.jumpKey.isPressed();
+			boolean down = !placeholder && o.keyBindJump.isKeyDown();
 			box(0, y, WIDTH, SPACE_H, down);
 			int bar = down ? 0xFF000000 : textColor.get();
-			GuiElement.fill(WIDTH / 2 - 12, y + SPACE_H / 2 - 1, WIDTH / 2 + 12, y + SPACE_H / 2, bar);
+			Gui.drawRect(WIDTH / 2 - 12, y + SPACE_H / 2 - 1, WIDTH / 2 + 12, y + SPACE_H / 2, bar);
 		}
 	}
 
-	private void key(TextRenderer text, KeyBinding binding, int x, int y, int w, int h, boolean placeholder, String sub) {
-		boolean down = !placeholder && binding.isPressed();
+	private void key(FontRenderer text, KeyBinding binding, int x, int y, int w, int h, boolean placeholder, String sub) {
+		boolean down = !placeholder && binding.isKeyDown();
 		box(x, y, w, h, down);
 		int color = down ? 0xFF000000 : textColor.get();
 		String label = fit(text, keyName(binding.getKeyCode()), w - 4);
 		if (sub == null) {
-			drawLabel(text, label, x + w / 2, y + (h - text.fontHeight) / 2 + 1, color, down);
+			drawLabel(text, label, x + w / 2, y + (h - text.FONT_HEIGHT) / 2 + 1, color, down);
 		} else {
 			drawLabel(text, label, x + w / 2, y + 3, color, down);
-			drawLabel(text, sub, x + w / 2, y + 3 + text.fontHeight + 1, color, down);
+			drawLabel(text, sub, x + w / 2, y + 3 + text.FONT_HEIGHT + 1, color, down);
 		}
 	}
 
-	private void drawLabel(TextRenderer text, String s, int centerX, int y, int color, boolean down) {
-		int x = centerX - text.getWidth(s) / 2;
+	private void drawLabel(FontRenderer text, String s, int centerX, int y, int color, boolean down) {
+		int x = centerX - text.getStringWidth(s) / 2;
 		if (down) {
-			text.draw(s, x, y, color);
+			text.drawString(s, x, y, color);
 		} else {
 			drawText(text, s, x, y, color);
 		}
@@ -113,14 +113,14 @@ public final class KeystrokesHud extends HudElement {
 
 	private void box(int x, int y, int w, int h, boolean down) {
 		if (down) {
-			GuiElement.fill(x, y, x + w, y + h, pressedColor.get());
+			Gui.drawRect(x, y, x + w, y + h, pressedColor.get());
 		} else if (background.get()) {
-			GuiElement.fill(x, y, x + w, y + h, IDLE);
+			Gui.drawRect(x, y, x + w, y + h, IDLE);
 		}
 	}
 
-	private static String fit(TextRenderer text, String s, int maxW) {
-		while (s.length() > 1 && text.getWidth(s) > maxW) {
+	private static String fit(FontRenderer text, String s, int maxW) {
+		while (s.length() > 1 && text.getStringWidth(s) > maxW) {
 			s = s.substring(0, s.length() - 1);
 		}
 		return s;
@@ -128,17 +128,19 @@ public final class KeystrokesHud extends HudElement {
 
 	/** Vanilla stores mouse buttons as negative codes (button - 100). */
 	static String keyName(int code) {
-		return switch (code) {
-			case -100 -> "LMB";
-			case -99 -> "RMB";
-			case -98 -> "MMB";
-			default -> {
+		switch (code) {
+			case -100:
+				return "LMB";
+			case -99:
+				return "RMB";
+			case -98:
+				return "MMB";
+			default:
 				if (code < 0) {
-					yield "M" + (code + 101);
+					return "M" + (code + 101);
 				}
 				String name = Keyboard.getKeyName(code);
-				yield name == null ? "?" : name;
-			}
-		};
+				return name == null ? "?" : name;
+		}
 	}
 }

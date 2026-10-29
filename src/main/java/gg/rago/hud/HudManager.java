@@ -2,9 +2,9 @@ package gg.rago.hud;
 
 import gg.rago.core.ModuleRegistry;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.render.TextRenderer;
-import net.minecraft.client.render.Window;
-import net.minecraft.client.render.platform.GlStateManager;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.GlStateManager;
 
 import java.util.List;
 
@@ -20,31 +20,31 @@ public final class HudManager {
 		return registry.allOf(HudElement.class);
 	}
 
-	/** Called from GameGui.render while in a world. */
+	/** Called after the vanilla HUD is drawn while in a world. */
 	public void render() {
-		Minecraft mc = Minecraft.getInstance();
-		Window window = new Window(mc);
+		Minecraft mc = Minecraft.getMinecraft();
+		ScaledResolution window = new ScaledResolution(mc);
 		for (HudElement element : elements()) {
 			if (element.isEnabled() && element.hasContent()) {
-				draw(element, mc.textRenderer, window.getWidth(), window.getHeight(), false);
+				draw(element, mc.fontRendererObj, window.getScaledWidth(), window.getScaledHeight(), false);
 			}
 		}
 	}
 
 	/** Draws one element and returns its on-screen bounds as {x, y, w, h}. */
-	public static int[] draw(HudElement element, TextRenderer text, int screenW, int screenH, boolean placeholder) {
+	public static int[] draw(HudElement element, FontRenderer text, int screenW, int screenH, boolean placeholder) {
 		int[] b = bounds(element, text, screenW, screenH, placeholder);
 		float scale = element.position().scale();
 		GlStateManager.pushMatrix();
-		GlStateManager.translatef(b[0], b[1], 0);
-		GlStateManager.scalef(scale, scale, 1);
+		GlStateManager.translate(b[0], b[1], 0);
+		GlStateManager.scale(scale, scale, 1);
 		element.render(text, placeholder);
 		GlStateManager.popMatrix();
-		GlStateManager.color4f(1, 1, 1, 1);
+		GlStateManager.color(1, 1, 1, 1);
 		return b;
 	}
 
-	public static int[] bounds(HudElement element, TextRenderer text, int screenW, int screenH, boolean placeholder) {
+	public static int[] bounds(HudElement element, FontRenderer text, int screenW, int screenH, boolean placeholder) {
 		float scale = element.position().scale();
 		int w = Math.round(element.width(text, placeholder) * scale);
 		int h = Math.round(element.height(text, placeholder) * scale);

@@ -4,12 +4,14 @@ import gg.rago.core.FeatureClass;
 import gg.rago.core.ModuleRegistry;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
-import net.minecraft.client.render.TextRenderer;
+import net.minecraft.client.gui.FontRenderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -24,17 +26,17 @@ class ConfigStoreTest {
 		}
 
 		@Override
-		public int width(TextRenderer text, boolean placeholder) {
+		public int width(FontRenderer text, boolean placeholder) {
 			return 10;
 		}
 
 		@Override
-		public int height(TextRenderer text, boolean placeholder) {
+		public int height(FontRenderer text, boolean placeholder) {
 			return 10;
 		}
 
 		@Override
-		public void render(TextRenderer text, boolean placeholder) {
+		public void render(FontRenderer text, boolean placeholder) {
 		}
 	}
 
@@ -70,33 +72,36 @@ class ConfigStoreTest {
 		assertEquals(8, loaded.size.get());
 		assertEquals(hud.position().anchor(), loaded.position().anchor());
 		assertEquals(2f, loaded.position().scale());
-		assertTrue(Files.readString(file).contains("\"schema\": 1"));
+		assertTrue(new String(Files.readAllBytes(file), StandardCharsets.UTF_8).contains("\"schema\": 1"));
 	}
 
 	@Test
 	void badValuesFallBackToDefaultsAndUnknownKeysAreIgnored(@TempDir Path dir) throws Exception {
 		Path file = dir.resolve("rago.json");
-		Files.writeString(file, """
-			{ "schema": 1, "modules": {
-			  "a": { "enabled": "yes", "options": { "size": 99, "shadow": 3, "text_color": "#FF0000" } },
-			  "gone": { "enabled": false }
-			} }""");
+		write(file, "{ \"schema\": 1, \"modules\": {\n"
+			+ "  \"a\": { \"enabled\": \"yes\", \"options\": { \"size\": 99, \"shadow\": 3, \"text_color\": \"#FF0000\" } },\n"
+			+ "  \"gone\": { \"enabled\": false }\n"
+			+ "} }");
 		TestHud hud = new TestHud("a");
 		new ConfigStore(file).load(registry(hud));
 		assertTrue(hud.isEnabled());
 		assertEquals(10, hud.size.get());
-		assertEquals(0xFFFF0000, (int) ((ColorOption) hud.options().stream().filter(o -> o.key().equals("text_color")).findFirst().orElseThrow()).get());
+		assertEquals(0xFFFF0000, (int) ((ColorOption) hud.options().stream().filter(o -> o.key().equals("text_color")).findFirst().get()).get());
 	}
 
 	@Test
 	void brokenFileIsKeptAside(@TempDir Path dir) throws Exception {
 		Path file = dir.resolve("rago.json");
-		Files.writeString(file, "{ this is not json");
+		write(file, "{ this is not json");
 		TestHud hud = new TestHud("a");
 		assertEquals(ConfigStore.LoadResult.BROKEN_FILE_REPLACED, new ConfigStore(file).load(registry(hud)));
 		assertFalse(Files.exists(file));
-		try (var files = Files.list(dir)) {
+		try (Stream<Path> files = Files.list(dir)) {
 			assertTrue(files.anyMatch(p -> p.getFileName().toString().startsWith("rago.json.broken-")));
 		}
+	}
+
+	private static void write(Path file, String text) throws java.io.IOException {
+		Files.write(file, text.getBytes(StandardCharsets.UTF_8));
 	}
 }

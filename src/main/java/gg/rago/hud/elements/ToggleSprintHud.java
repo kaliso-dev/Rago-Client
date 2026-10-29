@@ -6,9 +6,10 @@ import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.TextHudElement;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.options.GameOptions;
-import net.minecraft.client.options.KeyBinding;
-import net.minecraft.client.resource.language.I18n;
+import net.minecraft.client.settings.GameSettings;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.client.resources.I18n;
+import org.lwjgl.input.Keyboard;
 
 /**
  * Toggle sprint and toggle sneak: one press of the vanilla key keeps it held until the next
@@ -34,11 +35,11 @@ public final class ToggleSprintHud extends TextHudElement {
 
 	@Override
 	public void tick() {
-		GameOptions o = Minecraft.getInstance().options;
-		while (o.sprintKey.consumeClick()) {
+		GameSettings o = Minecraft.getMinecraft().gameSettings;
+		while (o.keyBindSprint.isPressed()) {
 			sprintToggled = sprint.get() && !sprintToggled;
 		}
-		while (o.sneakKey.consumeClick()) {
+		while (o.keyBindSneak.isPressed()) {
 			sneakToggled = sneak.get() && !sneakToggled;
 		}
 		if (!sprint.get()) {
@@ -47,12 +48,32 @@ public final class ToggleSprintHud extends TextHudElement {
 		if (!sneak.get()) {
 			sneakToggled = false;
 		}
+		hold(o.keyBindSprint);
+		hold(o.keyBindSneak);
+	}
+
+	/**
+	 * Keeps a toggled binding held. When it is not forced, its state follows the physical key
+	 * again, so releasing the toggle behaves like releasing the key.
+	 */
+	private void hold(KeyBinding binding) {
+		int code = binding.getKeyCode();
+		if (forceHeld(binding)) {
+			KeyBinding.setKeyBindState(code, true);
+		} else if (code > 0 && !Keyboard.isKeyDown(code)) {
+			KeyBinding.setKeyBindState(code, false);
+		}
 	}
 
 	@Override
 	protected void onDisable() {
 		sprintToggled = false;
 		sneakToggled = false;
+		GameSettings o = Minecraft.getMinecraft().gameSettings;
+		if (o != null) {
+			hold(o.keyBindSprint);
+			hold(o.keyBindSneak);
+		}
 	}
 
 	/** Whether this binding should read as held although the key is up. */
@@ -60,11 +81,11 @@ public final class ToggleSprintHud extends TextHudElement {
 		if (!isEnabled()) {
 			return false;
 		}
-		Minecraft mc = Minecraft.getInstance();
-		if (mc.screen != null || mc.options == null) {
+		Minecraft mc = Minecraft.getMinecraft();
+		if (mc.currentScreen != null || mc.gameSettings == null) {
 			return false;
 		}
-		return (sprintToggled && binding == mc.options.sprintKey) || (sneakToggled && binding == mc.options.sneakKey);
+		return (sprintToggled && binding == mc.gameSettings.keyBindSprint) || (sneakToggled && binding == mc.gameSettings.keyBindSneak);
 	}
 
 	@Override
@@ -75,8 +96,8 @@ public final class ToggleSprintHud extends TextHudElement {
 	@Override
 	protected String text(boolean placeholder) {
 		if (!placeholder && sneakToggled) {
-			return I18n.translate(sprintToggled ? "rago.status.sprinting_sneaking" : "rago.status.sneaking");
+			return I18n.format(sprintToggled ? "rago.status.sprinting_sneaking" : "rago.status.sneaking");
 		}
-		return I18n.translate("rago.status.sprinting");
+		return I18n.format("rago.status.sprinting");
 	}
 }

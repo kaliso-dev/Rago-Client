@@ -6,14 +6,15 @@ import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.render.TextRenderer;
-import net.minecraft.client.render.platform.GlStateManager;
-import net.minecraft.client.render.platform.Lighting;
-import net.minecraft.entity.living.player.PlayerEntity;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.init.Items;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /** Worn armour (helmet first) and the held item, each with its remaining durability. */
@@ -37,10 +38,10 @@ public final class ArmorHud extends HudElement {
 
 	private List<ItemStack> sample() {
 		if (sample == null) {
-			sample = List.of(new ItemStack(Items.DIAMOND_HELMET), new ItemStack(Items.DIAMOND_CHESTPLATE),
-				new ItemStack(Items.IRON_LEGGINGS), new ItemStack(Items.DIAMOND_BOOTS), new ItemStack(Items.DIAMOND_SWORD));
-			sample.get(1).setDamage(300);
-			sample.get(2).setDamage(200);
+			sample = Arrays.asList(new ItemStack(Items.diamond_helmet), new ItemStack(Items.diamond_chestplate),
+				new ItemStack(Items.iron_leggings), new ItemStack(Items.diamond_boots), new ItemStack(Items.diamond_sword));
+			sample.get(1).setItemDamage(300);
+			sample.get(2).setItemDamage(200);
 		}
 		return sample;
 	}
@@ -50,18 +51,18 @@ public final class ArmorHud extends HudElement {
 			return showHeld.get() ? sample() : sample().subList(0, 4);
 		}
 		List<ItemStack> list = new ArrayList<>(5);
-		PlayerEntity player = Minecraft.getInstance().player;
+		EntityPlayer player = Minecraft.getMinecraft().thePlayer;
 		if (player == null) {
 			return list;
 		}
 		for (int slot = 3; slot >= 0; slot--) {
-			ItemStack stack = player.inventory.armor[slot];
+			ItemStack stack = player.inventory.armorInventory[slot];
 			if (stack != null) {
 				list.add(stack);
 			}
 		}
 		if (showHeld.get()) {
-			ItemStack held = player.inventory.getSelectedItem();
+			ItemStack held = player.inventory.getCurrentItem();
 			if (held != null) {
 				list.add(held);
 			}
@@ -75,12 +76,12 @@ public final class ArmorHud extends HudElement {
 	}
 
 	@Override
-	public int width(TextRenderer text, boolean placeholder) {
+	public int width(FontRenderer text, boolean placeholder) {
 		int w = ICON;
 		if (showDurability.get()) {
 			int label = 0;
 			for (ItemStack stack : items(placeholder)) {
-				label = Math.max(label, text.getWidth(label(stack)));
+				label = Math.max(label, text.getStringWidth(label(stack)));
 			}
 			if (label > 0) {
 				w += 3 + label;
@@ -90,25 +91,25 @@ public final class ArmorHud extends HudElement {
 	}
 
 	@Override
-	public int height(TextRenderer text, boolean placeholder) {
+	public int height(FontRenderer text, boolean placeholder) {
 		int n = Math.max(1, items(placeholder).size());
 		return n * ROW - 1;
 	}
 
 	@Override
-	public void render(TextRenderer text, boolean placeholder) {
-		Minecraft mc = Minecraft.getInstance();
+	public void render(FontRenderer text, boolean placeholder) {
+		Minecraft mc = Minecraft.getMinecraft();
 		List<ItemStack> items = items(placeholder);
-		Lighting.turnOnGui();
+		RenderHelper.enableGUIStandardItemLighting();
 		GlStateManager.enableRescaleNormal();
 		for (int i = 0; i < items.size(); i++) {
 			ItemStack stack = items.get(i);
 			int y = i * ROW;
-			mc.getItemRenderer().renderGuiItem(stack, 0, y);
-			mc.getItemRenderer().renderGuiItemDecorations(text, stack, 0, y, "");
+			mc.getRenderItem().renderItemAndEffectIntoGUI(stack, 0, y);
+			mc.getRenderItem().renderItemOverlayIntoGUI(text, stack, 0, y, "");
 		}
 		GlStateManager.disableRescaleNormal();
-		Lighting.turnOff();
+		RenderHelper.disableStandardItemLighting();
 		if (showDurability.get()) {
 			for (int i = 0; i < items.size(); i++) {
 				ItemStack stack = items.get(i);
@@ -118,22 +119,22 @@ public final class ArmorHud extends HudElement {
 				}
 			}
 		}
-		GlStateManager.color4f(1, 1, 1, 1);
+		GlStateManager.color(1, 1, 1, 1);
 	}
 
 	/** Remaining uses for damageable items, the stack size for stacks, nothing otherwise. */
 	private static String label(ItemStack stack) {
-		if (stack.isDamageable()) {
-			return Integer.toString(stack.getMaxDamage() - stack.getDamage());
+		if (stack.isItemStackDamageable()) {
+			return Integer.toString(stack.getMaxDamage() - stack.getItemDamage());
 		}
-		return stack.size > 1 ? Integer.toString(stack.size) : "";
+		return stack.stackSize > 1 ? Integer.toString(stack.stackSize) : "";
 	}
 
 	private int durabilityColor(ItemStack stack) {
-		if (!stack.isDamageable()) {
+		if (!stack.isItemStackDamageable()) {
 			return textColor.get();
 		}
-		return durabilityColor(stack.getMaxDamage() - stack.getDamage(), stack.getMaxDamage(), textColor.get());
+		return durabilityColor(stack.getMaxDamage() - stack.getItemDamage(), stack.getMaxDamage(), textColor.get());
 	}
 
 	/** Green above half, yellow above a quarter, red below. */

@@ -1,28 +1,30 @@
 # Rago Client
 
-Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a mod on
-[Ornithe](https://ornithemc.net) (Fabric Loader + Feather mappings + Ornithe Standard Libraries).
+Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
+[Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 0.5.0.** It contains the foundation every feature plugs into, the first PvP mods,
-the performance probe from 0.0.1, and runs by default with the Argentum rendering engine:
+**Current version: 0.6.0.** What it contains:
 
+- a Rago home screen instead of the vanilla title screen: play Hypixel Bedwars in one click, quick
+  join for Hypixel and Minemen Club, Bedwars quick play (Solo, Doubles, 3v3v3v3, 4v4v4v4), and a live
+  performance card (FPS, 1% low, frame time, ping, OptiFine status)
+- the Rago mods menu (Right Shift, or *Mods* on the home screen): categories, search, filters,
+  mod cards with switches and a settings panel with a live preview, sliders and colour swatches
 - a module system: every feature is a module with an on/off switch and its own options
-- a Rago main menu instead of the vanilla title screen (quick join for Hypixel and Minemen Club)
-- the Rago menu (Right Shift, or *Rago Mods* on the main menu): mods as cards with categories,
-  search, switches and an options page per mod with sliders
 - a HUD editor: drag elements, snap them to the screen centre, resize them with the mouse wheel
 - settings saved to `config/rago.json` (a broken file is set aside and defaults are used)
 - PvP HUD: keystrokes (follows your bindings, with CPS), CPS counter, armour and held item with
   durability, potion effects with time left, coordinates and facing
 - comfort mods: zoom (hold C, wheel to adjust), custom crosshair drawn in real pixels, fullbright,
   toggle sprint / sneak (input class, off by default)
-- a competitive profile (Performance category): one switch sets fast graphics, minimal
-  particles, no clouds, shadows, vignette or dynamic FOV, fast leaves and uncapped FPS. Potion
+- a competitive profile: one switch sets fast graphics, minimal particles, no clouds or shadows and
+  uncapped FPS, plus OptiFine's own settings when OptiFine is installed (fast math, no smooth FPS,
+  no dynamic FOV, fast leaves, no sky, stars, vignette or animated smoke/flame/explosions). Potion
   particles stay on so you can read your opponent's effects. Your own values are saved to
   `config/rago-profile-backup.json` and put back when you switch it off.
 - performance HUD: FPS (with 1% low), frame time p50/p99, **server-reported** ping with jitter, capture status
 - a 60-second frame capture written to CSV, with hardware and settings in the header
-- `bench/analyse.py` to compare two sets of captures (e.g. vanilla vs. vanilla + Argentum)
+- `bench/analyse.py` to compare two sets of captures (e.g. without vs. with OptiFine)
 
 Every module declares a policy class (visual, informational, input, packet). Input-class modules
 are off by default, and packet-class modules are refused at registration: Rago does not ship them.
@@ -30,38 +32,34 @@ are off by default, and packet-class modules are refused at registration: Rago d
 Rago never changes what is sent to the server. Toggle sprint/sneak is the only module that affects
 input: it makes the vanilla key read as held, nothing more, and it is off until you turn it on.
 
-## Performance stack (instead of OptiFine)
+## Install (players)
 
-OptiFine cannot be bundled (its license forbids redistribution) and does not run on Ornithe. Rago uses
-the Ornithe rendering mods instead, downloaded from Modrinth and never copied into Rago's jar, because
-they are "All Rights Reserved":
+1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
+2. Download **OptiFine 1.8.9 HD U M5** yourself from [optifine.net](https://optifine.net/downloads)
+   and put the jar in `.minecraft/mods`. Rago does not ship OptiFine: its license does not allow
+   redistribution without permission from its author.
+3. Put `rago-0.6.0+1.8.9.jar` in `.minecraft/mods`.
+4. Start the *forge* profile in the Minecraft launcher.
 
-| Mod | What it does |
-| --- | --- |
-| [Argentum](https://modrinth.com/mod/argentum) | Rendering engine (Celeritas/Sodium lineage): terrain, entities, culling, video settings |
-| [Argentum Extras](https://modrinth.com/mod/argentum-extras) | Particles, clouds, leaves, fog, weather, FXAA and other detail settings |
-| [Cera](https://modrinth.com/mod/cera) | OptiFine/MCPatcher resource-pack features (connected textures, custom sky, …) |
+OptiFine is optional: without it Rago runs on plain Forge, and the competitive profile only changes
+the vanilla settings.
 
-`runClient` loads all three. Argentum is compiled for **Java 25**, so Gradle downloads a Java 25
-runtime for the game on first launch (Rago itself is still built with Java 21). For an A/B benchmark,
-run without them with `-PnoArgentum`.
+## Requirements (developers)
 
-## Requirements
-
-- JDK 21 or newer to build (the Gradle wrapper downloads Gradle 9.7.0 itself)
+- A JDK 17 or newer to run Gradle (the wrapper downloads Gradle 8.8). The mod and the game use
+  **Java 8**, which Gradle downloads by itself on the first build.
 - Python 3.8+ for `bench/analyse.py` (no extra packages)
 
 ## Build and test
 
 ```sh
-./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.5.0+1.8.9.jar
+./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.6.0+1.8.9.jar
 ./gradlew test           # unit tests only
-./gradlew runClient      # starts Minecraft 1.8.9 with Rago + Argentum stack in ./run (offline dev account)
-./gradlew runClient -PnoArgentum   # same without Argentum, Extras and Cera (benchmark baseline)
+./gradlew runClient      # starts Minecraft 1.8.9 + Forge with Rago in ./run (offline dev account, no OptiFine)
 ```
 
-On Windows (PowerShell) use `.\gradlew.bat` instead of `./gradlew`, e.g. `.\gradlew.bat runClient`. The dev client runs on LWJGL3 through
-[legacy-lwjgl3](https://github.com/moehreag/legacy-lwjgl3), so it also works on Apple Silicon Macs.
+On Windows (PowerShell) use `.\gradlew.bat` instead of `./gradlew`, e.g. `.\gradlew.bat runClient`.
+To test with OptiFine, install the built jar in a real Forge profile as described above.
 
 ## Controls
 
@@ -70,7 +68,7 @@ On Windows (PowerShell) use `.\gradlew.bat` instead of `./gradlew`, e.g. `.\grad
 | Right Shift | Open the Rago menu (modules, options, *Edit HUD*) |
 | F10 | Show / hide the whole Rago HUD |
 | C (hold) | Zoom; mouse wheel changes the zoom level while held |
-| F12 | Start / stop a 60 s frame capture (saved to `run/rago/frames-YYYYMMDD-HHMMSS.csv`) |
+| F12 | Start / stop a 60 s frame capture (saved to `rago/frames-YYYYMMDD-HHMMSS.csv`) |
 
 All keys can be changed in Options → Controls → Rago. On a Mac keyboard, press `fn` with the F key.
 
@@ -83,7 +81,7 @@ See [`bench/README.md`](bench/README.md) for the exact procedure. In short: same
 same settings, 5 captures per configuration, then:
 
 ```sh
-python3 bench/analyse.py bench/results/vanilla --vs bench/results/argentum --label-a vanilla --label-b argentum
+python3 bench/analyse.py bench/results/forge --vs bench/results/optifine --label-a forge --label-b optifine
 ```
 
 Report the numbers as measured, with the hardware lines from the CSV headers.

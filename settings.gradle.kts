@@ -1,14 +1,23 @@
 pluginManagement {
     repositories {
-        maven("https://maven.fabricmc.net/") { name = "Fabric" }
-        maven("https://maven.ornithemc.net/releases") { name = "Ornithe" }
+        maven("https://maven-central.storage-download.googleapis.com/maven2/")
         gradlePluginPortal()
+        mavenCentral()
+        maven("https://maven.architectury.dev/")
+        maven("https://maven.fabricmc.net")
+        maven("https://maven.minecraftforge.net/")
+        maven("https://repo.spongepowered.org/maven/")
+        maven("https://repo.essential.gg/repository/maven-releases/")
+    }
+    resolutionStrategy {
+        eachPlugin {
+            when (requested.id.id) {
+                "gg.essential.loom" -> useModule("gg.essential:architectury-loom:${requested.version}")
+            }
+        }
     }
 }
-
 plugins {
-    // Downloads the Java 25 runtime Argentum needs for runClient when it is not installed
-    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
 }
-
 rootProject.name = "rago-client"

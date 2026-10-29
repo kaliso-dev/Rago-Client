@@ -14,11 +14,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProfileBackupTest {
 	private static JsonObject extras() {
 		JsonObject j = new JsonObject();
-		j.addProperty("explosion_particles", true);
-		j.addProperty("spell_particles", true);
-		j.addProperty("entity_shadow_distance", 16);
-		j.addProperty("leaf_quality", "FANCY");
-		j.addProperty("fxaa", true);
+		j.addProperty("ofAnimatedExplosion", true);
+		j.addProperty("ofPotionParticles", true);
+		j.addProperty("ofClouds", 0);
+		j.addProperty("ofTrees", 2);
+		j.addProperty("ofFastRender", true);
 		return j;
 	}
 
@@ -26,11 +26,11 @@ class ProfileBackupTest {
 	void applyThenRestoreGivesBackTheOriginal() {
 		JsonObject original = extras();
 		JsonObject target = extras();
-		JsonObject old = ProfileBackup.apply(target, CompetitivePreset.EXTRAS);
-		assertFalse(target.get("explosion_particles").getAsBoolean());
-		assertEquals(0, target.get("entity_shadow_distance").getAsInt());
-		assertEquals("FAST", target.get("leaf_quality").getAsString());
-		assertTrue(target.get("fxaa").getAsBoolean(), "keys outside the preset are untouched");
+		JsonObject old = ProfileBackup.apply(target, CompetitivePreset.OPTIFINE);
+		assertFalse(target.get("ofAnimatedExplosion").getAsBoolean());
+		assertEquals(3, target.get("ofClouds").getAsInt());
+		assertEquals(1, target.get("ofTrees").getAsInt());
+		assertTrue(target.get("ofFastRender").getAsBoolean(), "keys outside the preset are untouched");
 		ProfileBackup.restore(target, old);
 		assertEquals(original, target);
 	}
@@ -38,21 +38,21 @@ class ProfileBackupTest {
 	@Test
 	void keysThePlayerNeverHadAreRemovedOnRestore() {
 		JsonObject target = new JsonObject();
-		JsonObject old = ProfileBackup.apply(target, CompetitivePreset.EXTRAS);
+		JsonObject old = ProfileBackup.apply(target, CompetitivePreset.OPTIFINE);
 		ProfileBackup.restore(target, old);
-		assertEquals(0, target.size());
+		assertEquals(0, target.entrySet().size());
 	}
 
 	@Test
 	void presetKeepsPotionParticles() {
-		assertFalse(CompetitivePreset.EXTRAS.containsKey("spell_particles"));
+		assertFalse(CompetitivePreset.OPTIFINE.containsKey("ofPotionParticles"));
 	}
 
 	@Test
 	void backupSurvivesAFileRoundTrip(@TempDir Path dir) throws Exception {
 		Path file = dir.resolve("sub").resolve("backup.json");
 		JsonObject backup = new JsonObject();
-		backup.add("extras", ProfileBackup.apply(new JsonObject(), CompetitivePreset.EXTRAS));
+		backup.add("extras", ProfileBackup.apply(new JsonObject(), CompetitivePreset.OPTIFINE));
 		backup.add("vanilla", ProfileBackup.apply(extras(), CompetitivePreset.VANILLA));
 		ProfileBackup.write(file, backup);
 		assertEquals(backup, ProfileBackup.read(file));
