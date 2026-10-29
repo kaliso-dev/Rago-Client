@@ -329,11 +329,15 @@ public final class Hooks {
 		return c != null && c.isEnabled() ? c.background(vanilla >>> 24) : vanilla;
 	}
 
-	/** GuiNewChat.drawChat: draws a chat line's text, with or without shadow. */
-	public static int chatText(FontRenderer font, String text, float x, float y, int color) {
+	/**
+	 * GuiNewChat.drawChat: draws a chat line's text, with or without shadow, before the game's own
+	 * call (left in place with an empty string); returns the font for that call.
+	 */
+	public static FontRenderer chatText(FontRenderer font, String text, float x, float y, int color) {
 		Chat c = chat;
 		boolean shadow = c == null || !c.isEnabled() || c.textShadow();
-		return font.drawString(text, x, y, color, shadow);
+		font.drawString(text, x, y, color, shadow);
+		return font;
 	}
 
 	/** ScreenShotHelper.saveScreenshot: copy, open, folder and delete buttons after the chat line. */

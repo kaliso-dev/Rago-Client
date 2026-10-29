@@ -624,11 +624,17 @@ public final class RagoTransformer implements IClassTransformer {
 			if (!background && isMethod(call, "func_73734_a", "drawRect", "(IIIII)V")) {
 				m.instructions.insertBefore(call, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chatBackground", "(I)I", false));
 				background = true;
-			} else if (isMethod(call, "func_175063_a", "drawStringWithShadow", "(Ljava/lang/String;FFI)I")) {
-				AbstractInsnNode replaced = new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chatText",
-					"(Lnet/minecraft/client/gui/FontRenderer;Ljava/lang/String;FFI)I", false);
-				m.instructions.set(call, replaced);
-				insn = replaced;
+			} else if (!text && isMethod(call, "func_175063_a", "drawStringWithShadow", "(Ljava/lang/String;FFI)I")) {
+				// Rago draws the line, then the original call stays with an empty string: Patcher's
+				// chat mixins find their place in drawChat from this call, and fail without it
+				InsnList draw = new InsnList();
+				draw.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chatText",
+					"(Lnet/minecraft/client/gui/FontRenderer;Ljava/lang/String;FFI)Lnet/minecraft/client/gui/FontRenderer;", false));
+				draw.add(new LdcInsnNode(""));
+				draw.add(new InsnNode(Opcodes.FCONST_0));
+				draw.add(new InsnNode(Opcodes.FCONST_0));
+				draw.add(new InsnNode(Opcodes.ICONST_0));
+				m.instructions.insertBefore(call, draw);
 				text = true;
 			}
 		}
