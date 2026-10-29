@@ -22,6 +22,11 @@ public final class Choice extends Setting {
 		return Math.max(0, Math.min(valueKeys.length - 1, i));
 	}
 
+	/** Picks the value at {@code index} in the list. */
+	public void select(int index) {
+		set.accept(Math.max(0, Math.min(valueKeys.length - 1, index)));
+	}
+
 	public void cycle(int dir) {
 		set.accept(Math.floorMod(index() + dir, valueKeys.length));
 	}

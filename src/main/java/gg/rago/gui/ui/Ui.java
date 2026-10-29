@@ -29,6 +29,9 @@ public final class Ui {
 	public static final TtfFont MONO = new TtfFont(new ResourceLocation("rago", "fonts/jetbrains-mono-500.ttf"));
 
 	private static final ResourceLocation LOGO = new ResourceLocation("rago", "textures/logo.png");
+	private static final ResourceLocation LOGO_GLOW = new ResourceLocation("rago", "textures/logo_glow.png");
+	/** How much of a panel's own fill stays when glass is on; the rest is the blurred background. */
+	private static final float GLASS_FILL = 0.5f;
 	private static final int CORNER_TEX = 64;
 	private static DynamicTexture corner;
 	private static DynamicTexture glow;
@@ -84,6 +87,7 @@ public final class Ui {
 		mouseY = (mc.displayHeight - Mouse.getY() - 1) / s;
 		targets.clear();
 		clipping = false;
+		Glass.frameStart();
 		GlStateManager.pushMatrix();
 		GlStateManager.scale(1f / guiScale, 1f / guiScale, 1f);
 		GlStateManager.disableLighting();
@@ -318,6 +322,119 @@ public final class Ui {
 		round(x + one, y + one, w - 2 * one, h - 2 * one, Math.max(0, radius - one), fill);
 	}
 
+	// ---- glass ----------------------------------------------------------------------------------
+
+	/** Turns the frosted glass effect on or off for every screen. */
+	public static void setGlass(boolean on) {
+		Glass.setEnabled(on);
+	}
+
+	/**
+	 * Takes the blurred copy of the screen that glass panels show through. Call once per frame,
+	 * after the background and before the first panel.
+	 */
+	public static void captureGlass() {
+		Glass.capture();
+	}
+
+	/**
+	 * {@link #round} with frosted glass behind it: the blurred background shows through a
+	 * lighter version of {@code fill}. Without glass (switched off, or no framebuffer support)
+	 * it is exactly {@link #round}.
+	 */
+	public static void glass(float x, float y, float w, float h, float radius, int fill) {
+		if (!Glass.ready()) {
+			round(x, y, w, h, radius, fill);
+			return;
+		}
+		float x0 = snap(x);
+		float y0 = snap(y);
+		float x1 = snap(x + w);
+		float y1 = snap(y + h);
+		float r = (float) Math.floor(Math.min(Math.round(px(radius)), Math.min((x1 - x0) / 2, (y1 - y0) / 2)));
+		Glass.draw(x0, y0, x1, y1, Math.max(0, r), screenPx(x, true), screenPx(y, false),
+			screenPx(x + w, true), screenPx(y + h, false), cornerTexture().getGlTextureId(), opacity);
+		round(x, y, w, h, radius, scaleAlpha(fill, GLASS_FILL));
+	}
+
+	/** {@link #glass} with a one-pixel border, the glass version of {@link #roundBorder}. */
+	public static void glassBorder(float x, float y, float w, float h, float radius, int fill, int border) {
+		if (!Glass.ready()) {
+			roundBorder(x, y, w, h, radius, fill, border);
+			return;
+		}
+		glass(x, y, w, h, radius, fill);
+		outline(x, y, w, h, radius, border);
+	}
+
+	/** A one-pixel rounded outline with nothing inside. */
+	public static void outline(float x, float y, float w, float h, float radius, int argb) {
+		float one = 1f / s;
+		float r = Math.max(0, radius);
+		rect(x + r, y, w - 2 * r, one, argb);
+		rect(x + r, y + h - one, w - 2 * r, one, argb);
+		rect(x, y + r, one, h - 2 * r, argb);
+		rect(x + w - one, y + r, one, h - 2 * r, argb);
+		if (r > 0) {
+			arc(x + r, y + r, r - one / 2, 180, 270, argb);
+			arc(x + w - r, y + r, r - one / 2, 270, 360, argb);
+			arc(x + w - r, y + h - r, r - one / 2, 0, 90, argb);
+			arc(x + r, y + h - r, r - one / 2, 90, 180, argb);
+		}
+	}
+
+	/** Where a design-unit coordinate ends up on screen in real pixels, after {@link #pushTransform}. */
+	private static float screenPx(float v, boolean horizontal) {
+		if (transformed) {
+			v = horizontal ? tCx + (v - tCx) * tScale + tDx : tCy + (v - tCy) * tScale + tDy;
+		}
+		return snap(v);
+	}
+
+	private static int scaleAlpha(int argb, float f) {
+		return Math.round((argb >>> 24) * f) << 24 | (argb & 0xFFFFFF);
+	}
+
+	/** A one-pixel anti-aliased arc of radius {@code r} from {@code a0} to {@code a1} degrees (0 = right, clockwise). */
+	private static void arc(float cx, float cy, float r, float a0, float a1, int argb) {
+		annulusArc(px(cx), px(cy), px(r), 1f, a0, a1, argb);
+	}
+
+	/**
+	 * A ring of radius {@code radius} and line width {@code thickness} (design units) with soft
+	 * anti-aliased edges. Unlike {@link #ring}, the line keeps its width at any size.
+	 */
+	public static void annulus(float cx, float cy, float radius, float thickness, int argb) {
+		annulusArc(px(cx), px(cy), px(radius), Math.max(1f, px(thickness)), 0, 360, argb);
+	}
+
+	private static void annulusArc(float cx, float cy, float r, float t, float a0, float a1, int argb) {
+		int segments = Math.max(12, Math.min(160, (int) (r * (a1 - a0) / 360f)));
+		float feather = 0.75f;
+		float[] radii = {r - t / 2 - feather, r - t / 2 + feather * 0.25f, r + t / 2 - feather * 0.25f, r + t / 2 + feather};
+		float[] alphas = {0, 1, 1, 0};
+		GlStateManager.disableTexture2D();
+		blend();
+		GlStateManager.shadeModel(GL11.GL_SMOOTH);
+		Tessellator tess = Tessellator.getInstance();
+		WorldRenderer b = tess.getWorldRenderer();
+		for (int band = 0; band < 3; band++) {
+			b.begin(GL11.GL_QUAD_STRIP, DefaultVertexFormats.POSITION_COLOR);
+			for (int i = 0; i <= segments; i++) {
+				double a = Math.toRadians(a0 + (a1 - a0) * i / segments);
+				float cos = (float) Math.cos(a);
+				float sin = (float) Math.sin(a);
+				for (int k = band; k <= band + 1; k++) {
+					float rr = Math.max(0, radii[k]);
+					color(b.pos(cx + cos * rr, cy + sin * rr, 0), alpha(argb, (argb >>> 24) / 255f * alphas[k])).endVertex();
+				}
+			}
+			tess.draw();
+		}
+		GlStateManager.shadeModel(GL11.GL_FLAT);
+		GlStateManager.enableTexture2D();
+	}
+
 	public static void circle(float cx, float cy, float r, int argb) {
 		round(cx - r, cy - r, r * 2, r * 2, r, argb);
 	}
@@ -372,14 +489,24 @@ public final class Ui {
 		circle((px[count - 1]) / s, py[count - 1] / s, 3, color);
 	}
 
-	/** The blurred block landscape stretched to cover the whole screen, darkened by {@code dim} (0..1). */
+	/**
+	 * The menu background covering the whole screen, darkened by {@code dim} (0..1): the looping
+	 * menu video, or the generated block landscape when the video cannot play.
+	 */
 	public static void backdrop(float dim) {
 		float w = width();
 		float h = height();
-		float bw = Math.max(w, h * Backdrop.aspect());
-		float bh = bw / Backdrop.aspect();
-		texturedQuad(Backdrop.textureId(), (w - bw) / 2, (h - bh) / 2, bw, bh, 0xFFFFFFFF);
+		int video = VideoBackdrop.textureId();
+		float aspect = video >= 0 ? VideoBackdrop.aspect() : Backdrop.aspect();
+		float bw = Math.max(w, h * aspect);
+		float bh = bw / aspect;
+		texturedQuad(video >= 0 ? video : Backdrop.textureId(), (w - bw) / 2, (h - bh) / 2, bw, bh, 0xFFFFFFFF);
 		rect(0, 0, w, h, alpha(0xFF050406, dim));
+	}
+
+	/** Whether the menu video moves; when off it shows a still frame. */
+	public static void setMenuVideo(boolean playing) {
+		VideoBackdrop.setPlaying(playing);
 	}
 
 	/** Soft radial glow, strongest in the centre. */
@@ -396,6 +523,13 @@ public final class Ui {
 		Minecraft.getMinecraft().getTextureManager().bindTexture(LOGO);
 		linear();
 		texturedQuad(-1, x, y, size, size, argb);
+	}
+
+	/** The soft glow that goes behind {@link #logo}, drawn over twice the logo's size. */
+	public static void logoGlow(float x, float y, float size, int argb) {
+		Minecraft.getMinecraft().getTextureManager().bindTexture(LOGO_GLOW);
+		linear();
+		texturedQuad(-1, x - size / 2, y - size / 2, size * 2, size * 2, argb);
 	}
 
 	/** A Lucide icon from {@code assets/rago/textures/icons}, tinted. */

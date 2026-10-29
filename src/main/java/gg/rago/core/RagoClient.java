@@ -3,8 +3,10 @@ package gg.rago.core;
 import gg.rago.config.BooleanOption;
 import gg.rago.config.ConfigStore;
 import gg.rago.gui.ui.Anim;
+import gg.rago.gui.ui.Ui;
 import gg.rago.optimize.OptiFineFields;
 import gg.rago.optimize.Optimizations;
+import gg.rago.optimize.PerformancePreset;
 import gg.rago.optimize.VideoRows;
 import gg.rago.profile.ModProfiles;
 import gg.rago.settings.Setting;
@@ -96,6 +98,8 @@ public final class RagoClient {
 	private static Optimizations optimizations;
 	private static BooleanOption menuAnimations;
 	private static BooleanOption menuBlur;
+	private static BooleanOption glassEffect;
+	private static BooleanOption menuVideo;
 	private static BooleanOption hudInDebug;
 	private static ConfigStore config;
 	private static Path configDir;
@@ -138,6 +142,7 @@ public final class RagoClient {
 		mainMenu = MODULES.register(new MainMenu());
 		profile = MODULES.register(new CompetitiveProfile(configDir));
 		registerGeneralSettings();
+		registerPresetRows();
 		optimizations = new Optimizations(SETTINGS);
 		VideoRows.register(SETTINGS);
 
@@ -153,6 +158,8 @@ public final class RagoClient {
 		profile.markReady();
 		PROFILES.ensureDefaults(MODULES);
 		Anim.setEnabled(menuAnimations.get());
+		Ui.setGlass(glassEffect.get());
+		Ui.setMenuVideo(menuVideo.get());
 		optimizations.start();
 		if (OptiFineFields.installed()) {
 			LOG.info("OptiFine settings: {}", OptiFineFields.describe());
@@ -188,11 +195,30 @@ public final class RagoClient {
 		return menuKey.getKeyCode();
 	}
 
+	/** The one-click presets at the top of the Performance page. */
+	private static void registerPresetRows() {
+		Setting.Tab p = Setting.Tab.PERFORMANCE;
+		String presets = "rago.section.presets";
+		PerformancePreset preset = new PerformancePreset(SETTINGS, configDir);
+		SETTINGS.button(p, presets, "max_performance", () -> {
+			int changed = preset.apply();
+			LOG.info("Max performance preset changed {} settings", changed);
+			saveConfig();
+		}).primary();
+		SETTINGS.button(p, presets, "undo_max_performance", () -> {
+			int restored = preset.undo();
+			LOG.info("Max performance preset undone, {} settings restored", restored);
+			saveConfig();
+		}).visibleWhen(preset::canUndo);
+	}
+
 	private static void registerGeneralSettings() {
 		Setting.Tab g = Setting.Tab.GENERAL;
 		String ui = "rago.section.interface";
 		menuAnimations = SETTINGS.bool(g, ui, "menu_animations", true, Anim::setEnabled);
 		menuBlur = SETTINGS.bool(g, ui, "menu_blur", true, null);
+		glassEffect = SETTINGS.bool(g, ui, "glass_effect", true, Ui::setGlass);
+		menuVideo = SETTINGS.bool(g, ui, "menu_video", true, Ui::setMenuVideo);
 		SETTINGS.choice(g, ui, "main_menu_style", () -> mainMenu.isEnabled() ? 0 : 1, i -> mainMenu.setEnabled(i == 0),
 			"rago.value.rago", "rago.value.vanilla");
 		hudInDebug = SETTINGS.bool(g, "rago.section.hud", "hud_in_debug", false, null);

@@ -3,16 +3,20 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 0.7.0.** What it contains:
+**Current version: 0.8.0.** What it contains:
 
-- a clean home screen (emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of shortcuts) over a
-  blurred landscape, and a helper that links to the OptiFine download when OptiFine is missing
+- a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
+  shortcuts) over a looping, lightly blurred background video, and a helper that links to the
+  OptiFine download when OptiFine is missing
+- frosted glass panels and buttons in every Rago screen (they blur what is behind them, also with
+  OptiFine's Fast Render), with a switch to use solid panels instead
+- OptiFine inside the Rago jar for builds that bundle it (see [Bundling OptiFine](#bundling-optifine))
 - the Rago window (Right Shift): a **Mods** tab with mod profiles (Default, Bedwars, Practice,
   Skywars, or your own), mod cards with Enabled/Disabled, filters, sorting and search, and a page per
   mod with a live preview; a **Settings** tab with General, Performance and Controls pages
 - menu animations (fades, slides, hover transitions), with a switch to turn them off, and an optional
   blur of the game behind the window
-- a Performance page with Rago's own optimisations, Minecraft's video settings and, when OptiFine is
+- a Performance page with a one-click **Max performance** preset (with Undo) and Rago's own optimisations, Minecraft's video settings and, when OptiFine is
   installed, its performance, detail, animation and particle settings in one searchable list:
   - frame caps: menus above vanilla's fixed 30 FPS, and a lower cap while the window is unfocused
   - entity render distances for players, hostile mobs, passive mobs and other entities
@@ -49,10 +53,11 @@ input: it makes the vanilla key read as held, nothing more, and it is off until 
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Download **OptiFine 1.8.9 HD U M5** yourself from [optifine.net](https://optifine.net/downloads)
-   and put the jar in `.minecraft/mods`. Rago does not ship OptiFine: its license does not allow
-   redistribution without permission from its author.
-3. Put `rago-0.7.0+1.8.9.jar` in `.minecraft/mods`.
+2. Put `rago-0.8.0+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+   all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
+   and put it in `.minecraft/mods` too.
+3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the
+   separate one (Rago uses it if it is still there, so nothing breaks either way).
 4. Start the *forge* profile in the Minecraft launcher.
 
 OptiFine is optional: without it Rago runs on plain Forge, and the competitive profile only changes
@@ -67,13 +72,21 @@ the vanilla settings.
 ## Build and test
 
 ```sh
-./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.7.0+1.8.9.jar
+./gradlew build          # compiles, runs the unit tests, writes build/libs/rago-0.8.0+1.8.9.jar
 ./gradlew test           # unit tests only
 ./gradlew runClient      # starts Minecraft 1.8.9 + Forge with Rago in ./run (offline dev account, no OptiFine)
 ```
 
 On Windows (PowerShell) use `.\gradlew.bat` instead of `./gradlew`, e.g. `.\gradlew.bat runClient`.
 To test with OptiFine, install the built jar in a real Forge profile as described above.
+
+### Bundling OptiFine
+
+OptiFine's licence does not allow redistributing it without permission from its author (sp614x), so
+the repository never contains it. To build a Rago jar with OptiFine inside, put
+`OptiFine_1.8.9_HD_U_M5.jar` in `libs/optifine/` (ignored by git) and run the build. Forge extracts
+it to `.minecraft/mods/1.8.9/` on the first launch and Rago starts it the way Forge starts an
+OptiFine jar from the mods folder. Only publish such builds if you have that permission.
 
 ## Controls
 

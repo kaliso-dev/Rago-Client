@@ -30,7 +30,7 @@ public final class Widgets {
 		if (primary) {
 			Ui.round(x, y, w, h, h / 2, hover ? Theme.ACCENT_HOVER : Theme.ACCENT);
 		} else {
-			Ui.roundBorder(x, y, w, h, h / 2, hover ? Theme.CARD_HOVER : 0xE6141316, Theme.BORDER_STRONG);
+			Ui.glassBorder(x, y, w, h, h / 2, hover ? Theme.CARD_HOVER : 0xE6141316, Theme.BORDER_STRONG);
 		}
 		float iconSize = textSize + 3;
 		float tw = Ui.textWidth(Ui.SEMIBOLD, label, textSize);
@@ -48,7 +48,7 @@ public final class Widgets {
 	/** Round icon-only button. */
 	public static void iconButton(float x, float y, float size, String icon) {
 		boolean hover = Ui.hover(x, y, size, size);
-		Ui.roundBorder(x, y, size, size, size / 2, hover ? Theme.CARD_HOVER : 0xE6141316, Theme.BORDER_STRONG);
+		Ui.glassBorder(x, y, size, size, size / 2, hover ? Theme.CARD_HOVER : 0xE6141316, Theme.BORDER_STRONG);
 		float i = size * 0.42f;
 		Ui.icon(icon, x + (size - i) / 2, y + (size - i) / 2, i, hover ? Theme.TEXT : 0xFFD4D4D8);
 	}
@@ -57,7 +57,7 @@ public final class Widgets {
 	public static float statusPill(float x, float y, float h, int dot, String text) {
 		float size = 12;
 		float w = 12 + 8 + 6 + Ui.textWidth(Ui.MONO, text, size) + 14;
-		Ui.roundBorder(x, y, w, h, h / 2, 0xCC141316, Theme.BORDER);
+		Ui.glassBorder(x, y, w, h, h / 2, 0xCC141316, Theme.BORDER);
 		Ui.circle(x + 16, y + h / 2, 3, dot);
 		Ui.text(Ui.MONO, text, x + 26, y + (h - size * 1.3f) / 2, size, 0xFFD4D4D8);
 		return w;
@@ -94,7 +94,7 @@ public final class Widgets {
 	public static void chooser(float x, float y, float w, float h, String value) {
 		boolean lh = Ui.hover(x, y, h, h);
 		boolean rh = Ui.hover(x + w - h, y, h, h);
-		Ui.roundBorder(x, y, w, h, h / 2, 0xFF151417, Theme.BORDER);
+		Ui.glassBorder(x, y, w, h, h / 2, 0xFF151417, Theme.BORDER);
 		float i = h * 0.5f;
 		Ui.icon("chevron-left", x + (h - i) / 2, y + (h - i) / 2, i, lh ? Theme.TEXT : Theme.MUTED);
 		Ui.icon("chevron-right", x + w - h + (h - i) / 2, y + (h - i) / 2, i, rh ? Theme.TEXT : Theme.MUTED);

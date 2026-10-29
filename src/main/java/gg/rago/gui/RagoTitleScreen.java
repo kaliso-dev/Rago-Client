@@ -47,9 +47,9 @@ public final class RagoTitleScreen extends GuiScreen {
 		Ui.begin();
 		float w = Ui.width();
 		float h = Ui.height();
-		Ui.backdrop(0.58f);
-		Ui.glow(0, 0, Math.max(w, h) * 0.75f, Ui.alpha(Theme.ACCENT, 0.16f));
-		Ui.gradient(0, h * 0.55f, w, h * 0.45f, 0x00050406, 0xC0050406);
+		Ui.backdrop(0.3f);
+		Ui.gradient(0, h * 0.5f, w, h * 0.5f, 0x00050406, 0xB0050406);
+		Ui.captureGlass();
 
 		center(w, h);
 		dock(w, h);
@@ -69,21 +69,11 @@ public final class RagoTitleScreen extends GuiScreen {
 
 	private void center(float w, float h) {
 		float cx = w / 2;
-		float cy = Math.max(170, h * 0.4f);
+		float cy = Math.max(160, h * 0.36f);
 		float a = intro(0, 650);
 		Ui.opacity(a);
-		float breathe = Anim.enabled() ? (float) (Math.sin(System.nanoTime() / 1.1e9) * 0.5 + 0.5) : 0.5f;
-		float grow = 0.9f + 0.1f * a;
-		Ui.glow(cx, cy, 190 * grow, Ui.alpha(Theme.ACCENT, 0.10f + 0.05f * breathe));
-		Ui.ring(cx, cy, 172 * grow, Ui.alpha(Theme.ACCENT, 0.06f + 0.04f * breathe));
-		Ui.ring(cx, cy, 138 * grow, Ui.alpha(Theme.ACCENT, 0.12f));
-		Ui.ring(cx, cy, 98 * grow, Ui.alpha(Theme.ACCENT, 0.22f));
-		Ui.circle(cx, cy, 66 * grow, 0xF20B0A0C);
-		Ui.ring(cx, cy, 67 * grow, Ui.alpha(Theme.ACCENT, 0.55f));
-		float ls = 58 * grow;
-		Ui.logo(cx - ls / 2, cy - ls / 2 - 2, ls, Theme.ACCENT);
-
-		float ty = cy + 80;
+		logo(cx, cy, 96 * (0.88f + 0.12f * a));
+		float ty = cy + 66;
 		float size = 19;
 		float rw = Ui.textWidth(Ui.SEMIBOLD, "Rago ", size);
 		float cw = Ui.textWidth(Ui.REGULAR, "Client", size);
@@ -112,12 +102,37 @@ public final class RagoTitleScreen extends GuiScreen {
 		Ui.opacity(1);
 	}
 
+	/**
+	 * The animated emblem: the R with its red glow and, every 3.2 s, two thin rings that ripple
+	 * out from it and fade. Without menu animations it stays still.
+	 */
+	private static void logo(float cx, float cy, float size) {
+		float cycle = 3.2f;
+		float t = Anim.enabled() ? (System.nanoTime() / 1e9f) % cycle : 0;
+		for (int i = 0; i < 2; i++) {
+			float p = (t - 0.25f - i * 0.6f) / 1.9f;
+			if (p <= 0 || p >= 1) {
+				continue;
+			}
+			float eased = 1 - (1 - p) * (1 - p) * (1 - p);
+			float radius = size * (0.42f + 0.5f * eased);
+			float alpha = Math.min(1, p / 0.08f) * (float) Math.pow(1 - p, 1.4) * 0.8f;
+			Ui.annulus(cx, cy, radius, 1.3f, Ui.alpha(Theme.ACCENT, alpha));
+		}
+		// the glow swells a little each time a ring leaves
+		float pulse = t < 0.25f || t > 1.6f ? 0 : (float) Math.sin((t - 0.25f) / 1.35f * Math.PI);
+		float half = size / 2;
+		Ui.logoGlow(cx - half, cy - half, size, Ui.alpha(Theme.ACCENT, 0.55f + 0.2f * pulse));
+		Ui.logo(cx - half, cy - half, size, Theme.ACCENT);
+	}
+
 	private static void homeButton(String key, float x, float y, float w, float h, String label, boolean primary) {
 		float hv = Anim.to(key, Ui.hover(x, y, w, h) ? 1 : 0, 120);
 		if (primary) {
-			Ui.round(x, y, w, h, h / 2, Ui.mix(Theme.ACCENT, Theme.ACCENT_HOVER, hv));
+			Ui.glass(x, y, w, h, h / 2, 0);
+			Ui.round(x, y, w, h, h / 2, Ui.alpha(Ui.mix(Theme.ACCENT, Theme.ACCENT_HOVER, hv), 0.88f));
 		} else {
-			Ui.roundBorder(x, y, w, h, h / 2, Ui.mix(0xE6131215, 0xF0222126, hv), Ui.mix(0x24FFFFFF, 0x40FFFFFF, hv));
+			Ui.glassBorder(x, y, w, h, h / 2, Ui.mix(0xE6131215, 0xF0222126, hv), Ui.mix(0x24FFFFFF, 0x40FFFFFF, hv));
 		}
 		float size = 10.5f;
 		Ui.textCentered(Ui.MEDIUM, label, x + w / 2, y + (h - size * 1.21f) / 2, size, primary ? 0xFF1A0605 : Theme.TEXT);
@@ -144,7 +159,7 @@ public final class RagoTitleScreen extends GuiScreen {
 			String icon = icons[i];
 			float hv = Anim.to("dock:" + icon, Ui.hover(x, y, size, size) ? 1 : 0, 120);
 			float lift = hv * 2;
-			Ui.roundBorder(x, y - lift, size, size, 8, Ui.mix(0xE6131215, 0xF0242328, hv), Ui.mix(0x1FFFFFFF, 0x3DFFFFFF, hv));
+			Ui.glassBorder(x, y - lift, size, size, 8, Ui.mix(0xE6131215, 0xF0242328, hv), Ui.mix(0x1FFFFFFF, 0x3DFFFFFF, hv));
 			float is = 14;
 			if ("logo".equals(icon)) {
 				Ui.logo(x + (size - is) / 2, y - lift + (size - is) / 2, is, Theme.ACCENT);
@@ -160,7 +175,7 @@ public final class RagoTitleScreen extends GuiScreen {
 				float tw = Ui.textWidth(Ui.MEDIUM, tip, ts) + 14;
 				float tipY = y - lift - 24;
 				Ui.opacity(p * hv);
-				Ui.round(x + size / 2 - tw / 2, tipY, tw, 17, 6, 0xF0141316);
+				Ui.glass(x + size / 2 - tw / 2, tipY, tw, 17, 6, 0xF0141316);
 				Ui.textCentered(Ui.MEDIUM, tip, x + size / 2, tipY + (17 - ts * 1.21f) / 2, ts, Theme.TEXT);
 				Ui.opacity(p);
 			}
@@ -211,7 +226,7 @@ public final class RagoTitleScreen extends GuiScreen {
 		float dh = 196;
 		float x = (w - dw) / 2;
 		float y = (h - dh) / 2 + (1 - p) * 14;
-		Ui.roundBorder(x, y, dw, dh, 14, 0xFA121114, Theme.BORDER_STRONG);
+		Ui.glassBorder(x, y, dw, dh, 14, 0xFA121114, Theme.BORDER_STRONG);
 		Ui.round(x + 20, y + 20, 30, 30, 9, Theme.ACCENT_SOFT);
 		Ui.icon("zap", x + 27, y + 27, 16, Theme.ACCENT);
 		Ui.text(Ui.SEMIBOLD, t("rago.optifine.title"), x + 62, y + 21, 14, Theme.TEXT);
