@@ -38,6 +38,9 @@ public final class PerformancePreset {
 		VALUES.put("menu_fps", 60);
 		VALUES.put("unfocused_cap", 1);
 		VALUES.put("unfocused_fps", 15);
+		VALUES.put("minimized_cap", 1);
+		VALUES.put("occlusion_culling", 1);
+		VALUES.put("cull_tile_entities", 1);
 		// Rago: entities
 		VALUES.put("entity_distance", 1);
 		VALUES.put("player_distance", 64);

@@ -25,6 +25,31 @@ final class ModuleInfo {
 		ICONS.put("toggle_sprint", "chevrons-right");
 		ICONS.put("main_menu", "house");
 		ICONS.put("competitive_profile", "zap");
+		ICONS.put("no_hurt_cam", "camera-off");
+		ICONS.put("old_animations", "swords");
+		ICONS.put("low_fire", "flame");
+		ICONS.put("no_pumpkin", "eye-off");
+		ICONS.put("no_water_overlay", "droplets");
+		ICONS.put("hide_achievements", "trophy");
+		ICONS.put("hide_f5_crosshair", "scan-eye");
+		ICONS.put("weather_changer", "cloud-rain");
+		ICONS.put("time_changer", "sunset");
+		ICONS.put("hit_particles", "sparkles");
+		ICONS.put("block_overlay", "square-dashed");
+		ICONS.put("hitboxes", "scan");
+		ICONS.put("tab_ping", "signal");
+		ICONS.put("chat", "message-square");
+		ICONS.put("own_nametag", "tag");
+		ICONS.put("level_head", "star");
+		ICONS.put("scoreboard", "list-ordered");
+		ICONS.put("boss_bar", "skull");
+		ICONS.put("clock", "clock");
+		ICONS.put("memory", "memory-stick");
+		ICONS.put("speed", "wind");
+		ICONS.put("server_address", "server");
+		ICONS.put("reach", "ruler");
+		ICONS.put("combo", "trending-up");
+		ICONS.put("bedwars_resources", "gem");
 	}
 
 	private ModuleInfo() {

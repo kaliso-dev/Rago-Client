@@ -36,6 +36,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraftforge.client.event.EntityViewRenderEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -45,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 
 /**
  * Rago's own performance settings: frame caps, entity and tile entity render distances, hiding
@@ -56,10 +58,17 @@ public final class Optimizations {
 	private static final String ENTITIES = "rago.section.entities";
 	private static final String TILES = "rago.section.tile_entities";
 	private static final String WORLD = "rago.section.world";
+	private static final String CULLING = "rago.section.culling";
 
 	private final IntOption menuFps;
 	private final BooleanOption unfocusedCap;
 	private final IntOption unfocusedFps;
+	private final BooleanOption minimizedCap;
+
+	private final BooleanOption occlusionCulling;
+	private final BooleanOption cullPlayers;
+	private final BooleanOption cullTiles;
+	private final OcclusionCuller culler;
 
 	private final BooleanOption entityDistance;
 	private final IntOption playerDistance;
@@ -109,6 +118,14 @@ public final class Optimizations {
 		menuFps = s.slider(p, FPS, "menu_fps", 120, 30, FrameLimit.UNLIMITED, 10, Optimizations::fpsLabel, v -> applyFrameCaps());
 		unfocusedCap = s.bool(p, FPS, "unfocused_cap", true, v -> applyFrameCaps());
 		unfocusedFps = s.slider(p, FPS, "unfocused_fps", 30, 5, 120, 5, v -> v + " FPS", v -> applyFrameCaps());
+		minimizedCap = s.bool(p, FPS, "minimized_cap", true, v -> applyFrameCaps());
+
+		occlusionCulling = s.bool(p, CULLING, "occlusion_culling", true, null);
+		cullPlayers = s.bool(p, CULLING, "cull_players", false, null);
+		cullTiles = s.bool(p, CULLING, "cull_tile_entities", true, null);
+		visibleWhen(s, "cull_players", occlusionCulling::get);
+		visibleWhen(s, "cull_tile_entities", occlusionCulling::get);
+		culler = new OcclusionCuller(occlusionCulling::get, cullPlayers::get, cullTiles::get);
 
 		entityDistance = s.bool(p, ENTITIES, "entity_distance", false, null);
 		hideStuckArrows = s.bool(p, ENTITIES, "hide_stuck_arrows", false, v -> applyArrowLayers());
@@ -177,6 +194,28 @@ public final class Optimizations {
 	private void applyFrameCaps() {
 		FrameLimit.setMenuFps(menuFps.get());
 		FrameLimit.setUnfocused(unfocusedCap.get(), unfocusedFps.get());
+		FrameLimit.setMinimizedCap(minimizedCap.get());
+	}
+
+	/** Entities and tile entities hidden behind blocks, for the class patches and other features. */
+	public OcclusionCuller culler() {
+		return culler;
+	}
+
+	@SubscribeEvent
+	public void onRenderTick(TickEvent.RenderTickEvent event) {
+		if (event.phase == TickEvent.Phase.START) {
+			culler.update(Minecraft.getMinecraft(), event.renderTickTime);
+		}
+	}
+
+	/** One line in the F3 screen, so the effect of culling can be checked. */
+	@SubscribeEvent
+	public void onDebugText(RenderGameOverlayEvent.Text event) {
+		if (Minecraft.getMinecraft().gameSettings.showDebugInfo && occlusionCulling.get()) {
+			event.left.add("");
+			event.left.add("[Rago] Occlusion culling: " + culler.hiddenCount() + " hidden");
+		}
 	}
 
 	private void reloadFoliage() {
@@ -281,7 +320,7 @@ public final class Optimizations {
 				continue;
 			}
 			BooleanSupplier hide = hideRule(r);
-			GatedTileRenderer gated = new GatedTileRenderer(r, hide, () -> {
+			GatedTileRenderer gated = new GatedTileRenderer(r, hide, (Predicate<TileEntity>) culler::isHidden, () -> {
 				int d = tileDistance.get();
 				return d >= 64 ? 0 : (double) d * d;
 			});

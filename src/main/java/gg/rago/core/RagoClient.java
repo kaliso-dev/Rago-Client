@@ -15,21 +15,48 @@ import gg.rago.gui.HudEditorScreen;
 import gg.rago.gui.RagoMenuScreen;
 import gg.rago.gui.RagoTitleScreen;
 import gg.rago.hud.HudManager;
+import gg.rago.hooks.Hooks;
 import gg.rago.hud.elements.ArmorHud;
+import gg.rago.hud.elements.BedwarsResourcesHud;
+import gg.rago.hud.elements.BossBarHud;
 import gg.rago.hud.elements.CaptureHud;
+import gg.rago.hud.elements.ClockHud;
+import gg.rago.hud.elements.ComboHud;
 import gg.rago.hud.elements.CoordsHud;
 import gg.rago.hud.elements.CpsHud;
 import gg.rago.hud.elements.FpsHud;
 import gg.rago.hud.elements.FrameTimeHud;
 import gg.rago.hud.elements.KeystrokesHud;
+import gg.rago.hud.elements.MemoryHud;
 import gg.rago.hud.elements.PingHud;
 import gg.rago.hud.elements.PotionHud;
+import gg.rago.hud.elements.ReachHud;
+import gg.rago.hud.elements.ScoreboardHud;
+import gg.rago.hud.elements.ServerHud;
+import gg.rago.hud.elements.SpeedHud;
 import gg.rago.hud.elements.ToggleSprintHud;
+import gg.rago.hypixel.HypixelApi;
 import gg.rago.input.InputState;
+import gg.rago.modules.BlockOverlay;
+import gg.rago.modules.Chat;
 import gg.rago.modules.CompetitiveProfile;
 import gg.rago.modules.Crosshair;
+import gg.rago.modules.F5Crosshair;
 import gg.rago.modules.Fullbright;
+import gg.rago.modules.HideAchievements;
+import gg.rago.modules.Hitboxes;
+import gg.rago.modules.HitParticles;
+import gg.rago.modules.LevelHead;
+import gg.rago.modules.LowFire;
 import gg.rago.modules.MainMenu;
+import gg.rago.modules.NoHurtCam;
+import gg.rago.modules.NoPumpkin;
+import gg.rago.modules.NoWaterOverlay;
+import gg.rago.modules.OldAnimations;
+import gg.rago.modules.OwnNametag;
+import gg.rago.modules.TabPing;
+import gg.rago.modules.TimeChanger;
+import gg.rago.modules.WeatherChanger;
 import gg.rago.modules.Zoom;
 import gg.rago.netdiag.LatencySampler;
 import gg.rago.perf.FrameCapture;
@@ -39,6 +66,7 @@ import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.network.NetHandlerPlayClient;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.settings.KeyBinding;
+import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.client.event.EntityViewRenderEvent;
 import net.minecraftforge.client.event.GuiOpenEvent;
 import net.minecraftforge.client.event.MouseEvent;
@@ -67,8 +95,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Forge entrypoint: owns the module registry, the HUD, the config file and the keybinds, and
- * hooks into the game through Forge events (no class patching).
+ * Forge entrypoint: owns the module registry, the HUD, the config file and the keybinds. Hooks into
+ * the game through Forge events, plus a few small class patches ({@code gg.rago.asm}) that call
+ * {@link Hooks}.
  */
 @Mod(modid = RagoClient.MOD_ID, name = "Rago Client", useMetadata = true, clientSideOnly = true,
 	acceptedMinecraftVersions = "[1.8.9]")
@@ -113,6 +142,7 @@ public final class RagoClient {
 	private static MainMenu mainMenu;
 	private static CompetitiveProfile profile;
 	private static boolean overlayVisible = true;
+	private static boolean openMenu;
 	private static int tickCounter;
 	private static volatile String status = "";
 	private static volatile long statusTimeNs;
@@ -139,12 +169,40 @@ public final class RagoClient {
 		crosshair = MODULES.register(new Crosshair());
 		MODULES.register(new Fullbright());
 		MODULES.register(new ToggleSprintHud());
+		MODULES.register(new ClockHud());
+		MODULES.register(new MemoryHud());
+		MODULES.register(new SpeedHud());
+		MODULES.register(new ServerHud());
+		MODULES.register(new ReachHud());
+		MODULES.register(new ComboHud());
+		MODULES.register(new ScoreboardHud());
+		MODULES.register(new BossBarHud());
+		MODULES.register(new BedwarsResourcesHud());
+		MODULES.register(new BlockOverlay());
+		MODULES.register(new Hitboxes());
+		MODULES.register(new HitParticles());
+		TabPing tabPing = MODULES.register(new TabPing());
+		Chat chat = MODULES.register(new Chat());
+		OwnNametag ownNametag = MODULES.register(new OwnNametag());
+		HypixelApi hypixel = new HypixelApi(configDir);
+		MODULES.register(new LevelHead(hypixel, ownNametag::shown));
+		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());
+		OldAnimations animations = MODULES.register(new OldAnimations());
+		MODULES.register(new LowFire());
+		MODULES.register(new NoPumpkin());
+		MODULES.register(new NoWaterOverlay());
+		MODULES.register(new HideAchievements());
+		MODULES.register(new F5Crosshair());
+		MODULES.register(new WeatherChanger());
+		MODULES.register(new TimeChanger());
 		mainMenu = MODULES.register(new MainMenu());
 		profile = MODULES.register(new CompetitiveProfile(configDir));
 		registerGeneralSettings();
 		registerPresetRows();
 		optimizations = new Optimizations(SETTINGS);
 		VideoRows.register(SETTINGS);
+		Hooks.install(optimizations.culler(), noHurtCam, animations, tabPing, chat);
+		ClientCommandHandler.instance.registerCommand(new RagoCommand(hypixel, () -> openMenu = true));
 
 		config = new ConfigStore(configDir.resolve("rago.json"));
 		try {
@@ -174,6 +232,10 @@ public final class RagoClient {
 		ClientRegistry.registerKeyBinding(zoomKey);
 		MinecraftForge.EVENT_BUS.register(this);
 		MinecraftForge.EVENT_BUS.register(optimizations);
+		// modules with @SubscribeEvent methods check isEnabled() themselves
+		for (Module m : MODULES.all()) {
+			MinecraftForge.EVENT_BUS.register(m);
+		}
 		LOG.info("Rago {} loaded with {} modules", version(), MODULES.all().size());
 	}
 
@@ -333,12 +395,11 @@ public final class RagoClient {
 			return;
 		}
 		Minecraft mc = Minecraft.getMinecraft();
-		if (mc.gameSettings.showDebugInfo && !hudInDebug.get()) {
+		if (mc.currentScreen instanceof HudEditorScreen) {
 			return;
 		}
-		if (overlayVisible && !(mc.currentScreen instanceof HudEditorScreen)) {
-			HUD.render();
-		}
+		boolean ownHud = overlayVisible && !(mc.gameSettings.showDebugInfo && !hudInDebug.get());
+		HUD.render(!ownHud);
 	}
 
 	@SubscribeEvent
@@ -360,6 +421,11 @@ public final class RagoClient {
 			if (mc.currentScreen == null) {
 				mc.displayGuiScreen(new RagoMenuScreen(null));
 			}
+		}
+		if (openMenu) {
+			// typed as /rago: the chat screen has closed by now
+			openMenu = false;
+			mc.displayGuiScreen(new RagoMenuScreen(null));
 		}
 		while (toggleOverlayKey.isPressed()) {
 			overlayVisible = !overlayVisible;
