@@ -740,7 +740,7 @@ public final class RagoMenuScreen extends GuiScreen {
 			float f = io.max() == io.min() ? 0 : (float) (io.get() - io.min()) / (io.max() - io.min());
 			String key = "rago.option." + io.key() + "." + io.get();
 			String format = "rago.option." + io.key() + ".format";
-			String value = has(key) ? t(key) : has(format) ? t(format, io.get()) : Integer.toString(io.get());
+			String value = has(key) ? t(key) : has(format) ? t(format, io.formatValue()) : io.display();
 			sliderControl("opt:" + io.key() + System.identityHashCode(io), right - 46 - 170, y, 170, f, value, right, inside,
 				v -> io.set(io.min() + Math.round(v * (io.max() - io.min()))));
 		} else if (option instanceof ChoiceOption) {

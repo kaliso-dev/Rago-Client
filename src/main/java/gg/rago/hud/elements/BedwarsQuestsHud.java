@@ -10,12 +10,13 @@ import gg.rago.hud.Anchor;
 import gg.rago.hud.TextHudElement;
 import gg.rago.hypixel.HypixelApi;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.world.World;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
-import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -25,6 +26,10 @@ import java.util.UUID;
 public final class BedwarsQuestsHud extends TextHudElement {
 	/** How long after a game ends Hypixel is given to save it before Rago asks again. */
 	private static final int REFRESH_AFTER_GAME_TICKS = 20 * 20;
+	/** Out of a game, your quests are asked for again this often, to see the ones just accepted. */
+	private static final int LOBBY_REFRESH_TICKS = 60 * 20;
+	/** After a menu closes in a lobby (the quest master's, say), the API is asked again this soon. */
+	private static final int AFTER_MENU_TICKS = 3 * 20;
 
 	private final BooleanOption daily = addOption(new BooleanOption("quests_daily", true));
 	private final BooleanOption weekly = addOption(new BooleanOption("quests_weekly", true));
@@ -40,6 +45,9 @@ public final class BedwarsQuestsHud extends TextHudElement {
 	private String text = "";
 	private boolean asked;
 	private boolean shown;
+	private boolean menuOpen;
+	private int lastAsked;
+	private World world;
 
 	public BedwarsQuestsHud() {
 		super("bedwars_quests", FeatureClass.INFORMATIONAL, false, Anchor.TOP_RIGHT, -4, 150);
@@ -70,9 +78,27 @@ public final class BedwarsQuestsHud extends TextHudElement {
 			api.refresh(me);
 		}
 		quests.update(api.get(me), System.currentTimeMillis());
+		if (mc.theWorld != world) {
+			// a game left before its end counts nothing more
+			world = mc.theWorld;
+			inGame = false;
+		}
+		if (!inGame && BedwarsGame.playing()) {
+			inGame = true;
+		}
 		readTitle();
+		boolean menu = mc.currentScreen instanceof GuiContainer;
+		if (menuOpen && !menu && !inGame && BedwarsGame.inBedwars()) {
+			// quests are accepted at the quest master, in a chest menu
+			refreshAt = ticks + AFTER_MENU_TICKS;
+		}
+		menuOpen = menu;
+		if (!inGame && refreshAt < 0 && ticks - lastAsked >= LOBBY_REFRESH_TICKS && BedwarsGame.inBedwars()) {
+			refreshAt = ticks;
+		}
 		if (refreshAt >= 0 && ticks >= refreshAt) {
 			refreshAt = -1;
+			lastAsked = ticks;
 			api.refresh(me);
 		}
 		if (ticks % 10 == 0) {
@@ -93,10 +119,10 @@ public final class BedwarsQuestsHud extends TextHudElement {
 			return;
 		}
 		lastTitle = t;
-		String up = t.toUpperCase(Locale.ROOT);
-		if (inGame && (up.contains("VICTORY") || up.contains("GAME OVER"))) {
+		boolean won = BedwarsGame.isVictory(t);
+		if (inGame && (won || BedwarsGame.isGameOver(t))) {
 			inGame = false;
-			if (up.contains("VICTORY")) {
+			if (won) {
 				quests.count(Quests.Kind.WIN);
 			}
 			quests.count(Quests.Kind.GAME);
@@ -115,13 +141,13 @@ public final class BedwarsQuestsHud extends TextHudElement {
 			inGame = true;
 			return;
 		}
-		if (!inGame) {
+		if (!inGame && !BedwarsGame.playing()) {
 			return;
 		}
 		String name = mc.thePlayer.getName();
-		if (Quests.isOwnFinalKill(line, name)) {
+		if (BedwarsGame.isOwnFinalKill(line, name)) {
 			quests.count(Quests.Kind.FINAL_KILL);
-		} else if (Quests.isOwnBed(line, name)) {
+		} else if (BedwarsGame.isOwnBed(line, name)) {
 			quests.count(Quests.Kind.BED);
 		}
 	}

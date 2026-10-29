@@ -70,8 +70,16 @@ public final class TrapNotifier extends Module {
 			traps = 0;
 			remindedAt = -1;
 		}
+		if (!inGame && mc.thePlayer != null && BedwarsGame.playing()) {
+			// the sidebar shows the teams: a game has started, whatever language Hypixel speaks
+			start();
+		}
 		if (!inGame || mc.thePlayer == null) {
 			return;
+		}
+		char own = BedwarsGame.ownTeam();
+		if (own != 0 && Boolean.FALSE.equals(BedwarsGame.teamBeds().get(own))) {
+			bedGone = true;
 		}
 		readTitle();
 		if (!onEmpty.get() || bedGone || traps > 0 || ticks % 10 != 0) {
@@ -93,10 +101,9 @@ public final class TrapNotifier extends Module {
 		}
 		String text = EnumChatFormatting.getTextWithoutFormattingCodes(event.message.getUnformattedText()).trim();
 		if (text.contains(BedwarsGame.START)) {
-			inGame = true;
-			bedGone = false;
-			setTraps(0);
-			remindedAt = -1;
+			if (!inGame) {
+				start();
+			}
 			return;
 		}
 		if (!inGame) {
@@ -106,19 +113,42 @@ public final class TrapNotifier extends Module {
 			bedGone = true;
 			return;
 		}
-		int bought = text.indexOf(" purchased ");
-		if (bought > 0 && isTrap(text.substring(bought + 11)) && !text.contains(":")) {
+		if (isTrapPurchase(text)) {
 			setTraps(Math.min(MAX_TRAPS, traps + 1));
 			return;
 		}
-		if (text.contains("has been set off") || text.toLowerCase(Locale.ROOT).contains("trap triggered")) {
+		String lower = text.toLowerCase(Locale.ROOT);
+		if (lower.contains("has been set off") || lower.contains("trap triggered") || lower.contains("été déclenché")) {
 			triggered(text);
 		}
 	}
 
-	static boolean isTrap(String item) {
-		String s = item.toLowerCase(Locale.ROOT);
-		return s.contains("trap");
+	private void start() {
+		inGame = true;
+		bedGone = false;
+		setTraps(0);
+		remindedAt = -1;
+	}
+
+	/**
+	 * "Steve purchased It's a Trap!" (or "Steve a acheté Piège..."): a trap bought for the team; a
+	 * player's chat line has a colon after the name and is left out.
+	 */
+	static boolean isTrapPurchase(String line) {
+		String s = line.toLowerCase(Locale.ROOT);
+		int verb = -1;
+		for (String v : new String[] {" purchased ", " a acheté ", " avez acheté ", " hat gekauft", " compró ", " comprou "}) {
+			int i = s.indexOf(v);
+			if (i > 0) {
+				verb = i;
+				break;
+			}
+		}
+		if (verb < 0 || s.substring(0, verb).contains(":")) {
+			return false;
+		}
+		String item = s.substring(verb);
+		return item.contains("trap") || item.contains("piège") || item.contains("piege") || item.contains("falle") || item.contains("trampa");
 	}
 
 	/** Hypixel shows "TRAP TRIGGERED!" as a title when a trap goes off. */
@@ -126,7 +156,7 @@ public final class TrapNotifier extends Module {
 		String t = BedwarsGame.title();
 		if (!t.equals(lastTitle)) {
 			lastTitle = t;
-			if (t.toUpperCase(Locale.ROOT).contains("TRAP TRIGGERED")) {
+			if (BedwarsGame.isTrapTitle(t)) {
 				triggered(null);
 			}
 		}

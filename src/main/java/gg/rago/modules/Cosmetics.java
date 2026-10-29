@@ -422,8 +422,8 @@ public final class Cosmetics extends Module {
 		float span = wingsScale.get() / 100f;
 		GlStateManager.disableBlend();
 		GlStateManager.pushMatrix();
-		// a little higher than the source model, so the wings start at the shoulder blades
-		GlStateManager.translate(0, -0.08f, 0);
+		// higher than the source model, so the wings start at the top of the shoulder blades
+		GlStateManager.translate(0, -0.16f, 0);
 		for (int side = -1; side <= 1; side += 2) {
 			String group = side > 0 ? "left" : "right";
 			float[] p = ANGEL.pivot(group);
@@ -449,13 +449,15 @@ public final class Cosmetics extends Module {
 		int c = color(wingsColor, butterfly ? 0xFF4FA3FF : 0xFF5A3E78);
 		float span = (butterfly ? 0.9f : 1.15f) * wingsScale.get() / 100f;
 		GlStateManager.pushMatrix();
-		GlStateManager.translate(side * 0.05f, butterfly ? 0.3f : 0.16f, 0.16f);
+		// the root high on the back, between the shoulder blades
+		GlStateManager.translate(side * 0.05f, butterfly ? 0.14f : 0.04f, 0.16f);
 		if (butterfly) {
 			// butterflies open and close around the spine
 			GlStateManager.rotate(side * (-20 + beat), 0, 1, 0);
 		} else {
 			GlStateManager.rotate(side * (-30 + beat), 0, 1, 0);
-			GlStateManager.rotate(side * -12, 0, 0, 1);
+			// raised, the tips above the shoulders
+			GlStateManager.rotate(side * -22, 0, 0, 1);
 		}
 		GlStateManager.scale(side * span, span, span);
 		GlStateManager.disableBlend();
@@ -467,7 +469,7 @@ public final class Cosmetics extends Module {
 	// ---- shield: left arm space, the arm from x -1 to 3 pixels, the shoulder at y = -2 -----------
 
 	/**
-	 * A Rago shield held in the left hand as recent versions hold one: upright in front of the forearm,
+	 * A Rago shield held in the left hand, as Badlion shows one: upright beside the forearm,
 	 * its face forward and turned a little outward. Only seen in third person, like the rest of the
 	 * player.
 	 */
@@ -476,11 +478,13 @@ public final class Cosmetics extends Module {
 		if (m == null) {
 			return;
 		}
-		// the model is one unit tall (48 texture pixels): 12 pixels on the player at 100%
-		float size = 0.75f * shieldScale.get() / 100f;
+		// the model is one unit tall (48 texture pixels, 40 wide): 16 pixels on the player at 100%
+		float size = shieldScale.get() / 100f;
+		float width = 16 * size * 40 / 48;
 		GlStateManager.pushMatrix();
-		// centred just above the hand, in front of the arm (its front face is at z = -2)
-		GlStateManager.translate(1.5f * PX, 8.5f * PX, -2 * PX - size * 2.5f / 48);
+		// beside the forearm on the outside, its inner edge just over the arm (whose outer side is at
+		// x = 3), facing forward and turned a little outward
+		GlStateManager.translate((3 + width * 0.4f) * PX, 7 * PX, 0);
 		GlStateManager.rotate(-20, 0, 1, 0);
 		GlStateManager.scale(size, size, size);
 		GlStateManager.disableBlend();

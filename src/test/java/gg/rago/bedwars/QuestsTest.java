@@ -76,13 +76,31 @@ class QuestsTest {
 
 	@Test
 	void recognisesOwnFinalKillsAndBeds() {
-		assertTrue(Quests.isOwnFinalKill("Steve was killed by Rago_Player. FINAL KILL!", "Rago_Player"));
-		assertTrue(Quests.isOwnFinalKill("Steve was knocked into the void by Rago_Player. FINAL KILL!", "Rago_Player"));
-		assertTrue(Quests.isOwnFinalKill("Steve was spooked by Rago_Player's ghost. FINAL KILL!", "Rago_Player"));
-		assertFalse(Quests.isOwnFinalKill("Rago_Player was killed by Steve. FINAL KILL!", "Rago_Player"));
-		assertFalse(Quests.isOwnFinalKill("Steve was killed by Rago_Player2. FINAL KILL!", "Rago_Player"));
-		assertFalse(Quests.isOwnFinalKill("Steve was killed by Rago_Player.", "Rago_Player"));
-		assertTrue(Quests.isOwnBed("BED DESTRUCTION > Red Bed was destroyed by Rago_Player!", "Rago_Player"));
-		assertFalse(Quests.isOwnBed("BED DESTRUCTION > Your Bed was destroyed by Steve!", "Rago_Player"));
+		assertTrue(BedwarsGame.isOwnFinalKill("Steve was killed by Rago_Player. FINAL KILL!", "Rago_Player"));
+		assertTrue(BedwarsGame.isOwnFinalKill("Steve was knocked into the void by Rago_Player. FINAL KILL!", "Rago_Player"));
+		assertTrue(BedwarsGame.isOwnFinalKill("Steve was spooked by Rago_Player's ghost. FINAL KILL!", "Rago_Player"));
+		assertFalse(BedwarsGame.isOwnFinalKill("Rago_Player was killed by Steve. FINAL KILL!", "Rago_Player"));
+		assertFalse(BedwarsGame.isOwnFinalKill("Steve was killed by Rago_Player2. FINAL KILL!", "Rago_Player"));
+		assertFalse(BedwarsGame.isOwnFinalKill("Steve was killed by Rago_Player.", "Rago_Player"));
+		assertTrue(BedwarsGame.isOwnBed("BED DESTRUCTION > Red Bed was destroyed by Rago_Player!", "Rago_Player"));
+		assertFalse(BedwarsGame.isOwnBed("BED DESTRUCTION > Your Bed was destroyed by Steve!", "Rago_Player"));
+		// other languages: the same shapes
+		assertTrue(BedwarsGame.isOwnFinalKill("Steve a été tué par Rago_Player. ÉLIMINATION FINALE !", "Rago_Player"));
+		assertTrue(BedwarsGame.isOwnBed("DESTRUCTION DE LIT > Le lit Rouge a été détruit par Rago_Player !", "Rago_Player"));
+		// a name in capitals is not a final kill
+		assertFalse(BedwarsGame.isOwnFinalKill("Steve was killed by ABCDE!", "ABCDE"));
+		assertFalse(BedwarsGame.isOwnFinalKill("BED DESTRUCTION > Red Bed was destroyed by ABCDE!", "ABCDE"));
+	}
+
+	@Test
+	void readsTeamLines() {
+		assertEquals(Boolean.TRUE, BedwarsGame.bed("R Red: \u2713"));
+		assertEquals(Boolean.TRUE, BedwarsGame.bed("B Bleu: \u2714 VOUS"));
+		assertEquals(Boolean.FALSE, BedwarsGame.bed("G Green: \u2717"));
+		assertEquals(Boolean.FALSE, BedwarsGame.bed("Y Yellow: 2"));
+		assertEquals(null, BedwarsGame.bed("Players: 8/8"));
+		assertEquals(null, BedwarsGame.bed("Carte : Lighthouse"));
+		assertTrue(BedwarsGame.isVictory("VICTOIRE !"));
+		assertTrue(BedwarsGame.isGameOver("GAME OVER!"));
 	}
 }

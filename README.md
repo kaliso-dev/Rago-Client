@@ -138,6 +138,15 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     hit and breaking a block: seven sounds made by `tools/sounds.py`, satisfying 1.8 sounds (arrow
     ding, XP orb, item pop), or the attack sounds of recent versions, read from your own Minecraft
     install when one was launched (Rago ships none of Mojang's files)
+  - Bed Wars Stats: a red danger sign before strong players (FKDR 10+ or 300 stars+, both
+    settings) and nicks, a legend at the top of the tab list saying what each number means, and at
+    the start of a game a chat message listing the enemy teams to target, in their colour, with
+    their strong and nicked players
+  - Hypixel in other languages: games are recognised from the sidebar's team lines, and the Fast
+    Shop reads prices in English, French, German, Spanish, Italian, Portuguese, Dutch and Polish
+  - Hit Particles: the multiplier goes by tenths (x1.0 to x5.0) and adds single particles, not
+    whole extra bursts
+  - the shield sits beside the left forearm, bigger; the wings start higher on the back
   - Bed Wars Quests: your daily and weekly Bed Wars quests and what is left of each (final kills,
     beds, wins, games), from the Hypixel API, counted on live during the game from the chat
   - the Hypixel API key can be pasted on the page of each Hypixel mod (Level Head, Bed Wars Stats,

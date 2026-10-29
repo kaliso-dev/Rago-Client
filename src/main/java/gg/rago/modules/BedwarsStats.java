@@ -17,6 +17,7 @@ import net.minecraft.client.resources.I18n;
 import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatComponentTranslation;
+import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.ResourceLocation;
@@ -26,6 +27,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -46,8 +48,13 @@ public final class BedwarsStats extends Module {
 	private final BooleanOption tabFkdr = addOption(new BooleanOption("stats_tab_fkdr", true));
 	private final BooleanOption tabDanger = addOption(new BooleanOption("stats_tab_danger", false));
 	private final BooleanOption nicks = addOption(new BooleanOption("stats_nicks", true));
+	private final BooleanOption mark = addOption(new BooleanOption("stats_tab_mark", true));
+	private final BooleanOption legend = addOption(new BooleanOption("stats_tab_legend", true));
+	/** A strong player: this final kill/death ratio or more... */
+	private final IntOption strongFkdr = addOption(new IntOption("stats_strong_fkdr", 10, 1, 50));
+	/** ...or this Bed Wars star or more. */
+	private final IntOption strongStar = addOption(new IntOption("stats_strong_star", 300, 50, 2000));
 	private final BooleanOption alert = addOption(new BooleanOption("stats_alert", true));
-	private final IntOption alertMin = addOption(new IntOption("stats_alert_min", 4, 1, 5));
 	private final BooleanOption alertSound = addOption(new BooleanOption("stats_alert_sound", true));
 
 	private final HypixelApi api;
@@ -60,11 +67,17 @@ public final class BedwarsStats extends Module {
 	private int startedAt = -1;
 	private boolean alerted;
 	private boolean warned;
+	private boolean wasPlaying;
+	private IChatComponent legendFor;
+	private IChatComponent legendShown;
+	private String legendText;
+
+	/** The red danger sign before strong and nicked players. */
+	static final String MARK = "§4§l\u26a0§r";
 
 	public BedwarsStats(HypixelApi api) {
 		super("bedwars_stats", FeatureClass.INFORMATIONAL, false);
 		this.api = api;
-		alertMin.showIf(alert::get);
 		alertSound.showIf(alert::get);
 	}
 
@@ -89,9 +102,22 @@ public final class BedwarsStats extends Module {
 		ticks++;
 		if (mc.theWorld != world) {
 			world = mc.theWorld;
-			startedAt = -1;
-			alerted = false;
+			wasPlaying = false;
 			tab.clear();
+			// Hypixel may move you to a new world as the game starts: keep a start just seen
+			if (startedAt >= 0 && ticks - startedAt > 5 * 20) {
+				startedAt = -1;
+				alerted = false;
+			}
+		}
+		if (ticks % 5 == 0 && mc.thePlayer != null) {
+			// the sidebar lists the teams once a game has started, in every language
+			boolean playing = BedwarsGame.playing();
+			if (playing && !wasPlaying && startedAt < 0) {
+				startedAt = ticks;
+				alerted = false;
+			}
+			wasPlaying = playing;
 		}
 		if (mc.thePlayer == null || ticks % 20 != 0) {
 			if (startedAt >= 0 && !alerted && mc.thePlayer != null && ticks % 5 == 0) {
@@ -134,17 +160,18 @@ public final class BedwarsStats extends Module {
 
 	/** The text before and after a player's name, or null to leave it as it is. */
 	private String[] parts(UUID id) {
+		String warn = mark.get() ? MARK + " " : "";
 		if (!Hypixel.realPlayer(id)) {
-			return nicks.get() ? new String[] {"§c[NICK] ", ""} : null;
+			return nicks.get() ? new String[] {warn + "§c[NICK] ", ""} : null;
 		}
 		HypixelApi.Stats s = api.get(id);
 		if (s == null) {
 			return null;
 		}
 		if (!s.found) {
-			return nicks.get() ? new String[] {"§c[NICK] ", ""} : null;
+			return nicks.get() ? new String[] {warn + "§c[NICK] ", ""} : null;
 		}
-		String before = tabStar.get() && s.star >= 0 ? Hypixel.bedwarsStar(s.star) + " " : "";
+		String before = (strong(s) ? warn : "") + (tabStar.get() && s.star >= 0 ? Hypixel.bedwarsStar(s.star) + " " : "");
 		StringBuilder after = new StringBuilder();
 		if (tabFkdr.get()) {
 			after.append(" §7• ").append(Danger.color(Danger.fkdrScore(s.fkdr()))).append(Danger.ratio(s.fkdr()));
@@ -154,6 +181,43 @@ public final class BedwarsStats extends Module {
 			after.append(" §8[").append(Danger.color(d)).append(d).append("§8]");
 		}
 		return new String[] {before, after.toString()};
+	}
+
+	/** A player the options call strong: a high final kill/death ratio or a high star. */
+	private boolean strong(HypixelApi.Stats s) {
+		return s.found && (s.fkdr() >= strongFkdr.get() || s.star >= strongStar.get());
+	}
+
+	/** The tab list's header with a line saying what each number means, while stats are shown. */
+	public IChatComponent withLegend(IChatComponent header) {
+		if (!legend.get() || !bedwars || tab.isEmpty()) {
+			return header;
+		}
+		String text = legendLine();
+		if (header != legendFor || !text.equals(legendText)) {
+			legendFor = header;
+			legendText = text;
+			IChatComponent out = header == null ? new ChatComponentText("") : header.createCopy().appendText("\n");
+			legendShown = out.appendText(text);
+		}
+		return legendShown;
+	}
+
+	private String legendLine() {
+		StringBuilder b = new StringBuilder();
+		if (tabStar.get()) {
+			b.append(I18n.format("rago.stats.legend_star"));
+		}
+		if (tabFkdr.get()) {
+			b.append(b.length() > 0 ? "  §8|  " : "").append(I18n.format("rago.stats.legend_fkdr"));
+		}
+		if (tabDanger.get()) {
+			b.append(b.length() > 0 ? "  §8|  " : "").append(I18n.format("rago.stats.legend_danger"));
+		}
+		if (mark.get()) {
+			b.append(b.length() > 0 ? "  §8|  " : "").append(I18n.format("rago.stats.legend_mark", strongFkdr.get(), strongStar.get()));
+		}
+		return b.toString();
 	}
 
 	/** The name the tab list shows for a player, given the game's. */
@@ -173,6 +237,7 @@ public final class BedwarsStats extends Module {
 		String text = EnumChatFormatting.getTextWithoutFormattingCodes(event.message.getUnformattedText());
 		if (text.contains(BedwarsGame.START)) {
 			startedAt = ticks;
+			alerted = false;
 		}
 	}
 
@@ -208,34 +273,59 @@ public final class BedwarsStats extends Module {
 			return;
 		}
 		alerted = true;
-		List<Object[]> dangerous = new ArrayList<>();
-		List<String> nicked = new ArrayList<>();
+		// enemies to watch, by team: strong players first, then nicks
+		Map<String, List<String>> byTeam = new LinkedHashMap<>();
+		Map<String, Double> teamThreat = new HashMap<>();
+		Map<String, String> teamLabel = new HashMap<>();
 		for (NetworkPlayerInfo info : enemies) {
 			UUID id = info.getGameProfile().getId();
 			String name = info.getGameProfile().getName();
 			HypixelApi.Stats s = Hypixel.realPlayer(id) ? api.get(id) : null;
+			String entry;
+			double threat;
 			if (!Hypixel.realPlayer(id) || s != null && !s.found) {
-				nicked.add(name);
-			} else if (s != null && Danger.level(s) >= alertMin.get()) {
-				dangerous.add(new Object[] {name, s});
+				if (!nicks.get()) {
+					continue;
+				}
+				entry = MARK + " §c" + name + " §7(" + I18n.format("rago.stats.nick") + ")";
+				threat = 5;
+			} else if (s != null && strong(s)) {
+				entry = MARK + " " + (s.star >= 0 ? Hypixel.bedwarsStar(s.star) + " " : "") + "§f" + name
+					+ " §7(FKDR " + Danger.color(Danger.fkdrScore(s.fkdr())) + Danger.ratio(s.fkdr()) + "§7)";
+				threat = s.fkdr();
+			} else {
+				continue;
 			}
+			ScorePlayerTeam team = info.getPlayerTeam();
+			String key = team == null ? "?" : team.getRegisteredName();
+			if (!teamLabel.containsKey(key)) {
+				teamLabel.put(key, teamName(team));
+			}
+			byTeam.computeIfAbsent(key, k -> new ArrayList<>()).add(entry);
+			teamThreat.merge(key, threat, Math::max);
 		}
-		dangerous.sort((a, b) -> Double.compare(((HypixelApi.Stats) b[1]).fkdr(), ((HypixelApi.Stats) a[1]).fkdr()));
-		send(mc, "§c§lRago §8» " + (dangerous.isEmpty() ? "§a" + I18n.format("rago.stats.alert_none") : "§f" + I18n.format("rago.stats.alert_title")));
-		for (int i = 0; i < Math.min(ALERT_MAX, dangerous.size()); i++) {
-			String name = (String) dangerous.get(i)[0];
-			HypixelApi.Stats s = (HypixelApi.Stats) dangerous.get(i)[1];
-			int d = Danger.level(s);
-			send(mc, "  " + (s.star >= 0 ? Hypixel.bedwarsStar(s.star) + " " : "") + Danger.color(d) + name
-				+ " §8- §7FKDR " + Danger.color(Danger.fkdrScore(s.fkdr())) + Danger.ratio(s.fkdr())
-				+ " §8- " + Danger.color(d) + I18n.format("rago.stats.danger", d));
+		List<String> order = new ArrayList<>(byTeam.keySet());
+		order.sort((a, b) -> Double.compare(teamThreat.get(b), teamThreat.get(a)));
+		send(mc, "§c§lRago §8» " + (order.isEmpty() ? "§a" + I18n.format("rago.stats.alert_none") : "§f" + I18n.format("rago.stats.alert_title")));
+		for (String key : order) {
+			send(mc, "  " + teamLabel.get(key) + " §8» " + String.join("§8, ", byTeam.get(key)));
 		}
-		if (nicks.get() && !nicked.isEmpty()) {
-			send(mc, "  §c[NICK] §7" + String.join("§8, §7", nicked));
-		}
-		if (alertSound.get() && !dangerous.isEmpty()) {
+		if (alertSound.get() && !order.isEmpty()) {
 			mc.getSoundHandler().playSound(PositionedSoundRecord.create(new ResourceLocation("note.pling"), 1.2f));
 		}
+	}
+
+	/** "§cRed": the team's name in its colour, from the colour of its prefix. */
+	private static String teamName(ScorePlayerTeam team) {
+		if (team == null) {
+			return "§7" + I18n.format("rago.team.unknown");
+		}
+		char color = BedwarsGame.teamColor(team);
+		char letter = BedwarsGame.teamLetter(team);
+		if (color == 0) {
+			return "§7" + (letter != 0 ? String.valueOf(letter) : I18n.format("rago.team.unknown"));
+		}
+		return "§" + color + "§l" + I18n.format("rago.team." + color);
 	}
 
 	private static void send(Minecraft mc, String text) {

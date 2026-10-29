@@ -283,7 +283,9 @@ public final class Hooks {
 	/** GuiPlayerTabOverlay.renderPlayerlist: the header ({@code first}) or footer, null to hide it. */
 	public static IChatComponent tabHeaderFooter(IChatComponent text, boolean first) {
 		TabList t = tabList;
-		return t != null && t.isEnabled() ? t.headerFooter(text, first) : text;
+		IChatComponent out = t != null && t.isEnabled() ? t.headerFooter(text, first) : text;
+		BedwarsStats b = bedwarsStats;
+		return first && b != null && b.isEnabled() ? b.withLegend(out) : out;
 	}
 
 	/** GuiPlayerTabOverlay.renderPlayerlist: draws a name, header or footer line. */

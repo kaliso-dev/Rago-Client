@@ -8,7 +8,6 @@ import java.time.ZonedDateTime;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /**
  * Your Hypixel Bed Wars daily and weekly quests: the progress the Hypixel API last gave, plus what
@@ -115,24 +114,5 @@ public final class Quests {
 	static long lastDailyReset(long now) {
 		ZonedDateTime t = Instant.ofEpochMilli(now).atZone(HYPIXEL_TIME);
 		return t.toLocalDate().atStartOfDay(HYPIXEL_TIME).toInstant().toEpochMilli();
-	}
-
-	// ---- what the chat says ---------------------------------------------------------------------
-
-	/** "Victim was killed by You. FINAL KILL!": a final kill of yours, with the colours removed. */
-	public static boolean isOwnFinalKill(String line, String name) {
-		if (!line.endsWith("FINAL KILL!") || line.startsWith(name + " ")) {
-			return false;
-		}
-		return mentions(line.substring(line.indexOf(' ') + 1), name);
-	}
-
-	/** "BED DESTRUCTION > Red Bed was destroyed by You!": a bed you broke. */
-	public static boolean isOwnBed(String line, String name) {
-		return line.startsWith("BED DESTRUCTION") && mentions(line, name);
-	}
-
-	private static boolean mentions(String text, String name) {
-		return Pattern.compile("(^|[^A-Za-z0-9_])" + Pattern.quote(name) + "($|[^A-Za-z0-9_])").matcher(text).find();
 	}
 }
