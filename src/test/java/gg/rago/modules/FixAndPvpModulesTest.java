@@ -4,7 +4,11 @@ import gg.rago.config.ChoiceOption;
 import gg.rago.config.IntOption;
 import gg.rago.config.Option;
 import gg.rago.core.Module;
+import gg.rago.hud.elements.BlockCounterHud;
 import gg.rago.hud.elements.ClockHud;
+import gg.rago.hud.elements.DirectionHud;
+import gg.rago.hud.elements.HeightLimitHud;
+import gg.rago.hud.elements.PackDisplayHud;
 import gg.rago.hud.elements.MemoryHud;
 import gg.rago.hud.elements.ScoreboardHud;
 import gg.rago.hypixel.HypixelApi;
@@ -31,7 +35,14 @@ class FixAndPvpModulesTest {
 		return Arrays.asList(new NoHurtCam(), new OldAnimations(), new LowFire(), new NoPumpkin(), new NoWaterOverlay(),
 			new HideAchievements(), new F5Crosshair(), new WeatherChanger(), new TimeChanger(), new HitParticles(),
 			new BlockOverlay(), new TabPing(), new Chat(), nametags, new LevelHead(new HypixelApi(dir), nametags),
-			new ClockHud(), new MemoryHud(), new ScoreboardHud(), new GameplayFixes(), new HitColor());
+			new ClockHud(), new MemoryHud(), new ScoreboardHud(), new GameplayFixes(), new HitColor(),
+			new MotionBlur(new Zoom(null)), new GlintColor(), new HeightLimitHud(dir), new BlockCounterHud(), new DirectionHud(),
+			new PackDisplayHud());
+	}
+
+	/** Modules that are on from the start and change nothing anyone else sees. */
+	private List<Module> onByDefault() {
+		return Arrays.asList(new RagoCape());
 	}
 
 	/** Every new module has a name, a description and a label for each option, in both languages. */
@@ -42,7 +53,9 @@ class FixAndPvpModulesTest {
 			try (InputStream in = getClass().getResourceAsStream("/assets/rago/lang/" + file + ".lang")) {
 				lang.load(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8));
 			}
-			for (Module m : modules()) {
+			List<Module> all = new java.util.ArrayList<>(modules());
+			all.addAll(onByDefault());
+			for (Module m : all) {
 				assertTrue(lang.containsKey(m.nameKey()), file + ": " + m.nameKey());
 				assertTrue(lang.containsKey("rago.module." + m.id() + ".desc"), file + ": desc of " + m.id());
 				for (Option<?> o : m.options()) {

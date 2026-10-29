@@ -21,6 +21,10 @@ import gg.rago.hud.HudManager;
 import gg.rago.hooks.Hooks;
 import gg.rago.hud.elements.ArmorHud;
 import gg.rago.hud.elements.BedwarsResourcesHud;
+import gg.rago.hud.elements.BlockCounterHud;
+import gg.rago.hud.elements.DirectionHud;
+import gg.rago.hud.elements.HeightLimitHud;
+import gg.rago.hud.elements.PackDisplayHud;
 import gg.rago.hud.elements.BossBarHud;
 import gg.rago.hud.elements.ClockHud;
 import gg.rago.hud.elements.ComboHud;
@@ -45,16 +49,19 @@ import gg.rago.modules.CompetitiveProfile;
 import gg.rago.modules.Crosshair;
 import gg.rago.modules.F5Crosshair;
 import gg.rago.modules.Fullbright;
+import gg.rago.modules.GlintColor;
 import gg.rago.modules.HideAchievements;
 import gg.rago.modules.Hitboxes;
 import gg.rago.modules.HitParticles;
 import gg.rago.modules.LevelHead;
 import gg.rago.modules.LowFire;
+import gg.rago.modules.MotionBlur;
 import gg.rago.modules.MainMenu;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.NoPumpkin;
 import gg.rago.modules.NoWaterOverlay;
 import gg.rago.modules.OldAnimations;
+import gg.rago.modules.RagoCape;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.HitColor;
 import gg.rago.modules.Nametags;
@@ -182,6 +189,10 @@ public final class RagoClient {
 		MODULES.register(new ScoreboardHud());
 		MODULES.register(new BossBarHud());
 		MODULES.register(new BedwarsResourcesHud());
+		MODULES.register(new HeightLimitHud(configDir));
+		MODULES.register(new BlockCounterHud());
+		MODULES.register(new DirectionHud());
+		MODULES.register(new PackDisplayHud());
 		MODULES.register(new BlockOverlay());
 		MODULES.register(new Hitboxes());
 		MODULES.register(new HitParticles());
@@ -201,6 +212,9 @@ public final class RagoClient {
 		MODULES.register(new F5Crosshair());
 		MODULES.register(new WeatherChanger());
 		MODULES.register(new TimeChanger());
+		MODULES.register(new MotionBlur(zoom));
+		RagoCape cape = MODULES.register(new RagoCape());
+		GlintColor glint = MODULES.register(new GlintColor());
 		mainMenu = MODULES.register(new MainMenu());
 		profile = MODULES.register(new CompetitiveProfile(configDir));
 		registerGeneralSettings();
@@ -215,6 +229,8 @@ public final class RagoClient {
 		Hooks.engine = optimizations.engine();
 		Hooks.fixes = fixes;
 		Hooks.hitColor = hitColor;
+		Hooks.cape = cape;
+		Hooks.glint = glint;
 		ClientCommandHandler.instance.registerCommand(new RagoCommand(hypixel, () -> openMenu = true));
 
 		config = new ConfigStore(configDir.resolve("rago.json"));
@@ -244,6 +260,10 @@ public final class RagoClient {
 		ClientRegistry.registerKeyBinding(captureKey);
 		ClientRegistry.registerKeyBinding(zoomKey);
 		MinecraftForge.EVENT_BUS.register(this);
+		gg.rago.debug.NametagBench bench = gg.rago.debug.NametagBench.fromProperty();
+		if (bench != null) {
+			MinecraftForge.EVENT_BUS.register(bench);
+		}
 		MinecraftForge.EVENT_BUS.register(optimizations);
 		// modules with @SubscribeEvent methods check isEnabled() themselves
 		for (Module m : MODULES.all()) {

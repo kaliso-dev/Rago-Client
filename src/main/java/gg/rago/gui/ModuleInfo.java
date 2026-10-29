@@ -51,6 +51,13 @@ final class ModuleInfo {
 		ICONS.put("reach", "ruler");
 		ICONS.put("combo", "trending-up");
 		ICONS.put("bedwars_resources", "gem");
+		ICONS.put("motion_blur", "blend");
+		ICONS.put("rago_cape", "flag");
+		ICONS.put("glint_color", "wand-sparkles");
+		ICONS.put("height_limit", "arrow-up-to-line");
+		ICONS.put("block_counter", "blocks");
+		ICONS.put("direction", "compass");
+		ICONS.put("pack_display", "layers");
 	}
 
 	private ModuleInfo() {

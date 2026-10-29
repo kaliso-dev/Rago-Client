@@ -37,11 +37,13 @@ public final class HudText {
 	private HudText() {
 	}
 
-	private static TtfFont ttf(String font) {
+	/** The TrueType font for a font id, or null for the Minecraft font. */
+	public static TtfFont ttf(String font) {
 		return POPPINS.equals(font) ? POPPINS_FONT : INTER.equals(font) ? INTER_FONT : null;
 	}
 
-	private static float em(String font) {
+	/** TrueType size in GUI units for a font id. */
+	public static float em(String font) {
 		return POPPINS.equals(font) ? POPPINS_EM : INTER_EM;
 	}
 
@@ -56,7 +58,7 @@ public final class HudText {
 			return vanilla().getStringWidth(s);
 		}
 		// measured at a large size, so the result does not depend on the screen scale
-		return (int) Math.ceil(f.widthFormatted(s, 48) / 48f * em(font));
+		return (int) Math.ceil(f.measure(s) / TtfFont.METRICS_PX * em(font));
 	}
 
 	/** Real screen pixels per unit of the current matrix, for HUD and menu drawing. */
@@ -64,7 +66,26 @@ public final class HudText {
 		MATRIX.clear();
 		GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, MATRIX);
 		float sx = (float) Math.sqrt(MATRIX.get(0) * MATRIX.get(0) + MATRIX.get(1) * MATRIX.get(1));
-		return Math.max(0.25f, sx * new ScaledResolution(Minecraft.getMinecraft()).getScaleFactor());
+		return Math.max(0.25f, sx * guiScale());
+	}
+
+	private static int scaleW = -1;
+	private static int scaleH;
+	private static int scaleSetting;
+	private static boolean scaleUnicode;
+	private static int scale = 1;
+
+	/** The GUI scale factor, as ScaledResolution works it out, without making one for every string. */
+	private static int guiScale() {
+		Minecraft mc = Minecraft.getMinecraft();
+		if (mc.displayWidth != scaleW || mc.displayHeight != scaleH || mc.gameSettings.guiScale != scaleSetting || mc.isUnicode() != scaleUnicode) {
+			scaleW = mc.displayWidth;
+			scaleH = mc.displayHeight;
+			scaleSetting = mc.gameSettings.guiScale;
+			scaleUnicode = mc.isUnicode();
+			scale = new ScaledResolution(mc).getScaleFactor();
+		}
+		return scale;
 	}
 
 	/** Draws with its line box top at (x, y), on the HUD or in a menu. */

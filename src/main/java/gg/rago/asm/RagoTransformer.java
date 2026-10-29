@@ -135,6 +135,29 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return false;
 			}));
+		add("net.minecraft.client.entity.AbstractClientPlayer", new Patch("Rago cape",
+			"func_110303_q", "getLocationCape", "()Lnet/minecraft/util/ResourceLocation;",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn.getOpcode() == Opcodes.ARETURN) {
+						InsnList call = new InsnList();
+						call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+						call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "cape",
+							"(Lnet/minecraft/util/ResourceLocation;Lnet/minecraft/client/entity/AbstractClientPlayer;)Lnet/minecraft/util/ResourceLocation;", false));
+						m.instructions.insertBefore(insn, call);
+						found = true;
+					}
+				}
+				return found;
+			}));
+		add("net.minecraft.client.renderer.entity.RenderItem", new Patch("glint colour on items",
+			"func_180451_a", "renderEffect", "(Lnet/minecraft/client/resources/model/IBakedModel;)V",
+			RagoTransformer::itemGlint));
+		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("glint colour on armour",
+			"func_177183_a", "renderGlint",
+			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
+			RagoTransformer::armorGlint));
 		add("net.minecraft.client.Minecraft", new Patch("borderless fullscreen",
 			"func_71352_k", "toggleFullscreen", "()V",
 			m -> returnIf(m, "toggleFullscreen", "()Z", new int[0], -1, Opcodes.RETURN)));
@@ -208,6 +231,33 @@ public final class RagoTransformer implements IClassTransformer {
 			m.exceptions.toArray(new String[0]));
 		m.accept(copy);
 		return copy;
+	}
+
+	/** Passes vanilla's glint colour constant through {@code Hooks.glintColor}. */
+	private static boolean itemGlint(MethodNode m) {
+		boolean found = false;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof LdcInsnNode && Integer.valueOf(-8372020).equals(((LdcInsnNode) insn).cst)) {
+				m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "glintColor", "(I)I", false));
+				found = true;
+			}
+		}
+		return found;
+	}
+
+	/** After the armour glint's colour is set (the call that follows the 0.76 dimming), sets ours. */
+	private static boolean armorGlint(MethodNode m) {
+		boolean dim = false;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof LdcInsnNode && Float.valueOf(0.76f).equals(((LdcInsnNode) insn).cst)) {
+				dim = true;
+			} else if (dim && insn instanceof MethodInsnNode && ((MethodInsnNode) insn).owner.equals("net/minecraft/client/renderer/GlStateManager")
+				&& (((MethodInsnNode) insn).name.equals("func_179131_c") || ((MethodInsnNode) insn).name.equals("color"))) {
+				m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "armorGlint", "()V", false));
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Passes every returned value of the given return opcode through {@code hook}. */

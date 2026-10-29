@@ -12,22 +12,21 @@ import gg.rago.gui.Theme;
 import gg.rago.gui.ui.TtfFont;
 import gg.rago.hud.Styled;
 import gg.rago.render.HudText;
+import gg.rago.render.LabelBatch;
 import gg.rago.render.NameTags;
-import gg.rago.render.Paint;
 import gg.rago.render.WorldDraw;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.scoreboard.Score;
 import net.minecraft.scoreboard.ScoreObjective;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraftforge.client.event.RenderLivingEvent;
+import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import org.lwjgl.opengl.GL11;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 /**
  * Players' name tags drawn Rago's way: a style preset (Vanilla, Rago, Minimal, Outline) and then
@@ -44,6 +43,7 @@ public final class Nametags extends Module implements Styled {
 	/** Vanilla moves a sneaking player's name down by this many label units. */
 	private static final float SNEAK_DROP = 9.374999f;
 
+	private final LabelBatch batch = new LabelBatch();
 	private final BooleanOption showOwn = addOption(new BooleanOption("show_own", false));
 	private final BooleanOption throughWalls = addOption(new BooleanOption("through_walls", true));
 	private final IntOption scale = addOption(new IntOption("nametag_scale", 100, 50, 200));
@@ -203,59 +203,57 @@ public final class Nametags extends Module implements Styled {
 	}
 
 	/**
-	 * Draws one label facing the camera at the height vanilla gives a name tag anchored at
-	 * {@code anchorY} (the top of vanilla's text). {@code seeThrough} adds the faint copy visible through walls; {@code alpha} is the text
-	 * opacity where the player is visible.
+	 * Queues one label facing the camera at the height vanilla gives a name tag anchored at
+	 * {@code anchorY} (the top of vanilla's text). {@code seeThrough} adds the faint copy visible
+	 * through walls; {@code alpha} is the text opacity where the player is visible. Labels are drawn
+	 * all together after the world (see {@link LabelBatch}).
 	 */
 	public void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha) {
-		Minecraft mc = Minecraft.getMinecraft();
-		RenderManager rm = mc.getRenderManager();
 		String shown = colorMode.is("custom") ? TtfFont.strip(text) : text;
 		int color = colorMode.is("custom") ? nameColor.get() : 0xFFFFFFFF;
 		float s = WorldDraw.LABEL_SCALE * scale.get() / 100f;
 		int pad = background.get() ? padding.get() : 0;
-		int w = HudText.width(font.get(), shown);
+		TtfFont ttf = HudText.ttf(font.get());
+		float em = HudText.em(font.get());
+		float w = LabelBatch.width(ttf, em, WORLD_SHARPNESS, shown);
 		float half = w / 2f;
-		GlStateManager.pushMatrix();
-		GlStateManager.translate((float) x, (float) anchorY, (float) z);
-		GL11.glNormal3f(0, 1, 0);
-		GlStateManager.rotate(-rm.playerViewY, 0, 1, 0);
-		GlStateManager.rotate(rm.playerViewX * (mc.gameSettings.thirdPersonView == 2 ? -1 : 1), 1, 0, 0);
-		GlStateManager.scale(-s, -s, s);
 		// keep the bottom of the text where vanilla's is, so a bigger tag grows upwards, away from the head
-		GlStateManager.translate(0, (drop + 8) * WorldDraw.LABEL_SCALE / s - 8 - pad, 0);
-		GlStateManager.disableLighting();
-		// the same brightness in a cave as in daylight, as name tags are text, not part of the world
-		mc.entityRenderer.disableLightmap();
-		GlStateManager.depthMask(false);
-		GlStateManager.enableBlend();
-		GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
-		if (seeThrough) {
-			GlStateManager.disableDepth();
-		}
+		batch.begin(x, anchorY, z, s, (drop + 8) * WorldDraw.LABEL_SCALE / s - 8 - pad);
+		int back = seeThrough ? LabelBatch.SEE_THROUGH : LabelBatch.DEPTH;
 		float bx = -half - 1 - pad;
 		float by = -1 - pad;
 		float bw = w + 2 + pad * 2;
 		float bh = 9 + pad * 2;
 		if (background.get()) {
-			Paint.round(bx, by, bw, bh, radius.get(), backgroundColor.get());
+			batch.round(back, bx, by, bw, bh, radius.get(), backgroundColor.get());
 		}
 		if (border.get()) {
-			Paint.outline(bx, by, bw, bh, radius.get(), 0.75f, borderColor.get());
+			batch.outline(back, bx, by, bw, bh, radius.get(), 0.75f, borderColor.get());
 		}
-		GlStateManager.enableTexture2D();
-		if (seeThrough) {
-			HudText.draw(font.get(), shown, -half, 0, 0x20000000 | color & 0xFFFFFF, false, WORLD_SHARPNESS);
-			GlStateManager.enableDepth();
-		}
-		GlStateManager.depthMask(true);
 		int a = Math.min(alpha, color >>> 24);
-		HudText.draw(font.get(), shown, -half, 0, a << 24 | color & 0xFFFFFF, shadow.get(), WORLD_SHARPNESS);
-		GlStateManager.enableDepth();
-		mc.entityRenderer.enableLightmap();
-		GlStateManager.enableLighting();
-		GlStateManager.disableBlend();
-		GlStateManager.color(1, 1, 1, 1);
-		GlStateManager.popMatrix();
+		boolean ok = true;
+		if (seeThrough) {
+			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, shown, -half, 0, 0x20000000 | color & 0xFFFFFF, false);
+		}
+		if (ok) {
+			ok = batch.text(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, ttf, em, WORLD_SHARPNESS, shown, -half, 0,
+				a << 24 | color & 0xFFFFFF, shadow.get());
+		}
+		if (!ok) {
+			// characters outside the Minecraft font's ASCII page (or the Unicode font): vanilla draws it
+			WorldDraw.label(shown, x, anchorY - (drop + 8) * WorldDraw.LABEL_SCALE + (8 + pad) * s, z, false);
+		}
+	}
+
+	@SubscribeEvent
+	public void onRenderStart(TickEvent.RenderTickEvent event) {
+		if (event.phase == TickEvent.Phase.START) {
+			batch.clear(); // labels queued outside the world (an entity in a menu) are dropped
+		}
+	}
+
+	@SubscribeEvent
+	public void onWorldDrawn(RenderWorldLastEvent event) {
+		batch.flush();
 	}
 }

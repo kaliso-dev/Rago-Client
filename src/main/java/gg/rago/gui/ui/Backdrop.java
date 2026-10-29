@@ -1,7 +1,7 @@
 package gg.rago.gui.ui;
 
+import gg.rago.render.StaticTexture;
 import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.image.BufferedImage;
@@ -15,14 +15,14 @@ final class Backdrop {
 	private static final int W = 384;
 	private static final int H = 216;
 	private static final int B = 12;
-	private static DynamicTexture texture;
+	private static StaticTexture texture;
 
 	private Backdrop() {
 	}
 
 	static int textureId() {
 		if (texture == null) {
-			texture = new DynamicTexture(blur(paint(), 5, 2));
+			texture = new StaticTexture(blur(paint(), 5, 2));
 			GlStateManager.bindTexture(texture.getGlTextureId());
 			GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
 			GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
