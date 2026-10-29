@@ -26,6 +26,8 @@ public final class CompetitivePreset {
 		v.put("entity_shadows", new JsonPrimitive(false));
 		v.put("fps_limit", new JsonPrimitive(260)); // the slider's "Unlimited"
 		v.put("vsync", new JsonPrimitive(false));
+		// the usage snooper sends statistics to Mojang every few minutes: nothing a player needs
+		v.put("snooper", new JsonPrimitive(false));
 		VANILLA = Collections.unmodifiableMap(v);
 
 		// OptiFine's own settings (fields it adds to GameSettings); skipped when OptiFine is absent.
@@ -47,6 +49,10 @@ public final class CompetitivePreset {
 		x.put("ofDrippingWaterLava", new JsonPrimitive(false));
 		x.put("ofFireworkParticles", new JsonPrimitive(false));
 		x.put("ofRainSplash", new JsonPrimitive(false));
+		// animate only the textures on screen, draw the world in regions, and skip a copy per frame
+		x.put("ofSmartAnimations", new JsonPrimitive(true));
+		x.put("ofRenderRegions", new JsonPrimitive(true));
+		x.put("ofFastRender", new JsonPrimitive(true));
 		// ofPotionParticles stays on: it shows which potions an opponent has.
 		OPTIFINE = Collections.unmodifiableMap(x);
 	}

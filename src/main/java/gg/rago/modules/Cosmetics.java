@@ -449,7 +449,8 @@ public final class Cosmetics extends Module {
 	private void extrudedWing(int side, float beat) {
 		boolean butterfly = wings.is("butterfly");
 		boolean small = wings.is("dragon_small");
-		int c = color(wingsColor, butterfly ? 0xFF4FA3FF : small ? 0xFF3FB950 : 0xFF5A3E78);
+		// the small dragon wings are coloured in their texture (Rago's red and black): untinted by default
+		int c = color(wingsColor, butterfly ? 0xFF4FA3FF : small ? 0xFFFFFFFF : 0xFF5A3E78);
 		// the small dragon wings are compact, like Lunar Client's
 		float span = (butterfly ? 0.9f : small ? 0.7f : 1.15f) * wingsScale.get() / 100f;
 		GlStateManager.pushMatrix();

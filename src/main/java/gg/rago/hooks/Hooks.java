@@ -269,7 +269,7 @@ public final class Hooks {
 	/** ModelBiped.setRotationAngles, at its end: the pose of a dance on your own player. */
 	public static void emotePose(ModelBiped model, Entity entity) {
 		Emotes e = emotes;
-		if (e != null && e.playing() != null) {
+		if (e != null && (e.playing() != null || e.posed())) {
 			e.pose(model, entity);
 		}
 	}

@@ -84,7 +84,7 @@ class HypixelTest {
 		assertEquals(5, Danger.level(12, 1200));
 		// a high ratio weighs more than a high star
 		assertTrue(Danger.level(10, 50) > Danger.level(0.5, 1500));
-		assertEquals("§c", Danger.color(5));
+		assertEquals("§4", Danger.color(5));
 		assertEquals("0.6", Danger.ratio(0.6));
 		assertEquals("150", Danger.ratio(150.4));
 	}

@@ -118,9 +118,36 @@ def dragon():
 def dragon_small():
     """
     A short dragon wing, as compact as Lunar Client's: the arm bone rising from the root, three
-    fingers, the membrane scaled. Root at (3, 22); the model is drawn smaller in game.
+    fingers, the membrane scaled. Root at (3, 22); the model is drawn smaller in game. Coloured in
+    Rago's neon look: a black membrane with glowing red bones and edge (drawn untinted).
     """
-    return bat_wing((34, 8), [(60, 16), (52, 34), (34, 42), (16, 38)], [(2, 20), (16, 12)], (3, 32), membrane_seed=5)
+    wing = bat_wing((34, 8), [(60, 16), (52, 34), (34, 42), (16, 38)], [(2, 20), (16, 12)], (3, 32), membrane_seed=5)
+    return neon(wing)
+
+
+def neon(img):
+    """
+    A grey wing in red and black: bones (dark greys) glowing red, the trailing edge red, claws
+    light, the scaled membrane almost black. Bones keep a blue of 10 so the model makes them thick.
+    """
+    out = img.copy()
+    for y in range(img.size[1]):
+        for x in range(img.size[0]):
+            r, g, b, a = img.getpixel((x, y))
+            if a == 0:
+                continue
+            v = r
+            if v >= 230:
+                c = (255, 96, 84)
+            elif v == 112:
+                c = (214, 22, 30)
+            elif v < 110:
+                k = max(0.0, min(1.0, (v - 38) / 48))
+                c = (int(150 + 105 * k), int(12 + 48 * k), 10)
+            else:
+                c = (int(v * 0.17), int(v * 0.10), int(v * 0.11))
+            out.putpixel((x, y), c + (a,))
+    return out
 
 
 def box_faces(u, v, w, h, d):

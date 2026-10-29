@@ -5,8 +5,8 @@ package gg.rago.hypixel;
  * weighs most) and their star. 1 is a newcomer, 5 a player to deal with first.
  */
 public final class Danger {
-	/** Chat colour codes by level, 1 to 5: grey, green, yellow, gold, red. */
-	private static final char[] COLORS = {'7', '7', 'a', 'e', '6', 'c'};
+	/** Chat colour codes by level, 1 to 5: grey, green, dark green, red, dark red. */
+	private static final char[] COLORS = {'7', '7', 'a', '2', 'c', '4'};
 
 	private Danger() {
 	}
@@ -34,11 +34,11 @@ public final class Danger {
 	}
 
 	/**
-	 * The colour of a final kill/death ratio, by the usual Bed Wars steps: grey under 1, green from
-	 * 1, dark green from 5, yellow from 8, gold from 15 and red from 20.
+	 * The colour of a final kill/death ratio, by steps: grey under 1, green from 1, dark green from
+	 * 5, red from 10 (a strong player) and dark red from 20.
 	 */
 	public static String fkdrColor(double fkdr) {
-		return fkdr < 1 ? "§7" : fkdr < 5 ? "§a" : fkdr < 8 ? "§2" : fkdr < 15 ? "§e" : fkdr < 20 ? "§6" : "§c";
+		return fkdr < 1 ? "§7" : fkdr < 5 ? "§a" : fkdr < 10 ? "§2" : fkdr < 20 ? "§c" : "§4";
 	}
 
 	/** A ratio as Bed Wars players write it: one decimal, none from 100. */

@@ -8,6 +8,7 @@ import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import gg.rago.core.RagoClient;
+import gg.rago.debug.InputTrace;
 import gg.rago.hypixel.Hypixel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.EnumChatFormatting;
@@ -83,6 +84,10 @@ public final class AutoMessages extends Module {
 			teamSize = 0;
 			teamsSeen = 0;
 			queue.clear();
+		}
+		if (InputTrace.on() && ticks % 40 == 0) {
+			RagoClient.LOG.info("[debug] auto messages: hypixel={} sidebar={} inGame={} ended={} teams={} own={} title=\"{}\" queue={}",
+				Hypixel.connected(), BedwarsGame.inBedwars(), inGame, ended, BedwarsGame.teamsAlive(), BedwarsGame.ownTeam(), BedwarsGame.title(), queue);
 		}
 		if (mc.thePlayer == null || !Hypixel.connected()) {
 			return;

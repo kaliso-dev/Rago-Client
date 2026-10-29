@@ -112,6 +112,7 @@ public final class CompetitiveProfile extends Module {
 		j.addProperty("entity_shadows", o.entityShadows);
 		j.addProperty("fps_limit", o.limitFramerate);
 		j.addProperty("vsync", o.enableVsync);
+		j.addProperty("snooper", o.snooperEnabled);
 		return j;
 	}
 
@@ -125,6 +126,10 @@ public final class CompetitiveProfile extends Module {
 		o.entityShadows = j.get("entity_shadows").getAsBoolean();
 		o.limitFramerate = j.get("fps_limit").getAsInt();
 		o.enableVsync = j.get("vsync").getAsBoolean();
+		// a backup from before this setting was part of the profile has none
+		if (j.has("snooper")) {
+			o.snooperEnabled = j.get("snooper").getAsBoolean();
+		}
 		Display.setVSyncEnabled(o.enableVsync);
 		if (mc.renderGlobal != null) {
 			mc.renderGlobal.loadRenderers();

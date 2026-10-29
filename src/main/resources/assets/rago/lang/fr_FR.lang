@@ -419,7 +419,7 @@ rago.option.level_display.0=Niveau réseau
 rago.option.level_display.1=Étoile Bed Wars
 rago.levelhead.no_key=[Rago] Level Head a besoin de ta clé API Hypixel : crée-la sur developer.hypixel.net, puis colle-la dans les réglages du mod (Shift droit) ou tape /rago hypixelkey <clé>
 rago.levelhead.bad_key=[Rago] Hypixel a refusé ta clé API (elles expirent). Crée-en une nouvelle sur developer.hypixel.net, puis colle-la dans les réglages du mod (Shift droit) ou tape /rago hypixelkey <clé>
-rago.command.usage=Utilisation : /rago (menu) ou /rago hypixelkey <clé>
+rago.command.usage=Utilisation : /rago (menu), /rago hypixelkey <clé> ou /rago debug (diagnostic)
 rago.command.key_format=Ce n'est pas une clé API Hypixel (elle ressemble à xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).
 rago.command.key_saved=Clé API Hypixel enregistrée. Elle reste uniquement sur ce PC.
 rago.command.key_failed=Impossible d'enregistrer la clé, regarde le log.
@@ -1104,3 +1104,8 @@ rago.stats.sniper_gear=cotte de mailles et épée en fer dès le début
 rago.module.anti_armor=Anti Armor
 rago.module.anti_armor.desc=Ton armure n'est plus affichée, tu vois ton skin en F5 et dans l'inventaire. Seulement sur ton écran : ton armure te protège toujours et les autres joueurs la voient.
 rago.messages.end_seen=Messages auto : fin de partie, j'envoie ton GG.
+# 1.4.8
+rago.option.blur_clean=Clean Motion Blur
+rago.option.blur_clean.help=Un flou déjà réglé, appliqué à chaque image (la traînée garde 70 % d'elle-même et se pose sur l'image à 80 %). Les autres réglages sont masqués quand il est activé.
+rago.command.debug_on=Diagnostic Rago activé : ce qui arrive à tes clics et l'état des Messages auto vont dans logs/latest.log. Joue, retape /rago debug, puis envoie ce fichier.
+rago.command.debug_off=Diagnostic Rago désactivé. Le fichier est dans .minecraft/logs/latest.log.

@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.7.** What it contains:
+**Current version: 1.4.8.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -124,6 +124,17 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - Anti Armor: your own armour is not drawn, so your skin shows in F5 (only on your screen)
   - Auto Messages also sees the end of a game from the sidebar (one team left, or yours out), and
     says so in your own chat before sending the GG
+  - FKDR colours: grey under 1, green from 1, dark green from 5, red from 10, dark red from 20;
+    danger 1 to 5: grey, green, dark green, red, dark red
+  - small dragon wings in Rago's red and black
+  - Clean Motion Blur: a ready-made blur on every frame (the trail keeps 70 % of itself, laid over
+    the image at 80 %), as an option of Motion Blur
+  - dances rewritten: eased moves, the body sinking on the beat, turning and leaning from the hips,
+    easing in from your pose; a dance no longer leaves its pose on other players
+  - `/rago debug`: writes what happens to your clicks, slow frames and the Auto Messages state to
+    `logs/latest.log`, to find a delay or a message that does not go
+  - the competitive profile also turns off the usage snooper and, with OptiFine, turns on Smart
+    Animations, Render Regions and Fast Render
   - the 1.2 Particles mod is merged into Particle Multiplier, which can now also hide block-breaking
     and block-mining particles
   - Item Scale (held and dropped items from 25% to 400%), Item Physics (dropped items lie on the
@@ -258,7 +269,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.7+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
+2. Put `rago-1.4.8+1.8.9.jar` in `.minecraft/mods`. If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
 3. If you used a separate OptiFine jar before and your Rago build bundles it, you can delete the

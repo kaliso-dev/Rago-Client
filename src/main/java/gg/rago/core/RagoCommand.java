@@ -67,6 +67,11 @@ final class RagoCommand extends CommandBase {
 			}
 			return;
 		}
+		if (args[0].equalsIgnoreCase("debug")) {
+			boolean on = gg.rago.debug.InputTrace.toggle();
+			sender.addChatMessage(message(on ? "rago.command.debug_on" : "rago.command.debug_off", EnumChatFormatting.GOLD));
+			return;
+		}
 		if (args[0].equalsIgnoreCase("screenshot") && args.length >= 3) {
 			// the buttons after "Saved screenshot as ..."; the file name may hold spaces
 			Screenshots.command(args[1], String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length)));
@@ -77,7 +82,7 @@ final class RagoCommand extends CommandBase {
 
 	@Override
 	public List<String> addTabCompletionOptions(ICommandSender sender, String[] args, BlockPos pos) {
-		return args.length == 1 ? getListOfStringsMatchingLastWord(args, "hypixelkey") : Collections.<String>emptyList();
+		return args.length == 1 ? getListOfStringsMatchingLastWord(args, "hypixelkey", "debug") : Collections.<String>emptyList();
 	}
 
 	private static IChatComponent message(String key, EnumChatFormatting color) {

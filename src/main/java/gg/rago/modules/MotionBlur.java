@@ -47,6 +47,13 @@ public final class MotionBlur extends Module {
 	/** The trail is updated at most this often. */
 	private static final float STEP = 1 / 60f;
 
+	/** Clean: the trail keeps this much of itself each frame... */
+	private static final float CLEAN_TRAIL = 0.7f;
+	/** ...and is laid over the sharp frame at this opacity. */
+	private static final float CLEAN_MIX = 0.8f;
+
+	/** A ready-made blur: every frame, always on, fixed amounts; the other settings are hidden. */
+	private final BooleanOption clean = addOption(new BooleanOption("blur_clean", false));
 	private final IntOption strength = addOption(new IntOption("blur_strength", 30, 1, 100));
 	private final ChoiceOption mode = addOption(new ChoiceOption("blur_mode", "always", "always", "turning", "moving"));
 	private final IntOption sensitivity = addOption(new IntOption("blur_sensitivity", 50, 1, 100));
@@ -74,7 +81,10 @@ public final class MotionBlur extends Module {
 	public MotionBlur(Zoom zoom) {
 		super("motion_blur", FeatureClass.VISUAL, false);
 		this.zoom = zoom;
-		sensitivity.showIf(() -> !mode.is("always"));
+		sensitivity.showIf(() -> !clean.get() && !mode.is("always"));
+		strength.showIf(() -> !clean.get());
+		mode.showIf(() -> !clean.get());
+		frameIndependent.showIf(() -> !clean.get());
 	}
 
 	@Override
@@ -119,7 +129,8 @@ public final class MotionBlur extends Module {
 			fresh = true;
 			lastWorld = mc.theWorld;
 		}
-		float keep = keep(motion);
+		boolean cleanBlur = clean.get();
+		float keep = cleanBlur ? CLEAN_TRAIL : keep(motion);
 		if (pauseOnZoom.get() && zoom != null && zoom.isZooming()) {
 			keep = 0;
 		}
@@ -134,7 +145,7 @@ public final class MotionBlur extends Module {
 			return;
 		}
 		sinceStep += dt;
-		boolean step = !frameIndependent.get() || sinceStep >= STEP || fresh;
+		boolean step = cleanBlur || !frameIndependent.get() || sinceStep >= STEP || fresh;
 		int previousFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
 		int[] viewport = viewport();
 		GlStateManager.pushMatrix();
@@ -166,7 +177,7 @@ public final class MotionBlur extends Module {
 				// scaled to the time since the last update (one 60 FPS frame or more)
 				OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, historyFbo);
 				GlStateManager.viewport(0, 0, width, height);
-				float stepKeep = frameIndependent.get() ? (float) Math.pow(keep, Math.min(sinceStep, 0.25f) / STEP) : keep;
+				float stepKeep = !cleanBlur && frameIndependent.get() ? (float) Math.pow(keep, Math.min(sinceStep, 0.25f) / STEP) : keep;
 				sinceStep = 0;
 				if (fresh) {
 					GlStateManager.disableBlend();
@@ -184,7 +195,7 @@ public final class MotionBlur extends Module {
 			GlStateManager.enableBlend();
 			GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ZERO, GL11.GL_ONE);
 			GlStateManager.bindTexture(historyTexture);
-			quad(keep);
+			quad(cleanBlur ? CLEAN_MIX : keep);
 		} finally {
 			OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFbo);
 			GlStateManager.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);

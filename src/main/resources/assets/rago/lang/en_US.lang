@@ -419,7 +419,7 @@ rago.option.level_display.0=Network level
 rago.option.level_display.1=Bed Wars star
 rago.levelhead.no_key=[Rago] Level Head needs your Hypixel API key: get one at developer.hypixel.net, then paste it in the mod's settings (Right Shift) or type /rago hypixelkey <key>
 rago.levelhead.bad_key=[Rago] Hypixel refused your API key (keys expire). Get a new one at developer.hypixel.net, then paste it in the mod's settings (Right Shift) or type /rago hypixelkey <key>
-rago.command.usage=Usage: /rago (menu) or /rago hypixelkey <key>
+rago.command.usage=Usage: /rago (menu), /rago hypixelkey <key> or /rago debug (diagnostic)
 rago.command.key_format=That is not a Hypixel API key (it looks like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).
 rago.command.key_saved=Hypixel API key saved. It stays on this computer only.
 rago.command.key_failed=Could not save the key, see the log.
@@ -1104,3 +1104,8 @@ rago.stats.sniper_gear=chainmail and iron sword from the start
 rago.module.anti_armor=Anti Armor
 rago.module.anti_armor.desc=Your own armour is not drawn, so you see your skin in F5 and in the inventory. Only on your screen: your armour still protects you and other players still see it.
 rago.messages.end_seen=Auto Messages: game over, sending your GG.
+# 1.4.8
+rago.option.blur_clean=Clean Motion Blur
+rago.option.blur_clean.help=A ready-made blur on every frame (the trail keeps 70 % of itself and is laid over the image at 80 %). The other settings are hidden while it is on.
+rago.command.debug_on=Rago diagnostic on: what happens to your clicks and the Auto Messages state now go to logs/latest.log. Play, then type /rago debug again and send that file.
+rago.command.debug_off=Rago diagnostic off. The log is in .minecraft/logs/latest.log.

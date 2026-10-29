@@ -727,8 +727,8 @@ public final class RagoMenuScreen extends GuiScreen {
 	}
 
 	/** FKDR colour steps, as in the tab list: the lowest ratio of each step and its colour. */
-	private static final String[] FKDR_STEPS = {"< 1", "1+", "5+", "8+", "15+", "20+"};
-	private static final int[] FKDR_COLORS = {0xFFAAAAAA, 0xFF55FF55, 0xFF00AA00, 0xFFFFFF55, 0xFFFFAA00, 0xFFFF5555};
+	private static final String[] FKDR_STEPS = {"< 1", "1+", "5+", "10+", "20+"};
+	private static final int[] FKDR_COLORS = {0xFFAAAAAA, 0xFF55FF55, 0xFF00AA00, 0xFFFF5555, 0xFFAA0000};
 
 	/** What the numbers next to the names in the tab list mean, with the FKDR colours. */
 	private float statsLegend(BedwarsStats stats, float x, float y, float w) {
