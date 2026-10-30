@@ -58,8 +58,8 @@ public final class Quests {
 
 	/** A new answer from the API; what was counted until then is now in its numbers (or kept as a floor). */
 	public void update(HypixelApi.Stats stats, long now) {
-		if (stats == null || stats == base) {
-			return;
+		if (stats == null || stats == base || stats.saved()) {
+			return; // stats kept from an earlier session carry no quests
 		}
 		if (base != null) {
 			for (Quest q : ALL) {

@@ -30,6 +30,10 @@ class HypixelApiLimitTest {
 	}
 
 	private String serve(AtomicInteger calls, int limited) throws Exception {
+		return serve(calls, limited, 299);
+	}
+
+	private String serve(AtomicInteger calls, int limited, int window) throws Exception {
 		server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
 		server.createContext("/player", exchange -> {
 			int n = calls.incrementAndGet();
@@ -44,7 +48,7 @@ class HypixelApiLimitTest {
 				body = "{\"success\":true,\"player\":{\"networkExp\":22500,\"achievements\":{\"bedwars_level\":312}}}".getBytes(StandardCharsets.UTF_8);
 				exchange.getResponseHeaders().add("RateLimit-Limit", "300");
 				exchange.getResponseHeaders().add("RateLimit-Remaining", "299");
-				exchange.getResponseHeaders().add("RateLimit-Reset", "299");
+				exchange.getResponseHeaders().add("RateLimit-Reset", String.valueOf(window));
 				exchange.sendResponseHeaders(200, body.length);
 			}
 			try (OutputStream out = exchange.getResponseBody()) {
@@ -95,5 +99,45 @@ class HypixelApiLimitTest {
 		UUID lobby = UUID.randomUUID();
 		api.get(lobby, true);
 		assertTrue(api.debugState().contains("waiting=1"), api.debugState()); // only the first player, not the spare one
+	}
+
+	private static void waitFor(AtomicInteger calls, int n) throws InterruptedException {
+		long until = System.currentTimeMillis() + 3000;
+		while (calls.get() < n && System.currentTimeMillis() < until) {
+			Thread.sleep(20);
+		}
+		Thread.sleep(150);
+	}
+
+	@Test
+	void aDailyQuotaIsKeptForThePlayersThatMatter(@TempDir Path dir) throws Exception {
+		AtomicInteger calls = new AtomicInteger();
+		HypixelApi api = new HypixelApi(dir, serve(calls, 0, 66_850));
+		api.setKey(KEY, UUID.randomUUID());
+		waitFor(calls, 1);
+		api.get(UUID.randomUUID(), true); // someone in a big lobby
+		Thread.sleep(300);
+		assertEquals(1, calls.get(), "no request for a lobby player on a daily quota");
+		api.get(UUID.randomUUID(), false); // a player of your game
+		waitFor(calls, 2);
+		assertEquals(2, calls.get());
+	}
+
+	@Test
+	void statsSurviveARestartWithoutQuests(@TempDir Path dir) throws Exception {
+		AtomicInteger calls = new AtomicInteger();
+		String url = serve(calls, 0);
+		UUID player = UUID.randomUUID();
+		HypixelApi api = new HypixelApi(dir, url);
+		api.setKey(KEY, player);
+		waitFor(calls, 1);
+		assertNotNull(api.get(player));
+		HypixelApi again = new HypixelApi(dir, url);
+		HypixelApi.Stats s = again.get(player);
+		assertNotNull(s, "read back from the disk");
+		assertEquals(312, s.star);
+		assertTrue(s.saved());
+		Thread.sleep(200);
+		assertEquals(1, calls.get(), "no new request after the restart");
 	}
 }

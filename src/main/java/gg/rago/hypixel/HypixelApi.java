@@ -1,8 +1,10 @@
 package gg.rago.hypixel;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import gg.rago.core.RagoClient;
 
 import java.io.IOException;
@@ -13,9 +15,11 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,7 +35,14 @@ import java.util.regex.Pattern;
 public final class HypixelApi {
 	private static final String URL_PLAYER = "https://api.hypixel.net/v2/player?uuid=";
 	private static final Pattern KEY = Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
-	private static final long FRESH_MS = 20 * 60_000L;
+	/** Other players' stats are asked again after this; your own are asked by the quests when needed. */
+	private static final long FRESH_MS = 6 * 3_600_000L;
+	/** Stats saved on disk are used again for this long after a restart. */
+	private static final long KEEP_ON_DISK_MS = 24 * 3_600_000L;
+	private static final int MAX_ON_DISK = 3000;
+	private static final long SAVE_EVERY_MS = 30_000L;
+	/** A rate-limit window longer than this is a daily quota: lobby players then get nothing. */
+	private static final int SHORT_WINDOW_S = 600;
 	private static final long RETRY_MS = 2 * 60_000L;
 	/** The gap between requests until Hypixel has said how many the key has left. */
 	private static final long GAP_MS = 1_000L;
@@ -58,6 +69,8 @@ public final class HypixelApi {
 		final boolean failed;
 		/** Bed Wars quests by id; only filled for players Hypixel knows. */
 		Map<String, Quest> quests = Collections.emptyMap();
+		/** Read back from the disk after a restart: no quests in it. */
+		boolean saved;
 
 		Stats(double level, int star, long time, boolean failed) {
 			this(level, star, false, 0, 0, 0, 0, 0, -1, time, failed);
@@ -91,6 +104,11 @@ public final class HypixelApi {
 			return quests;
 		}
 
+		/** Whether these come from an earlier session (they have no quests), not from Hypixel in this one. */
+		public boolean saved() {
+			return saved;
+		}
+
 		/** When Hypixel answered, in milliseconds since 1970. */
 		public long time() {
 			return time;
@@ -120,6 +138,7 @@ public final class HypixelApi {
 	private final String playerUrl;
 	private final Map<UUID, Stats> cache = new ConcurrentHashMap<>();
 	private final LinkedBlockingDeque<UUID> queue = new LinkedBlockingDeque<>();
+	/** The players waiting, true for those that matter, false for the spare ones (asked only while the key can afford it). */
 	private final Map<UUID, Boolean> queued = new ConcurrentHashMap<>();
 	private volatile String key;
 	private volatile Status status = Status.NO_KEY;
@@ -128,6 +147,10 @@ public final class HypixelApi {
 	/** What Hypixel said last about the key's budget: requests per window, left in this window; -1 until known. */
 	private volatile int limit = -1;
 	private volatile int remaining = -1;
+	private volatile int window = -1;
+	private final Path cacheFile;
+	private long savedAt;
+	private boolean dirty;
 	private volatile long checkingSince;
 	private volatile int requests;
 	private volatile int lastCode;
@@ -141,6 +164,8 @@ public final class HypixelApi {
 	HypixelApi(Path configDir, String playerUrl) {
 		this.playerUrl = playerUrl;
 		this.keyFile = configDir.resolve("rago-hypixel-key.txt");
+		this.cacheFile = configDir.resolve("rago-hypixel-cache.json");
+		load();
 		try {
 			if (Files.exists(keyFile)) {
 				String k = new String(Files.readAllBytes(keyFile), StandardCharsets.UTF_8).trim();
@@ -191,7 +216,7 @@ public final class HypixelApi {
 		Thread w = worker;
 		return "status=" + status + " key=" + (key != null) + " thread=" + (w == null ? "none" : w.isAlive() ? "running" : "stopped")
 			+ " waiting=" + queue.size() + " known=" + cache.size() + " requests=" + requests + " lastCode=" + lastCode
-			+ " budget=" + remaining + "/" + limit + " gap=" + gap + "ms"
+			+ " budget=" + remaining + "/" + limit + " window=" + window + "s gap=" + gap + "ms"
 			+ " paused=" + Math.max(0, pausedUntil - System.currentTimeMillis()) / 1000 + "s";
 	}
 
@@ -256,7 +281,10 @@ public final class HypixelApi {
 		Stats s = cache.get(player);
 		long now = System.currentTimeMillis();
 		boolean stale = s == null || now - s.time > (s.failed ? RETRY_MS : FRESH_MS);
-		if (stale && key != null && status != Status.BAD_KEY && !(spare && lowOnRequests()) && queued.putIfAbsent(player, Boolean.TRUE) == null) {
+		if (stale && !spare) {
+			queued.replace(player, Boolean.FALSE, Boolean.TRUE); // a spare player waiting now matters
+		}
+		if (stale && key != null && status != Status.BAD_KEY && !(spare && lowOnRequests()) && queued.putIfAbsent(player, !spare) == null) {
 			if (queue.size() >= MAX_QUEUE) {
 				// the players seen longest ago make room: they are the least likely to be on screen
 				UUID old = queue.pollLast();
@@ -270,11 +298,16 @@ public final class HypixelApi {
 		return s == null || s.failed ? null : s;
 	}
 
-	/** Whether the key has used more than half of its requests in Hypixel's current window. */
+	/**
+	 * Whether a player who only might matter must wait: while the key's quota is a daily one (it would
+	 * be gone in a few lobbies), once half of a short window's requests are used, and while Hypixel
+	 * asks to wait. Checked again when the player's turn comes, once Hypixel has told the budget.
+	 */
 	private boolean lowOnRequests() {
 		int l = limit;
 		int r = remaining;
-		return l > 0 && r >= 0 && r * 2 < l || pausedUntil > System.currentTimeMillis();
+		int w = window;
+		return pausedUntil > System.currentTimeMillis() || l >= 0 && r >= 0 && (w > SHORT_WINDOW_S || r * 2 < l);
 	}
 
 	/** Seconds until Hypixel takes requests from this key again, after it said there were too many; 0 when it does. */
@@ -307,6 +340,9 @@ public final class HypixelApi {
 			}
 			boolean again = false;
 			try {
+				if (Boolean.FALSE.equals(queued.get(id)) && lowOnRequests()) {
+					continue; // a spare player, and the key cannot afford it now (finally forgets it)
+				}
 				again = !fetch(id);
 			} catch (RuntimeException | Error e) {
 				// whatever goes wrong with one answer, the thread keeps serving the others
@@ -357,9 +393,12 @@ public final class HypixelApi {
 			int reset = header(c, "RateLimit-Reset");
 			limit = header(c, "RateLimit-Limit");
 			remaining = header(c, "RateLimit-Remaining");
-			// what is left of the key's requests is spread over what is left of Hypixel's window, so the
-			// key never runs dry halfway through a lobby
-			gap = reset < 0 || remaining < 0 ? GAP_MS : Math.max(MIN_GAP_MS, 1000L * reset / Math.max(1, remaining));
+			window = reset;
+			// in a short window, what is left of the key's requests is spread over what is left of it, so
+			// the key never runs dry halfway through a lobby; a daily quota is spent only on players that
+			// matter (see lowOnRequests), as fast as they come
+			gap = reset < 0 || remaining < 0 ? GAP_MS
+				: reset > SHORT_WINDOW_S ? MIN_GAP_MS : Math.max(MIN_GAP_MS, 1000L * reset / Math.max(1, remaining));
 			if (code == 403) {
 				status = Status.BAD_KEY;
 				RagoClient.LOG.warn("Hypixel API: the key was refused (expired or wrong)");
@@ -390,6 +429,10 @@ public final class HypixelApi {
 					accepted();
 				}
 			}
+			dirty = true;
+			if (now - savedAt > SAVE_EVERY_MS) {
+				save();
+			}
 		} catch (IOException e) {
 			if (status != Status.UNREACHABLE) {
 				RagoClient.LOG.warn("Hypixel API unreachable: {}", e.toString());
@@ -405,6 +448,69 @@ public final class HypixelApi {
 			}
 		}
 		return true;
+	}
+
+	/** The stats saved by an earlier session, those less than a day old, so a restart costs no requests. */
+	private void load() {
+		if (!Files.exists(cacheFile)) {
+			return;
+		}
+		long now = System.currentTimeMillis();
+		try (InputStreamReader in = new InputStreamReader(Files.newInputStream(cacheFile), StandardCharsets.UTF_8)) {
+			JsonElement json = new JsonParser().parse(in);
+			if (!json.isJsonObject()) {
+				return;
+			}
+			for (Map.Entry<String, JsonElement> e : json.getAsJsonObject().entrySet()) {
+				if (!e.getValue().isJsonArray() || e.getValue().getAsJsonArray().size() != 10) {
+					continue;
+				}
+				JsonArray a = e.getValue().getAsJsonArray();
+				long time = a.get(9).getAsLong();
+				if (now - time < KEEP_ON_DISK_MS && time <= now) {
+					Stats st = new Stats(a.get(0).getAsDouble(), a.get(1).getAsInt(), a.get(2).getAsBoolean(),
+						a.get(3).getAsInt(), a.get(4).getAsInt(), a.get(5).getAsInt(), a.get(6).getAsInt(), a.get(7).getAsInt(),
+						a.get(8).getAsInt(), time, false);
+					st.saved = true;
+					cache.put(UUID.fromString(e.getKey()), st);
+				}
+			}
+			RagoClient.LOG.info("Hypixel API: {} players' stats kept from the last session", cache.size());
+		} catch (IOException | RuntimeException e) {
+			RagoClient.LOG.warn("Could not read {}: {}", cacheFile, e.toString());
+		}
+	}
+
+	/** Saves the stats Hypixel gave (not the quests), newest first, written whole then moved in place. */
+	private synchronized void save() {
+		if (!dirty) {
+			return;
+		}
+		dirty = false;
+		savedAt = System.currentTimeMillis();
+		List<Map.Entry<UUID, Stats>> all = new ArrayList<>(cache.entrySet());
+		all.removeIf(e -> e.getValue().failed || savedAt - e.getValue().time > KEEP_ON_DISK_MS);
+		all.sort((x, y) -> Long.compare(y.getValue().time, x.getValue().time));
+		JsonObject out = new JsonObject();
+		for (Map.Entry<UUID, Stats> e : all.subList(0, Math.min(all.size(), MAX_ON_DISK))) {
+			Stats st = e.getValue();
+			JsonArray a = new JsonArray();
+			for (Number n : new Number[] {st.level, st.star}) {
+				a.add(new JsonPrimitive(n));
+			}
+			a.add(new JsonPrimitive(st.found));
+			for (Number n : new Number[] {st.finalKills, st.finalDeaths, st.wins, st.losses, st.bedsBroken, st.winstreak, st.time}) {
+				a.add(new JsonPrimitive(n));
+			}
+			out.add(e.getKey().toString(), a);
+		}
+		try {
+			Path tmp = cacheFile.resolveSibling(cacheFile.getFileName() + ".tmp");
+			Files.write(tmp, out.toString().getBytes(StandardCharsets.UTF_8));
+			Files.move(tmp, cacheFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		} catch (IOException e) {
+			RagoClient.LOG.warn("Could not save {}: {}", cacheFile, e.toString());
+		}
 	}
 
 	private static int header(HttpURLConnection c, String name) {

@@ -10,7 +10,7 @@ import gg.rago.hud.Anchor;
 import gg.rago.hud.TextHudElement;
 import gg.rago.hypixel.HypixelApi;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.client.gui.inventory.GuiChest;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.world.World;
@@ -26,9 +26,9 @@ import java.util.UUID;
 public final class BedwarsQuestsHud extends TextHudElement {
 	/** How long after a game ends Hypixel is given to save it before Rago asks again. */
 	private static final int REFRESH_AFTER_GAME_TICKS = 20 * 20;
-	/** Out of a game, your quests are asked for again this often, to see the ones just accepted. */
-	private static final int LOBBY_REFRESH_TICKS = 60 * 20;
-	/** After a menu closes in a lobby (the quest master's, say), the API is asked again this soon. */
+	/** Out of a game, your quests are asked for again this often (Hypixel's quota can be a daily one). */
+	private static final int LOBBY_REFRESH_TICKS = 15 * 60 * 20;
+	/** After a chest menu closes in a lobby (the quest master's, say), the API is asked again this soon. */
 	private static final int AFTER_MENU_TICKS = 3 * 20;
 
 	private final BooleanOption daily = addOption(new BooleanOption("quests_daily", true));
@@ -87,7 +87,8 @@ public final class BedwarsQuestsHud extends TextHudElement {
 			inGame = true;
 		}
 		readTitle();
-		boolean menu = mc.currentScreen instanceof GuiContainer;
+		// chest menus only: the quest master's is one, your own inventory is not
+		boolean menu = mc.currentScreen instanceof GuiChest;
 		if (menuOpen && !menu && !inGame && BedwarsGame.inBedwars()) {
 			// quests are accepted at the quest master, in a chest menu
 			refreshAt = ticks + AFTER_MENU_TICKS;
@@ -157,13 +158,21 @@ public final class BedwarsQuestsHud extends TextHudElement {
 		}
 	}
 
+	/** "18 h 34", "12 min" or "40 s". */
+	static String duration(int seconds) {
+		if (seconds >= 3600) {
+			return String.format("%d h %02d", seconds / 3600, seconds % 3600 / 60);
+		}
+		return seconds >= 60 ? seconds / 60 + " min" : seconds + " s";
+	}
+
 	private String build(HypixelApi.Status status) {
 		if (status == HypixelApi.Status.NO_KEY || status == HypixelApi.Status.BAD_KEY) {
 			return "§c" + I18n.format(status == HypixelApi.Status.NO_KEY ? "rago.quests.no_key" : "rago.quests.bad_key");
 		}
 		if (!quests.known()) {
 			int wait = RagoClient.hypixel().pausedSeconds();
-			return wait > 0 ? "§e" + I18n.format("rago.quests.paused", wait) : "§7" + I18n.format("rago.quests.loading");
+			return wait > 0 ? "§e" + I18n.format("rago.quests.paused", duration(wait)) : "§7" + I18n.format("rago.quests.loading");
 		}
 		long now = System.currentTimeMillis();
 		StringBuilder b = new StringBuilder();
