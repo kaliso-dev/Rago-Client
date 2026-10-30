@@ -13,6 +13,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,6 +38,8 @@ public final class HypixelApi {
 	private static final long FAST_GAP_MS = 120L;
 	private static final int FAST_WHILE_REMAINING = 60;
 	private static final int MAX_QUEUE = 64;
+	/** A new key's first answer comes in a few seconds; past this the check is called failed, never left hanging. */
+	private static final long CHECK_TIMEOUT_MS = 20_000L;
 
 	/** What is known about a player; {@code level} and {@code star} are -1 when unknown. */
 	public static final class Stats {
@@ -121,6 +124,7 @@ public final class HypixelApi {
 	private volatile Status status = Status.NO_KEY;
 	private volatile long pausedUntil;
 	private volatile long gap = GAP_MS;
+	private volatile long checkingSince;
 	private Thread worker;
 
 	public HypixelApi(Path configDir) {
@@ -143,7 +147,31 @@ public final class HypixelApi {
 	}
 
 	public Status status() {
+		if (status == Status.CHECKING && System.currentTimeMillis() - checkingSince > CHECK_TIMEOUT_MS) {
+			checkTimedOut();
+		}
 		return status;
+	}
+
+	/** The new key's check got no answer in time: says why in the log, and lets the key be tried again. */
+	private synchronized void checkTimedOut() {
+		if (status != Status.CHECKING) {
+			return;
+		}
+		Thread w = worker;
+		String where;
+		if (w == null) {
+			where = "the request thread never started";
+		} else if (!w.isAlive()) {
+			where = "the request thread had stopped";
+		} else {
+			StackTraceElement[] at = w.getStackTrace();
+			where = "the request thread is at " + Arrays.toString(Arrays.copyOf(at, Math.min(6, at.length)));
+		}
+		RagoClient.LOG.warn("Hypixel API: no answer about the new key after {} s ({}, {} waiting, paused for {} s)",
+			CHECK_TIMEOUT_MS / 1000, where, queue.size(), Math.max(0, pausedUntil - System.currentTimeMillis()) / 1000);
+		status = Status.UNREACHABLE;
+		startWorker();
 	}
 
 	/** Whether a key is saved (it is never shown again, only its last characters). */
@@ -167,7 +195,9 @@ public final class HypixelApi {
 		key = k;
 		cache.values().removeIf(s -> s.failed);
 		pausedUntil = 0;
+		checkingSince = System.currentTimeMillis();
 		status = probe == null ? Status.OK : Status.CHECKING;
+		RagoClient.LOG.info("Hypixel API: new key saved (...{}), {}", keyHint(), probe == null ? "not checked (no player id)" : "checking it");
 		if (probe != null) {
 			refresh(probe);
 		}
@@ -203,9 +233,13 @@ public final class HypixelApi {
 		return s == null || s.failed ? null : s;
 	}
 
+	/** Starts the request thread, or starts it again if it ever stopped. */
 	private synchronized void startWorker() {
-		if (worker != null) {
+		if (worker != null && worker.isAlive()) {
 			return;
+		}
+		if (worker != null) {
+			RagoClient.LOG.warn("Hypixel API: the request thread had stopped, starting it again");
 		}
 		worker = new Thread(this::run, "Rago Hypixel API");
 		worker.setDaemon(true);
@@ -214,20 +248,40 @@ public final class HypixelApi {
 
 	private void run() {
 		while (true) {
+			UUID id;
 			try {
-				UUID id = queue.take();
-				long wait = Math.max(pausedUntil - System.currentTimeMillis(), 0);
-				if (wait > 0) {
-					Thread.sleep(wait);
-				}
+				id = queue.take();
+				waitForPause();
+			} catch (InterruptedException e) {
+				RagoClient.LOG.warn("Hypixel API: the request thread was interrupted");
+				return;
+			}
+			try {
 				fetch(id);
+			} catch (RuntimeException | Error e) {
+				// whatever goes wrong with one answer, the thread keeps serving the others
+				RagoClient.LOG.warn("Hypixel API request failed", e);
+				cache.put(id, new Stats(-1, -1, System.currentTimeMillis(), true));
+				if (status == Status.CHECKING) {
+					status = Status.UNREACHABLE;
+				}
+			} finally {
 				queued.remove(id);
+			}
+			try {
 				Thread.sleep(gap);
 			} catch (InterruptedException e) {
+				RagoClient.LOG.warn("Hypixel API: the request thread was interrupted");
 				return;
-			} catch (RuntimeException e) {
-				RagoClient.LOG.warn("Hypixel API request failed", e);
 			}
+		}
+	}
+
+	/** Sleeps while Hypixel asked to slow down, in short steps so that a new key ends the pause at once. */
+	private void waitForPause() throws InterruptedException {
+		long wait;
+		while ((wait = pausedUntil - System.currentTimeMillis()) > 0) {
+			Thread.sleep(Math.min(wait, 250));
 		}
 	}
 
@@ -253,6 +307,9 @@ public final class HypixelApi {
 				return;
 			}
 			if (code == 429) {
+				if (status == Status.CHECKING) {
+					accepted(); // only a valid key is counted against a limit
+				}
 				String reset = c.getHeaderField("RateLimit-Reset");
 				pausedUntil = now + 1000L * (reset != null && reset.matches("\\d{1,4}") ? Integer.parseInt(reset) : 60);
 				queue.offerLast(id);
@@ -260,7 +317,7 @@ public final class HypixelApi {
 			}
 			if (code != 200) {
 				if (status == Status.CHECKING) {
-					status = Status.OK; // the key was accepted, the player was not
+					accepted(); // the key was accepted, the player was not
 				}
 				cache.put(id, new Stats(-1, -1, now, true));
 				return;
@@ -268,11 +325,16 @@ public final class HypixelApi {
 			try (InputStream in = c.getInputStream()) {
 				JsonElement json = new JsonParser().parse(new InputStreamReader(in, StandardCharsets.UTF_8));
 				cache.put(id, parse(json, now));
-				status = Status.OK;
+				if (status != Status.OK) {
+					accepted();
+				}
 			}
 		} catch (IOException e) {
 			if (status != Status.UNREACHABLE) {
 				RagoClient.LOG.warn("Hypixel API unreachable: {}", e.toString());
+				if (e instanceof javax.net.ssl.SSLException) {
+					RagoClient.LOG.warn("Hypixel API: the secure connection failed; Java {} may be too old to trust Hypixel's certificate", System.getProperty("java.version"));
+				}
 			}
 			status = Status.UNREACHABLE;
 			cache.put(id, new Stats(-1, -1, now, true));
@@ -281,6 +343,13 @@ public final class HypixelApi {
 				c.disconnect();
 			}
 		}
+	}
+
+	private void accepted() {
+		if (status == Status.CHECKING) {
+			RagoClient.LOG.info("Hypixel API: the key works");
+		}
+		status = Status.OK;
 	}
 
 	public static Stats parse(JsonElement json, long now) {

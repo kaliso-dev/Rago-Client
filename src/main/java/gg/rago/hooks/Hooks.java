@@ -12,6 +12,7 @@ import gg.rago.modules.OldAnimations;
 import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
+import gg.rago.modules.LowLatency;
 import gg.rago.modules.BedwarsStats;
 import gg.rago.modules.RagoBadge;
 import gg.rago.modules.AntiArmor;
@@ -75,6 +76,15 @@ public final class Hooks {
 	public static volatile RagoBadge ragoBadge;
 	public static volatile AntiArmor antiArmor;
 	public static volatile TitleMod titles;
+	public static volatile LowLatency lowLatency;
+
+	/** Minecraft.runGameLoop, first thing: waits for the graphics card when Low Latency is on. */
+	public static void frameStart() {
+		LowLatency l = lowLatency;
+		if (l != null) {
+			l.frameStart();
+		}
+	}
 
 	/** GuiIngameForge.renderTitle, first thing: true draws no title or subtitle. */
 	public static boolean hideTitles() {

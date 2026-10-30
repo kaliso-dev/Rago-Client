@@ -87,6 +87,7 @@ final class ModuleInfo {
 		ICONS.put("event_timers", "timer");
 		ICONS.put("upgrades_hud", "sword");
 		ICONS.put("title_mod", "type");
+		ICONS.put("low_latency", "zap");
 	}
 
 	private ModuleInfo() {

@@ -1172,3 +1172,10 @@ rago.stats.tier_a=Très bien
 rago.stats.tier_b=Correct
 rago.stats.tier_c=Moyen
 rago.stats.tier_d=Faible
+# 1.4.10 : latence réduite
+rago.module.low_latency=Latence réduite
+rago.module.low_latency.desc=Garde courte la file d'images de la carte graphique, l'idée de NVIDIA Reflex : avant de lire ta souris pour une nouvelle image, le jeu attend que la carte ait fini les précédentes, donc ce que tu vois vient d'une entrée plus récente. Peut coûter des FPS, surtout en Strict.
+rago.option.latency_mode=Mode
+rago.option.latency_mode.balanced=Équilibré (1 image max en attente)
+rago.option.latency_mode.strict=Strict (aucune image en attente)
+rago.option.latency_mode.help=Strict donne le moins de délai, mais le processeur et la carte graphique travaillent chacun leur tour, donc les FPS peuvent baisser. Équilibré garde presque tous tes FPS.

@@ -76,6 +76,7 @@ import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
 import gg.rago.modules.TntTimer;
+import gg.rago.modules.LowLatency;
 import gg.rago.modules.TitleMod;
 import gg.rago.modules.TrapNotifier;
 import gg.rago.modules.LevelHead;
@@ -266,6 +267,7 @@ public final class RagoClient {
 		Hooks.ragoBadge = MODULES.register(new RagoBadge());
 		Hooks.antiArmor = MODULES.register(new AntiArmor());
 		Hooks.titles = MODULES.register(new TitleMod());
+		Hooks.lowLatency = MODULES.register(new LowLatency());
 		autoText = MODULES.register(new AutoText());
 		MODULES.register(new AutoMessages());
 		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());

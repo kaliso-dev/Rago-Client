@@ -1172,3 +1172,10 @@ rago.stats.tier_a=Very good
 rago.stats.tier_b=Decent
 rago.stats.tier_c=Average
 rago.stats.tier_d=Weak
+# 1.4.10: low latency
+rago.module.low_latency=Low Latency
+rago.module.low_latency.desc=Keeps the graphics card's queue of frames short, the idea behind NVIDIA Reflex: before reading your mouse for a new frame, the game waits until the card has drawn the earlier ones, so what you see is built from fresher input. Can cost some FPS, most in Strict.
+rago.option.latency_mode=Mode
+rago.option.latency_mode.balanced=Balanced (at most 1 frame waiting)
+rago.option.latency_mode.strict=Strict (no frame waiting)
+rago.option.latency_mode.help=Strict gives the lowest delay but the processor and the graphics card take turns, so FPS can drop. Balanced keeps almost all your FPS.

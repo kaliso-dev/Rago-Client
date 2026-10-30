@@ -301,6 +301,16 @@ public final class RagoTransformer implements IClassTransformer {
 			"func_177183_a", "renderGlint",
 			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
 			RagoTransformer::armorGlint));
+		add("net.minecraft.client.Minecraft", new Patch("left click trace",
+			"func_147116_af", "clickMouse", "()V", m -> clickTrace(m, false)));
+		add("net.minecraft.client.Minecraft", new Patch("right click trace",
+			"func_147121_ag", "rightClickMouse", "()V", m -> clickTrace(m, true)));
+		add("net.minecraft.client.Minecraft", new Patch("low latency frame start",
+			"func_71411_J", "runGameLoop", "()V",
+			m -> {
+				m.instructions.insert(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "frameStart", "()V", false));
+				return true;
+			}));
 		add("net.minecraftforge.client.GuiIngameForge", new Patch("title size",
 			"renderTitle", "renderTitle", "(IIF)V",
 			RagoTransformer::titleScale));
@@ -614,6 +624,15 @@ public final class RagoTransformer implements IClassTransformer {
 	 * ({@code Reflector.callBoolean(item, ForgeItem_shouldCauseReequipAnimation, args)}), which goes
 	 * through {@code Hooks.reequipArgs} instead.
 	 */
+	/** At the head of clickMouse or rightClickMouse: {@code /rago debug} logs what decides if the click does anything. */
+	private static boolean clickTrace(MethodNode m, boolean right) {
+		InsnList call = new InsnList();
+		call.add(new InsnNode(right ? Opcodes.ICONST_1 : Opcodes.ICONST_0));
+		call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "gg/rago/debug/InputTrace", "click", "(Z)V", false));
+		m.instructions.insert(call);
+		return true;
+	}
+
 	private static boolean reequip(MethodNode m) {
 		boolean reflected = false;
 		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
