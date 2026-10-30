@@ -266,16 +266,17 @@ def wings():
 
 
 def shields():
-    """Rago's shields: the rim three pixels thick, the logo two, the face one."""
+    """Rago's shields: the rim three cells thick, the logo two, the face one (a cell is SHIELD_SCALE pixels)."""
     import cosmetics
     _, rim, logo = cosmetics.shield_masks()
+    k = cosmetics.SHIELD_SCALE
 
     def depth(x, y):
-        return 3 if (x, y) in rim else 2 if (x, y) in logo else 1
+        return k * (3 if (x, y) in rim else 2 if (x, y) in logo else 1)
     for style in cosmetics.SHIELD_STYLES:
         name = 'shield_' + style
-        # centred on the shield, which is 48 pixels tall: one unit is the shield's height
-        write_model(name, [('shield', (0, 0, 0), extrude(name, (20, 24), None, 0, depth))])
+        # centred on the shield: one unit is the shield's height
+        write_model(name, [('shield', (0, 0, 0), extrude(name, (20 * k, 24 * k), None, 0, depth))])
 
 
 if __name__ == '__main__':

@@ -58,7 +58,9 @@ public final class NeonColors {
 
 	/**
 	 * The glow of {@code base} in colour {@code id}, to be added over it: its bright neon pixels at
-	 * half strength and a faint halo two pixels around them, the rest clear. Null when it cannot be made.
+	 * half strength and a faint halo two pixels around them, the rest clear. Inside a wide neon area
+	 * only its edge glows, so the area keeps the red of the texture (the Rago shield's rim and logo)
+	 * instead of turning pale. Null when it cannot be made.
 	 */
 	public static ResourceLocation glow(ResourceLocation base, String id) {
 		float hue = hue(id);
@@ -140,7 +142,9 @@ public final class NeonColors {
 					continue;
 				}
 				if (lit[i]) {
-					out[i] = 0x80000000 | recolor(px[i], hue) & 0xFFFFFF;
+					if (!inside(lit, w, h, x, y)) {
+						out[i] = 0x80000000 | recolor(px[i], hue) & 0xFFFFFF;
+					}
 					continue;
 				}
 				// the halo: by how close the nearest bright pixel is, one or two pixels away
@@ -162,6 +166,20 @@ public final class NeonColors {
 			}
 		}
 		img.setRGB(0, 0, w, h, out, 0, w);
+	}
+
+	/** Whether every pixel up to two away from (x, y) is bright too: (x, y) is inside a wide neon area. */
+	private static boolean inside(boolean[] lit, int w, int h, int x, int y) {
+		for (int dy = -2; dy <= 2; dy++) {
+			for (int dx = -2; dx <= 2; dx++) {
+				int nx = x + dx;
+				int ny = y + dy;
+				if (nx < 0 || ny < 0 || nx >= w || ny >= h || !lit[ny * w + nx]) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	/**

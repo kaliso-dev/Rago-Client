@@ -8,7 +8,7 @@ import math
 import os
 import random
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'src', 'main', 'resources', 'assets', 'rago', 'textures', 'cosmetics')
 N = 64
@@ -184,12 +184,15 @@ def beanie():
                 d.point([(x + i, y + j)], fill=grey(rnd.choice((255, 240, 228))))
     return img
 
-# ---- shields: 40 x 48, a heater shield with a rim, the R logo in the middle ---------------------------
+# ---- shields: a heater shield with a rim, the R logo in the middle ---------------------------------------
+# Drawn on a 40 x 48 grid, each cell SHIELD_SCALE pixels, so the edges and the logo are fine in game.
 
-SHIELD_W, SHIELD_H = 40, 48
+SHIELD_SCALE = 4
+SHIELD_W, SHIELD_H = 40 * SHIELD_SCALE, 48 * SHIELD_SCALE
 SHIELD_STYLES = {
     # name: (face top, face bottom, rim, logo)
-    'rago': ((44, 44, 52), (24, 24, 30), (242, 57, 44), (242, 57, 44)),
+    # the Rago shield in the Rago cape's black and red, plain like the cape
+    'rago': ((22, 22, 26), (10, 10, 12), (242, 57, 44), (242, 57, 44)),
     'crimson': ((210, 48, 40), (130, 22, 20), (36, 36, 42), (255, 255, 255)),
     'gold': ((250, 246, 236), (214, 206, 190), (232, 182, 64), (242, 57, 44)),
     'frost': ((200, 232, 250), (120, 176, 220), (250, 252, 255), (32, 80, 150)),
@@ -198,12 +201,12 @@ SHIELD_STYLES = {
 
 
 def shield_masks():
-    """The shield's silhouette, its rim (two pixels deep) and the logo, as sets of (x, y)."""
-    w, h = SHIELD_W, SHIELD_H
+    """The shield's silhouette, its rim (two cells deep) and the logo, as sets of (x, y)."""
+    w, h, k = SHIELD_W, SHIELD_H, SHIELD_SCALE
     outline = Image.new('L', (w, h))
     d = ImageDraw.Draw(outline)
     # straight top and sides, then two curves meeting at a point at the bottom
-    def bezier(p0, p1, p2, steps=20):
+    def bezier(p0, p1, p2, steps=60):
         return [((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0],
                  (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]) for t in (i / steps for i in range(steps + 1))]
     side = h * 0.42
@@ -212,16 +215,24 @@ def shield_masks():
     pts += bezier((w / 2, h - 0.5), (0.5, h * 0.8), (0.5, side))
     d.polygon(pts, fill=255)
     shape = {(x, y) for y in range(h) for x in range(w) if outline.getpixel((x, y)) > 127}
-    rim = {(x, y) for (x, y) in shape
-           if any((x + dx, y + dy) not in shape for dx in (-2, -1, 0, 1, 2) for dy in (-2, -1, 0, 1, 2))}
-    logo_img = Image.open(os.path.join(OUT, '..', 'logo.png')).convert('RGBA').resize((24, 24), Image.LANCZOS)
-    logo = {(x + 8, y + 10) for y in range(24) for x in range(24) if logo_img.getpixel((x, y))[3] > 70}
+    # the rim: within two cells of the outside, found by eroding the silhouette (padded, so the
+    # image's own edge counts as outside)
+    r = 2 * k
+    padded = Image.new('L', (w + 2 * r, h + 2 * r))
+    padded.paste(outline, (r, r))
+    inner = padded.filter(ImageFilter.MinFilter(2 * r + 1))
+    rim = {(x, y) for (x, y) in shape if inner.getpixel((x + r, y + r)) <= 127}
+    size = 24 * k
+    logo_img = Image.open(os.path.join(OUT, '..', 'logo.png')).convert('RGBA').resize((size, size), Image.LANCZOS)
+    logo = {(x + 8 * k, y + 10 * k) for y in range(size) for x in range(size) if logo_img.getpixel((x, y))[3] > 127}
     return shape, rim, logo & shape - rim
 
 
 def shield(style):
     top, bottom, rim_c, logo_c = SHIELD_STYLES[style]
     shape, rim, logo = shield_masks()
+    k = SHIELD_SCALE
+    plain = style == 'rago'
     img = Image.new('RGBA', (SHIELD_W, SHIELD_H))
     rnd = random.Random(7)
     for (x, y) in shape:
@@ -230,11 +241,12 @@ def shield(style):
         if (x, y) in rim:
             c = list(rim_c)
             # a lighter inner edge and rivets on the rim
-            if all((x + dx, y + dy) in shape for dx in (-3, 3) for dy in (-3, 3)) or (x + y) % 9 == 0 and y < 6:
+            inside = all((x + dx, y + dy) in shape for dx in (-3 * k, 3 * k) for dy in (-3 * k, 3 * k))
+            if not plain and (inside or (x // k + y // k) % 9 == 0 and y < 6 * k):
                 c = [min(255, v + 30) for v in c]
         elif (x, y) in logo:
             c = list(logo_c)
-        else:
+        elif not plain:
             n = rnd.randint(-6, 6)
             c = [max(0, min(255, v + n)) for v in c]
         img.putpixel((x, y), tuple(c) + (255,))

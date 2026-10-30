@@ -54,4 +54,19 @@ class NeonColorsTest {
 		assertEquals(0, img.getRGB(3, 0) >>> 24);
 		assertEquals(0, img.getRGB(6, 0) >>> 24);
 	}
+
+	@Test
+	void onlyTheEdgeOfAWideNeonAreaGlows() {
+		java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(9, 9, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+		for (int y = 0; y < 9; y++) {
+			for (int x = 0; x < 9; x++) {
+				img.setRGB(x, y, 0xFFF2392C);
+			}
+		}
+		NeonColors.glow(img, NeonColors.hue("red"));
+		assertEquals(0x80, img.getRGB(0, 4) >>> 24);
+		assertEquals(0x80, img.getRGB(1, 4) >>> 24);
+		assertEquals(0, img.getRGB(2, 4) >>> 24);
+		assertEquals(0, img.getRGB(4, 4) >>> 24);
+	}
 }

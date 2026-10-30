@@ -536,7 +536,7 @@ public final class Cosmetics extends Module {
 		if (m == null) {
 			return;
 		}
-		// the model is one unit tall (48 texture pixels, 40 wide): 16 pixels on the player at 100%
+		// the model is one unit tall (and 5/6 of that wide): 16 pixels on the player at 100%
 		float size = shieldScale.get() / 100f;
 		GlStateManager.pushMatrix();
 		// against the outer side of the forearm (x = 3), turned a quarter so the face looks outward
