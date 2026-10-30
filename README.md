@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.23.** What it contains:
+**Current version: 1.5.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -317,6 +317,14 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     modes, or zooming), and reads the frame straight from the game's framebuffer instead of copying
     the screen when the game draws into one (OptiFine's Fast Render draws to the screen, so the copy
     stays there)
+- new in 1.5:
+  - Raw Input reads the mouse once more at each frame, just before the camera turns, so a frame
+    turns by everything moved up to that moment. Before, it took what the reading thread had
+    collected up to its last pass, a millisecond or two earlier, so at a high frame rate the turn
+    from one frame to the next was uneven even with the mouse moving steadily
+  - Raw Input keeps up to 1024 mouse movements between two reads instead of JInput's 32 (4 ms of
+    an 8000 Hz mouse), so a short freeze (a garbage collection, a world loading) no longer drops
+    what the mouse moved meanwhile
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -376,7 +384,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.23+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.5.0+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
