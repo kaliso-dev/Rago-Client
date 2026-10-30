@@ -683,6 +683,9 @@ public final class RagoMenuScreen extends GuiScreen {
 		Ui.roundBorder(x + w - 12 - sw, y + 7, sw, 18, 9, 0xCC141316, 0x1FFFFFFF);
 		Ui.circle(x + w - 12 - sw + 10, y + 16, 3, dot);
 		Ui.text(Ui.REGULAR, state, x + w - 12 - sw + 17, y + 7 + (18 - 9 * 1.21f) / 2, 9, 0xFFD4D2D9);
+		if (st == HypixelApi.Status.OK) {
+			requestsLeft(api, x + 32 + Ui.textWidth(Ui.MEDIUM, t("rago.apikey.title"), 10.5f) + 12, y + 11, x + w - 12 - sw - 10);
+		}
 
 		float fy = y + 32;
 		float bw = 96;
@@ -715,6 +718,29 @@ public final class RagoMenuScreen extends GuiScreen {
 		String note = keyWrong ? t("rago.apikey.format") : t("rago.apikey.note");
 		Ui.text(Ui.REGULAR, note, x + 12, fy + 32, 8.5f, keyWrong ? Theme.ACCENT : 0xFF7C7A82);
 		return y + h;
+	}
+
+	/** "287 / 300 requests left, reset in 3 min" next to the title, as far as {@code right}. */
+	private static void requestsLeft(HypixelApi api, float x, float y, float right) {
+		int[] b = api.budget();
+		String full;
+		String brief;
+		int color = 0xFFA9A7AF;
+		if (b == null) {
+			full = brief = t("rago.apikey.requests_unknown");
+		} else {
+			brief = t("rago.apikey.requests_left", b[0], b[1]);
+			full = b[2] > 0 ? t("rago.apikey.requests", b[0], b[1], HypixelApi.duration(b[2])) : brief;
+			if (b[0] * 10 < b[1]) {
+				color = Theme.YELLOW;
+			}
+		}
+		for (String s : new String[] {full, brief}) {
+			if (x + Ui.textWidth(Ui.REGULAR, s, 9) <= right) {
+				Ui.text(Ui.REGULAR, s, x, y, 9, color);
+				return;
+			}
+		}
 	}
 
 	private void saveKey() {

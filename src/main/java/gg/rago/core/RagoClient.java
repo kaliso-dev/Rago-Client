@@ -357,6 +357,10 @@ public final class RagoClient {
 		}
 		MinecraftForge.EVENT_BUS.register(optimizations);
 		MinecraftForge.EVENT_BUS.register(new gg.rago.debug.InputTrace());
+		gg.rago.debug.StackSampler.startIfAsked();
+		if (FrameProfile.ON) {
+			MinecraftForge.EVENT_BUS.register(new gg.rago.debug.EntityProfile());
+		}
 		// modules with @SubscribeEvent methods check isEnabled() themselves
 		for (Module m : MODULES.all()) {
 			MinecraftForge.EVENT_BUS.register(m);

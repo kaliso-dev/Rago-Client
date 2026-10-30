@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.5.1.** What it contains:
+**Current version: 1.5.2.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -329,6 +329,17 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     ways; one is picked at random, never the one sent last time when another is written, since
     Hypixel refuses the same message twice in a row ("You cannot say the same message twice!").
     The GG starts as "gg", "gg wp" or "good game"
+  - Performance page, Entities: **Light enchantment glint** (off by default, on in Max performance).
+    The enchantment shimmer is drawn once instead of twice: vanilla draws an enchanted armour piece
+    or item three times (the piece, then two shimmer layers at different angles), now twice. The
+    shimmer is a little fainter. In our test (software rendering, no graphics card, 16 players in
+    Protection II diamond armour around you), drawing the players went from about 1060 to about
+    910 microseconds per frame
+  - the Hypixel API key panel (on the page of each Hypixel mod) shows the key's requests left and
+    when they start again, as Hypixel sent them with its last answer ("286 / 300 requests left,
+    reset in 3 min"), in yellow under 10 %
+  - developer tools: `-Drago.bench.sample=<seconds>` logs where the render thread spends its time,
+    and the frame profile has a line for drawing the other players
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -388,7 +399,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.5.1+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.5.2+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

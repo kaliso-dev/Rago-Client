@@ -35,8 +35,11 @@ public final class FakeBedwars {
 		running.draw();
 	}
 
-	/** Puts {@code n} other players (client side only) in a ring around you, to measure name tags and hitboxes. */
-	public static void players(int n) {
+	/**
+	 * Puts {@code n} other players (client side only) in a ring around you, to measure name tags and
+	 * hitboxes; with {@code armor}, in enchanted diamond armour, to measure the glint.
+	 */
+	public static void players(int n, boolean armor) {
 		Minecraft mc = Minecraft.getMinecraft();
 		if (mc.theWorld == null || mc.thePlayer == null) {
 			return;
@@ -47,6 +50,15 @@ public final class FakeBedwars {
 			double a = Math.PI * 2 * i / n;
 			double r = 4 + i % 3 * 2;
 			e.setPositionAndRotation(mc.thePlayer.posX + Math.cos(a) * r, mc.thePlayer.posY, mc.thePlayer.posZ + Math.sin(a) * r, (float) (a * 180 / Math.PI), 0);
+			if (armor) {
+				net.minecraft.item.Item[] pieces = {net.minecraft.init.Items.diamond_boots, net.minecraft.init.Items.diamond_leggings,
+					net.minecraft.init.Items.diamond_chestplate, net.minecraft.init.Items.diamond_helmet};
+				for (int slot = 0; slot < 4; slot++) {
+					net.minecraft.item.ItemStack stack = new net.minecraft.item.ItemStack(pieces[slot]);
+					stack.addEnchantment(net.minecraft.enchantment.Enchantment.protection, 2);
+					e.setCurrentItemOrArmor(slot + 1, stack);
+				}
+			}
 			mc.theWorld.addEntityToWorld(-1000 - i, e);
 		}
 	}

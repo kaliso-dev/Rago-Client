@@ -83,6 +83,7 @@ public final class Optimizations {
 	private final BooleanOption hideXpOrbs;
 	private final BooleanOption hideFireworks;
 	private final BooleanOption hideFallingBlocks;
+	private final BooleanOption lightGlint;
 
 	private final IntOption tileDistance;
 	private final BooleanOption hideSkulls;
@@ -150,6 +151,7 @@ public final class Optimizations {
 		hideXpOrbs = s.bool(p, ENTITIES, "hide_xp_orbs", false, null);
 		hideFireworks = s.bool(p, ENTITIES, "hide_fireworks", false, null);
 		hideFallingBlocks = s.bool(p, ENTITIES, "hide_falling_blocks", false, null);
+		lightGlint = s.bool(p, ENTITIES, "light_glint", false, null);
 
 		tileDistance = s.slider(p, TILES, "tile_distance", 64, 8, 64, 4, Optimizations::blocks, null);
 		hideSkulls = s.bool(p, TILES, "hide_skulls", false, null);
@@ -173,7 +175,7 @@ public final class Optimizations {
 		hudCache = s.bool(p, ENGINE, "hud_cache", true, null);
 		hudCacheRate = s.slider(p, ENGINE, "hud_cache_rate", 144, 30, 360, 6, v -> v + " FPS", null);
 		visibleWhen(s, "hud_cache_rate", hudCache::get);
-		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get, particleCollisions::get);
+		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get, particleCollisions::get, lightGlint::get);
 	}
 
 	/** Whether Rago's HUD is drawn into an image a fixed number of times per second. */

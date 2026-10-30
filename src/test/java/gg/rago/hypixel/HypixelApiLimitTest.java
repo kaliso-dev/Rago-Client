@@ -140,4 +140,16 @@ class HypixelApiLimitTest {
 		Thread.sleep(200);
 		assertEquals(1, calls.get(), "no new request after the restart");
 	}
+
+	@Test
+	void theBudgetIsWhatHypixelSaidUntilTheWindowEnds() {
+		assertNull(HypixelApi.budget(1000, -1, -1, 0));
+		int[] b = HypixelApi.budget(10_000, 287, 300, 10_000 + 192_500);
+		assertEquals(287, b[0]);
+		assertEquals(300, b[1]);
+		assertEquals(193, b[2]);
+		b = HypixelApi.budget(300_000, 12, 300, 200_000);
+		assertEquals(300, b[0]);
+		assertEquals(0, b[2]);
+	}
 }

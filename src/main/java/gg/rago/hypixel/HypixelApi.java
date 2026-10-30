@@ -150,6 +150,8 @@ public final class HypixelApi {
 	private volatile int limit = -1;
 	private volatile int remaining = -1;
 	private volatile int window = -1;
+	/** When the current window ends (System.currentTimeMillis()), or 0 until known. */
+	private volatile long resetAt;
 	private final Path cacheFile;
 	private long savedAt;
 	private boolean dirty;
@@ -159,7 +161,8 @@ public final class HypixelApi {
 	private Thread worker;
 
 	public HypixelApi(Path configDir) {
-		this(configDir, URL_PLAYER);
+		// a local stand-in for Hypixel, only in the developer test game
+		this(configDir, Boolean.getBoolean("rago.test.hypixel") ? System.getProperty("rago.test.hypixelUrl", URL_PLAYER) : URL_PLAYER);
 	}
 
 	/** With another address for Hypixel's player endpoint, for tests. */
@@ -322,6 +325,25 @@ public final class HypixelApi {
 		return window > SHORT_WINDOW_S;
 	}
 
+	/**
+	 * The key's requests left and its requests per window, and the seconds until the window starts
+	 * again ({remaining, limit, seconds}), as Hypixel last told them; null before its first answer
+	 * since the game started. Once the window is over, the full limit is left.
+	 */
+	public int[] budget() {
+		return budget(System.currentTimeMillis(), remaining, limit, resetAt);
+	}
+
+	static int[] budget(long now, int remaining, int limit, long resetAt) {
+		if (remaining < 0 || limit < 0) {
+			return null;
+		}
+		if (resetAt > 0 && now >= resetAt) {
+			return new int[] {limit, limit, 0};
+		}
+		return new int[] {Math.min(remaining, limit), limit, resetAt > 0 ? (int) ((resetAt - now + 999) / 1000) : -1};
+	}
+
 	/** The key's requests per window as Hypixel told it, or -1 before the first answer. */
 	public int limit() {
 		return limit;
@@ -414,6 +436,9 @@ public final class HypixelApi {
 			limit = header(c, "RateLimit-Limit");
 			remaining = header(c, "RateLimit-Remaining");
 			window = reset;
+			if (reset >= 0) {
+				resetAt = now + 1000L * reset;
+			}
 			// in a short window, what is left of the key's requests is spread over what is left of it, so
 			// the key never runs dry halfway through a lobby; a daily quota is spent only on players that
 			// matter (see lowOnRequests), as fast as they come

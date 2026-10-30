@@ -62,6 +62,7 @@ public final class PerformancePreset {
 		// Rago: engine
 		VALUES.put("fast_world_switch", 1);
 		VALUES.put("unstacked_items", 1);
+		VALUES.put("light_glint", 1);
 		VALUES.put("skip_gl_errors", 1);
 		// Minecraft
 		VALUES.put("render_distance", 8);

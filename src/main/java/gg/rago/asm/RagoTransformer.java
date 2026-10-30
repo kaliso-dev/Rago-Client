@@ -340,6 +340,13 @@ public final class RagoTransformer implements IClassTransformer {
 			"func_177183_a", "renderGlint",
 			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
 			RagoTransformer::armorGlint));
+		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("light glint on armour",
+			"func_177183_a", "renderGlint",
+			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
+			RagoTransformer::armorGlintPasses));
+		add("net.minecraft.client.renderer.entity.RenderItem", new Patch("light glint on items",
+			"func_180451_a", "renderEffect", "(Lnet/minecraft/client/resources/model/IBakedModel;)V",
+			RagoTransformer::itemSecondGlint));
 		add("net.minecraft.client.Minecraft", new Patch("block edit fix",
 			"func_147116_af", "clickMouse", "()V",
 			m -> {
@@ -507,6 +514,40 @@ public final class RagoTransformer implements IClassTransformer {
 			}
 		}
 		return false;
+	}
+
+	/** The glint loop's {@code i < 2}: the 2 becomes {@code Hooks.glintPasses()}. */
+	private static boolean armorGlintPasses(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			AbstractInsnNode next = insn.getNext();
+			if (insn.getOpcode() == Opcodes.ILOAD && next != null && next.getOpcode() == Opcodes.ICONST_2
+				&& next.getNext() != null && next.getNext().getOpcode() == Opcodes.IF_ICMPGE) {
+				m.instructions.set(next, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "glintPasses", "()I", false));
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** The second of the two RenderItem.renderModel calls goes through {@code Hooks.secondGlintPass}. */
+	private static boolean itemSecondGlint(MethodNode m) {
+		MethodInsnNode second = null;
+		int calls = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			// private in vanilla, public with OptiFine
+			if (insn instanceof MethodInsnNode && (insn.getOpcode() == Opcodes.INVOKESPECIAL || insn.getOpcode() == Opcodes.INVOKEVIRTUAL)
+				&& ((MethodInsnNode) insn).owner.equals("net/minecraft/client/renderer/entity/RenderItem")
+				&& ((MethodInsnNode) insn).desc.equals("(Lnet/minecraft/client/resources/model/IBakedModel;I)V")) {
+				calls++;
+				second = (MethodInsnNode) insn;
+			}
+		}
+		if (calls != 2) {
+			return false;
+		}
+		m.instructions.set(second, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "secondGlintPass",
+			"(Lnet/minecraft/client/renderer/entity/RenderItem;Lnet/minecraft/client/resources/model/IBakedModel;I)V", false));
+		return true;
 	}
 
 	/** Passes every returned value of the given return opcode through {@code hook}. */

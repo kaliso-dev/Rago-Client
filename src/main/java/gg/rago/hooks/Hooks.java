@@ -493,6 +493,57 @@ public final class Hooks {
 		return g != null && g.isEnabled() ? g.argb() : vanilla;
 	}
 
+	/** LayerArmorBase.renderGlint: how many shimmer layers an enchanted armour piece gets (vanilla 2). */
+	public static int glintPasses() {
+		EngineTweaks e = engine;
+		return e != null && e.lightGlint() ? 1 : 2;
+	}
+
+	private static java.lang.invoke.MethodHandle itemGlintModel;
+	private static boolean itemGlintModelMissing;
+
+	/**
+	 * RenderItem.renderEffect, in place of its second RenderItem.renderModel call: the second shimmer
+	 * layer of an enchanted item, skipped with the light glint.
+	 */
+	public static void secondGlintPass(net.minecraft.client.renderer.entity.RenderItem renderer,
+		net.minecraft.client.resources.model.IBakedModel model, int color) throws Throwable {
+		if (glintPasses() < 2) {
+			return;
+		}
+		java.lang.invoke.MethodHandle h = itemGlintModel;
+		if (h == null) {
+			if (itemGlintModelMissing) {
+				return;
+			}
+			h = itemGlintModel = renderModel();
+			if (h == null) {
+				itemGlintModelMissing = true;
+				return;
+			}
+		}
+		h.invokeExact(renderer, model, color);
+	}
+
+	/** RenderItem's private renderModel(IBakedModel, int), which the second layer calls. */
+	private static java.lang.invoke.MethodHandle renderModel() {
+		for (java.lang.reflect.Method m : net.minecraft.client.renderer.entity.RenderItem.class.getDeclaredMethods()) {
+			Class<?>[] p = m.getParameterTypes();
+			if ((m.getName().equals("func_175035_a") || m.getName().equals("renderModel")) && p.length == 2
+				&& p[0] == net.minecraft.client.resources.model.IBakedModel.class && p[1] == int.class) {
+				try {
+					m.setAccessible(true);
+					return java.lang.invoke.MethodHandles.lookup().unreflect(m);
+				} catch (ReflectiveOperationException | RuntimeException e) {
+					gg.rago.core.RagoClient.LOG.warn("Light glint: RenderItem.renderModel unavailable, items keep one layer", e);
+					return null;
+				}
+			}
+		}
+		gg.rago.core.RagoClient.LOG.warn("Light glint: RenderItem.renderModel not found, items keep one layer");
+		return null;
+	}
+
 	/** LayerArmorBase.renderLayer, after the glint colour is set: sets the chosen one instead. */
 	public static void armorGlint() {
 		GlintColor g = glint;
