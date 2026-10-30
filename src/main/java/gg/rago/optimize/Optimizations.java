@@ -473,14 +473,19 @@ public final class Optimizations {
 
 	@SubscribeEvent
 	public void onFogDensity(EntityViewRenderEvent.FogDensity event) {
-		if (!disableFog.get()) {
-			return;
-		}
-		Material m = event.block.getMaterial();
-		if (m == Material.water || m == Material.lava) {
+		if (!disableFog.get() || keepsFog(event.block.getMaterial(), event.entity instanceof EntityLivingBase
+			&& ((EntityLivingBase) event.entity).isPotionActive(net.minecraft.potion.Potion.blindness))) {
 			return;
 		}
 		event.density = 0f;
 		event.setCanceled(true);
+	}
+
+	/**
+	 * Water, lava and blindness keep their fog: only the distance haze goes. Blindness is the black
+	 * fog a few blocks around you (a Bed Wars trap gives it), and cancelling the fog would take it away.
+	 */
+	static boolean keepsFog(Material m, boolean blind) {
+		return blind || m == Material.water || m == Material.lava;
 	}
 }
