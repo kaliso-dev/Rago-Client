@@ -36,9 +36,10 @@ import java.util.UUID;
 /**
  * Hypixel Bed Wars stats in the tab list: each player's star before their name and their final
  * kill/death ratio after it, coloured by how dangerous they are (Rago's own 1 to 5 level, see
- * {@link Danger}), nicked players marked, and the list sorted from the strongest player to the
- * weakest. When a game starts, a chat message lists every enemy, team by team and strongest first,
- * with their star and their name in their team's colour. The stats come from the Hypixel API with your own key
+ * {@link Danger}), nicked players marked, and the list grouped by team, the strongest team first and
+ * each team strongest first. When a game starts, a chat message names the enemies to target (300
+ * stars or 5 FKDR and more by default), then lists every enemy the same way, with their star and
+ * their name in their team's colour. The stats come from the Hypixel API with your own key
  * ({@code /rago hypixelkey <key>}); nothing is sent to the Minecraft server.
  */
 public final class BedwarsStats extends Module {
@@ -58,8 +59,8 @@ public final class BedwarsStats extends Module {
 	private final BooleanOption nicks = addOption(new BooleanOption("stats_nicks", true));
 	private final BooleanOption mark = addOption(new BooleanOption("stats_tab_mark", true));
 	private final BooleanOption tabSort = addOption(new BooleanOption("stats_tab_sort", true));
-	/** A strong player: this final kill/death ratio or more... */
-	private final IntOption strongFkdr = addOption(new IntOption("stats_strong_fkdr", 10, 1, 50));
+	/** A player to target: this final kill/death ratio or more (a new key, so the old default of 10 does not stay)... */
+	private final IntOption strongFkdr = addOption(new IntOption("stats_target_fkdr", 5, 1, 50));
 	/** ...or this Bed Wars star or more. */
 	private final IntOption strongStar = addOption(new IntOption("stats_strong_star", 300, 50, 2000));
 	private final BooleanOption alert = addOption(new BooleanOption("stats_alert", true));
@@ -325,26 +326,41 @@ public final class BedwarsStats extends Module {
 	}
 
 	/**
-	 * The tab list's players, strongest first in Bed Wars when the option is on; spectators (players
-	 * out of the game) stay last, and players alike keep the order the game gave them.
+	 * The tab list's players in Bed Wars when the option is on: grouped by team, the team with the
+	 * strongest player first, and in each team the strongest first, weak players included.
+	 * Spectators (players out of the game) stay last, and players alike keep the game's order.
 	 */
 	public List<NetworkPlayerInfo> tabOrder(List<NetworkPlayerInfo> vanilla) {
 		if (!bedwars || !tabSort.get() || rank.isEmpty()) {
 			return vanilla;
 		}
+		Map<String, Double> teams = new HashMap<>();
+		for (NetworkPlayerInfo info : vanilla) {
+			teams.merge(teamKey(info), rankOf(info), Math::max);
+		}
 		List<NetworkPlayerInfo> out = new ArrayList<>(vanilla);
-		out.sort(byStrength);
+		out.sort((a, b) -> {
+			boolean outA = a.getGameType() == WorldSettings.GameType.SPECTATOR;
+			boolean outB = b.getGameType() == WorldSettings.GameType.SPECTATOR;
+			if (outA != outB) {
+				return outA ? 1 : -1;
+			}
+			String ta = teamKey(a);
+			String tb = teamKey(b);
+			if (!ta.equals(tb)) {
+				int c = Double.compare(teams.get(tb), teams.get(ta));
+				return c != 0 ? c : ta.compareTo(tb);
+			}
+			return Double.compare(rankOf(b), rankOf(a));
+		});
 		return out;
 	}
 
-	private final java.util.Comparator<NetworkPlayerInfo> byStrength = (a, b) -> {
-		boolean outA = a.getGameType() == WorldSettings.GameType.SPECTATOR;
-		boolean outB = b.getGameType() == WorldSettings.GameType.SPECTATOR;
-		if (outA != outB) {
-			return outA ? 1 : -1;
-		}
-		return Double.compare(rankOf(b), rankOf(a));
-	};
+	/** The team a player is listed with: their scoreboard team, or none (a lobby). */
+	private static String teamKey(NetworkPlayerInfo info) {
+		ScorePlayerTeam team = info.getPlayerTeam();
+		return team == null ? "" : team.getRegisteredName();
+	}
 
 	private double rankOf(NetworkPlayerInfo info) {
 		Double r = rank.get(info.getGameProfile().getId());
@@ -357,7 +373,7 @@ public final class BedwarsStats extends Module {
 		return team != null && BedwarsGame.teamLetter(team) != 0;
 	}
 
-	/** A player the options call strong: a high final kill/death ratio or a high star. */
+	/** A player to target, as the options say: a high final kill/death ratio or a high star (5 FKDR or 300 stars by default). */
 	private boolean strong(HypixelApi.Stats s) {
 		return s.found && (s.fkdr() >= strongFkdr.get() || s.star >= strongStar.get());
 	}
@@ -431,8 +447,10 @@ public final class BedwarsStats extends Module {
 				continue;
 			}
 			enemies.add(info);
-			// stats asked for and on their way (a failed answer is not waited for)
-			if (Hypixel.realPlayer(id) && api.get(id) == null && api.waiting(id)) {
+			// stats asked for and on their way (a failed answer, or Hypixel out of reach, is not waited for)
+			HypixelApi.Status status = api.status();
+			if (Hypixel.realPlayer(id) && api.get(id) == null && api.waiting(id)
+				&& (status == HypixelApi.Status.OK || status == HypixelApi.Status.CHECKING)) {
 				waiting = true;
 			}
 		}
@@ -454,8 +472,10 @@ public final class BedwarsStats extends Module {
 		}
 		RagoClient.LOG.info("Bed Wars Stats: game-start message {} ms after the start, {} enemies{}",
 			(ticks - startedAt) * 50, enemies.size(), waiting ? ", some stats still on their way" : "");
-		// every enemy, by team: the teams with the strongest players first, and in each team the strongest first
+		// every enemy, by team: the teams with the strongest players first, and in each team the strongest first;
+		// before them, the ones to target
 		Map<String, List<Object[]>> byTeam = new LinkedHashMap<>();
+		List<Object[]> targets = new ArrayList<>();
 		Map<String, Double> teamThreat = new HashMap<>();
 		Map<String, String> teamLabel = new HashMap<>();
 		boolean danger = false;
@@ -473,6 +493,9 @@ public final class BedwarsStats extends Module {
 			String entry = alertEntry(name, color == 0 ? "§f" : "§" + color, s, nick, why);
 			danger |= nick || why != null || s != null && strong(s);
 			double threat = strength(s, nick, why != null);
+			if (s != null && strong(s)) {
+				targets.add(new Object[] {threat, alertEntry(name, color == 0 ? "§f" : "§" + color, s, false, null)});
+			}
 			String key = team == null ? "?" : team.getRegisteredName();
 			if (!teamLabel.containsKey(key)) {
 				teamLabel.put(key, teamName(team));
@@ -482,7 +505,15 @@ public final class BedwarsStats extends Module {
 		}
 		List<String> order = new ArrayList<>(byTeam.keySet());
 		order.sort((a, b) -> Double.compare(teamThreat.get(b), teamThreat.get(a)));
-		send(mc, "§c§lRago §8» §f" + I18n.format("rago.stats.alert_title"));
+		targets.sort((a, b) -> Double.compare((Double) b[0], (Double) a[0]));
+		StringBuilder head = new StringBuilder("§c§lRago §8» §f").append(I18n.format("rago.stats.alert_targets")).append(' ');
+		if (targets.isEmpty()) {
+			head.append("§a").append(I18n.format("rago.stats.alert_no_target", strongStar.get(), strongFkdr.get()));
+		}
+		for (int i = 0; i < targets.size(); i++) {
+			head.append(i == 0 ? "" : "§8, ").append(targets.get(i)[1]);
+		}
+		send(mc, head.toString());
 		for (String key : order) {
 			List<Object[]> players = byTeam.get(key);
 			players.sort((a, b) -> Double.compare((Double) b[0], (Double) a[0]));

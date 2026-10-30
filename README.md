@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.5.4.** What it contains:
+**Current version: 1.5.5.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -348,15 +348,20 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     key). The tab list shows new stats within a fifth of a second instead of on the next second. In
     our test (a local stand-in for Hypixel answering in 150 ms), the stats of 11 players not seen
     before came in 0.65 s
-  - Bed Wars Stats: **Sort the tab list, strongest first** (on by default): possible snipers, then
-    nicks, then everyone by danger tier, FKDR and star; players out of the game stay at the bottom
-  - Bed Wars Stats: the game-start message lists every enemy, not only the strong players and the
-    nicks: team by team (the team with the strongest player first), each with their star, their
-    name in their team's colour, their FKDR and their tier, strongest first, the danger sign before
-    strong players, nicks and possible snipers. It goes once the teams are given out (their number
-    holds still for half a second) and the stats are in, from one second after the start, instead
-    of three seconds at the earliest; it waits 10 s at most for stats (15 before). In our test with
-    the 11 players' stats not in yet, it came 1 s after the start
+  - Bed Wars Stats: **Group the tab list by team, strongest first** (on by default): each team
+    together, the team with the strongest player first, and in each team possible snipers, then
+    nicks, then everyone by danger tier, FKDR and star, weak players included; players out of the
+    game stay at the bottom
+  - Bed Wars Stats: the game-start message starts with the enemies to target ("Target:"), those at
+    300 stars or 5 FKDR and more (the two settings; the FKDR one was 10 and is now 5, a new setting
+    so saved values do not keep 10), or "nobody". Then it lists every enemy, weak ones included,
+    team by team (the team with the strongest player first), each with their star, their name in
+    their team's colour, their FKDR and their tier, strongest first, the danger sign before players
+    to target, nicks and possible snipers. It goes once the teams are given out (their number holds
+    still for half a second) and the stats are in, from one second after the start, instead of
+    three seconds at the earliest; it waits 10 s at most for stats (15 before), and does not wait
+    when Hypixel is out of reach. In our test with the 11 players' stats not in yet, it came 1 s
+    after the start
   - 1.7 animations: **Instant item switch** (on by default). Changing hotbar slot shows the new
     item in your hand at once, instead of lowering the old one and raising the new one (about 270
     ms in our test). Only how your hand is drawn changes: the server is told of your slot as in
@@ -423,7 +428,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.5.4+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.5.5+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
