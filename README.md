@@ -208,6 +208,9 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     entities around it) and goes through blocks. In our test (singleplayer, 17 entities, after
     warm-up), one tick of particle updates with 1000 particles went from 490 to 536 µs to 82 to
     158 µs, and with 200 from 87 to 16 µs. This is per game tick (20 per second), not per frame
+  - Performance page, Minecraft video: **Use VBOs** (Minecraft's own option, now next to the others).
+    Lunar's 1.8.9 guide advises it on; it is not in Max performance, because the gain depends on the
+    graphics card and driver: compare your FPS with it on and off
   - the 1.2 Particles mod is merged into Particle Multiplier, which can now also hide block-breaking
     and block-mining particles
   - Item Scale (held and dropped items from 25% to 400%), Item Physics (dropped items lie on the
