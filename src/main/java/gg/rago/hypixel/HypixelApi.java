@@ -125,6 +125,8 @@ public final class HypixelApi {
 	private volatile long pausedUntil;
 	private volatile long gap = GAP_MS;
 	private volatile long checkingSince;
+	private volatile int requests;
+	private volatile int lastCode;
 	private Thread worker;
 
 	public HypixelApi(Path configDir) {
@@ -172,6 +174,14 @@ public final class HypixelApi {
 			CHECK_TIMEOUT_MS / 1000, where, queue.size(), Math.max(0, pausedUntil - System.currentTimeMillis()) / 1000);
 		status = Status.UNREACHABLE;
 		startWorker();
+	}
+
+	/** For {@code /rago debug}: where the requests stand. */
+	public String debugState() {
+		Thread w = worker;
+		return "status=" + status + " key=" + (key != null) + " thread=" + (w == null ? "none" : w.isAlive() ? "running" : "stopped")
+			+ " waiting=" + queue.size() + " known=" + cache.size() + " requests=" + requests + " lastCode=" + lastCode
+			+ " paused=" + Math.max(0, pausedUntil - System.currentTimeMillis()) / 1000 + "s";
 	}
 
 	/** Whether a key is saved (it is never shown again, only its last characters). */
@@ -299,6 +309,8 @@ public final class HypixelApi {
 			c.setRequestProperty("API-Key", k);
 			c.setRequestProperty("User-Agent", "Rago Client");
 			int code = c.getResponseCode();
+			requests++;
+			lastCode = code;
 			String remaining = c.getHeaderField("RateLimit-Remaining");
 			gap = remaining != null && remaining.matches("\\d{1,5}") && Integer.parseInt(remaining) > FAST_WHILE_REMAINING ? FAST_GAP_MS : GAP_MS;
 			if (code == 403) {

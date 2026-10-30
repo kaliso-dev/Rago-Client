@@ -105,6 +105,11 @@ public final class BedwarsQuestsHud extends TextHudElement {
 			text = build(api.status());
 			shown = !onlyBedwars.get() || BedwarsGame.inBedwars();
 		}
+		if (gg.rago.debug.InputTrace.on() && ticks % 100 == 0) {
+			HypixelApi.Stats own = api.get(me);
+			RagoClient.LOG.info("[debug] bed wars quests: shown={} only in bed wars={} own stats={} quests from api={} text=\"{}\"", shown,
+				onlyBedwars.get(), own != null, own == null ? 0 : own.quests().size(), text.replace('\n', '|'));
+		}
 	}
 
 	@Override

@@ -6,6 +6,7 @@ import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
+import gg.rago.core.RagoClient;
 import gg.rago.hypixel.Danger;
 import gg.rago.hypixel.Hypixel;
 import gg.rago.hypixel.HypixelApi;
@@ -148,6 +149,13 @@ public final class BedwarsStats extends Module {
 			return;
 		}
 		bedwars = BedwarsGame.inBedwars();
+		if (gg.rago.debug.InputTrace.on() && ticks % 100 == 0) {
+			net.minecraft.scoreboard.ScoreObjective side = mc.theWorld == null ? null : mc.theWorld.getScoreboard().getObjectiveInDisplaySlot(1);
+			RagoClient.LOG.info("[debug] bedwars stats: hypixel={} server={} sidebar=\"{}\" bedwars={} playing={} tab players={} with stats={} api {}",
+				Hypixel.connected(), mc.getCurrentServerData() == null ? "-" : mc.getCurrentServerData().serverIP,
+				side == null ? "-" : EnumChatFormatting.getTextWithoutFormattingCodes(side.getDisplayName()), bedwars,
+				BedwarsGame.playing(), mc.getNetHandler() == null ? 0 : mc.getNetHandler().getPlayerInfoMap().size(), tab.size(), api.debugState());
+		}
 		if (!bedwars) {
 			tab.clear();
 			return;
