@@ -92,14 +92,8 @@ public final class FakeBedwars {
 		}
 		Scoreboard board = mc.theWorld.getScoreboard();
 		String[][] teams = {{"Red", "c", "R"}, {"Blue", "9", "B"}, {"Green", "a", "G"}, {"Yellow", "e", "Y"}};
-		for (String[] t : teams) {
-			ScorePlayerTeam team = board.getTeam(t[0]);
-			if (team == null) {
-				team = board.createTeam(t[0]);
-			}
-			team.setNamePrefix("§" + t[1] + "§l" + t[2] + " §" + t[1]);
-		}
-		board.addPlayerToTeam(mc.thePlayer.getName(), "Red");
+		// like Hypixel, a scoreboard team for each player, with their team's prefix
+		join(board, mc.thePlayer.getName(), teams[0]);
 		java.util.Random random = new java.util.Random();
 		for (int i = 0; i < n; i++) {
 			java.util.UUID id = java.util.UUID.randomUUID();
@@ -109,8 +103,17 @@ public final class FakeBedwars {
 			}
 			String name = "Enemy" + i;
 			players.put(id, new net.minecraft.client.network.NetworkPlayerInfo(new com.mojang.authlib.GameProfile(id, name)));
-			board.addPlayerToTeam(name, teams[i % teams.length][0]);
+			join(board, name, teams[i % teams.length]);
 		}
+	}
+
+	private static void join(Scoreboard board, String player, String[] t) {
+		ScorePlayerTeam team = board.getTeam("p_" + player);
+		if (team == null) {
+			team = board.createTeam("p_" + player);
+		}
+		team.setNamePrefix("§" + t[1] + "§l" + t[2] + " §" + t[1]);
+		board.addPlayerToTeam(player, team.getRegisteredName());
 	}
 
 	@SubscribeEvent

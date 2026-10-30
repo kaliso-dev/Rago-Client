@@ -862,7 +862,7 @@ rago.locker.more=Colours and sizes
 
 # 1.4: Bed Wars stats, trap notifier
 rago.module.bedwars_stats=Bed Wars Stats
-rago.module.bedwars_stats.desc=Each player's star and final kill/death ratio (FKDR) in the tab list, the FKDR coloured by steps (grey, green, dark green, red, dark red), a danger tier from S to D, nicked and strong players marked, the tab list grouped by team with the strongest first, and a chat message when a game starts naming the enemies to target, then every enemy team by team, with their star and their name in their team's colour. Needs your Hypixel API key (below).
+rago.module.bedwars_stats.desc=Each player's star and final kill/death ratio (FKDR) in the tab list, the FKDR coloured by steps (grey, green, dark green, red, dark red), a danger tier from S to D, nicked and strong players marked, the tab list grouped by team with the strongest first, and a chat message when a game starts naming the enemies to target (300 stars or 5 FKDR and more), with their star and their name in their team's colour. Needs your Hypixel API key (below).
 rago.option.stats_tab_star=Star before names
 rago.option.stats_tab_fkdr=FKDR after names
 rago.option.stats_tab_danger=Danger tier after names (S to D)
@@ -1009,7 +1009,7 @@ rago.stats.legend_danger=Tier after the FKDR: Rago's danger level (FKDR counts m
 rago.stats.legend_mark=Red sign: a player to target (FKDR %s+ or star %s+) or a nicked player
 rago.option.stats_tab_mark=Red danger sign for strong and nicked players
 rago.option.stats_tab_sort=Group the tab list by team, strongest first
-rago.option.stats_tab_sort.help=Each team together, the team with the strongest player first. In each team: possible snipers, then nicks, then everyone by danger tier, FKDR and star. Players out of the game stay at the bottom.
+rago.option.stats_tab_sort.help=Each team together: first the team with the strongest player and all its players, then the team with the next strongest, and so on. In each team: possible snipers, then nicks, then players to target (the star and FKDR settings below), then the others, each by danger tier, FKDR and star. Your own team comes after the enemies, players out of the game at the bottom.
 rago.option.stats_target_fkdr=Target from this FKDR
 rago.option.stats_strong_star=Target from this star
 rago.option.stats_strong_star.format=%s✫

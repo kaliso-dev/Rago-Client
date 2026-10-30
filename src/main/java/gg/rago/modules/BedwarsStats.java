@@ -28,7 +28,6 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,8 +37,8 @@ import java.util.UUID;
  * kill/death ratio after it, coloured by how dangerous they are (Rago's own 1 to 5 level, see
  * {@link Danger}), nicked players marked, and the list grouped by team, the strongest team first and
  * each team strongest first. When a game starts, a chat message names the enemies to target (300
- * stars or 5 FKDR and more by default), then lists every enemy the same way, with their star and
- * their name in their team's colour. The stats come from the Hypixel API with your own key
+ * stars or 5 FKDR and more by default), strongest first, with their star and their name in their
+ * team's colour. The stats come from the Hypixel API with your own key
  * ({@code /rago hypixelkey <key>}); nothing is sent to the Minecraft server.
  */
 public final class BedwarsStats extends Module {
@@ -51,7 +50,6 @@ public final class BedwarsStats extends Module {
 	private static final int ALERT_SETTLE_TICKS = 10;
 	/** Gear seen in this long after the start counts for the sniper check. */
 	private static final int GEAR_WINDOW_TICKS = 60 * 20;
-	private static final int ALERT_MAX = 5;
 
 	private final BooleanOption tabStar = addOption(new BooleanOption("stats_tab_star", true));
 	private final BooleanOption tabFkdr = addOption(new BooleanOption("stats_tab_fkdr", true));
@@ -288,7 +286,7 @@ public final class BedwarsStats extends Module {
 		HypixelApi.Stats s = Hypixel.realPlayer(id) ? api.get(id, bigLobby) : null;
 		boolean nick = !Hypixel.realPlayer(id) || s != null && !s.found;
 		boolean sniped = sniperReason(id, info.getGameProfile().getName(), s) != null;
-		rank.put(id, strength(s, nick && nicks.get(), sniped));
+		rank.put(id, strength(s, nick && nicks.get(), sniped, s != null && strong(s)));
 		String sniperTag = sniped ? "§d[S] " : "";
 		if (nick) {
 			return nicks.get() ? new String[] {warn + "§c[NICK] ", ""} : null;
@@ -312,9 +310,10 @@ public final class BedwarsStats extends Module {
 
 	/**
 	 * How strong a player looks, higher first: possible snipers, then nicks (hidden on purpose, often
-	 * strong), then by danger level, final kill/death ratio and star; -1 while the stats are unknown.
+	 * strong), then players to target ({@code target}: the star or FKDR settings), then the others;
+	 * within each, by danger level, final kill/death ratio and star. -1 while the stats are unknown.
 	 */
-	static double strength(HypixelApi.Stats s, boolean nick, boolean sniper) {
+	static double strength(HypixelApi.Stats s, boolean nick, boolean sniper, boolean target) {
 		double known = s == null || !s.found ? 0 : Danger.level(s) * 1e5 + Math.min(s.fkdr(), 999) * 100 + Math.min(Math.max(s.star, 0), 9999) / 100.0;
 		if (sniper) {
 			return 2e6 + known;
@@ -322,13 +321,18 @@ public final class BedwarsStats extends Module {
 		if (nick) {
 			return 1e6;
 		}
-		return s == null || !s.found ? -1 : known;
+		if (s == null || !s.found) {
+			return -1;
+		}
+		// below 6e5 whatever the level: a player to target comes before any other
+		return target ? 6e5 + known : known;
 	}
 
 	/**
 	 * The tab list's players in Bed Wars when the option is on: grouped by team, the team with the
-	 * strongest player first, and in each team the strongest first, weak players included.
-	 * Spectators (players out of the game) stay last, and players alike keep the game's order.
+	 * strongest player first, then the team with the next strongest, and so on, each with all its
+	 * players, strongest first, weak ones included. Your own team comes after the enemies, and
+	 * spectators (players out of the game) last; players alike keep the game's order.
 	 */
 	public List<NetworkPlayerInfo> tabOrder(List<NetworkPlayerInfo> vanilla) {
 		if (!bedwars || !tabSort.get() || rank.isEmpty()) {
@@ -338,6 +342,8 @@ public final class BedwarsStats extends Module {
 		for (NetworkPlayerInfo info : vanilla) {
 			teams.merge(teamKey(info), rankOf(info), Math::max);
 		}
+		char own = BedwarsGame.ownTeam();
+		String ownKey = own == 0 ? null : String.valueOf(own);
 		List<NetworkPlayerInfo> out = new ArrayList<>(vanilla);
 		out.sort((a, b) -> {
 			boolean outA = a.getGameType() == WorldSettings.GameType.SPECTATOR;
@@ -348,6 +354,11 @@ public final class BedwarsStats extends Module {
 			String ta = teamKey(a);
 			String tb = teamKey(b);
 			if (!ta.equals(tb)) {
+				boolean ownA = ta.equals(ownKey);
+				boolean ownB = tb.equals(ownKey);
+				if (ownA != ownB) {
+					return ownA ? 1 : -1;
+				}
 				int c = Double.compare(teams.get(tb), teams.get(ta));
 				return c != 0 ? c : ta.compareTo(tb);
 			}
@@ -356,10 +367,15 @@ public final class BedwarsStats extends Module {
 		return out;
 	}
 
-	/** The team a player is listed with: their scoreboard team, or none (a lobby). */
+	/**
+	 * The team a player is listed with: the letter of their team's prefix ("R" for Red). Hypixel
+	 * gives each player a scoreboard team of their own, so the team's name cannot group them.
+	 * Players with no team letter (a lobby) are listed together.
+	 */
 	private static String teamKey(NetworkPlayerInfo info) {
 		ScorePlayerTeam team = info.getPlayerTeam();
-		return team == null ? "" : team.getRegisteredName();
+		char letter = team == null ? 0 : BedwarsGame.teamLetter(team);
+		return letter == 0 ? "" : String.valueOf(letter);
 	}
 
 	private double rankOf(NetworkPlayerInfo info) {
@@ -472,13 +488,8 @@ public final class BedwarsStats extends Module {
 		}
 		RagoClient.LOG.info("Bed Wars Stats: game-start message {} ms after the start, {} enemies{}",
 			(ticks - startedAt) * 50, enemies.size(), waiting ? ", some stats still on their way" : "");
-		// every enemy, by team: the teams with the strongest players first, and in each team the strongest first;
-		// before them, the ones to target
-		Map<String, List<Object[]>> byTeam = new LinkedHashMap<>();
+		// only the enemies to target (the star or FKDR settings, 300 or 5 by default), strongest first
 		List<Object[]> targets = new ArrayList<>();
-		Map<String, Double> teamThreat = new HashMap<>();
-		Map<String, String> teamLabel = new HashMap<>();
-		boolean danger = false;
 		for (NetworkPlayerInfo info : enemies) {
 			UUID id = info.getGameProfile().getId();
 			String name = info.getGameProfile().getName();
@@ -487,65 +498,34 @@ public final class BedwarsStats extends Module {
 			if (why != null) {
 				snipers.put(id, why);
 			}
-			boolean nick = nicks.get() && (!Hypixel.realPlayer(id) || s != null && !s.found);
-			ScorePlayerTeam team = info.getPlayerTeam();
-			char color = team == null ? 0 : BedwarsGame.teamColor(team);
-			String entry = alertEntry(name, color == 0 ? "§f" : "§" + color, s, nick, why);
-			danger |= nick || why != null || s != null && strong(s);
-			double threat = strength(s, nick, why != null);
 			if (s != null && strong(s)) {
-				targets.add(new Object[] {threat, alertEntry(name, color == 0 ? "§f" : "§" + color, s, false, null)});
+				ScorePlayerTeam team = info.getPlayerTeam();
+				char color = team == null ? 0 : BedwarsGame.teamColor(team);
+				targets.add(new Object[] {strength(s, false, why != null, true), targetEntry(name, color == 0 ? "§f" : "§" + color, s, why)});
 			}
-			String key = team == null ? "?" : team.getRegisteredName();
-			if (!teamLabel.containsKey(key)) {
-				teamLabel.put(key, teamName(team));
-			}
-			byTeam.computeIfAbsent(key, k -> new ArrayList<>()).add(new Object[] {threat, entry});
-			teamThreat.merge(key, threat, Math::max);
 		}
-		List<String> order = new ArrayList<>(byTeam.keySet());
-		order.sort((a, b) -> Double.compare(teamThreat.get(b), teamThreat.get(a)));
 		targets.sort((a, b) -> Double.compare((Double) b[0], (Double) a[0]));
-		StringBuilder head = new StringBuilder("§c§lRago §8» §f").append(I18n.format("rago.stats.alert_targets")).append(' ');
+		StringBuilder line = new StringBuilder("§c§lRago §8» §f").append(I18n.format("rago.stats.alert_targets")).append(' ');
 		if (targets.isEmpty()) {
-			head.append("§a").append(I18n.format("rago.stats.alert_no_target", strongStar.get(), strongFkdr.get()));
+			line.append("§a").append(I18n.format("rago.stats.alert_no_target", strongStar.get(), strongFkdr.get()));
 		}
 		for (int i = 0; i < targets.size(); i++) {
-			head.append(i == 0 ? "" : "§8, ").append(targets.get(i)[1]);
+			line.append(i == 0 ? "" : "§8, ").append(targets.get(i)[1]);
 		}
-		send(mc, head.toString());
-		for (String key : order) {
-			List<Object[]> players = byTeam.get(key);
-			players.sort((a, b) -> Double.compare((Double) b[0], (Double) a[0]));
-			StringBuilder line = new StringBuilder("  ").append(teamLabel.get(key)).append(" §8» ");
-			for (int i = 0; i < players.size(); i++) {
-				line.append(i == 0 ? "" : "§8, ").append(players.get(i)[1]);
-			}
-			send(mc, line.toString());
-		}
-		if (danger) {
+		send(mc, line.toString());
+		if (!targets.isEmpty()) {
 			ping(mc);
 		}
 	}
 
 	/**
-	 * One enemy in the game-start message: the danger sign for a strong player, a nick or a possible
-	 * sniper, the star, the name in the team's colour, then the final kill/death ratio and the tier.
+	 * One enemy to target in the game-start message: the danger sign, the star, the name in the
+	 * team's colour, then the final kill/death ratio and the tier (and why they may be a sniper).
 	 */
-	private String alertEntry(String name, String teamColor, HypixelApi.Stats s, boolean nick, String sniper) {
-		StringBuilder b = new StringBuilder();
-		if (nick || sniper != null || s != null && strong(s)) {
-			b.append(MARK).append(' ');
-		}
+	private static String targetEntry(String name, String teamColor, HypixelApi.Stats s, String sniper) {
+		StringBuilder b = new StringBuilder(MARK).append(' ');
 		if (sniper != null) {
 			b.append("§d[S] ");
-		}
-		if (nick) {
-			return b.append("§c[NICK] ").append(teamColor).append(name).toString();
-		}
-		if (s == null || !s.found) {
-			// stats not in (yet): the name alone
-			return b.append("§7[?] ").append(teamColor).append(name).toString();
 		}
 		if (s.star >= 0) {
 			b.append(Hypixel.bedwarsStar(s.star)).append(' ');
