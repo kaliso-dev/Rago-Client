@@ -53,7 +53,29 @@ public final class BedwarsGame {
 			return false;
 		}
 		ScoreObjective sidebar = mc.theWorld.getScoreboard().getObjectiveInDisplaySlot(1);
-		return sidebar != null && EnumChatFormatting.getTextWithoutFormattingCodes(sidebar.getDisplayName()).contains("BED WARS");
+		return sidebar != null && clean(sidebar.getDisplayName()).contains("BED WARS");
+	}
+
+	/**
+	 * A sidebar line as Rago reads it: no colours, and none of the characters Hypixel mixes into
+	 * its sidebar lines (emoji and other symbols the 1.8.9 font does not draw, private-use and
+	 * format characters), wherever they sit in the line. The bed marks ✓ ✔ ✗ ✘ are kept.
+	 */
+	static String clean(String raw) {
+		String s = EnumChatFormatting.getTextWithoutFormattingCodes(raw == null ? "" : raw);
+		StringBuilder b = null;
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			int type = Character.getType(c);
+			boolean junk = Character.isSurrogate(c) || type == Character.PRIVATE_USE || type == Character.FORMAT
+				|| type == Character.CONTROL || type == Character.OTHER_SYMBOL && "\u2713\u2714\u2717\u2718".indexOf(c) < 0;
+			if (junk && b == null) {
+				b = new StringBuilder(s.length()).append(s, 0, i);
+			} else if (!junk && b != null) {
+				b.append(c);
+			}
+		}
+		return (b == null ? s : b.toString()).trim();
 	}
 
 	/** Whether a Bed Wars game is being played (not the lobby, not the wait before it starts). */
@@ -78,7 +100,7 @@ public final class BedwarsGame {
 			ScoreObjective o = board.getObjectiveInDisplaySlot(1);
 			for (Score score : board.getSortedScores(o)) {
 				ScorePlayerTeam team = board.getPlayersTeam(score.getPlayerName());
-				String line = EnumChatFormatting.getTextWithoutFormattingCodes(ScorePlayerTeam.formatPlayerName(team, score.getPlayerName()));
+				String line = clean(ScorePlayerTeam.formatPlayerName(team, score.getPlayerName()));
 				Boolean bed = bed(line);
 				if (bed != null) {
 					out.put(line.charAt(0), bed);
@@ -96,6 +118,40 @@ public final class BedwarsGame {
 		beds = out.size() >= 2 ? out : Collections.<Character, Boolean>emptyMap();
 		alive = out.size() >= 2 ? teamsAlive : Collections.<Character, Boolean>emptyMap();
 		return beds;
+	}
+
+	/** With /rago debug: the sidebar as Hypixel sent it (characters outside plain ASCII as their code) and what Rago reads in it. */
+	public static void logSidebar() {
+		Minecraft mc = Minecraft.getMinecraft();
+		if (mc.theWorld == null) {
+			return;
+		}
+		Scoreboard board = mc.theWorld.getScoreboard();
+		ScoreObjective o = board.getObjectiveInDisplaySlot(1);
+		RagoClient.LOG.info("[debug] sidebar: hypixel={} title=\"{}\" bedwars={} playing={} waiting={} beds={} event=\"{}\"",
+			Hypixel.connected(), o == null ? null : escape(o.getDisplayName()), inBedwars(), playing(), waitingRoom(), teamBeds(), eventLine());
+		if (o == null) {
+			return;
+		}
+		for (Score score : board.getSortedScores(o)) {
+			String raw = ScorePlayerTeam.formatPlayerName(board.getPlayersTeam(score.getPlayerName()), score.getPlayerName());
+			RagoClient.LOG.info("[debug] sidebar line \"{}\" read as \"{}\"", escape(raw), escape(clean(raw)));
+		}
+	}
+
+	private static String escape(String s) {
+		StringBuilder b = new StringBuilder();
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			if (c >= 0x20 && c < 0x7f) {
+				b.append(c);
+			} else if (c == '\u00a7') {
+				b.append('&');
+			} else {
+				b.append(String.format("\\u%04x", (int) c));
+			}
+		}
+		return b.toString();
 	}
 
 	static boolean waitingLine(String line) {

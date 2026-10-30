@@ -706,6 +706,9 @@ public final class RagoClient {
 			}
 		}
 		QuickJoin.tick(mc);
+		if (gg.rago.debug.InputTrace.on() && mc.theWorld != null && mc.theWorld.getTotalWorldTime() % 100 == 0) {
+			gg.rago.bedwars.BedwarsGame.logSidebar();
+		}
 		if (++tickCounter >= TICKS_PER_PING_SAMPLE) {
 			tickCounter = 0;
 			PING.add(readServerPing(mc));
