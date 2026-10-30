@@ -158,21 +158,17 @@ public final class BedwarsQuestsHud extends TextHudElement {
 		}
 	}
 
-	/** "18 h 34", "12 min" or "40 s". */
-	static String duration(int seconds) {
-		if (seconds >= 3600) {
-			return String.format("%d h %02d", seconds / 3600, seconds % 3600 / 60);
-		}
-		return seconds >= 60 ? seconds / 60 + " min" : seconds + " s";
-	}
-
 	private String build(HypixelApi.Status status) {
 		if (status == HypixelApi.Status.NO_KEY || status == HypixelApi.Status.BAD_KEY) {
 			return "§c" + I18n.format(status == HypixelApi.Status.NO_KEY ? "rago.quests.no_key" : "rago.quests.bad_key");
 		}
 		if (!quests.known()) {
-			int wait = RagoClient.hypixel().pausedSeconds();
-			return wait > 0 ? "§e" + I18n.format("rago.quests.paused", duration(wait)) : "§7" + I18n.format("rago.quests.loading");
+			HypixelApi api = RagoClient.hypixel();
+			int wait = api.pausedSeconds();
+			if (wait > 0) {
+				return "§e" + I18n.format(api.dailyQuota() ? "rago.quests.paused_daily" : "rago.quests.paused", HypixelApi.duration(wait));
+			}
+			return "§7" + I18n.format("rago.quests.loading");
 		}
 		long now = System.currentTimeMillis();
 		StringBuilder b = new StringBuilder();

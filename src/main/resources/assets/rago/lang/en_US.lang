@@ -1180,3 +1180,10 @@ rago.option.latency_mode=Mode
 rago.option.latency_mode.balanced=Balanced (at most 1 frame waiting)
 rago.option.latency_mode.strict=Strict (no frame waiting)
 rago.option.latency_mode.help=Strict gives the lowest delay but the processor and the graphics card take turns, so FPS can drop. Balanced keeps almost all your FPS.
+
+# 1.4.14 : quota du jour
+rago.apikey.daily=Daily quota used (%s a day), back in %s
+rago.apikey.paused=Too many requests, back in %s
+rago.quests.paused_daily=Quests: your key's daily quota is used up, back in %s
+rago.stats.paused_daily=Bed Wars Stats: your Hypixel key's daily quota is used up (%s requests a day), the stats are back in %s.
+rago.stats.paused=Bed Wars Stats: Hypixel asks to wait (too many requests), the stats are back in %s.

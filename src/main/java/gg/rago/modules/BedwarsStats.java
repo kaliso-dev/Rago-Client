@@ -87,6 +87,8 @@ public final class BedwarsStats extends Module {
 	/** More players than any Bed Wars game but the 40v40 ones: a lobby. */
 	private static final int BIG_LOBBY = 24;
 	private boolean bigLobby;
+	/** Said once per wait that Hypixel asks for, so the stats missing from the tab list are explained. */
+	private boolean pauseWarned;
 
 	public BedwarsStats(HypixelApi api) {
 		super("bedwars_stats", FeatureClass.INFORMATIONAL, false);
@@ -170,6 +172,17 @@ public final class BedwarsStats extends Module {
 			ChatComponentTranslation msg = new ChatComponentTranslation(s == HypixelApi.Status.NO_KEY ? "rago.stats.no_key" : "rago.levelhead.bad_key");
 			msg.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GOLD));
 			mc.thePlayer.addChatMessage(msg);
+		}
+		int wait = api.pausedSeconds();
+		if (wait > 0 && !pauseWarned) {
+			pauseWarned = true;
+			ChatComponentTranslation msg = api.dailyQuota()
+				? new ChatComponentTranslation("rago.stats.paused_daily", api.limit() > 0 ? String.valueOf(api.limit()) : "?", HypixelApi.duration(wait))
+				: new ChatComponentTranslation("rago.stats.paused", HypixelApi.duration(wait));
+			msg.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GOLD));
+			mc.thePlayer.addChatMessage(msg);
+		} else if (wait == 0) {
+			pauseWarned = false;
 		}
 		NetHandlerPlayClient net = mc.getNetHandler();
 		if (net == null) {

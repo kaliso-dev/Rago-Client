@@ -1180,3 +1180,10 @@ rago.option.latency_mode=Mode
 rago.option.latency_mode.balanced=Équilibré (1 image max en attente)
 rago.option.latency_mode.strict=Strict (aucune image en attente)
 rago.option.latency_mode.help=Strict donne le moins de délai, mais le processeur et la carte graphique travaillent chacun leur tour, donc les FPS peuvent baisser. Équilibré garde presque tous tes FPS.
+
+# 1.4.14 : quota du jour
+rago.apikey.daily=Quota du jour atteint (%s par jour), reprise dans %s
+rago.apikey.paused=Trop de requêtes, reprise dans %s
+rago.quests.paused_daily=Quêtes : quota du jour de ta clé atteint, reprise dans %s
+rago.stats.paused_daily=Stats Bed Wars : le quota du jour de ta clé Hypixel est atteint (%s requêtes par jour), les stats reviennent dans %s.
+rago.stats.paused=Stats Bed Wars : Hypixel demande d'attendre (trop de requêtes), les stats reviennent dans %s.

@@ -315,6 +315,24 @@ public final class HypixelApi {
 		return (int) Math.max(0, (pausedUntil - System.currentTimeMillis() + 999) / 1000);
 	}
 
+	/** Whether Hypixel counts this key's requests per day (a developer key: 300 a day), not per few minutes. */
+	public boolean dailyQuota() {
+		return window > SHORT_WINDOW_S;
+	}
+
+	/** The key's requests per window as Hypixel told it, or -1 before the first answer. */
+	public int limit() {
+		return limit;
+	}
+
+	/** "18 h 34", "12 min" or "40 s". */
+	public static String duration(int seconds) {
+		if (seconds >= 3600) {
+			return String.format("%d h %02d", seconds / 3600, seconds % 3600 / 60);
+		}
+		return seconds >= 60 ? seconds / 60 + " min" : seconds + " s";
+	}
+
 	/** Starts the request thread, or starts it again if it ever stopped. */
 	private synchronized void startWorker() {
 		if (worker != null && worker.isAlive()) {

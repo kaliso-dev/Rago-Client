@@ -14,6 +14,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HypixelTest {
 	@Test
+	void waitsReadAsHoursMinutesOrSeconds() {
+		assertEquals("18 h 23", HypixelApi.duration(66_231));
+		assertEquals("1 h 00", HypixelApi.duration(3_600));
+		assertEquals("12 min", HypixelApi.duration(750));
+		assertEquals("40 s", HypixelApi.duration(40));
+	}
+
+	@Test
 	void networkLevelFormula() {
 		assertEquals(1.0, HypixelApi.networkLevel(0), 1e-9);
 		// level 2 needs 10,000 exp, level 3 another 12,500

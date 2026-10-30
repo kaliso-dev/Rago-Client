@@ -652,8 +652,16 @@ public final class RagoMenuScreen extends GuiScreen {
 		String state;
 		switch (st) {
 			case OK:
-				dot = Theme.GREEN;
-				state = t("rago.apikey.ok", api.keyHint());
+				if (api.pausedSeconds() > 0) {
+					// a good key, but Hypixel asks to wait: say so instead of a green "OK"
+					dot = Theme.YELLOW;
+					state = api.dailyQuota()
+						? t("rago.apikey.daily", api.limit() > 0 ? String.valueOf(api.limit()) : "?", HypixelApi.duration(api.pausedSeconds()))
+						: t("rago.apikey.paused", HypixelApi.duration(api.pausedSeconds()));
+				} else {
+					dot = Theme.GREEN;
+					state = t("rago.apikey.ok", api.keyHint());
+				}
 				break;
 			case CHECKING:
 				dot = Theme.YELLOW;
