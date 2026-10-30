@@ -191,8 +191,10 @@ def quad(a, b, c, d, uv):
 
 def extrude(tex_name, root, depth_of, sweep=0.25, depth_at=None):
     """
-    A wing from a 64 x 64 texture, one voxel per opaque pixel, `depth_of(pixel)` pixels thick. The root
-    pixel lands on (0, 0, 0); one texture is one unit wide, and the wing sweeps back toward its tip.
+    A wing (or a shield) from its texture, one voxel per opaque pixel, `depth_of(pixel)` or
+    `depth_at(x, y)` pixels thick. The root pixel lands on (0, 0, 0); one texture is one unit wide, and
+    the wing sweeps back toward its tip. Neighbouring faces are merged into larger quads (rectangles of
+    equal depth in front and behind, strips along the sides), each still showing its pixels' colours.
     """
     img = Image.open(os.path.join(TEXTURES, tex_name + '.png')).convert('RGBA')
     n = max(img.size)
@@ -212,57 +214,84 @@ def extrude(tex_name, root, depth_of, sweep=0.25, depth_at=None):
         return (xx, (y - ry) * s, z * s + xx * sweep)
 
     tris = []
-    for y in range(n):
-        x = 0
-        while x < n:
-            d = depth[y, x]
-            if d == 0:
-                x += 1
-                continue
-            # a run of pixels as thick as this one shares its front and back faces
-            end = x
-            while end + 1 < n and depth[y, end + 1] == d:
-                end += 1
-            u0, u1, v0, v1 = x / tw, (end + 1) / tw, y / th, (y + 1) / th
-            h = d / 2
-            tris += quad(at(x, y, -h), at(end + 1, y, -h), at(end + 1, y + 1, -h), at(x, y + 1, -h),
-                         [(u0, v0), (u1, v0), (u1, v1), (u0, v1)])
-            tris += quad(at(end + 1, y, h), at(x, y, h), at(x, y + 1, h), at(end + 1, y + 1, h),
-                         [(u1, v0), (u0, v0), (u0, v1), (u1, v1)])
-            x = end + 1
+    # front and back: the largest rectangles of one depth
+    done = np.zeros((n, n), bool)
     for y in range(n):
         for x in range(n):
             d = depth[y, x]
-            if d == 0:
+            if d == 0 or done[y, x]:
                 continue
+            end = x
+            while end + 1 < n and depth[y, end + 1] == d and not done[y, end + 1]:
+                end += 1
+            bottom = y
+            while bottom + 1 < n and np.all(depth[bottom + 1, x:end + 1] == d) and not done[bottom + 1, x:end + 1].any():
+                bottom += 1
+            done[y:bottom + 1, x:end + 1] = True
+            u0, u1, v0, v1 = x / tw, (end + 1) / tw, y / th, (bottom + 1) / th
             h = d / 2
-            # the side faces only where the neighbour is thinner, coloured with this pixel
-            c = ((x + 0.5) / tw, (y + 0.5) / th)
-            uv = [c, c, c, c]
-            if x == 0 or depth[y, x - 1] < d:
-                tris += quad(at(x, y, -h), at(x, y + 1, -h), at(x, y + 1, h), at(x, y, h), uv)
-            if x == n - 1 or depth[y, x + 1] < d:
-                tris += quad(at(x + 1, y, h), at(x + 1, y + 1, h), at(x + 1, y + 1, -h), at(x + 1, y, -h), uv)
-            if y == 0 or depth[y - 1, x] < d:
-                tris += quad(at(x, y, h), at(x + 1, y, h), at(x + 1, y, -h), at(x, y, -h), uv)
-            if y == n - 1 or depth[y + 1, x] < d:
-                tris += quad(at(x, y + 1, -h), at(x + 1, y + 1, -h), at(x + 1, y + 1, h), at(x, y + 1, h), uv)
+            tris += quad(at(x, y, -h), at(end + 1, y, -h), at(end + 1, bottom + 1, -h), at(x, bottom + 1, -h),
+                         [(u0, v0), (u1, v0), (u1, v1), (u0, v1)])
+            tris += quad(at(end + 1, y, h), at(x, y, h), at(x, bottom + 1, h), at(end + 1, bottom + 1, h),
+                         [(u1, v0), (u0, v0), (u0, v1), (u1, v1)])
+
+    def thinner(x, y, d):
+        return x < 0 or y < 0 or x >= n or y >= n or depth[y, x] < d
+
+    # the sides only where the neighbour is thinner, in strips of one depth along an edge: a strip
+    # runs across its pixels' centres, so each part shows the colour of its own pixel
+    for x in range(n):
+        u = (x + 0.5) / tw
+        for dx in (-1, 1):
+            y = 0
+            while y < n:
+                d = depth[y, x]
+                if d == 0 or not thinner(x + dx, y, d):
+                    y += 1
+                    continue
+                end = y
+                while end + 1 < n and depth[end + 1, x] == d and thinner(x + dx, end + 1, d):
+                    end += 1
+                h = d / 2
+                uv = [(u, y / th), (u, (end + 1) / th), (u, (end + 1) / th), (u, y / th)]
+                if dx < 0:
+                    tris += quad(at(x, y, -h), at(x, end + 1, -h), at(x, end + 1, h), at(x, y, h), uv)
+                else:
+                    tris += quad(at(x + 1, y, h), at(x + 1, end + 1, h), at(x + 1, end + 1, -h), at(x + 1, y, -h), uv)
+                y = end + 1
+    for y in range(n):
+        v = (y + 0.5) / th
+        for dy in (-1, 1):
+            x = 0
+            while x < n:
+                d = depth[y, x]
+                if d == 0 or not thinner(x, y + dy, d):
+                    x += 1
+                    continue
+                end = x
+                while end + 1 < n and depth[y, end + 1] == d and thinner(end + 1, y + dy, d):
+                    end += 1
+                h = d / 2
+                uv = [(x / tw, v), ((end + 1) / tw, v), ((end + 1) / tw, v), (x / tw, v)]
+                if dy < 0:
+                    tris += quad(at(x, y, h), at(end + 1, y, h), at(end + 1, y, -h), at(x, y, -h), uv)
+                else:
+                    tris += quad(at(x, y + 1, -h), at(end + 1, y + 1, -h), at(end + 1, y + 1, h), at(x, y + 1, h),
+                                 [uv[0], uv[1], uv[2], uv[3]])
+                x = end + 1
     return tris
 
 
-def bones_thicker(p):
-    """Dark pixels are the bones and veins: three pixels thick, the membrane one."""
-    return 3 if p[0] < 110 else 1
-
-
-def neon_bones(p):
-    """The red bones of a neon wing (blue kept at 10): three pixels thick, the rest one."""
-    return 3 if p[0] > 120 and p[2] < 20 else 1
-
-
 def wings():
-    write_model('dragon', [('wing', (0, 0, 0), extrude('dragon', (3, 12), bones_thicker))])
-    write_model('dragon_small', [('wing', (0, 0, 0), extrude('dragon_small', (3, 22), neon_bones))])
+    """Rago's pixel-art wings: the bones two and a half cells thick, the membrane one (a cell is WING_SCALE pixels)."""
+    import cosmetics
+    k = cosmetics.WING_SCALE
+    for name, parts, root in (('dragon', cosmetics.dragon_parts, (3, 12)), ('dragon_small', cosmetics.dragon_small_parts, (3, 22))):
+        _, bones = parts()
+
+        def depth(x, y, bones=bones):
+            return 5 * k / 2 if (x, y) in bones else k
+        write_model(name, [('wing', (0, 0, 0), extrude(name, (root[0] * k, root[1] * k), None, 0.25, depth))])
 
 
 def shields():

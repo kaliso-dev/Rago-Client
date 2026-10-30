@@ -18,97 +18,142 @@ def grey(v, a=255):
     return (v, v, v, a)
 
 
-def scales(img, shape_mask, seed, light=196, dark=124):
-    """Overlapping scales on the membrane: little rounded cells, each darker along its lower rim."""
-    rnd = random.Random(seed)
-    for y in range(N):
-        for x in range(N):
-            if not shape_mask(x, y):
-                continue
-            row = y // 4
-            sx = (x + (2 if row % 2 else 0)) % 4
-            sy = y % 4
-            # an arc: the rim runs down the sides and under the middle of each scale
-            rim = (sy == 3 and sx in (1, 2)) or (sy == 2 and sx in (0, 3))
-            v = dark if rim else light - sy * 12 + rnd.randint(-5, 5)
-            img.putpixel((x, y), grey(v))
+WING_SCALE = 4
+"""The wings are drawn on a 64 x 64 grid, each cell WING_SCALE pixels, so their curves are smooth in game."""
+
+
+def quad_curve(p0, p1, p2, steps=24):
+    """Points of the quadratic curve from p0 to p2 pulled toward p1."""
+    return [((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0],
+             (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]) for t in (i / steps for i in range(steps + 1))]
+
+
+def tapered(d, a, b, wa, wb, fill):
+    """A bone from a to b, wa pixels wide at a and wb at b, with round ends."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    length = math.hypot(dx, dy) or 1
+    nx, ny = -dy / length, dx / length
+    d.polygon([(a[0] + nx * wa / 2, a[1] + ny * wa / 2), (b[0] + nx * wb / 2, b[1] + ny * wb / 2),
+               (b[0] - nx * wb / 2, b[1] - ny * wb / 2), (a[0] - nx * wa / 2, a[1] - ny * wa / 2)], fill=fill)
+    for c, w in ((a, wa), (b, wb)):
+        d.ellipse([c[0] - w / 2, c[1] - w / 2, c[0] + w / 2, c[1] + w / 2], fill=fill)
 
 
 def bat_wing(joint, tips, top, root_low, bone=46, membrane_seed=3):
     """
-    A dragon wing: an arm bone from the root to the joint, finger bones to each tip, a membrane
-    with scales sagging between the fingers, and claws on the joint and the tips.
+    A dragon wing on the 64 x 64 grid: an arm bone from the root to the joint, tapered finger bones
+    to each tip, a membrane of fine scales sagging in curves between the fingers, and claws on the
+    joint and the tips. Grey, so the colour chosen in game tints it. Returns the image and the set of
+    bone pixels, which the model makes thicker than the membrane.
     """
-    img = Image.new('RGBA', (N, N))
+    k = WING_SCALE
+    n = N * k
+
+    def at(p):
+        return (p[0] * k + k / 2, p[1] * k + k / 2)
+    J, T, TOP = at(joint), [at(t) for t in tips], [at(p) for p in top]
+    outline = TOP + [J, T[0]]
+    sags = []
+    for i in range(1, len(T)):
+        a, b = T[i - 1], T[i]
+        # the membrane sags between two finger tips, through the old notch point, in a smooth curve
+        mid = ((a[0] + b[0]) / 2 - 6 * k, (a[1] + b[1]) / 2 - 6 * k)
+        pull = (2 * mid[0] - (a[0] + b[0]) / 2, 2 * mid[1] - (a[1] + b[1]) / 2)
+        curve = quad_curve(a, pull, b)
+        sags.append(curve)
+        outline += curve[1:]
+    outline += [at(root_low)]
+    shape = Image.new('L', (n, n))
+    ImageDraw.Draw(shape).polygon(outline, fill=255)
+    img = Image.new('RGBA', (n, n))
+    rnd = random.Random(membrane_seed)
+    cell = 3 * k
+    for y in range(n):
+        for x in range(n):
+            if shape.getpixel((x, y)) <= 127:
+                continue
+            # rows of rounded scales, each darker along its lower rim
+            row = y // cell
+            sx = ((x + (cell // 2 if row % 2 else 0)) % cell + 0.5) / cell
+            sy = (y % cell + 0.5) / cell
+            r = math.hypot(sx - 0.5, sy - 0.1)
+            v = 190 - sy * 34 + rnd.randint(-2, 2)
+            if 0.5 < r < 0.62 and sy > 0.3:
+                v = 132
+            img.putpixel((x, y), grey(int(v)))
     d = ImageDraw.Draw(img)
-    outline = top + [joint, tips[0]]
-    for i in range(1, len(tips)):
-        a, b = tips[i - 1], tips[i]
-        # the membrane sags between two finger tips
-        mid = ((a[0] + b[0]) / 2 - 6, (a[1] + b[1]) / 2 - 6)
-        outline += [mid, b]
-    outline += [root_low]
-    mask_img = Image.new('L', (N, N))
-    ImageDraw.Draw(mask_img).polygon(outline, fill=255)
-    scales(img, lambda x, y: mask_img.getpixel((x, y)) > 127, membrane_seed)
-    # the membrane darkens towards its trailing edge
-    edge = Image.new('L', (N, N))
-    ImageDraw.Draw(edge).line(outline[len(top) + 1:], fill=255, width=2)
-    for y in range(N):
-        for x in range(N):
-            if edge.getpixel((x, y)) and mask_img.getpixel((x, y)) > 127:
+    # the trailing edge, a little darker
+    edge = Image.new('L', (n, n))
+    for curve in sags + [[T[-1], at(root_low)]]:
+        ImageDraw.Draw(edge).line(curve, fill=255, width=round(1.5 * k), joint='curve')
+    for y in range(n):
+        for x in range(n):
+            if edge.getpixel((x, y)) and shape.getpixel((x, y)) > 127:
                 img.putpixel((x, y), grey(112))
-    # finger bones with a lighter ridge, the arm bone thicker
-    for t in tips:
-        d.line([joint, t], fill=grey(bone), width=2)
-    d.line(top + [joint], fill=grey(bone - 8), width=3)
-    for t in tips:
-        d.line([joint, t], fill=grey(bone + 30), width=1)
-    # knuckles along the arm, claws on the joint and the finger tips
-    for k in range(1, len(top)):
-        d.point([top[k]], fill=grey(bone + 40))
-    d.polygon([(joint[0] - 1, joint[1]), (joint[0] + 2, joint[1] - 5), (joint[0] + 3, joint[1] + 1)], fill=grey(240))
-    for t in tips[:-1]:
-        d.point([(min(N - 1, t[0] + 1), t[1])], fill=grey(235))
-    return img
+    # the bones: the arm thick from the root to the joint, the fingers thinning toward their tips
+    bones = Image.new('L', (n, n))
+    db = ImageDraw.Draw(bones)
+    arm = TOP + [J]
+    for i in range(1, len(arm)):
+        for target, fill in ((d, grey(bone - 8)), (db, 255)):
+            tapered(target, arm[i - 1], arm[i], 2.8 * k, 2.6 * k, fill)
+    for t in T:
+        for target, fill in ((d, grey(bone)), (db, 255)):
+            tapered(target, J, t, 2.2 * k, 1.1 * k, fill)
+    # a lighter ridge along each finger, knuckles along the arm
+    for t in T:
+        tapered(d, J, t, 0.7 * k, 0.3 * k, grey(bone + 30))
+    for p in TOP[1:]:
+        d.ellipse([p[0] - 0.9 * k, p[1] - 0.9 * k, p[0] + 0.9 * k, p[1] + 0.9 * k], fill=grey(bone + 40))
+    # claws: a hook on the joint, a point past each finger tip
+    d.polygon([(J[0] - 1 * k, J[1]), (J[0] + 2 * k, J[1] - 5 * k), (J[0] + 3 * k, J[1] + 1 * k)], fill=grey(240))
+    for t in T[:-1]:
+        dx, dy = t[0] - J[0], t[1] - J[1]
+        length = math.hypot(dx, dy)
+        ux, uy = dx / length, dy / length
+        tip = (t[0] + ux * 1.6 * k, t[1] + uy * 1.6 * k)
+        d.polygon([(t[0] - uy * 0.6 * k, t[1] + ux * 0.6 * k), tip, (t[0] + uy * 0.6 * k, t[1] - ux * 0.6 * k)], fill=grey(235))
+    bone_set = {(x, y) for y in range(n) for x in range(n) if bones.getpixel((x, y)) > 127 and img.getpixel((x, y))[3]}
+    return img, bone_set
 
 
-def dragon():
+def dragon_parts():
     """Ender-dragon-like wing: long bones, scaled membrane, scalloped trailing edge. Root at (3, 12)."""
     return bat_wing((40, 5), [(63, 14), (60, 40), (46, 54), (28, 58), (10, 48)], [(2, 10), (20, 5)], (3, 30))
 
 
-def dragon_small():
+def dragon_small_parts():
     """
     A short dragon wing, as compact as Lunar Client's: the arm bone rising from the root, three
     fingers, the membrane scaled. Root at (3, 22); the model is drawn smaller in game. Coloured in
-    Rago's neon look: a black membrane with glowing red bones and edge (drawn untinted).
+    Rago's neon look, the Rago cape's black and red: a black membrane with red bones and edge (drawn
+    untinted).
     """
-    wing = bat_wing((34, 8), [(60, 16), (52, 34), (34, 42), (16, 38)], [(2, 20), (16, 12)], (3, 32), membrane_seed=5)
-    return neon(wing)
+    wing, bones = bat_wing((34, 8), [(60, 16), (52, 34), (34, 42), (16, 38)], [(2, 20), (16, 12)], (3, 32), membrane_seed=5)
+    return neon(wing, bones), bones
 
 
-def neon(img):
+def neon(img, bones):
     """
-    A grey wing in red and black: bones (dark greys) glowing red, the trailing edge red, claws
-    light, the scaled membrane almost black. Bones keep a blue of 10 so the model makes them thick.
+    A grey wing in the Rago cape's red and black: the bones and the trailing edge red, the claws
+    light, the membrane black with its scales just visible.
     """
     out = img.copy()
-    for y in range(img.size[1]):
-        for x in range(img.size[0]):
+    w, h = img.size
+    for y in range(h):
+        for x in range(w):
             r, g, b, a = img.getpixel((x, y))
             if a == 0:
                 continue
             v = r
             if v >= 230:
                 c = (255, 96, 84)
-            elif v == 112:
-                c = (214, 22, 30)
-            elif v < 110:
-                k = max(0.0, min(1.0, (v - 38) / 48))
-                c = (int(150 + 105 * k), int(12 + 48 * k), 10)
+            elif (x, y) in bones or v == 112:
+                c = (242, 57, 44)
             else:
-                c = (int(v * 0.17), int(v * 0.10), int(v * 0.11))
+                # the membrane: 132 to 190 grey becomes the cape's black, 10 to 22
+                k = max(0.0, min(1.0, (v - 132) / 58))
+                c = (round(10 + 12 * k), round(10 + 12 * k), round(12 + 14 * k))
             out.putpixel((x, y), c + (a,))
     return out
 
@@ -255,8 +300,8 @@ def shield(style):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    dragon().save(os.path.join(OUT, 'dragon.png'))
-    dragon_small().save(os.path.join(OUT, 'dragon_small.png'))
+    dragon_parts()[0].save(os.path.join(OUT, 'dragon.png'))
+    dragon_small_parts()[0].save(os.path.join(OUT, 'dragon_small.png'))
     cap().save(os.path.join(OUT, 'cap.png'))
     beanie().save(os.path.join(OUT, 'beanie.png'))
     for style in SHIELD_STYLES:

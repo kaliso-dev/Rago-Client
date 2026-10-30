@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.21.** What it contains:
+**Current version: 1.4.22.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -223,6 +223,11 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     tick changes. In our test (left and right pressed in the same tick, 8 times): placed 1 tick late
     every time without it, in the same tick every time with it; holding right click while clicking
     left fast still places at vanilla's rate of one block every 4 ticks
+  - the dragon wings are drawn four times finer too (256 x 256): the trailing edge sags in curves
+    between the fingers, the finger bones thin toward their tips and the bones are a little thinner.
+    The small dragon wings take the Rago cape's black and red, like the shield. The models merge
+    neighbouring faces into larger ones: 4672 triangles for a small wing (1882 before, at a quarter
+    of the detail), 3632 for a shield (7352 in 1.4.21)
   - the shields are drawn four times finer (160 x 192 instead of 40 x 48, the logo and the rim's
     curve no longer in steps), and the Rago shield takes the Rago cape's black and red, without the
     grain. The neon glow now lights only the edge of a wide red area, so the shield's rim and logo
@@ -362,7 +367,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.21+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.4.22+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
