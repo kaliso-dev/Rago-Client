@@ -105,7 +105,7 @@ public final class SkinHeads {
 		}
 	}
 
-	private static InputStream open(String url) throws IOException {
+	static InputStream open(String url) throws IOException {
 		HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
 		c.setConnectTimeout(5000);
 		c.setReadTimeout(5000);
@@ -116,7 +116,7 @@ public final class SkinHeads {
 		return c.getInputStream();
 	}
 
-	private static JsonObject json(String url) throws IOException {
+	static JsonObject json(String url) throws IOException {
 		try (InputStream in = open(url)) {
 			return new JsonParser().parse(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
 		}

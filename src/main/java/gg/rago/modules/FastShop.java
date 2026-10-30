@@ -23,6 +23,8 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.EnumChatFormatting;
 
+import java.text.Normalizer;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,7 +43,19 @@ import java.util.regex.Pattern;
  * Input class, off by default.
  */
 public final class FastShop extends Module {
-	private static final Pattern COST = Pattern.compile("Cost: (\\d+) (Iron|Gold|Diamond|Emerald)", Pattern.CASE_INSENSITIVE);
+	/**
+	 * A price in the lore, in the languages Hypixel offers most ("Cost: 24 Iron", "Coût : 24 Fer",
+	 * "Kosten: 24 Eisen", "Costo: 24 Hierro"...): a word, a colon, an amount and a resource.
+	 */
+	private static final Pattern COST = Pattern.compile(
+		"^\\s*[\\p{L} ]{3,20}?\\s*:\\s*(\\d+)\\s+(\\p{L}+)", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+	/** Each resource's name in those languages, singular and plural, without accents. */
+	private static final String[][] RESOURCES = {
+		{"iron", "iron", "fer", "eisen", "hierro", "ferro", "ijzer", "zelazo", "zelezo"},
+		{"gold", "gold", "golds", "or", "oro", "ouro", "goud", "zloto", "zlato"},
+		{"diamond", "diamond", "diamonds", "diamant", "diamants", "diamanten", "diamante", "diamantes", "diamanti", "diament", "diamenty"},
+		{"emerald", "emerald", "emeralds", "emeraude", "emeraudes", "smaragd", "smaragde", "esmeralda", "esmeraldas", "smeraldo", "smeraldi", "szmaragd", "szmaragdy"},
+	};
 
 	private final BooleanOption fastClicks = addOption(new BooleanOption("shop_fast_clicks", true));
 	private final BooleanOption highlight = addOption(new BooleanOption("shop_highlight", true));
@@ -158,11 +172,22 @@ public final class FastShop extends Module {
 	/** {amount, resource} from a lore line without colour codes, such as "Cost: 24 Iron", or null. */
 	static String[] price(String line) {
 		Matcher m = line == null ? null : COST.matcher(line);
-		return m != null && m.find() ? new String[] {m.group(1), m.group(2).toLowerCase(java.util.Locale.ROOT)} : null;
+		if (m == null || !m.find()) {
+			return null;
+		}
+		String word = Normalizer.normalize(m.group(2), Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT);
+		for (String[] r : RESOURCES) {
+			for (int i = 1; i < r.length; i++) {
+				if (r[i].equals(word)) {
+					return new String[] {m.group(1), r[0]};
+				}
+			}
+		}
+		return null;
 	}
 
 	static Cost cost(int amount, String resource) {
-		switch (resource.toLowerCase(java.util.Locale.ROOT)) {
+		switch (resource.toLowerCase(Locale.ROOT)) {
 			case "iron":
 				return new Cost(amount, Items.iron_ingot, 0xFFFFFF);
 			case "gold":

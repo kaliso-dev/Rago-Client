@@ -37,6 +37,10 @@ public final class CosmeticModel {
 		this.texture = texture;
 	}
 
+	public ResourceLocation texture() {
+		return texture;
+	}
+
 	/** The point a group turns around, in the model's space; zeros when the group is unknown. */
 	public float[] pivot(String group) {
 		load();
@@ -46,6 +50,11 @@ public final class CosmeticModel {
 
 	/** Draws a group tinted with argb; the caller has set up the matrix and disabled lighting. */
 	public void render(String group, int argb) {
+		render(group, argb, texture);
+	}
+
+	/** {@link #render(String, int)} with another texture of the same layout, such as a recoloured one. */
+	public void render(String group, int argb, ResourceLocation texture) {
 		load();
 		Group g = groups.get(group);
 		if (g == null) {

@@ -20,7 +20,9 @@ import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.scoreboard.Score;
 import net.minecraft.scoreboard.ScoreObjective;
+import net.minecraft.scoreboard.ScorePlayerTeam;
 import net.minecraft.scoreboard.Scoreboard;
+import net.minecraft.world.World;
 import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -28,11 +30,14 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
+import java.util.Map;
+import java.util.WeakHashMap;
+
 /**
  * Players' name tags drawn Rago's way: a style preset (Vanilla, Rago, Minimal, Outline) and then
- * every detail on its own: font (Minecraft, Poppins, Inter), size, server colours or a custom
- * colour, shadow, background colour and opacity, round corners, border, and whether the name
- * shows faintly through walls. Who gets a name tag, and when, follows vanilla's rules (distance,
+ * every detail on its own: font (Minecraft, Poppins, Inter), server colours or a custom colour,
+ * shadow, background colour, round corners, border, and whether the name shows faintly through
+ * walls. Size and opacity stay vanilla's: only colours change, never how visible a name is. Who gets a name tag, and when, follows vanilla's rules (distance,
  * sneaking, team visibility, invisibility); the below-name score line is kept. Your own name can be
  * shown in third person.
  */
@@ -46,11 +51,13 @@ public final class Nametags extends Module implements Styled {
 	private final LabelBatch batch = new LabelBatch();
 	private final BooleanOption showOwn = addOption(new BooleanOption("show_own", false));
 	private final BooleanOption throughWalls = addOption(new BooleanOption("through_walls", true));
-	/** How visible a name is through walls, in percent of its normal look; 50 is vanilla's faint text. */
-	private final IntOption wallOpacity = addOption(new IntOption("wall_opacity", 50, 0, 100));
+	/**
+	 * How visible a name is through walls, as a share of its normal look: vanilla's faint text, and
+	 * not a setting, since a brighter name behind walls would show where players hide.
+	 */
+	private static final float WALL_OPACITY = 0.5f;
 	/** Names show up to this many blocks away, as vanilla's 64 (32 when sneaking). */
 	private final IntOption maxDistance = addOption(new IntOption("nametag_distance", 64, 8, 64));
-	private final IntOption scale = addOption(new IntOption("nametag_scale", 100, 50, 200));
 	private final ChoiceOption style;
 	private final ChoiceOption font;
 	private final BooleanOption shadow;
@@ -59,31 +66,32 @@ public final class Nametags extends Module implements Styled {
 	private final BooleanOption background;
 	private final ColorOption backgroundColor;
 	private final IntOption radius;
-	private final IntOption padding;
+	/** Vanilla's space around the name; not a setting, as the tag keeps vanilla's size. */
+	private static final int PADDING = 1;
+	/** Vanilla's name tag background: black at a quarter opacity; only its colour can change. */
+	private static final int BACKGROUND_ALPHA = 0x40;
 	private final BooleanOption border;
 	private final ColorOption borderColor;
 
 	public Nametags() {
 		super("nametags", FeatureClass.VISUAL, false);
-		wallOpacity.showIf(throughWalls::get);
 		section("style");
 		style = addOption(new ChoiceOption("style", "vanilla", STYLES).onSelect(this::applyStyle));
 		font = addOption(new ChoiceOption("font", HudText.MINECRAFT, HudText.FONTS));
 		shadow = addOption(new BooleanOption("shadow", false));
 		section("text");
 		colorMode = addOption(new ChoiceOption("name_color_mode", "server", "server", "custom"));
-		nameColor = addOption(new ColorOption("name_color", 0xFFFFFFFF));
+		// any colour, but as opaque as vanilla's text
+		nameColor = addOption(new ColorOption("name_color", 0xFFFFFFFF).fixedAlpha(0xFF));
 		nameColor.showIf(() -> colorMode.is("custom"));
 		section("background");
 		background = addOption(new BooleanOption("background", true));
-		backgroundColor = addOption(new ColorOption("background_color", 0x40000000));
+		backgroundColor = addOption(new ColorOption("background_color", 0x40000000).fixedAlpha(BACKGROUND_ALPHA));
 		backgroundColor.showIf(background::get);
 		radius = addOption(new IntOption("corner_radius", 0, 0, 6));
 		radius.showIf(background::get);
-		padding = addOption(new IntOption("padding", 1, 0, 6));
-		padding.showIf(background::get);
 		border = addOption(new BooleanOption("border", false));
-		borderColor = addOption(new ColorOption("border_color", 0x60FFFFFF));
+		borderColor = addOption(new ColorOption("border_color", 0x60FFFFFF).fixedAlpha(0x60));
 		borderColor.showIf(border::get);
 		section(null);
 		applyStyle("vanilla");
@@ -112,7 +120,6 @@ public final class Nametags extends Module implements Styled {
 				background.set(true);
 				backgroundColor.set(0xA0101014);
 				radius.set(3);
-				padding.set(2);
 				border.set(true);
 				borderColor.set(0x30FFFFFF);
 				break;
@@ -128,7 +135,6 @@ public final class Nametags extends Module implements Styled {
 				background.set(true);
 				backgroundColor.set(0x30000000);
 				radius.set(2);
-				padding.set(2);
 				border.set(true);
 				borderColor.set(Theme.ACCENT);
 				break;
@@ -138,7 +144,6 @@ public final class Nametags extends Module implements Styled {
 				background.set(true);
 				backgroundColor.set(0x40000000);
 				radius.set(0);
-				padding.set(1);
 				border.set(false);
 		}
 	}
@@ -158,8 +163,8 @@ public final class Nametags extends Module implements Styled {
 		if (!isEnabled()) {
 			return NameTags.LINE;
 		}
-		float units = Math.max(9 * 1.15f, 8 + padding.get() * 2 + 2.35f);
-		return units * WorldDraw.LABEL_SCALE * scale.get() / 100.0;
+		float units = Math.max(9 * 1.15f, 8 + PADDING * 2 + 2.35f);
+		return units * WorldDraw.LABEL_SCALE;
 	}
 
 	@SubscribeEvent(priority = EventPriority.HIGH)
@@ -167,6 +172,14 @@ public final class Nametags extends Module implements Styled {
 		if (!isEnabled() || !(event.entity instanceof EntityPlayer)) {
 			return;
 		}
+		long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
+		namePre(event);
+		if (gg.rago.debug.FrameProfile.ON) {
+			gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.NAMES_QUEUED, System.nanoTime() - t);
+		}
+	}
+
+	private void namePre(RenderLivingEvent.Specials.Pre<EntityLivingBase> event) {
 		EntityPlayer p = (EntityPlayer) event.entity;
 		Minecraft mc = Minecraft.getMinecraft();
 		boolean self = p == mc.getRenderViewEntity();
@@ -193,7 +206,7 @@ public final class Nametags extends Module implements Styled {
 	private void drawName(EntityPlayer p, double x, double y, double z) {
 		Minecraft mc = Minecraft.getMinecraft();
 		double base = y + p.height + 0.5 - (p.isChild() ? p.height / 2 : 0);
-		String name = p.getDisplayName().getFormattedText();
+		String name = displayName(p);
 		if (p.isSneaking()) {
 			// vanilla: lower, only where the player is visible, faint text
 			label(name, x, base, z, SNEAK_DROP, false, 0x20);
@@ -208,7 +221,56 @@ public final class Nametags extends Module implements Styled {
 			label(score.getScorePoints() + " " + below.getDisplayName(), x, top, z, 0, throughWalls.get(), 0xFF);
 			top += lineHeight();
 		}
-		label(name, x, top, z, 0, throughWalls.get(), 0xFF);
+		RagoBadge badge = gg.rago.hooks.Hooks.ragoBadge;
+		boolean logo = p == mc.thePlayer && badge != null && badge.onNametag();
+		label(name, x, top, z, 0, throughWalls.get(), 0xFF, logo ? badge : null);
+	}
+
+	/** A player's name as the game shows it, what it was made from, and the tick it was made. */
+	private static final class Name {
+		int tick = -1;
+		Object team;
+		String prefix;
+		String suffix;
+		String base;
+		String text;
+	}
+
+	/** Names are made again at least this often, for mods that change them without a team change. */
+	private static final int NAME_REFRESH_TICKS = 20;
+
+	private final Map<EntityPlayer, Name> names = new WeakHashMap<>();
+	private World namesWorld;
+
+	/**
+	 * The player's name with its team colours. The game builds a chat message with a click and a
+	 * hover action (an NBT tag turned to text) each time it is asked, so the name is made again only
+	 * when the team, its prefix or suffix or the name change, and once a second whatever happens.
+	 */
+	private String displayName(EntityPlayer p) {
+		if (p.worldObj != namesWorld) {
+			namesWorld = p.worldObj;
+			names.clear();
+		}
+		Name n = names.get(p);
+		if (n == null) {
+			n = new Name();
+			names.put(p, n);
+		}
+		ScorePlayerTeam team = p.getWorldScoreboard().getPlayersTeam(p.getName());
+		String prefix = team == null ? null : team.getColorPrefix();
+		String suffix = team == null ? null : team.getColorSuffix();
+		String base = p.getDisplayNameString();
+		int age = p.ticksExisted - n.tick;
+		if (n.text == null || age < 0 || age >= NAME_REFRESH_TICKS || n.team != team || n.prefix != prefix || n.suffix != suffix || n.base != base) {
+			n.tick = p.ticksExisted;
+			n.team = team;
+			n.prefix = prefix;
+			n.suffix = suffix;
+			n.base = base;
+			n.text = p.getDisplayName().getFormattedText();
+		}
+		return n.text;
 	}
 
 	/**
@@ -218,19 +280,25 @@ public final class Nametags extends Module implements Styled {
 	 * all together after the world (see {@link LabelBatch}).
 	 */
 	public void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha) {
+		label(text, x, anchorY, z, drop, seeThrough, alpha, null);
+	}
+
+	/** {@link #label}, with the Rago logo before the text when {@code logo} is given. */
+	private void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha, RagoBadge logo) {
 		String shown = colorMode.is("custom") ? TtfFont.strip(text) : text;
 		int color = colorMode.is("custom") ? nameColor.get() : 0xFFFFFFFF;
-		float s = WorldDraw.LABEL_SCALE * scale.get() / 100f;
-		int pad = background.get() ? padding.get() : 0;
+		float s = WorldDraw.LABEL_SCALE;
+		int pad = background.get() ? PADDING : 0;
 		TtfFont ttf = HudText.ttf(font.get());
 		float em = HudText.em(font.get());
-		float w = LabelBatch.width(ttf, em, WORLD_SHARPNESS, shown);
+		float logoW = logo != null ? RagoBadge.LOGO_SIZE + 2 : 0;
+		float w = LabelBatch.width(ttf, em, WORLD_SHARPNESS, shown) + logoW;
 		float half = w / 2f;
 		// keep the bottom of the text where vanilla's is, so a bigger tag grows upwards, away from the head
 		batch.begin(x, anchorY, z, s, (drop + 8) * WorldDraw.LABEL_SCALE / s - 8 - pad);
 		// as vanilla: the tag is drawn normally where the player can be seen, and only a faint copy
-		// (background, border and text at wall_opacity) shows through walls, whatever the colours
-		float wall = seeThrough ? wallOpacity.get() / 100f : 0;
+		// (background, border and text at vanilla's faintness) shows through walls, whatever the colours
+		float wall = seeThrough ? WALL_OPACITY : 0;
 		float bx = -half - 1 - pad;
 		float by = -1 - pad;
 		float bw = w + 2 + pad * 2;
@@ -244,12 +312,18 @@ public final class Nametags extends Module implements Styled {
 		int a = Math.min(alpha, color >>> 24);
 		boolean ok = true;
 		int faint = Math.round(0x40 * wall * a / 255f);
+		float tx = -half + logoW;
 		if (faint > 0) {
-			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, shown, -half, 0, faint << 24 | color & 0xFFFFFF, false);
+			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, shown, tx, 0, faint << 24 | color & 0xFFFFFF, false);
 		}
 		if (ok) {
-			ok = batch.text(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, ttf, em, WORLD_SHARPNESS, shown, -half, 0,
+			ok = batch.text(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, ttf, em, WORLD_SHARPNESS, shown, tx, 0,
 				a << 24 | color & 0xFFFFFF, shadow.get());
+		}
+		int logoTexture = logo != null ? logo.texture() : 0;
+		if (ok && logoTexture != 0) {
+			batch.image(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, logoTexture, -half, -0.5f, RagoBadge.LOGO_SIZE, RagoBadge.LOGO_SIZE,
+				logo.color());
 		}
 		if (!ok) {
 			// characters outside the Minecraft font's ASCII page (or the Unicode font): vanilla draws it

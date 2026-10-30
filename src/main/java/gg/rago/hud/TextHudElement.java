@@ -302,6 +302,16 @@ public abstract class TextHudElement extends HudElement implements Styled {
 
 	@Override
 	public int width(FontRenderer text, boolean placeholder) {
+		return boxWidth(placeholder);
+	}
+
+	@Override
+	public int height(FontRenderer text, boolean placeholder) {
+		return boxHeight(placeholder);
+	}
+
+	/** Width of the text and its background, whatever a subclass adds around them. */
+	protected final int boxWidth(boolean placeholder) {
 		List<List<Seg>> lines = lines(placeholder);
 		if (frameWidth < 0) {
 			int w = 0;
@@ -313,16 +323,15 @@ public abstract class TextHudElement extends HudElement implements Styled {
 		return Math.max(frameWidth + pad() * 2, minWidth.get());
 	}
 
-	@Override
-	public int height(FontRenderer text, boolean placeholder) {
+	protected final int boxHeight(boolean placeholder) {
 		return lines(placeholder).size() * 10 - 1 + vpad() * 2 - (background.get() ? 1 : 0);
 	}
 
 	@Override
 	public void render(FontRenderer text, boolean placeholder) {
 		List<List<Seg>> lines = lines(placeholder);
-		int w = width(text, placeholder);
-		int h = height(text, placeholder);
+		int w = boxWidth(placeholder);
+		int h = boxHeight(placeholder);
 		if (background.get()) {
 			Paint.round(0, 0, w, h, radius.get(), backgroundColor.get());
 			if (border.get()) {

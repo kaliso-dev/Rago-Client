@@ -6,10 +6,12 @@ import java.util.function.BooleanSupplier;
 public final class EngineTweaks {
 	private final BooleanSupplier fastWorldSwitch;
 	private final BooleanSupplier unstackedItems;
+	private final BooleanSupplier particleCollisions;
 
-	EngineTweaks(BooleanSupplier fastWorldSwitch, BooleanSupplier unstackedItems) {
+	EngineTweaks(BooleanSupplier fastWorldSwitch, BooleanSupplier unstackedItems, BooleanSupplier particleCollisions) {
 		this.fastWorldSwitch = fastWorldSwitch;
 		this.unstackedItems = unstackedItems;
+		this.particleCollisions = particleCollisions;
 	}
 
 	/** Skip the full garbage collection vanilla forces on every world change (the freeze when switching servers). */
@@ -20,5 +22,13 @@ public final class EngineTweaks {
 	/** Draw one copy of a dropped stack instead of up to five (generators in Bed Wars). */
 	public boolean unstackedItems() {
 		return unstackedItems.getAsBoolean();
+	}
+
+	/**
+	 * Particles bounce on blocks as in vanilla. Off, a new particle moves without the collision
+	 * test each tick (it looks up the blocks and entities around it), and goes through blocks.
+	 */
+	public boolean particleCollisions() {
+		return particleCollisions.getAsBoolean();
 	}
 }

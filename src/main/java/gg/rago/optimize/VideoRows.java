@@ -35,6 +35,7 @@ public final class VideoRows {
 		vanillaToggle(s, "fancy_graphics", "GRAPHICS", () -> mc.gameSettings.fancyGraphics);
 		vanillaToggle(s, "entity_shadows", "ENTITY_SHADOWS", () -> mc.gameSettings.entityShadows);
 		vanillaToggle(s, "view_bobbing", "VIEW_BOBBING", () -> mc.gameSettings.viewBobbing);
+		vanillaToggle(s, "use_vbo", "USE_VBO", () -> mc.gameSettings.useVbo);
 		if (!OptiFineFields.installed()) {
 			cycle(s, MC, "smooth_lighting", "AMBIENT_OCCLUSION", () -> mc.gameSettings.ambientOcclusion,
 				new int[] {0, 1, 2}, "options.ao.off", "options.ao.min", "options.ao.max");

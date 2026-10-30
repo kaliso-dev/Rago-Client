@@ -13,6 +13,7 @@ import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.World;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
@@ -46,6 +47,13 @@ public final class MotionBlur extends Module {
 	/** The trail is updated at most this often. */
 	private static final float STEP = 1 / 60f;
 
+	/** Clean: the trail keeps this much of itself each frame... */
+	private static final float CLEAN_TRAIL = 0.7f;
+	/** ...and is laid over the sharp frame at this opacity. */
+	private static final float CLEAN_MIX = 0.8f;
+
+	/** A ready-made blur: every frame, always on, fixed amounts; the other settings are hidden. */
+	private final BooleanOption clean = addOption(new BooleanOption("blur_clean", false));
 	private final IntOption strength = addOption(new IntOption("blur_strength", 30, 1, 100));
 	private final ChoiceOption mode = addOption(new ChoiceOption("blur_mode", "always", "always", "turning", "moving"));
 	private final IntOption sensitivity = addOption(new IntOption("blur_sensitivity", 50, 1, 100));
@@ -73,7 +81,10 @@ public final class MotionBlur extends Module {
 	public MotionBlur(Zoom zoom) {
 		super("motion_blur", FeatureClass.VISUAL, false);
 		this.zoom = zoom;
-		sensitivity.showIf(() -> !mode.is("always"));
+		sensitivity.showIf(() -> !clean.get() && !mode.is("always"));
+		strength.showIf(() -> !clean.get());
+		mode.showIf(() -> !clean.get());
+		frameIndependent.showIf(() -> !clean.get());
 	}
 
 	@Override
@@ -118,15 +129,23 @@ public final class MotionBlur extends Module {
 			fresh = true;
 			lastWorld = mc.theWorld;
 		}
-		if (!ensureTargets(mc.displayWidth, mc.displayHeight)) {
-			return;
-		}
-		float keep = keep(motion);
+		boolean cleanBlur = clean.get();
+		float keep = cleanBlur ? CLEAN_TRAIL : keep(motion);
 		if (pauseOnZoom.get() && zoom != null && zoom.isZooming()) {
 			keep = 0;
 		}
+		if (keep <= 0) {
+			// no trail to draw (standing still in the "turning" or "moving" mode, or zooming): no
+			// work at all this frame, and the trail starts from the frame it is next needed on
+			fresh = true;
+			sinceStep = 0;
+			return;
+		}
+		if (!ensureTargets(mc.displayWidth, mc.displayHeight)) {
+			return;
+		}
 		sinceStep += dt;
-		boolean step = !frameIndependent.get() || sinceStep >= STEP || fresh || keep <= 0;
+		boolean step = cleanBlur || !frameIndependent.get() || sinceStep >= STEP || fresh;
 		int previousFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
 		int[] viewport = viewport();
 		GlStateManager.pushMatrix();
@@ -144,16 +163,23 @@ public final class MotionBlur extends Module {
 		GlStateManager.enableTexture2D();
 		try {
 			if (step) {
-				// 1. the frame just drawn, as a texture
-				GlStateManager.bindTexture(frameTexture);
-				GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+				// 1. the frame just drawn, as a texture: the game's own framebuffer when it draws into
+				// one (read straight from it), otherwise a copy of the screen
+				Framebuffer main = mc.getFramebuffer();
+				if (OpenGlHelper.isFramebufferEnabled() && main != null && main.framebufferObject == previousFbo
+					&& main.framebufferTextureWidth == width && main.framebufferTextureHeight == height) {
+					GlStateManager.bindTexture(main.framebufferTexture);
+				} else {
+					GlStateManager.bindTexture(frameTexture);
+					GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+				}
 				// 2. blend it into the trail: trail = keep * trail + (1 - keep) * frame, with keep
 				// scaled to the time since the last update (one 60 FPS frame or more)
 				OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, historyFbo);
 				GlStateManager.viewport(0, 0, width, height);
-				float stepKeep = frameIndependent.get() ? (float) Math.pow(keep, Math.min(sinceStep, 0.25f) / STEP) : keep;
+				float stepKeep = !cleanBlur && frameIndependent.get() ? (float) Math.pow(keep, Math.min(sinceStep, 0.25f) / STEP) : keep;
 				sinceStep = 0;
-				if (fresh || keep <= 0) {
+				if (fresh) {
 					GlStateManager.disableBlend();
 					quad(1);
 					fresh = false;
@@ -166,12 +192,10 @@ public final class MotionBlur extends Module {
 				GlStateManager.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 			}
 			// 3. the trail over the sharp current frame
-			if (keep > 0) {
-				GlStateManager.enableBlend();
-				GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ZERO, GL11.GL_ONE);
-				GlStateManager.bindTexture(historyTexture);
-				quad(keep);
-			}
+			GlStateManager.enableBlend();
+			GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ZERO, GL11.GL_ONE);
+			GlStateManager.bindTexture(historyTexture);
+			quad(cleanBlur ? CLEAN_MIX : keep);
 		} finally {
 			OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFbo);
 			GlStateManager.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
@@ -222,10 +246,17 @@ public final class MotionBlur extends Module {
 		}
 	}
 
+	/** Reused every frame: a direct buffer is slow to make. */
+	private static final java.nio.IntBuffer VIEWPORT = org.lwjgl.BufferUtils.createIntBuffer(16);
+	private static final int[] VIEWPORT_OUT = new int[4];
+
 	private static int[] viewport() {
-		java.nio.IntBuffer b = org.lwjgl.BufferUtils.createIntBuffer(16);
-		GL11.glGetInteger(GL11.GL_VIEWPORT, b);
-		return new int[]{b.get(0), b.get(1), b.get(2), b.get(3)};
+		VIEWPORT.clear();
+		GL11.glGetInteger(GL11.GL_VIEWPORT, VIEWPORT);
+		for (int i = 0; i < 4; i++) {
+			VIEWPORT_OUT[i] = VIEWPORT.get(i);
+		}
+		return VIEWPORT_OUT;
 	}
 
 	/** A screen-filling quad with the bound texture at {@code alpha}. */

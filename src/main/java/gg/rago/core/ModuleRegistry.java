@@ -37,9 +37,14 @@ public final class ModuleRegistry {
 	}
 
 	public void tick() {
+		boolean timed = gg.rago.debug.FrameProfile.ON;
 		for (Module m : modules.values()) {
 			if (m.isEnabled()) {
+				long t = timed ? System.nanoTime() : 0;
 				m.tick();
+				if (timed) {
+					gg.rago.debug.FrameProfile.element(m.id() + " tick", System.nanoTime() - t);
+				}
 			}
 		}
 	}

@@ -140,10 +140,8 @@ def drop_hidden(tris):
 
 HATS = {
     # glb file: {name of the hat's node: (model name, texture name)}
-    'hats_mini_pack_1.glb': {'cape1_5': ('cap_blue', 'hats_atlas'), 'mushroomhead0_11': ('mushroom_red', 'hats_atlas'),
-                             'cylinder_18': ('top_hat', 'hats_atlas')},
-    'hats_mini_pack_3.glb': {'cape0_5': ('cap_green', 'hats_atlas'), 'mushroomhead2_11': ('mushroom_green', 'hats_atlas'),
-                             'magehat_20': ('wizard_hat', 'wizard_hat')},
+    'hats_mini_pack_1.glb': {'cylinder_18': ('top_hat', 'hats_atlas')},
+    'hats_mini_pack_3.glb': {'magehat_20': ('wizard_hat', 'wizard_hat')},
 }
 
 
@@ -183,24 +181,6 @@ def hats():
             open(os.path.join(TEXTURES, tex + '.png'), 'wb').write(texture(j, data, tris[0][2]))
 
 
-# ---- the voxel angel wings -------------------------------------------------------------------------
-
-def angel():
-    j, data = load_glb(os.path.join(SRC, 'wings_angel.glb'))
-    tris = []
-    walk(j, lambda node, world, path: tris.extend(triangles(j, data, node, world)) if 'mesh' in node else None)
-    # glTF: feet at y 0, the wings behind on +z. Minecraft's body space: y down from the neck at 1.5,
-    # the back toward +z. Turning half a circle around z keeps the back where it is.
-    left, right = [], []
-    for pos, uv, _ in tris:
-        p = (pos - np.array([0, 1.5, 0])) * np.array([-1, -1, 1])
-        (left if p[:, 0].mean() > 0 else right).append((p, uv))
-    # each wing turns around its root, close to the spine at shoulder height
-    write_model('angel', [('left', (0.04, 0.3, 0.2), drop_hidden(left)),
-                          ('right', (-0.04, 0.3, 0.2), drop_hidden(right))])
-    open(os.path.join(TEXTURES, 'angel.png'), 'wb').write(texture(j, data, tris[0][2]))
-
-
 # ---- extruded pixel-art wings ---------------------------------------------------------------------
 
 def quad(a, b, c, d, uv):
@@ -209,20 +189,24 @@ def quad(a, b, c, d, uv):
             (np.array([a, c, d]), np.array([uv[0], uv[2], uv[3]]))]
 
 
-def extrude(tex_name, root, depth_of, sweep=0.25):
+def extrude(tex_name, root, depth_of, sweep=0.25, depth_at=None):
     """
-    A wing from a 64 x 64 texture, one voxel per opaque pixel, `depth_of(pixel)` pixels thick. The root
-    pixel lands on (0, 0, 0); one texture is one unit wide, and the wing sweeps back toward its tip.
+    A wing (or a shield) from its texture, one voxel per opaque pixel, `depth_of(pixel)` or
+    `depth_at(x, y)` pixels thick. The root pixel lands on (0, 0, 0); one texture is one unit wide, and
+    the wing sweeps back toward its tip. Neighbouring faces are merged into larger quads (rectangles of
+    equal depth in front and behind, strips along the sides), each still showing its pixels' colours.
     """
     img = Image.open(os.path.join(TEXTURES, tex_name + '.png')).convert('RGBA')
-    n = img.size[0]
-    px = np.array(img)
+    n = max(img.size)
+    px = np.zeros((n, n, 4), np.uint8)
+    px[:img.size[1], :img.size[0]] = np.array(img)
     depth = np.zeros((n, n))
     for y in range(n):
         for x in range(n):
             if px[y, x, 3] > 25:
-                depth[y, x] = depth_of(px[y, x])
+                depth[y, x] = depth_at(x, y) if depth_at else depth_of(px[y, x])
     s = 1 / n
+    tw, th = img.size
     rx, ry = root
 
     def at(x, y, z):
@@ -230,55 +214,101 @@ def extrude(tex_name, root, depth_of, sweep=0.25):
         return (xx, (y - ry) * s, z * s + xx * sweep)
 
     tris = []
-    for y in range(n):
-        x = 0
-        while x < n:
-            d = depth[y, x]
-            if d == 0:
-                x += 1
-                continue
-            # a run of pixels as thick as this one shares its front and back faces
-            end = x
-            while end + 1 < n and depth[y, end + 1] == d:
-                end += 1
-            u0, u1, v0, v1 = x / n, (end + 1) / n, y / n, (y + 1) / n
-            h = d / 2
-            tris += quad(at(x, y, -h), at(end + 1, y, -h), at(end + 1, y + 1, -h), at(x, y + 1, -h),
-                         [(u0, v0), (u1, v0), (u1, v1), (u0, v1)])
-            tris += quad(at(end + 1, y, h), at(x, y, h), at(x, y + 1, h), at(end + 1, y + 1, h),
-                         [(u1, v0), (u0, v0), (u0, v1), (u1, v1)])
-            x = end + 1
+    # front and back: the largest rectangles of one depth
+    done = np.zeros((n, n), bool)
     for y in range(n):
         for x in range(n):
             d = depth[y, x]
-            if d == 0:
+            if d == 0 or done[y, x]:
                 continue
+            end = x
+            while end + 1 < n and depth[y, end + 1] == d and not done[y, end + 1]:
+                end += 1
+            bottom = y
+            while bottom + 1 < n and np.all(depth[bottom + 1, x:end + 1] == d) and not done[bottom + 1, x:end + 1].any():
+                bottom += 1
+            done[y:bottom + 1, x:end + 1] = True
+            u0, u1, v0, v1 = x / tw, (end + 1) / tw, y / th, (bottom + 1) / th
             h = d / 2
-            # the side faces only where the neighbour is thinner, coloured with this pixel
-            c = ((x + 0.5) / n, (y + 0.5) / n)
-            uv = [c, c, c, c]
-            if x == 0 or depth[y, x - 1] < d:
-                tris += quad(at(x, y, -h), at(x, y + 1, -h), at(x, y + 1, h), at(x, y, h), uv)
-            if x == n - 1 or depth[y, x + 1] < d:
-                tris += quad(at(x + 1, y, h), at(x + 1, y + 1, h), at(x + 1, y + 1, -h), at(x + 1, y, -h), uv)
-            if y == 0 or depth[y - 1, x] < d:
-                tris += quad(at(x, y, h), at(x + 1, y, h), at(x + 1, y, -h), at(x, y, -h), uv)
-            if y == n - 1 or depth[y + 1, x] < d:
-                tris += quad(at(x, y + 1, -h), at(x + 1, y + 1, -h), at(x + 1, y + 1, h), at(x, y + 1, h), uv)
+            tris += quad(at(x, y, -h), at(end + 1, y, -h), at(end + 1, bottom + 1, -h), at(x, bottom + 1, -h),
+                         [(u0, v0), (u1, v0), (u1, v1), (u0, v1)])
+            tris += quad(at(end + 1, y, h), at(x, y, h), at(x, bottom + 1, h), at(end + 1, bottom + 1, h),
+                         [(u1, v0), (u0, v0), (u0, v1), (u1, v1)])
+
+    def thinner(x, y, d):
+        return x < 0 or y < 0 or x >= n or y >= n or depth[y, x] < d
+
+    # the sides only where the neighbour is thinner, in strips of one depth along an edge: a strip
+    # runs across its pixels' centres, so each part shows the colour of its own pixel
+    for x in range(n):
+        u = (x + 0.5) / tw
+        for dx in (-1, 1):
+            y = 0
+            while y < n:
+                d = depth[y, x]
+                if d == 0 or not thinner(x + dx, y, d):
+                    y += 1
+                    continue
+                end = y
+                while end + 1 < n and depth[end + 1, x] == d and thinner(x + dx, end + 1, d):
+                    end += 1
+                h = d / 2
+                uv = [(u, y / th), (u, (end + 1) / th), (u, (end + 1) / th), (u, y / th)]
+                if dx < 0:
+                    tris += quad(at(x, y, -h), at(x, end + 1, -h), at(x, end + 1, h), at(x, y, h), uv)
+                else:
+                    tris += quad(at(x + 1, y, h), at(x + 1, end + 1, h), at(x + 1, end + 1, -h), at(x + 1, y, -h), uv)
+                y = end + 1
+    for y in range(n):
+        v = (y + 0.5) / th
+        for dy in (-1, 1):
+            x = 0
+            while x < n:
+                d = depth[y, x]
+                if d == 0 or not thinner(x, y + dy, d):
+                    x += 1
+                    continue
+                end = x
+                while end + 1 < n and depth[y, end + 1] == d and thinner(end + 1, y + dy, d):
+                    end += 1
+                h = d / 2
+                uv = [(x / tw, v), ((end + 1) / tw, v), ((end + 1) / tw, v), (x / tw, v)]
+                if dy < 0:
+                    tris += quad(at(x, y, h), at(end + 1, y, h), at(end + 1, y, -h), at(x, y, -h), uv)
+                else:
+                    tris += quad(at(x, y + 1, -h), at(end + 1, y + 1, -h), at(end + 1, y + 1, h), at(x, y + 1, h),
+                                 [uv[0], uv[1], uv[2], uv[3]])
+                x = end + 1
     return tris
 
 
-def bones_thicker(p):
-    """Dark pixels are the bones and veins: three pixels thick, the membrane one."""
-    return 3 if p[0] < 110 else 1
-
-
 def wings():
-    write_model('butterfly', [('wing', (0, 0, 0), extrude('butterfly', (4, 30), bones_thicker, 0.1))])
-    write_model('dragon', [('wing', (0, 0, 0), extrude('dragon', (3, 12), bones_thicker))])
+    """Rago's pixel-art wings: the bones two and a half cells thick, the membrane one (a cell is WING_SCALE pixels)."""
+    import cosmetics
+    k = cosmetics.WING_SCALE
+    for name, parts, root in (('dragon', cosmetics.dragon_parts, (3, 12)), ('dragon_small', cosmetics.dragon_small_parts, (3, 22))):
+        _, bones = parts()
+
+        def depth(x, y, bones=bones):
+            return 5 * k / 2 if (x, y) in bones else k
+        write_model(name, [('wing', (0, 0, 0), extrude(name, (root[0] * k, root[1] * k), None, 0.25, depth))])
+
+
+def shields():
+    """Rago's shields: the rim three cells thick, the logo two, the face one (a cell is SHIELD_SCALE pixels)."""
+    import cosmetics
+    _, rim, logo = cosmetics.shield_masks()
+    k = cosmetics.SHIELD_SCALE
+
+    def depth(x, y):
+        return k * (3 if (x, y) in rim else 2 if (x, y) in logo else 1)
+    for style in cosmetics.SHIELD_STYLES:
+        name = 'shield_' + style
+        # centred on the shield: one unit is the shield's height
+        write_model(name, [('shield', (0, 0, 0), extrude(name, (20 * k, 24 * k), None, 0, depth))])
 
 
 if __name__ == '__main__':
+    shields()
     hats()
-    angel()
     wings()

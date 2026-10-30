@@ -13,7 +13,9 @@ import org.lwjgl.opengl.GL11;
 
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Immediate-mode drawing for Rago's screens, in "design units": a layout made for a 1280x720
@@ -553,9 +555,17 @@ public final class Ui {
 		texturedQuad(-1, x - size / 2, y - size / 2, size * 2, size * 2, argb);
 	}
 
+	/** The icons' textures by name, made once rather than every frame. */
+	private static final Map<String, ResourceLocation> ICONS = new HashMap<>();
+
 	/** A Lucide icon from {@code assets/rago/textures/icons}, tinted. */
 	public static void icon(String name, float x, float y, float size, int argb) {
-		Minecraft.getMinecraft().getTextureManager().bindTexture(new ResourceLocation("rago", "textures/icons/" + name + ".png"));
+		ResourceLocation tex = ICONS.get(name);
+		if (tex == null) {
+			tex = new ResourceLocation("rago", "textures/icons/" + name + ".png");
+			ICONS.put(name, tex);
+		}
+		Minecraft.getMinecraft().getTextureManager().bindTexture(tex);
 		linear();
 		texturedQuad(-1, x, y, size, size, argb);
 	}

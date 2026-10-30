@@ -2,6 +2,7 @@ package gg.rago.hud;
 
 import gg.rago.core.ModuleRegistry;
 import net.minecraft.client.Minecraft;
+import gg.rago.render.HudText;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
@@ -120,7 +121,12 @@ public final class HudManager {
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(b[0], b[1], 0);
 		GlStateManager.scale(scale, scale, 1);
-		element.render(text, placeholder);
+		HudText.inElement(scale);
+		try {
+			element.render(text, placeholder);
+		} finally {
+			HudText.inElement(0);
+		}
 		GlStateManager.popMatrix();
 		GlStateManager.color(1, 1, 1, 1);
 		return b;

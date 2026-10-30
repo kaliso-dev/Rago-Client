@@ -1,6 +1,7 @@
 package gg.rago.core;
 
 import gg.rago.accounts.Accounts;
+import gg.rago.accounts.Skins;
 import gg.rago.gui.AccountsButton;
 import gg.rago.config.BooleanOption;
 import gg.rago.config.ConfigStore;
@@ -20,9 +21,11 @@ import gg.rago.gui.RagoMenuScreen;
 import gg.rago.gui.RagoTitleScreen;
 import gg.rago.gui.AccountsScreen;
 import gg.rago.gui.PacksScreen;
+import gg.rago.hud.HudCache;
 import gg.rago.hud.HudManager;
 import gg.rago.hooks.Hooks;
 import gg.rago.hud.elements.ArmorHud;
+import gg.rago.hud.elements.BedwarsQuestsHud;
 import gg.rago.hud.elements.BedwarsResourcesHud;
 import gg.rago.hud.elements.BlockCounterHud;
 import gg.rago.hud.elements.DirectionHud;
@@ -35,7 +38,9 @@ import gg.rago.hud.elements.CoordsHud;
 import gg.rago.hud.elements.CpsHud;
 import gg.rago.hud.elements.FpsHud;
 import gg.rago.hud.elements.FrameTimeHud;
+import gg.rago.hud.elements.EventTimersHud;
 import gg.rago.hud.elements.GeneratorTimersHud;
+import gg.rago.hud.elements.UpgradesHud;
 import gg.rago.hud.elements.ItemCounterHud;
 import gg.rago.hud.elements.KeystrokesHud;
 import gg.rago.hud.elements.MemoryHud;
@@ -49,11 +54,19 @@ import gg.rago.hud.elements.ToggleSprintHud;
 import gg.rago.hypixel.HypixelApi;
 import gg.rago.input.InputState;
 import gg.rago.modules.BlockOverlay;
+import gg.rago.modules.ActionSounds;
+import gg.rago.modules.AutoMessages;
+import gg.rago.modules.AutoText;
+import gg.rago.modules.BedwarsStats;
 import gg.rago.modules.Chat;
+import gg.rago.modules.ClientFixes;
 import gg.rago.modules.ColorGrading;
 import gg.rago.modules.Cosmetics;
 import gg.rago.modules.CompetitiveProfile;
 import gg.rago.modules.Crosshair;
+import gg.rago.modules.Emotes;
+import gg.rago.modules.RagoBadge;
+import gg.rago.modules.AntiArmor;
 import gg.rago.modules.F5Crosshair;
 import gg.rago.modules.Fullbright;
 import gg.rago.modules.GlintColor;
@@ -63,19 +76,29 @@ import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
 import gg.rago.modules.TntTimer;
+import gg.rago.modules.LowLatency;
+import gg.rago.modules.TitleMod;
+import gg.rago.modules.TrapNotifier;
 import gg.rago.modules.LevelHead;
 import gg.rago.modules.LowFire;
+import gg.rago.modules.ModernSounds;
 import gg.rago.modules.MotionBlur;
 import gg.rago.modules.MainMenu;
+import gg.rago.modules.NickHider;
+import gg.rago.modules.Quickplay;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.NoPumpkin;
 import gg.rago.modules.NoWaterOverlay;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.RawInput;
+import gg.rago.modules.Screenshots;
+import gg.rago.modules.SkinChanger;
 import gg.rago.modules.FastShop;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.HitColor;
 import gg.rago.modules.HitDelayFix;
+import gg.rago.modules.BlockEditFix;
 import gg.rago.modules.Nametags;
 import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
@@ -86,6 +109,8 @@ import gg.rago.netdiag.LatencySampler;
 import gg.rago.perf.FrameCapture;
 import gg.rago.perf.FrameTimer;
 import net.minecraft.client.Minecraft;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.Session;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiMultiplayer;
 import net.minecraft.client.gui.GuiScreen;
@@ -122,6 +147,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -151,6 +177,7 @@ public final class RagoClient {
 	private static final InputState INPUT = new InputState();
 
 	private static final ModuleRegistry MODULES = new ModuleRegistry();
+	private static final HudCache HUD_CACHE = new HudCache();
 	private static final HudManager HUD = new HudManager(MODULES);
 	private static final Settings SETTINGS = new Settings();
 	private static final ModProfiles PROFILES = new ModProfiles();
@@ -162,6 +189,8 @@ public final class RagoClient {
 	private static BooleanOption hudInDebug;
 	private static ConfigStore config;
 	private static Path configDir;
+	private static HypixelApi hypixel;
+	private static AutoText autoText;
 
 	/** Forge's config folder, where Rago keeps its files. */
 	public static Path configDir() {
@@ -184,6 +213,8 @@ public final class RagoClient {
 	@Mod.EventHandler
 	public void preInit(FMLPreInitializationEvent event) {
 		configDir = event.getModConfigurationDirectory().toPath();
+		// before the first resource load, so recent sounds need no reload
+		ModernSounds.install();
 	}
 
 	@Mod.EventHandler
@@ -214,6 +245,8 @@ public final class RagoClient {
 		MODULES.register(new BlockCounterHud());
 		MODULES.register(new ItemCounterHud());
 		MODULES.register(new GeneratorTimersHud());
+		MODULES.register(new EventTimersHud());
+		MODULES.register(new UpgradesHud());
 		MODULES.register(new DirectionHud());
 		MODULES.register(new PackDisplayHud());
 		MODULES.register(new BlockOverlay());
@@ -225,14 +258,30 @@ public final class RagoClient {
 		TabPing tabPing = MODULES.register(new TabPing());
 		Hooks.tabList = MODULES.register(new TabList());
 		Hooks.hitDelay = MODULES.register(new HitDelayFix());
+		Hooks.blockEdit = MODULES.register(new BlockEditFix());
 		Hooks.fastShop = MODULES.register(new FastShop());
 		Chat chat = MODULES.register(new Chat());
 		Nametags nametags = MODULES.register(new Nametags());
-		HypixelApi hypixel = new HypixelApi(configDir);
+		hypixel = new HypixelApi(configDir);
 		MODULES.register(new LevelHead(hypixel, nametags));
+		Hooks.bedwarsStats = MODULES.register(new BedwarsStats(hypixel));
+		MODULES.register(new BedwarsQuestsHud());
+		MODULES.register(new TrapNotifier());
+		MODULES.register(new ActionSounds());
+		MODULES.register(new RawInput());
+		Hooks.emotes = MODULES.register(new Emotes());
+		Hooks.ragoBadge = MODULES.register(new RagoBadge());
+		Hooks.antiArmor = MODULES.register(new AntiArmor());
+		Hooks.titles = MODULES.register(new TitleMod());
+		Hooks.lowLatency = MODULES.register(new LowLatency());
+		autoText = MODULES.register(new AutoText());
+		Quickplay quickplay = MODULES.register(new Quickplay());
+		MODULES.register(new AutoMessages());
 		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());
 		OldAnimations animations = MODULES.register(new OldAnimations());
 		GameplayFixes fixes = MODULES.register(new GameplayFixes());
+		Hooks.clientFixes = MODULES.register(new ClientFixes());
+		Hooks.screenshots = MODULES.register(new Screenshots());
 		HitColor hitColor = MODULES.register(new HitColor());
 		MODULES.register(new LowFire());
 		MODULES.register(new NoPumpkin());
@@ -245,6 +294,8 @@ public final class RagoClient {
 		MODULES.register(new ColorGrading());
 		RagoCape cape = MODULES.register(new RagoCape());
 		MODULES.register(new Cosmetics());
+		SkinChanger skinChanger = MODULES.register(new SkinChanger());
+		NickHider nickHider = MODULES.register(new NickHider());
 		GlintColor glint = MODULES.register(new GlintColor());
 		mainMenu = MODULES.register(new MainMenu());
 		profile = MODULES.register(new CompetitiveProfile(configDir));
@@ -261,6 +312,9 @@ public final class RagoClient {
 		Hooks.fixes = fixes;
 		Hooks.hitColor = hitColor;
 		Hooks.cape = cape;
+		Hooks.skins = skinChanger;
+		Hooks.nickHider = nickHider;
+		Skins.load(configDir);
 		Hooks.glint = glint;
 		ClientCommandHandler.instance.registerCommand(new RagoCommand(hypixel, () -> openMenu = true));
 
@@ -290,12 +344,19 @@ public final class RagoClient {
 		ClientRegistry.registerKeyBinding(toggleOverlayKey);
 		ClientRegistry.registerKeyBinding(captureKey);
 		ClientRegistry.registerKeyBinding(zoomKey);
+		ClientRegistry.registerKeyBinding(Hooks.emotes.key());
+		ClientRegistry.registerKeyBinding(quickplay.key());
+		ClientRegistry.registerKeyBinding(quickplay.replayKey());
+		for (KeyBinding k : autoText.keys()) {
+			ClientRegistry.registerKeyBinding(k);
+		}
 		MinecraftForge.EVENT_BUS.register(this);
 		gg.rago.debug.NametagBench bench = gg.rago.debug.NametagBench.fromProperty();
 		if (bench != null) {
 			MinecraftForge.EVENT_BUS.register(bench);
 		}
 		MinecraftForge.EVENT_BUS.register(optimizations);
+		MinecraftForge.EVENT_BUS.register(new gg.rago.debug.InputTrace());
 		// modules with @SubscribeEvent methods check isEnabled() themselves
 		for (Module m : MODULES.all()) {
 			MinecraftForge.EVENT_BUS.register(m);
@@ -310,6 +371,49 @@ public final class RagoClient {
 
 	public static ModuleRegistry modules() {
 		return MODULES;
+	}
+
+	/** The Hypixel API with the player's own key. */
+	public static HypixelApi hypixel() {
+		return hypixel;
+	}
+
+	/** The account {@link #ownId} was read from, and its UUID. */
+	private static final class OwnId {
+		final Session session;
+		final UUID id;
+
+		OwnId(Session session, UUID id) {
+			this.session = session;
+			this.id = id;
+		}
+	}
+
+	private static volatile OwnId own;
+
+	/**
+	 * The signed-in account's UUID, or null when the session has none (offline). Read once per
+	 * account: the game's own getProfile() parses the UUID text (with a regular expression) and
+	 * makes a new profile on every call, and this is asked for every player drawn.
+	 */
+	public static UUID ownId() {
+		Session session = Minecraft.getMinecraft().getSession();
+		OwnId o = own;
+		if (o == null || o.session != session) {
+			UUID id;
+			try {
+				id = session.getProfile().getId();
+			} catch (RuntimeException e) {
+				id = null;
+			}
+			own = o = new OwnId(session, id);
+		}
+		return o.id;
+	}
+
+	/** Whether {@code player} is you: the player you control, or a copy of you with your UUID. */
+	public static boolean isOwn(EntityPlayer player) {
+		return player == Minecraft.getMinecraft().thePlayer || player.getUniqueID().equals(ownId());
 	}
 
 	public static HudManager hud() {
@@ -484,7 +588,11 @@ public final class RagoClient {
 		}
 		boolean ownHud = overlayVisible && !(mc.gameSettings.showDebugInfo && !hudInDebug.get());
 		long t = FrameProfile.ON ? System.nanoTime() : 0;
-		HUD.render(!ownHud);
+		if (optimizations.hudCache()) {
+			HUD_CACHE.render(() -> HUD.render(!ownHud), optimizations.hudCacheRate());
+		} else {
+			HUD.render(!ownHud);
+		}
 		if (FrameProfile.ON) {
 			FrameProfile.add(FrameProfile.HUD, System.nanoTime() - t);
 		}
@@ -565,6 +673,11 @@ public final class RagoClient {
 			return;
 		}
 		conflictsChecked = true;
+		if (OneConfigKey.moveOff(menuKey.getKeyCode())) {
+			mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText(
+				net.minecraft.util.EnumChatFormatting.RED + "[Rago] " + net.minecraft.util.EnumChatFormatting.RESET
+					+ I18n.format("rago.conflict.oneconfig_key", Keyboard.getKeyName(OneConfigKey.NEW_KEY), Keyboard.getKeyName(menuKey.getKeyCode()))));
+		}
 		if (net.minecraftforge.fml.common.Loader.isModLoaded("ragonohitdelay")) {
 			LOG.warn("The separate Rago NoHitDelay mod is loaded; its NoUseDelay cancels eating on servers");
 			mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText(
@@ -595,6 +708,9 @@ public final class RagoClient {
 			}
 		}
 		QuickJoin.tick(mc);
+		if (gg.rago.debug.InputTrace.on() && mc.theWorld != null && mc.theWorld.getTotalWorldTime() % 100 == 0) {
+			gg.rago.bedwars.BedwarsGame.logSidebar();
+		}
 		if (++tickCounter >= TICKS_PER_PING_SAMPLE) {
 			tickCounter = 0;
 			PING.add(readServerPing(mc));

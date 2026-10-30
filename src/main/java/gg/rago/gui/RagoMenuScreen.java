@@ -5,6 +5,7 @@ import gg.rago.config.ChoiceOption;
 import gg.rago.config.ColorOption;
 import gg.rago.config.IntOption;
 import gg.rago.config.Option;
+import gg.rago.config.StringOption;
 import gg.rago.core.Category;
 import gg.rago.core.Module;
 import gg.rago.core.RagoClient;
@@ -13,6 +14,9 @@ import gg.rago.gui.ui.Ui;
 import gg.rago.gui.ui.Widgets;
 import gg.rago.hud.HudElement;
 import gg.rago.hud.HudPosition;
+import gg.rago.hypixel.Danger;
+import gg.rago.hypixel.HypixelApi;
+import gg.rago.modules.BedwarsStats;
 import gg.rago.optimize.OptiFineFields;
 import gg.rago.profile.ModProfiles;
 import gg.rago.settings.Button;
@@ -49,6 +53,7 @@ import java.util.function.Consumer;
 public final class RagoMenuScreen extends GuiScreen {
 	private static final int[] SWATCHES = {0xFFF2392C, 0xFFFFFFFF, 0xFF34D399, 0xFF60A5FA, 0xFFFACC15};
 	private static final String OPTIFINE_URL = "https://optifine.net/downloads";
+	private static final String HYPIXEL_DEV_URL = "https://developer.hypixel.net/dashboard";
 
 	private enum Tab { MODS, SETTINGS }
 
@@ -74,6 +79,12 @@ public final class RagoMenuScreen extends GuiScreen {
 	private boolean sortByName;
 	private String renaming;
 	private String renameText = "";
+	/** The Hypixel API key being typed on a Hypixel module's page; never saved in rago.json. */
+	private String keyText = "";
+	private boolean keyEditing;
+	private boolean keyWrong;
+	/** The text option being typed into, or null. */
+	private StringOption editingText;
 	private KeyBinding binding;
 	private SliderDrag dragging;
 	private String tooltip;
@@ -560,6 +571,12 @@ public final class RagoMenuScreen extends GuiScreen {
 			cy += 14;
 		}
 		cy += 8;
+		if (ModuleInfo.usesHypixelKey(m)) {
+			cy = hypixelKey(x, cy, w - 8, inside) + 10;
+		}
+		if (m instanceof BedwarsStats) {
+			cy = statsLegend((BedwarsStats) m, x, cy, w - 8) + 10;
+		}
 		if (m instanceof HudElement) {
 			preview((HudElement) m, x, cy, w - 8, 110);
 			cy += 122;
@@ -623,6 +640,145 @@ public final class RagoMenuScreen extends GuiScreen {
 		scrollbar(x + w - 3, top, area, total, sc);
 	}
 
+	/** The Hypixel API key: where it stands, a field to paste a new one, and where to get one. */
+	private float hypixelKey(float x, float y, float w, boolean inside) {
+		HypixelApi api = RagoClient.hypixel();
+		HypixelApi.Status st = api.status();
+		float h = 86;
+		rowFrame(x, y, w, h);
+		Ui.icon("key-round", x + 12, y + 10, 13, Theme.ACCENT);
+		Ui.text(Ui.MEDIUM, t("rago.apikey.title"), x + 32, y + 10, 10.5f, Theme.TEXT);
+		int dot;
+		String state;
+		switch (st) {
+			case OK:
+				if (api.pausedSeconds() > 0) {
+					// a good key, but Hypixel asks to wait: say so instead of a green "OK"
+					dot = Theme.YELLOW;
+					state = api.dailyQuota()
+						? t("rago.apikey.daily", api.limit() > 0 ? String.valueOf(api.limit()) : "?", HypixelApi.duration(api.pausedSeconds()))
+						: t("rago.apikey.paused", HypixelApi.duration(api.pausedSeconds()));
+				} else {
+					dot = Theme.GREEN;
+					state = t("rago.apikey.ok", api.keyHint());
+				}
+				break;
+			case CHECKING:
+				dot = Theme.YELLOW;
+				state = t("rago.apikey.checking");
+				break;
+			case BAD_KEY:
+				dot = Theme.ACCENT;
+				state = t("rago.apikey.bad");
+				break;
+			case UNREACHABLE:
+				dot = Theme.YELLOW;
+				state = t("rago.apikey.unreachable");
+				break;
+			default:
+				dot = Theme.ACCENT;
+				state = t("rago.apikey.none");
+		}
+		float sw = Ui.textWidth(Ui.REGULAR, state, 9) + 22;
+		Ui.roundBorder(x + w - 12 - sw, y + 7, sw, 18, 9, 0xCC141316, 0x1FFFFFFF);
+		Ui.circle(x + w - 12 - sw + 10, y + 16, 3, dot);
+		Ui.text(Ui.REGULAR, state, x + w - 12 - sw + 17, y + 7 + (18 - 9 * 1.21f) / 2, 9, 0xFFD4D2D9);
+
+		float fy = y + 32;
+		float bw = 96;
+		float lw = 120;
+		float fw = w - 24 - bw - lw - 12;
+		Ui.glassBorder(x + 12, fy, fw, 24, 6, 0xFF0E0D10, keyEditing ? 0x66F2392C : keyWrong ? 0x99F2392C : 0x1FFFFFFF);
+		String shown;
+		int color;
+		if (keyText.isEmpty()) {
+			shown = t(keyEditing ? "rago.apikey.paste" : api.hasKey() ? "rago.apikey.replace" : "rago.apikey.click");
+			color = 0xFF7C7A82;
+		} else {
+			// the key is a password for the account: only its end is shown
+			StringBuilder b = new StringBuilder();
+			for (int i = 0; i < Math.max(0, keyText.length() - 4); i++) {
+				b.append(keyText.charAt(i) == '-' ? '-' : '*');
+			}
+			shown = b + keyText.substring(Math.max(0, keyText.length() - 4));
+			color = Theme.TEXT;
+		}
+		boolean caret = keyEditing && (System.currentTimeMillis() / 500) % 2 == 0;
+		Ui.text(Ui.MONO, shown + (caret && !keyText.isEmpty() ? "_" : ""), x + 20, fy + (24 - 9 * 1.3f) / 2, 9, color);
+		Widgets.button(x + 12 + fw + 6, fy, bw, 24, "check", t("rago.apikey.save"), true, 9.5f);
+		Widgets.button(x + w - 12 - lw, fy, lw, 24, "external-link", t("rago.apikey.get"), false, 9.5f);
+		if (inside) {
+			Ui.click(x + 12, fy, fw, 24, () -> keyEditing = true);
+			Ui.click(x + 12 + fw + 6, fy, bw, 24, this::saveKey);
+			Ui.click(x + w - 12 - lw, fy, lw, 24, () -> Sys.openURL(HYPIXEL_DEV_URL));
+		}
+		String note = keyWrong ? t("rago.apikey.format") : t("rago.apikey.note");
+		Ui.text(Ui.REGULAR, note, x + 12, fy + 32, 8.5f, keyWrong ? Theme.ACCENT : 0xFF7C7A82);
+		return y + h;
+	}
+
+	private void saveKey() {
+		String k = keyText.trim();
+		if (!HypixelApi.isKey(k)) {
+			keyWrong = true;
+			keyEditing = true;
+			return;
+		}
+		try {
+			RagoClient.hypixel().setKey(k, RagoClient.ownId());
+			keyText = "";
+			keyWrong = false;
+			keyEditing = false;
+		} catch (IOException e) {
+			RagoClient.LOG.error("Could not save the Hypixel API key", e);
+			keyWrong = true;
+		}
+	}
+
+	/** FKDR colour steps, as in the tab list: the lowest ratio of each step and its colour. */
+	private static final String[] FKDR_STEPS = {"< 1", "1+", "5+", "10+", "20+"};
+	private static final int[] FKDR_COLORS = {0xFFAAAAAA, 0xFF55FF55, 0xFF00AA00, 0xFFFF5555, 0xFFAA0000};
+	/** Tier colours by danger level, 1 (D) to 5 (S), as in the tab list. */
+	private static final int[] TIER_COLORS = {0xFFAAAAAA, 0xFF55FF55, 0xFF00AA00, 0xFFFF5555, 0xFFAA0000};
+
+	/** What the numbers next to the names in the tab list mean, with the FKDR colours. */
+	private float statsLegend(BedwarsStats stats, float x, float y, float w) {
+		float h = 148;
+		rowFrame(x, y, w, h);
+		Ui.icon("list-ordered", x + 12, y + 10, 13, Theme.ACCENT);
+		Ui.text(Ui.MEDIUM, t("rago.stats.legend_title"), x + 32, y + 10, 10.5f, Theme.TEXT);
+		float ly = y + 32;
+		Ui.text(Ui.REGULAR, t("rago.stats.legend_star"), x + 12, ly, 9.5f, 0xFFD4D2D9);
+		ly += 18;
+		String fkdr = t("rago.stats.legend_fkdr");
+		Ui.text(Ui.REGULAR, fkdr, x + 12, ly, 9.5f, 0xFFD4D2D9);
+		float cx = x + 12 + Ui.textWidth(Ui.REGULAR, fkdr, 9.5f) + 10;
+		for (int i = 0; i < FKDR_STEPS.length; i++) {
+			float cw = Ui.textWidth(Ui.MEDIUM, FKDR_STEPS[i], 9) + 14;
+			Ui.roundBorder(cx, ly - 3, cw, 16, 8, 0xCC141316, 0x1FFFFFFF);
+			Ui.text(Ui.MEDIUM, FKDR_STEPS[i], cx + 7, ly - 3 + (16 - 9 * 1.21f) / 2, 9, FKDR_COLORS[i]);
+			cx += cw + 4;
+		}
+		ly += 18;
+		Ui.text(Ui.REGULAR, t("rago.stats.legend_danger"), x + 12, ly, 9.5f, 0xFFD4D2D9);
+		ly += 18;
+		cx = x + 12;
+		for (int level = 5; level >= 1; level--) {
+			String chip = Danger.tier(level) + "  " + t("rago.stats.tier_" + Character.toLowerCase(Danger.tier(level)));
+			float cw = Ui.textWidth(Ui.MEDIUM, chip, 9) + 14;
+			Ui.roundBorder(cx, ly - 3, cw, 16, 8, 0xCC141316, 0x1FFFFFFF);
+			Ui.text(Ui.MEDIUM, chip, cx + 7, ly - 3 + (16 - 9 * 1.21f) / 2, 9, TIER_COLORS[level - 1]);
+			cx += cw + 4;
+		}
+		ly += 18;
+		Ui.icon("triangle-alert", x + 12, ly - 1, 11, 0xFFAA0000);
+		Ui.text(Ui.REGULAR, t("rago.stats.legend_mark", stats.strongFkdr(), stats.strongStar()), x + 28, ly, 9.5f, 0xFFD4D2D9);
+		ly += 18;
+		Ui.text(Ui.MEDIUM, "[S]", x + 12, ly, 9.5f, 0xFFFF55FF);
+		Ui.text(Ui.REGULAR, t("rago.stats.legend_sniper"), x + 12 + Ui.textWidth(Ui.MEDIUM, "[S]", 9.5f) + 6, ly, 9.5f, 0xFFD4D2D9);
+		return y + h;
+	}
+
 	private static void rowFrame(float x, float y, float w, float h) {
 		Ui.glassBorder(x, y, w, h, 7, 0xFF131215, 0x12FFFFFF);
 	}
@@ -644,9 +800,11 @@ public final class RagoMenuScreen extends GuiScreen {
 			float f = io.max() == io.min() ? 0 : (float) (io.get() - io.min()) / (io.max() - io.min());
 			String key = "rago.option." + io.key() + "." + io.get();
 			String format = "rago.option." + io.key() + ".format";
-			String value = has(key) ? t(key) : has(format) ? t(format, io.get()) : Integer.toString(io.get());
+			String value = has(key) ? t(key) : has(format) ? t(format, io.formatValue()) : io.display();
 			sliderControl("opt:" + io.key() + System.identityHashCode(io), right - 46 - 170, y, 170, f, value, right, inside,
 				v -> io.set(io.min() + Math.round(v * (io.max() - io.min()))));
+		} else if (option instanceof StringOption) {
+			textControl((StringOption) option, x + w * 0.42f, y, right, inside);
 		} else if (option instanceof ChoiceOption) {
 			choiceControl((ChoiceOption) option, x + w * 0.42f, y, right, inside);
 		} else if (option instanceof ColorOption) {
@@ -739,7 +897,11 @@ public final class RagoMenuScreen extends GuiScreen {
 				d.apply();
 			});
 		}
-		// opacity
+		// opacity (none for colours that stay opaque)
+		if (co.hasFixedAlpha()) {
+			colorPreview(argb, x, y, w);
+			return;
+		}
 		Ui.text(Ui.REGULAR, t("rago.color.opacity"), bx, y + 40, 9, Theme.MUTED);
 		Ui.textRight(Ui.MONO, Math.round(alpha / 2.55f) + "%", bx + bw, y + 40, 9, 0xFFD4D4D8);
 		float ay = y + 54;
@@ -756,7 +918,10 @@ public final class RagoMenuScreen extends GuiScreen {
 				d.apply();
 			});
 		}
-		// preview
+		colorPreview(argb, x, y, w);
+	}
+
+	private void colorPreview(int argb, float x, float y, float w) {
 		float px = x + w - 52;
 		for (int i = 0; i < 4; i++) {
 			for (int j = 0; j < 4; j++) {
@@ -769,6 +934,21 @@ public final class RagoMenuScreen extends GuiScreen {
 	}
 
 	/** Segmented buttons when the choices fit, otherwise arrows around the current choice. */
+	/** A line of text: click it to type, Enter or a click elsewhere to finish. */
+	private void textControl(StringOption so, float left, float y, float right, boolean inside) {
+		boolean editing = so == editingText;
+		float fw = right - left;
+		Ui.glassBorder(left, y + 4, fw, 22, 6, 0xFF0E0D10, editing ? 0x66F2392C : 0x1FFFFFFF);
+		String value = so.get();
+		boolean caret = editing && (System.currentTimeMillis() / 500) % 2 == 0;
+		String shown = value.isEmpty() && !editing ? t("rago.menu.click_to_type") : value + (caret ? "_" : "");
+		Ui.text(Ui.REGULAR, fit(Ui.REGULAR, shown, 9.5f, fw - 14), left + 7, y + 4 + (22 - 9.5f * 1.21f) / 2, 9.5f,
+			value.isEmpty() && !editing ? 0xFF7C7A82 : Theme.TEXT);
+		if (inside) {
+			Ui.click(left, y + 4, fw, 22, () -> editingText = so);
+		}
+	}
+
 	private void choiceControl(ChoiceOption co, float left, float y, float right, boolean inside) {
 		List<String> ids = co.ids();
 		float total = 0;
@@ -1191,6 +1371,7 @@ public final class RagoMenuScreen extends GuiScreen {
 			return;
 		}
 		String wasRenaming = renaming;
+		editingText = null;
 		if (Ui.dispatchClick()) {
 			mc.getSoundHandler().playSound(PositionedSoundRecord.create(new ResourceLocation("gui.button.press"), 1.0F));
 		}
@@ -1222,6 +1403,37 @@ public final class RagoMenuScreen extends GuiScreen {
 	protected void keyTyped(char typedChar, int keyCode) throws IOException {
 		if (binding != null) {
 			setKey(keyCode == Keyboard.KEY_ESCAPE ? 0 : keyCode);
+			return;
+		}
+		if (editingText != null) {
+			String v = editingText.get();
+			if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER || keyCode == Keyboard.KEY_ESCAPE) {
+				editingText = null;
+			} else if (keyCode == Keyboard.KEY_BACK) {
+				editingText.set(isCtrlKeyDown() || v.isEmpty() ? "" : v.substring(0, v.length() - 1));
+			} else if (isKeyComboCtrlV(keyCode)) {
+				editingText.set(v + getClipboardString());
+			} else if (ChatAllowedCharacters.isAllowedCharacter(typedChar)) {
+				editingText.set(v + typedChar);
+			}
+			return;
+		}
+		if (keyEditing && module != null && ModuleInfo.usesHypixelKey(module)) {
+			if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
+				saveKey();
+			} else if (keyCode == Keyboard.KEY_ESCAPE) {
+				keyEditing = false;
+				keyText = "";
+				keyWrong = false;
+			} else if (keyCode == Keyboard.KEY_BACK) {
+				keyText = isCtrlKeyDown() || keyText.isEmpty() ? "" : keyText.substring(0, keyText.length() - 1);
+			} else if (isKeyComboCtrlV(keyCode)) {
+				keyText = getClipboardString().trim();
+				keyWrong = false;
+			} else if ((Character.digit(typedChar, 16) >= 0 || typedChar == '-') && keyText.length() < 36) {
+				keyText += typedChar;
+				keyWrong = false;
+			}
 			return;
 		}
 		if (renaming != null) {

@@ -6,6 +6,7 @@ import com.google.gson.JsonPrimitive;
 public final class IntOption extends Option<Integer> {
 	private final int min;
 	private final int max;
+	private int decimals;
 
 	public IntOption(String key, int defaultValue, int min, int max) {
 		super(key, defaultValue);
@@ -14,6 +15,25 @@ public final class IntOption extends Option<Integer> {
 		}
 		this.min = min;
 		this.max = max;
+	}
+
+	/** Shows the value with {@code n} decimals: stored 15, shown 1.5 with one decimal. */
+	public IntOption decimals(int n) {
+		decimals = n;
+		return this;
+	}
+
+	/** What a "%d" or "%s" format is given: the number itself, or the text with its decimals. */
+	public Object formatValue() {
+		return decimals == 0 ? (Object) get() : display();
+	}
+
+	/** The value as shown, with its decimals. */
+	public String display() {
+		if (decimals == 0) {
+			return Integer.toString(get());
+		}
+		return String.format(java.util.Locale.ROOT, "%." + decimals + "f", get() / Math.pow(10, decimals));
 	}
 
 	public int min() {

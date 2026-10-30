@@ -2,12 +2,16 @@ package gg.rago.gui;
 
 import gg.rago.core.Module;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /** Icon (a Lucide icon name) for each module in the menu. */
 final class ModuleInfo {
 	private static final Map<String, String> ICONS = new HashMap<>();
+	private static final Set<String> HYPIXEL_KEY = new HashSet<>(Arrays.asList("level_head", "bedwars_stats", "bedwars_quests"));
 
 	static {
 		ICONS.put("fps", "gauge");
@@ -61,6 +65,7 @@ final class ModuleInfo {
 		ICONS.put("tab_list", "table-properties");
 		ICONS.put("color_grading", "contrast");
 		ICONS.put("hit_delay_fix", "swords");
+		ICONS.put("block_edit_fix", "box");
 		ICONS.put("fast_shop", "shopping-cart");
 		ICONS.put("cosmetics", "crown");
 		ICONS.put("item_scale", "scaling");
@@ -68,6 +73,24 @@ final class ModuleInfo {
 		ICONS.put("item_counter", "apple");
 		ICONS.put("gen_timers", "timer");
 		ICONS.put("item_physics", "package");
+		ICONS.put("bedwars_stats", "trophy");
+		ICONS.put("bedwars_quests", "list-checks");
+		ICONS.put("trap_notifier", "bell");
+		ICONS.put("action_sounds", "activity");
+		ICONS.put("client_fixes", "shield");
+		ICONS.put("screenshots", "camera");
+		ICONS.put("raw_input", "mouse-pointer-click");
+		ICONS.put("emotes", "party-popper");
+		ICONS.put("auto_text", "message-square");
+		ICONS.put("quickplay", "zap");
+		ICONS.put("auto_messages", "sparkles");
+		ICONS.put("rago_badge", "award");
+		ICONS.put("anti_armor", "shirt");
+		ICONS.put("event_timers", "timer");
+		ICONS.put("upgrades_hud", "sword");
+		ICONS.put("title_mod", "type");
+		ICONS.put("low_latency", "zap");
+		ICONS.put("nick_hider", "venetian-mask");
 	}
 
 	private ModuleInfo() {
@@ -76,6 +99,11 @@ final class ModuleInfo {
 	static String icon(Module m) {
 		String icon = ICONS.get(m.id());
 		return icon == null ? "box" : icon;
+	}
+
+	/** Whether a module reads the Hypixel API, so its page shows the key field. */
+	static boolean usesHypixelKey(Module m) {
+		return HYPIXEL_KEY.contains(m.id());
 	}
 
 	static String descKey(Module m) {

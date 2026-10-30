@@ -86,6 +86,27 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return false;
 			}));
+		add("net.minecraft.client.renderer.EntityRenderer", new Patch("parallax fix",
+			"func_78467_g", "orientCamera", "(F)V",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn instanceof LdcInsnNode && Float.valueOf(-0.1f).equals(((LdcInsnNode) insn).cst)) {
+						m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "cameraOffset", "(F)F", false));
+						found = true;
+					}
+				}
+				return found;
+			}));
+		add("net.minecraft.util.ScreenShotHelper", new Patch("screenshot buttons",
+			"func_148259_a", "saveScreenshot",
+			"(Ljava/io/File;Ljava/lang/String;IILnet/minecraft/client/shader/Framebuffer;)Lnet/minecraft/util/IChatComponent;",
+			m -> beforeReturns(m, Opcodes.ARETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "screenshot",
+				"(Lnet/minecraft/util/IChatComponent;)Lnet/minecraft/util/IChatComponent;", false))));
+		add("net.minecraft.network.play.server.S48PacketResourcePackSend", new Patch("server resource pack check",
+			"func_179783_a", "getURL", "()Ljava/lang/String;",
+			m -> beforeReturns(m, Opcodes.ARETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "resourcePackUrl",
+				"(Ljava/lang/String;)Ljava/lang/String;", false))));
 		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("1.7 armour damage tint",
 			"func_177142_b", "shouldCombineTextures", "()Z",
 			m -> beforeReturns(m, Opcodes.IRETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "armorDamageTint", "(Z)Z", false))));
@@ -93,6 +114,22 @@ public final class RagoTransformer implements IClassTransformer {
 			"func_175245_a", "drawPing", "(IIILnet/minecraft/client/network/NetworkPlayerInfo;)V",
 			m -> returnIf(m, "replaceTabPing", "(IIILnet/minecraft/client/network/NetworkPlayerInfo;)Z",
 				new int[] {Opcodes.ILOAD, 1, Opcodes.ILOAD, 2, Opcodes.ILOAD, 3, Opcodes.ALOAD, 4}, -1, Opcodes.RETURN)));
+		add("net.minecraft.client.gui.GuiPlayerTabOverlay", new Patch("Bed Wars stats in the tab list",
+			"func_175243_a", "getPlayerName", "(Lnet/minecraft/client/network/NetworkPlayerInfo;)Ljava/lang/String;",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn.getOpcode() == Opcodes.ARETURN) {
+						InsnList call = new InsnList();
+						call.add(new VarInsnNode(Opcodes.ALOAD, 1));
+						call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "tabName",
+							"(Ljava/lang/String;Lnet/minecraft/client/network/NetworkPlayerInfo;)Ljava/lang/String;", false));
+						m.instructions.insertBefore(insn, call);
+						found = true;
+					}
+				}
+				return found;
+			}));
 		add("net.minecraft.client.gui.GuiPlayerTabOverlay", new Patch("tab list look",
 			"func_175249_a", "renderPlayerlist", "(ILnet/minecraft/scoreboard/Scoreboard;Lnet/minecraft/scoreboard/ScoreObjective;)V",
 			RagoTransformer::tabLook));
@@ -151,6 +188,58 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.particle.EffectRenderer", new Patch("no block mining particles",
 			"func_180532_a", "addBlockHitEffects", "(Lnet/minecraft/util/BlockPos;Lnet/minecraft/util/EnumFacing;)V",
 			m -> returnIf(m, "hideBlockHit", "()Z", new int[0], -1, Opcodes.RETURN)));
+		add("net.minecraft.client.model.ModelBiped", new Patch("emotes",
+			"func_78087_a", "setRotationAngles", "(FFFFFFLnet/minecraft/entity/Entity;)V",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn.getOpcode() == Opcodes.RETURN) {
+						InsnList call = new InsnList();
+						call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+						call.add(new VarInsnNode(Opcodes.ALOAD, 7));
+						call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "emotePose",
+							"(Lnet/minecraft/client/model/ModelBiped;Lnet/minecraft/entity/Entity;)V", false));
+						m.instructions.insertBefore(insn, call);
+						found = true;
+					}
+				}
+				return found;
+			}));
+		add("net.minecraft.client.model.ModelRenderer", new Patch("bent limbs",
+			"func_78785_a", "render", "(F)V",
+			m -> returnIf(m, "renderBent", "(Lnet/minecraft/client/model/ModelRenderer;F)Z", new int[] {Opcodes.ALOAD, 0, Opcodes.FLOAD, 1},
+				-1, Opcodes.RETURN)));
+		add("net.minecraft.client.model.ModelRenderer", new Patch("bent limbs: held item",
+			"func_78794_c", "postRender", "(F)V",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn.getOpcode() == Opcodes.RETURN) {
+						InsnList call = new InsnList();
+						call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+						call.add(new VarInsnNode(Opcodes.FLOAD, 1));
+						call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "postRenderBent",
+							"(Lnet/minecraft/client/model/ModelRenderer;F)V", false));
+						m.instructions.insertBefore(insn, call);
+						found = true;
+					}
+				}
+				return found;
+			}));
+		add("net.minecraft.client.particle.EffectRenderer", new Patch("particle collisions",
+			"func_78873_a", "addEffect", "(Lnet/minecraft/client/particle/EntityFX;)V",
+			m -> {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ALOAD, 1));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "particleAdded",
+					"(Lnet/minecraft/client/particle/EntityFX;)V", false));
+				m.instructions.insert(call);
+				return true;
+			}));
+		add("net.minecraft.client.particle.EffectRenderer", new Patch("hit particle amount",
+			"func_178926_a", "emitParticleAtEntity", "(Lnet/minecraft/entity/Entity;Lnet/minecraft/util/EnumParticleTypes;)V",
+			m -> returnIf(m, "emitParticles", "(Lnet/minecraft/entity/Entity;Lnet/minecraft/util/EnumParticleTypes;)Z",
+				new int[] {Opcodes.ALOAD, 1, Opcodes.ALOAD, 2}, -1, Opcodes.RETURN)));
 		add("net.minecraft.client.gui.GuiNewChat", new Patch("longer chat history",
 			"func_146237_a", "setChatLine", "(Lnet/minecraft/util/IChatComponent;IIZ)V",
 			RagoTransformer::chatLimit));
@@ -224,16 +313,83 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return found;
 			}));
+		add("net.minecraft.client.entity.AbstractClientPlayer", new Patch("locker skin",
+			"func_110306_p", "getLocationSkin", "()Lnet/minecraft/util/ResourceLocation;",
+			m -> ownPlayerFilter(m, Opcodes.ARETURN, "skin",
+				"(Lnet/minecraft/util/ResourceLocation;Lnet/minecraft/client/entity/AbstractClientPlayer;)Lnet/minecraft/util/ResourceLocation;")));
+		add("net.minecraft.client.entity.AbstractClientPlayer", new Patch("locker skin model",
+			"func_175154_l", "getSkinType", "()Ljava/lang/String;",
+			m -> ownPlayerFilter(m, Opcodes.ARETURN, "skinModel",
+				"(Ljava/lang/String;Lnet/minecraft/client/entity/AbstractClientPlayer;)Ljava/lang/String;")));
+		add("net.minecraft.client.network.NetworkPlayerInfo", new Patch("nick hider skin in the tab list",
+			"func_178837_g", "getLocationSkin", "()Lnet/minecraft/util/ResourceLocation;",
+			m -> ownPlayerFilter(m, Opcodes.ARETURN, "tabSkin",
+				"(Lnet/minecraft/util/ResourceLocation;Lnet/minecraft/client/network/NetworkPlayerInfo;)Lnet/minecraft/util/ResourceLocation;")));
+		add("net.minecraft.client.gui.FontRenderer", new Patch("nick hider text",
+			"func_180455_b", "renderString", "(Ljava/lang/String;FFIZ)I", m -> replaceArgument(m, 1, "nick")));
+		add("net.minecraft.client.gui.FontRenderer", new Patch("nick hider text width",
+			"func_78256_a", "getStringWidth", "(Ljava/lang/String;)I", m -> replaceArgument(m, 1, "nick")));
 		add("net.minecraft.client.renderer.entity.RenderItem", new Patch("glint colour on items",
 			"func_180451_a", "renderEffect", "(Lnet/minecraft/client/resources/model/IBakedModel;)V",
 			RagoTransformer::itemGlint));
+		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("anti armor",
+			"func_177141_a", "doRenderLayer", "(Lnet/minecraft/entity/EntityLivingBase;FFFFFFF)V",
+			m -> returnIf(m, "hideArmor", "(Lnet/minecraft/entity/EntityLivingBase;)Z",
+				new int[] {Opcodes.ALOAD, 1}, -1, Opcodes.RETURN)));
 		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("glint colour on armour",
 			"func_177183_a", "renderGlint",
 			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
 			RagoTransformer::armorGlint));
+		add("net.minecraft.client.Minecraft", new Patch("block edit fix",
+			"func_147116_af", "clickMouse", "()V",
+			m -> {
+				m.instructions.insert(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "beforeLeftClick", "()V", false));
+				return true;
+			}));
+		add("net.minecraft.client.Minecraft", new Patch("left click trace",
+			"func_147116_af", "clickMouse", "()V", m -> clickTrace(m, false)));
+		add("net.minecraft.client.Minecraft", new Patch("right click trace",
+			"func_147121_ag", "rightClickMouse", "()V", m -> clickTrace(m, true)));
+		add("net.minecraft.client.Minecraft", new Patch("low latency frame start",
+			"func_71411_J", "runGameLoop", "()V",
+			m -> {
+				m.instructions.insert(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "frameStart", "()V", false));
+				return true;
+			}));
+		add("net.minecraftforge.client.GuiIngameForge", new Patch("title size",
+			"renderTitle", "renderTitle", "(IIF)V",
+			RagoTransformer::titleScale));
+		add("net.minecraftforge.client.GuiIngameForge", new Patch("hide titles",
+			"renderTitle", "renderTitle", "(IIF)V",
+			m -> returnIf(m, "hideTitles", "()Z", new int[0], -1, Opcodes.RETURN)));
 		add("net.minecraft.client.Minecraft", new Patch("borderless fullscreen",
 			"func_71352_k", "toggleFullscreen", "()V",
 			m -> returnIf(m, "toggleFullscreen", "()Z", new int[0], -1, Opcodes.RETURN)));
+	}
+
+	/** Passes each value a player method returns through a hook that also gets the player. */
+	private static boolean ownPlayerFilter(MethodNode m, int returnOp, String hook, String desc) {
+		boolean found = false;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == returnOp) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, hook, desc, false));
+				m.instructions.insertBefore(insn, call);
+				found = true;
+			}
+		}
+		return found;
+	}
+
+	/** At the start of the method, the String in {@code slot} goes through {@code Hooks.hook(String)}. */
+	private static boolean replaceArgument(MethodNode m, int slot, String hook) {
+		InsnList head = new InsnList();
+		head.add(new VarInsnNode(Opcodes.ALOAD, slot));
+		head.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, hook, "(Ljava/lang/String;)Ljava/lang/String;", false));
+		head.add(new VarInsnNode(Opcodes.ASTORE, slot));
+		m.instructions.insert(head);
+		return true;
 	}
 
 	private static void add(String className, Patch patch) {
@@ -304,6 +460,26 @@ public final class RagoTransformer implements IClassTransformer {
 			m.exceptions.toArray(new String[0]));
 		m.accept(copy);
 		return copy;
+	}
+
+	/**
+	 * Passes the title's scale (4) and the subtitle's (2) through {@code Hooks.titleScale}, with the
+	 * screen width so a long title can shrink to fit.
+	 */
+	private static boolean titleScale(MethodNode m) {
+		int found = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			// 4 is a constant of the class, 2 has its own instruction
+			if (insn instanceof LdcInsnNode && Float.valueOf(4f).equals(((LdcInsnNode) insn).cst) || insn.getOpcode() == Opcodes.FCONST_2) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ILOAD, 1));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "titleScale", "(FI)F", false));
+				m.instructions.insert(insn, call);
+				found++;
+			}
+		}
+		// GlStateManager.scale(s, s, s) for the title, then for the subtitle
+		return found == 6;
 	}
 
 	/** Passes vanilla's glint colour constant through {@code Hooks.glintColor}. */
@@ -503,6 +679,15 @@ public final class RagoTransformer implements IClassTransformer {
 	 * ({@code Reflector.callBoolean(item, ForgeItem_shouldCauseReequipAnimation, args)}), which goes
 	 * through {@code Hooks.reequipArgs} instead.
 	 */
+	/** At the head of clickMouse or rightClickMouse: {@code /rago debug} logs what decides if the click does anything. */
+	private static boolean clickTrace(MethodNode m, boolean right) {
+		InsnList call = new InsnList();
+		call.add(new InsnNode(right ? Opcodes.ICONST_1 : Opcodes.ICONST_0));
+		call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "gg/rago/debug/InputTrace", "click", "(Z)V", false));
+		m.instructions.insert(call);
+		return true;
+	}
+
 	private static boolean reequip(MethodNode m) {
 		boolean reflected = false;
 		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
@@ -543,11 +728,17 @@ public final class RagoTransformer implements IClassTransformer {
 			if (!background && isMethod(call, "func_73734_a", "drawRect", "(IIIII)V")) {
 				m.instructions.insertBefore(call, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chatBackground", "(I)I", false));
 				background = true;
-			} else if (isMethod(call, "func_175063_a", "drawStringWithShadow", "(Ljava/lang/String;FFI)I")) {
-				AbstractInsnNode replaced = new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chatText",
-					"(Lnet/minecraft/client/gui/FontRenderer;Ljava/lang/String;FFI)I", false);
-				m.instructions.set(call, replaced);
-				insn = replaced;
+			} else if (!text && isMethod(call, "func_175063_a", "drawStringWithShadow", "(Ljava/lang/String;FFI)I")) {
+				// Rago draws the line, then the original call stays with an empty string: Patcher's
+				// chat mixins find their place in drawChat from this call, and fail without it
+				InsnList draw = new InsnList();
+				draw.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chatText",
+					"(Lnet/minecraft/client/gui/FontRenderer;Ljava/lang/String;FFI)Lnet/minecraft/client/gui/FontRenderer;", false));
+				draw.add(new LdcInsnNode(""));
+				draw.add(new InsnNode(Opcodes.FCONST_0));
+				draw.add(new InsnNode(Opcodes.FCONST_0));
+				draw.add(new InsnNode(Opcodes.ICONST_0));
+				m.instructions.insertBefore(call, draw);
 				text = true;
 			}
 		}

@@ -63,8 +63,22 @@ public final class HudText {
 		return (int) Math.ceil(f.measure(s) / TtfFont.METRICS_PX * em(font));
 	}
 
+	/** The scale of the HUD element being drawn, or 0 outside {@link #inElement}. */
+	private static float elementScale;
+
+	/**
+	 * Tells text drawing the scale of the HUD element about to be drawn ({@code 0} when it is done),
+	 * so it need not ask the graphics driver for the matrix, which can make the driver wait.
+	 */
+	public static void inElement(float scale) {
+		elementScale = scale;
+	}
+
 	/** Real screen pixels per unit of the current matrix, for HUD and menu drawing. */
 	public static float pixelScale() {
+		if (elementScale > 0) {
+			return Math.max(0.25f, elementScale * guiScale());
+		}
 		MATRIX.clear();
 		GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, MATRIX);
 		float sx = (float) Math.sqrt(MATRIX.get(0) * MATRIX.get(0) + MATRIX.get(1) * MATRIX.get(1));

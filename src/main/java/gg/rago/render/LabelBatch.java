@@ -1,6 +1,7 @@
 package gg.rago.render;
 
 import gg.rago.gui.ui.TtfFont;
+import gg.rago.hooks.Hooks;
 import gg.rago.gui.ui.Ui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
@@ -31,6 +32,19 @@ public final class LabelBatch {
 
 	private static final ResourceLocation ASCII = new ResourceLocation("textures/font/ascii.png");
 	private static final int CORNER_SEGMENTS = 4;
+	/** The angles of a rounded outline, all the way round, worked out once instead of for every tag. */
+	private static final float[] RING_COS = new float[4 * CORNER_SEGMENTS + 1];
+	private static final float[] RING_SIN = new float[4 * CORNER_SEGMENTS + 1];
+
+	static {
+		for (int c = 0; c < 4; c++) {
+			for (int i = 0; i <= CORNER_SEGMENTS; i++) {
+				double a = Math.toRadians(-90 + c * 90 + 90.0 * i / CORNER_SEGMENTS);
+				RING_COS[c * CORNER_SEGMENTS + i] = (float) Math.cos(a);
+				RING_SIN[c * CORNER_SEGMENTS + i] = (float) Math.sin(a);
+			}
+		}
+	}
 
 	private final Layer[] layers = {new Layer(), new Layer(), new Layer()};
 	// the current label: world position of its origin and of one label unit right and down
@@ -123,6 +137,11 @@ public final class LabelBatch {
 		quad(f, x, y, x + r, y + r, u0, v0, u1, v1, argb);
 	}
 
+	/** A whole texture (white, tinted by {@code argb}) over a rectangle, in label units. */
+	public void image(int layer, int texture, float x, float y, float w, float h, int argb) {
+		quad(layers[layer].textured(texture), x, y, x + w, y + h, 0, 0, 1, 1, argb);
+	}
+
 	private void quad(FloatList f, float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1, int argb) {
 		f.vertex(wx(x0, y1), wy(x0, y1), wz(x0, y1), u0, v1, argb);
 		f.vertex(wx(x1, y1), wy(x1, y1), wz(x1, y1), u1, v1, argb);
@@ -158,9 +177,8 @@ public final class LabelBatch {
 				if (c == 4 && i > 0) {
 					break;
 				}
-				double a = Math.toRadians(-90 + k * 90 + 90.0 * i / CORNER_SEGMENTS);
-				float cos = (float) Math.cos(a);
-				float sin = (float) Math.sin(a);
+				float cos = RING_COS[k * CORNER_SEGMENTS + i];
+				float sin = RING_SIN[k * CORNER_SEGMENTS + i];
 				float ox0 = cx[k] + cos * r;
 				float oy0 = cy[k] + sin * r;
 				float ix0 = cx[k] + cos * inner;
@@ -189,7 +207,7 @@ public final class LabelBatch {
 	public boolean text(int layer, TtfFont font, float em, float pixelsPerUnit, String s, float x, float y, int argb, boolean shadow) {
 		Layer l = layers[layer];
 		if (font == null) {
-			return vanillaText(l, s, x, y, argb, shadow);
+			return vanillaText(l, Hooks.nick(s), x, y, argb, shadow);
 		}
 		float px = Math.max(6, Math.round(em * pixelsPerUnit * 2) / 2f);
 		float k = px / em;
@@ -390,7 +408,41 @@ public final class LabelBatch {
 			size += STRIDE;
 		}
 
+		/** The vertices in the layout the renderer keeps them, reused while their number stays the same. */
+		private int[] packed = new int[0];
+
+		/**
+		 * Hands the vertices to the renderer in one copy when its format is the usual one (position,
+		 * texture, colour), else one call per value as before.
+		 */
 		void upload(WorldRenderer w, boolean textured) {
+			int per = textured ? 6 : 4;
+			if (w.getVertexFormat().getIntegerSize() == per) {
+				int n = size / STRIDE * per;
+				if (packed.length != n) {
+					packed = new int[n];
+				}
+				boolean little = java.nio.ByteOrder.nativeOrder() == java.nio.ByteOrder.LITTLE_ENDIAN;
+				int o = 0;
+				for (int i = 0; i < size; i += STRIDE) {
+					packed[o++] = Float.floatToRawIntBits(data[i]);
+					packed[o++] = Float.floatToRawIntBits(data[i + 1]);
+					packed[o++] = Float.floatToRawIntBits(data[i + 2]);
+					if (textured) {
+						packed[o++] = Float.floatToRawIntBits(data[i + 3]);
+						packed[o++] = Float.floatToRawIntBits(data[i + 4]);
+					}
+					int c = Float.floatToRawIntBits(data[i + 5]);
+					int r = c >> 16 & 0xFF;
+					int g = c >> 8 & 0xFF;
+					int b = c & 0xFF;
+					int a = c >>> 24;
+					// as WorldRenderer.color writes it: the bytes red, green, blue, alpha in memory
+					packed[o++] = little ? a << 24 | b << 16 | g << 8 | r : r << 24 | g << 16 | b << 8 | a;
+				}
+				w.addVertexData(packed);
+				return;
+			}
 			for (int i = 0; i < size; i += STRIDE) {
 				int c = Float.floatToRawIntBits(data[i + 5]);
 				w.pos(data[i], data[i + 1], data[i + 2]);

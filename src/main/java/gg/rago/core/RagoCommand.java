@@ -1,5 +1,6 @@
 package gg.rago.core;
 
+import gg.rago.modules.Screenshots;
 import gg.rago.hypixel.HypixelApi;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
@@ -58,7 +59,7 @@ final class RagoCommand extends CommandBase {
 				return;
 			}
 			try {
-				api.setKey(args[1].trim());
+				api.setKey(args[1].trim(), RagoClient.ownId());
 				sender.addChatMessage(message("rago.command.key_saved", EnumChatFormatting.GREEN));
 			} catch (IOException e) {
 				RagoClient.LOG.error("Could not save the Hypixel API key", e);
@@ -66,12 +67,30 @@ final class RagoCommand extends CommandBase {
 			}
 			return;
 		}
+		if (args[0].equalsIgnoreCase("debug")) {
+			boolean on = gg.rago.debug.InputTrace.toggle();
+			sender.addChatMessage(message(on ? "rago.command.debug_on" : "rago.command.debug_off", EnumChatFormatting.GOLD));
+			return;
+		}
+		if (args[0].equalsIgnoreCase("testplayers") && gg.rago.debug.FakeBedwars.ON) {
+			gg.rago.debug.FakeBedwars.players(args.length > 1 ? Integer.parseInt(args[1]) : 16);
+			return;
+		}
+		if (args[0].equalsIgnoreCase("testbw") && gg.rago.debug.FakeBedwars.ON) {
+			gg.rago.debug.FakeBedwars.start(args.length > 1 ? Integer.parseInt(args[1]) : 337);
+			return;
+		}
+		if (args[0].equalsIgnoreCase("screenshot") && args.length >= 3) {
+			// the buttons after "Saved screenshot as ..."; the file name may hold spaces
+			Screenshots.command(args[1], String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length)));
+			return;
+		}
 		sender.addChatMessage(message("rago.command.usage", EnumChatFormatting.GRAY));
 	}
 
 	@Override
 	public List<String> addTabCompletionOptions(ICommandSender sender, String[] args, BlockPos pos) {
-		return args.length == 1 ? getListOfStringsMatchingLastWord(args, "hypixelkey") : Collections.<String>emptyList();
+		return args.length == 1 ? getListOfStringsMatchingLastWord(args, "hypixelkey", "debug") : Collections.<String>emptyList();
 	}
 
 	private static IChatComponent message(String key, EnumChatFormatting color) {

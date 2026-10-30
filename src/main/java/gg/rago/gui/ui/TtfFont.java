@@ -1,6 +1,7 @@
 package gg.rago.gui.ui;
 
 import gg.rago.core.RagoClient;
+import gg.rago.hooks.Hooks;
 import gg.rago.render.StaticTexture;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
@@ -76,6 +77,7 @@ public final class TtfFont {
 
 	/** Width of {@code s} without § codes at {@link #METRICS_PX} pixels; no texture is created. */
 	public float measure(String s) {
+		s = Hooks.nickPlain(s);
 		if (metrics == null) {
 			Font f = base().deriveFont((float) METRICS_PX);
 			FontRenderContext frc = new FontRenderContext(null, true, true);
@@ -115,6 +117,7 @@ public final class TtfFont {
 
 	/** Width in real pixels of {@code s} drawn at {@code px} pixels. */
 	public float width(String s, float px) {
+		s = Hooks.nickPlain(s);
 		Atlas a = atlas(Math.max(1, Math.round(px)));
 		float w = 0;
 		for (int i = 0; i < s.length(); i++) {
@@ -144,7 +147,7 @@ public final class TtfFont {
 	 */
 	public void draw(String s, float x, float y, float px, int argb) {
 		begin(px);
-		emit(s, x, y, px, argb, TESSELLATOR_SINK);
+		emit(Hooks.nickPlain(s), x, y, px, argb, TESSELLATOR_SINK);
 		Tessellator.getInstance().draw();
 	}
 
@@ -240,6 +243,7 @@ public final class TtfFont {
 
 	/** {@link #drawFormatted} into {@code sink} instead of the screen, for batched drawing. */
 	public void emitFormatted(String s, float x, float y, float px, int argb, boolean shadow, float shadowOffset, QuadSink sink) {
+		s = Hooks.nick(s);
 		if (shadow) {
 			emitRuns(s, x + shadowOffset, y + shadowOffset, px, argb, true, sink);
 		}

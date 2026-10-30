@@ -12,8 +12,28 @@ public final class ColorOption extends Option<Integer> {
 		0xFFFFFFFF, 0xFFAAAAAA, 0xFF55FFFF, 0xFF55FF55, 0xFFFFFF55, 0xFFFFAA00, 0xFFFF5555, 0xFFFF55FF, 0xFF5555FF
 	};
 
+	/** The opacity this colour always has, or -1 when it can be set. */
+	private int fixedAlpha = -1;
+
 	public ColorOption(String key, int defaultArgb) {
 		super(key, defaultArgb);
+	}
+
+	/** Any colour, always at this opacity (0 to 255): the menu shows no opacity bar for it. */
+	public ColorOption fixedAlpha(int alpha) {
+		fixedAlpha = alpha;
+		set(get());
+		makeCurrentDefault();
+		return this;
+	}
+
+	public boolean hasFixedAlpha() {
+		return fixedAlpha >= 0;
+	}
+
+	@Override
+	protected Integer sanitize(Integer argb) {
+		return fixedAlpha >= 0 ? fixedAlpha << 24 | argb & 0xFFFFFF : argb;
 	}
 
 	/** Moves to the next preset after the current colour (or the first preset). */

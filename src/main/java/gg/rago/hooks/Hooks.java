@@ -1,19 +1,30 @@
 package gg.rago.hooks;
 
 import gg.rago.modules.Chat;
+import gg.rago.modules.Emotes;
 import gg.rago.modules.FastShop;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.GlintColor;
 import gg.rago.modules.HitColor;
 import gg.rago.modules.HitDelayFix;
+import gg.rago.modules.BlockEditFix;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
+import gg.rago.modules.LowLatency;
+import gg.rago.modules.NickHider;
+import gg.rago.modules.BedwarsStats;
+import gg.rago.modules.RagoBadge;
+import gg.rago.modules.AntiArmor;
+import gg.rago.modules.ClientFixes;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.Screenshots;
+import gg.rago.modules.SkinChanger;
 import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
+import gg.rago.modules.TitleMod;
 import gg.rago.optimize.EngineTweaks;
 import gg.rago.optimize.OcclusionCuller;
 import net.minecraft.client.Minecraft;
@@ -21,7 +32,9 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.client.entity.AbstractClientPlayer;
+import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.network.NetworkPlayerInfo;
+import net.minecraft.client.particle.EntityFX;
 import net.minecraft.client.resources.model.IBakedModel;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -29,6 +42,7 @@ import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3;
@@ -51,12 +65,49 @@ public final class Hooks {
 	public static volatile ItemScale itemScale;
 	public static volatile ItemPhysics itemPhysics;
 	public static volatile HitDelayFix hitDelay;
+	public static volatile BlockEditFix blockEdit;
 	public static volatile FastShop fastShop;
 	public static volatile Chat chat;
 	public static volatile GameplayFixes fixes;
 	public static volatile HitColor hitColor;
 	public static volatile EngineTweaks engine;
 	public static volatile RagoCape cape;
+	public static volatile SkinChanger skins;
+	public static volatile NickHider nickHider;
+	public static volatile BedwarsStats bedwarsStats;
+	public static volatile ClientFixes clientFixes;
+	public static volatile Screenshots screenshots;
+	public static volatile Emotes emotes;
+	public static volatile RagoBadge ragoBadge;
+	public static volatile AntiArmor antiArmor;
+	public static volatile TitleMod titles;
+	public static volatile LowLatency lowLatency;
+
+	/** Minecraft.runGameLoop, first thing: waits for the graphics card when Low Latency is on. */
+	public static void frameStart() {
+		LowLatency l = lowLatency;
+		if (l != null) {
+			l.frameStart();
+		}
+	}
+
+	/** GuiIngameForge.renderTitle, first thing: true draws no title or subtitle. */
+	public static boolean hideTitles() {
+		TitleMod t = titles;
+		return t != null && t.isEnabled() && t.hides();
+	}
+
+	/** GuiIngameForge.renderTitle: the title's scale (vanilla 4) or the subtitle's (vanilla 2). */
+	public static float titleScale(float vanilla, int width) {
+		TitleMod t = titles;
+		return t != null && t.isEnabled() ? t.scale(vanilla, width) : vanilla;
+	}
+
+	/** LayerArmorBase.doRenderLayer: true to draw no armour on this entity. */
+	public static boolean hideArmor(EntityLivingBase entity) {
+		AntiArmor a = antiArmor;
+		return a != null && a.isEnabled() && a.hides(entity);
+	}
 	public static volatile GlintColor glint;
 
 	private Hooks() {
@@ -162,6 +213,14 @@ public final class Hooks {
 		return e != null && e.unstackedItems() ? 1 : vanilla;
 	}
 
+	/** EffectRenderer.addEffect, first thing: a new particle skips block collisions when they are off. */
+	public static void particleAdded(EntityFX fx) {
+		EngineTweaks e = engine;
+		if (e != null && !e.particleCollisions()) {
+			fx.noClip = true;
+		}
+	}
+
 	/** Minecraft.loadWorld: vanilla forces a full garbage collection on every world change. */
 	public static void worldSwitchGc() {
 		EngineTweaks e = engine;
@@ -232,6 +291,14 @@ public final class Hooks {
 		}
 	}
 
+	/** Minecraft.clickMouse, first thing: with Block Edit Fix, a right click of the same tick goes first. */
+	public static void beforeLeftClick() {
+		BlockEditFix b = blockEdit;
+		if (b != null && b.isEnabled()) {
+			b.beforeLeftClick();
+		}
+	}
+
 	/** Minecraft.clickMouse: ticks the attack key is locked after a click that hits nothing. */
 	public static int missDelay(int vanilla) {
 		HitDelayFix h = hitDelay;
@@ -242,6 +309,38 @@ public final class Hooks {
 	public static boolean hideBlockBreak() {
 		HitParticles h = hitParticles;
 		return h != null && h.isEnabled() && h.hideBlockBreak();
+	}
+
+	/** ModelBiped.setRotationAngles, at its end: the pose of a dance on your own player. */
+	public static void emotePose(ModelBiped model, Entity entity) {
+		Emotes e = emotes;
+		if (e != null && (e.playing() != null || e.posed())) {
+			e.pose(model, entity);
+		}
+	}
+
+	/** ModelRenderer.render, first: true when the part was drawn bent (an emote's elbow, knee or waist). */
+	public static boolean renderBent(net.minecraft.client.model.ModelRenderer part, float scale) {
+		if (!gg.rago.debug.FrameProfile.ON) {
+			return gg.rago.render.BentModel.render(part, scale);
+		}
+		long t = System.nanoTime();
+		boolean bent = gg.rago.render.BentModel.render(part, scale);
+		if (bent) {
+			gg.rago.debug.FrameProfile.element("bent limbs", System.nanoTime() - t);
+		}
+		return bent;
+	}
+
+	/** ModelRenderer.postRender, at its end: the held item follows a bent arm's hand. */
+	public static void postRenderBent(net.minecraft.client.model.ModelRenderer part, float scale) {
+		gg.rago.render.BentModel.postRender(part, scale);
+	}
+
+	/** EffectRenderer.emitParticleAtEntity: true when Hit Particles makes the burst itself, in its size. */
+	public static boolean emitParticles(Entity entity, EnumParticleTypes type) {
+		HitParticles h = hitParticles;
+		return h != null && h.isEnabled() && h.emitParticles(entity, type);
 	}
 
 	/** EffectRenderer.addBlockHitEffects: true to skip the particles of a block being mined. */
@@ -280,6 +379,11 @@ public final class Hooks {
 
 	/** GuiPlayerTabOverlay.renderPlayerlist: draws a name, header or footer line. */
 	public static int tabText(FontRenderer font, String text, float x, float y, int color) {
+		RagoBadge r = ragoBadge;
+		if (r != null && r.tabLogo(text, x, y)) {
+			text = RagoBadge.tabText(text);
+			x += RagoBadge.tabShift();
+		}
 		TabList t = tabList;
 		return t != null && t.isEnabled() ? t.drawText(font, text, x, y, color) : font.drawStringWithShadow(text, x, y, color);
 	}
@@ -296,11 +400,85 @@ public final class Hooks {
 		return c != null && c.isEnabled() ? c.background(vanilla >>> 24) : vanilla;
 	}
 
-	/** GuiNewChat.drawChat: draws a chat line's text, with or without shadow. */
-	public static int chatText(FontRenderer font, String text, float x, float y, int color) {
+	/**
+	 * GuiNewChat.drawChat: draws a chat line's text, with or without shadow, before the game's own
+	 * call (left in place with an empty string); returns the font for that call.
+	 */
+	public static FontRenderer chatText(FontRenderer font, String text, float x, float y, int color) {
 		Chat c = chat;
 		boolean shadow = c == null || !c.isEnabled() || c.textShadow();
-		return font.drawString(text, x, y, color, shadow);
+		font.drawString(text, x, y, color, shadow);
+		return font;
+	}
+
+	/** ScreenShotHelper.saveScreenshot: copy, open, folder and delete buttons after the chat line. */
+	public static IChatComponent screenshot(IChatComponent line) {
+		Screenshots s = screenshots;
+		return s != null && s.isEnabled() ? s.decorate(line) : line;
+	}
+
+	/** EntityRenderer.orientCamera: the first-person camera offset (parallax fix). */
+	public static float cameraOffset(float vanilla) {
+		ClientFixes f = clientFixes;
+		return f != null && f.isEnabled() ? f.cameraOffset(vanilla) : vanilla;
+	}
+
+	/** S48PacketResourcePackSend.getURL: unsafe server pack links become a pack that does not exist. */
+	public static String resourcePackUrl(String url) {
+		ClientFixes f = clientFixes;
+		return f != null && f.isEnabled() ? f.resourcePackUrl(url) : url;
+	}
+
+	/** GuiPlayerTabOverlay.getPlayerName: Bed Wars star and ratio around the name. */
+	public static String tabName(String vanilla, NetworkPlayerInfo info) {
+		BedwarsStats s = bedwarsStats;
+		String name = s != null && s.isEnabled() ? s.tabName(vanilla, info) : vanilla;
+		RagoBadge r = ragoBadge;
+		return r != null ? r.tabName(name, info) : name;
+	}
+
+	/** AbstractClientPlayer.getLocationSkin: the Nick Hider's or the locker skin on your own player. */
+	public static ResourceLocation skin(ResourceLocation vanilla, AbstractClientPlayer player) {
+		NickHider n = nickHider;
+		if (n != null && n.isEnabled()) {
+			ResourceLocation r = n.skinFor(player, null);
+			if (r != null) {
+				return r;
+			}
+		}
+		SkinChanger s = skins;
+		return s != null && s.isEnabled() ? s.skinFor(player, vanilla) : vanilla;
+	}
+
+	/** AbstractClientPlayer.getSkinType: slim or wide arms to go with that skin. */
+	public static String skinModel(String vanilla, AbstractClientPlayer player) {
+		NickHider n = nickHider;
+		if (n != null && n.isEnabled()) {
+			String m = n.modelFor(player);
+			if (m != null) {
+				return m;
+			}
+		}
+		SkinChanger s = skins;
+		return s != null && s.isEnabled() ? s.modelFor(player, vanilla) : vanilla;
+	}
+
+	/** NetworkPlayerInfo.getLocationSkin: your head in the tab list with the Nick Hider's skin. */
+	public static ResourceLocation tabSkin(ResourceLocation vanilla, NetworkPlayerInfo info) {
+		NickHider n = nickHider;
+		return n != null && n.isEnabled() ? n.skinFor(info, vanilla) : vanilla;
+	}
+
+	/** Text about to be drawn with its § codes: your name replaced while the Nick Hider is on. */
+	public static String nick(String s) {
+		NickHider n = nickHider;
+		return n != null && s != null && n.isEnabled() ? n.formatted(s) : s;
+	}
+
+	/** {@link #nick} for text drawn without § codes (Rago's menus). */
+	public static String nickPlain(String s) {
+		NickHider n = nickHider;
+		return n != null && s != null && n.isEnabled() ? n.plain(s) : s;
 	}
 
 	/** AbstractClientPlayer.getLocationCape: the Rago cape for players who wear it. */
