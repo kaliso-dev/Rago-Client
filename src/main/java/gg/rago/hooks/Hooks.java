@@ -319,6 +319,24 @@ public final class Hooks {
 		}
 	}
 
+	/** ModelRenderer.render, first: true when the part was drawn bent (an emote's elbow, knee or waist). */
+	public static boolean renderBent(net.minecraft.client.model.ModelRenderer part, float scale) {
+		if (!gg.rago.debug.FrameProfile.ON) {
+			return gg.rago.render.BentModel.render(part, scale);
+		}
+		long t = System.nanoTime();
+		boolean bent = gg.rago.render.BentModel.render(part, scale);
+		if (bent) {
+			gg.rago.debug.FrameProfile.element("bent limbs", System.nanoTime() - t);
+		}
+		return bent;
+	}
+
+	/** ModelRenderer.postRender, at its end: the held item follows a bent arm's hand. */
+	public static void postRenderBent(net.minecraft.client.model.ModelRenderer part, float scale) {
+		gg.rago.render.BentModel.postRender(part, scale);
+	}
+
 	/** EffectRenderer.emitParticleAtEntity: true when Hit Particles makes the burst itself, in its size. */
 	public static boolean emitParticles(Entity entity, EnumParticleTypes type) {
 		HitParticles h = hitParticles;

@@ -30,4 +30,13 @@ class SidebarCleanTest {
 		assertEquals("Joueurs : 5/16", BedwarsGame.clean("Joueurs : 5/16"));
 		assertEquals("Émeraude II dans 3:05", BedwarsGame.clean("§fÉmeraude II dans §a3:05"));
 	}
+
+	@Test
+	void teamLetterSkipsColoursAndSpaces() {
+		assertEquals('R', BedwarsGame.letter("\u00a7c\u00a7lR \u00a7c"));
+		assertEquals('B', BedwarsGame.letter(" \u00a79B "));
+		assertEquals(0, BedwarsGame.letter("\u00a77[VIP] "));
+		assertEquals(0, BedwarsGame.letter("\u00a7c"));
+		assertEquals(0, BedwarsGame.letter(""));
+	}
 }

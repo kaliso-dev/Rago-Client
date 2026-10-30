@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.22.** What it contains:
+**Current version: 1.4.23.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -223,6 +223,15 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     tick changes. In our test (left and right pressed in the same tick, 8 times): placed 1 tick late
     every time without it, in the same tick every time with it; holding right click while clicking
     left fast still places at vanilla's rate of one block every 4 ticks
+  - Emotes bend like a body: elbows and knees bend (each arm, leg and their outer skin layer is
+    drawn as one piece curving over 4 pixels around the joint, in 6 slices, so the halves stay
+    joined and the skin stretches over the bend), the hips sink on bent knees with the feet kept
+    under them, and the chest bends at the waist and carries the head, the arms, the wings and the
+    cape. Armor bends with the limbs and the held item follows the hand. The dances use it (hands
+    on the hips, waving from the elbow, clapping forearms, squats), and a ninth dance, Groove, is a
+    low knees-out bounce. Our own code and moves, written for Rago. In our test (software
+    rendering, no graphics card), drawing the bent parts takes about 0.44 ms per frame, only while
+    a dance plays
   - the dragon wings are drawn four times finer too (256 x 256): the trailing edge sags in curves
     between the fingers, the finger bones thin toward their tips and the bones are a little thinner.
     The small dragon wings take the Rago cape's black and red, like the shield. The models merge
@@ -276,8 +285,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - the shield lies flat against the outside of the left forearm, face outward, and is bigger;
     the wings start higher on the back
   - dragon wings with scales and bones, and smaller dragon wings like Lunar Client's
-  - Emotes: eight dances and gestures on a wheel (B): floss, dab, wave, disco, zombie, helicopter,
-    clap, macarena; the camera turns to face you, and only you see them
+  - Emotes: dances and gestures on a wheel (B): floss, dab, wave, disco, zombie, helicopter,
+    clap, macarena, groove; the camera turns to face you, and only you see them
   - Message Hotkeys (input class, off by default): up to four keys that each type one of your
     messages in the chat, at most once every two seconds
   - Auto Messages (auto-chat class, off by default, Hypixel only): GG and a message of yours when a
@@ -367,7 +376,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.22+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.4.23+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

@@ -1046,6 +1046,7 @@ rago.emote.zombie=Zombie
 rago.emote.helicopter=Hélico
 rago.emote.clap=Bravo
 rago.emote.macarena=Macarena
+rago.emote.groove=Groove
 
 # 1.4: HUD cache
 rago.setting.hud_cache=Cache du HUD

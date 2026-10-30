@@ -52,7 +52,7 @@ public final class FrameProfile {
 			TOTAL[i] = 0;
 		}
 		final long n = frames;
-		ELEMENTS.entrySet().stream().sorted((x, y) -> Long.compare(y.getValue()[0], x.getValue()[0])).limit(8)
+		ELEMENTS.entrySet().stream().sorted((x, y) -> Long.compare(y.getValue()[0], x.getValue()[0])).limit(14)
 			.forEach(e -> b.append(String.format(Locale.ROOT, " | %s %.1f", e.getKey(), e.getValue()[0] / 1000.0 / n)));
 		ELEMENTS.clear();
 		RagoClient.LOG.info(b.toString());

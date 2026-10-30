@@ -43,6 +43,10 @@ public final class BedwarsGame {
 	private static Map<Character, Boolean> alive = Collections.emptyMap();
 	private static String eventLine;
 	private static boolean waiting;
+	private static String sidebarTitle;
+	private static boolean sidebarBedwars;
+	private static String rawTitle;
+	private static String plainTitle = "";
 
 	private BedwarsGame() {
 	}
@@ -53,7 +57,16 @@ public final class BedwarsGame {
 			return false;
 		}
 		ScoreObjective sidebar = mc.theWorld.getScoreboard().getObjectiveInDisplaySlot(1);
-		return sidebar != null && clean(sidebar.getDisplayName()).contains("BED WARS");
+		if (sidebar == null) {
+			return false;
+		}
+		// several modules ask every tick: the title is cleaned again only when it changes
+		String raw = sidebar.getDisplayName();
+		if (raw != sidebarTitle) {
+			sidebarTitle = raw;
+			sidebarBedwars = clean(raw).contains("BED WARS");
+		}
+		return sidebarBedwars;
 	}
 
 	/**
@@ -227,8 +240,20 @@ public final class BedwarsGame {
 
 	/** A team's letter from its prefix ("§c§lR §c" is R), or 0 when it has none. */
 	public static char teamLetter(ScorePlayerTeam team) {
-		String prefix = EnumChatFormatting.getTextWithoutFormattingCodes(team.getColorPrefix()).trim();
-		return !prefix.isEmpty() && Character.isUpperCase(prefix.charAt(0)) ? prefix.charAt(0) : 0;
+		return letter(team.getColorPrefix());
+	}
+
+	/** The first character of a prefix past its colour codes and spaces, when it is a capital (read every tick: no regex). */
+	static char letter(String prefix) {
+		for (int i = 0; i < prefix.length(); i++) {
+			char c = prefix.charAt(i);
+			if (c == '\u00a7' && i + 1 < prefix.length() && "0123456789abcdefklmnorABCDEFKLMNOR".indexOf(prefix.charAt(i + 1)) >= 0) {
+				i++;
+			} else if (!Character.isWhitespace(c)) {
+				return Character.isUpperCase(c) ? c : 0;
+			}
+		}
+		return 0;
 	}
 
 	/** A team's colour, the last colour code of its prefix ('c' for red), or 0. */
@@ -297,7 +322,15 @@ public final class BedwarsGame {
 				titleField = ReflectionHelper.findField(GuiIngame.class, "displayedTitle", "field_175201_x");
 			}
 			String t = (String) titleField.get(gui);
-			return t == null ? "" : EnumChatFormatting.getTextWithoutFormattingCodes(t);
+			if (t == null) {
+				return "";
+			}
+			// read every tick by several modules: the colours are taken off again only for a new title
+			if (t != rawTitle) {
+				rawTitle = t;
+				plainTitle = EnumChatFormatting.getTextWithoutFormattingCodes(t);
+			}
+			return plainTitle;
 		} catch (ReflectiveOperationException | RuntimeException e) {
 			titleFieldMissing = true;
 			RagoClient.LOG.warn("Cannot read titles: {}", e.toString());

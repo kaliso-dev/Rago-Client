@@ -205,6 +205,27 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return found;
 			}));
+		add("net.minecraft.client.model.ModelRenderer", new Patch("bent limbs",
+			"func_78785_a", "render", "(F)V",
+			m -> returnIf(m, "renderBent", "(Lnet/minecraft/client/model/ModelRenderer;F)Z", new int[] {Opcodes.ALOAD, 0, Opcodes.FLOAD, 1},
+				-1, Opcodes.RETURN)));
+		add("net.minecraft.client.model.ModelRenderer", new Patch("bent limbs: held item",
+			"func_78794_c", "postRender", "(F)V",
+			m -> {
+				boolean found = false;
+				for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+					if (insn.getOpcode() == Opcodes.RETURN) {
+						InsnList call = new InsnList();
+						call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+						call.add(new VarInsnNode(Opcodes.FLOAD, 1));
+						call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "postRenderBent",
+							"(Lnet/minecraft/client/model/ModelRenderer;F)V", false));
+						m.instructions.insertBefore(insn, call);
+						found = true;
+					}
+				}
+				return found;
+			}));
 		add("net.minecraft.client.particle.EffectRenderer", new Patch("particle collisions",
 			"func_78873_a", "addEffect", "(Lnet/minecraft/client/particle/EntityFX;)V",
 			m -> {
