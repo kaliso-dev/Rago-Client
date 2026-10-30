@@ -674,7 +674,7 @@ rago.option.shop_no_duplicates=No duplicate swords or knockback stick
 
 # 1.2: cosmetics
 rago.module.cosmetics=Cosmetics
-rago.module.cosmetics.desc=A hat (Rago cap, Rago beanie, neon cap, top hat, wizard hat, crown or halo), 3D voxel wings (dragon or small dragon) and a Rago shield in your left hand (five styles) on your player, each with its colour and size. The neon cap, the small dragon wings and the Rago shield come in nine neon colours. Only you see them.
+rago.module.cosmetics.desc=A hat (Rago cap, Rago beanie, top hat, wizard hat, crown or halo), 3D voxel wings (dragon or small dragon) and a Rago shield in your left hand (five styles) on your player, each with its colour and size. The logo of the Rago cap and beanie, the small dragon wings and the Rago shield come in nine neon colours, with a faint glow. Only you see them.
 rago.option.cosmetic_hat=Hat
 rago.option.cosmetic_hat.none=None
 rago.option.cosmetic_hat.top_hat=Top hat
@@ -743,7 +743,6 @@ rago.option.tnt_fuse.help=How long lit TNT takes to explode on your server. The 
 # 1.3: cosmetics
 rago.option.cosmetic_hat.rago_cap=Rago cap
 rago.option.cosmetic_hat.rago_beanie=Rago beanie
-rago.option.cosmetic_logo_color=Logo colour
 rago.option.cosmetic_hat_scale=Hat size
 rago.option.cosmetic_hat_scale.format=%d%%
 rago.option.cosmetic_wings_scale=Wings size
@@ -751,8 +750,7 @@ rago.option.cosmetic_wings_scale.format=%d%%
 rago.option.cosmetic_wings_flap_speed=Flapping speed
 rago.option.cosmetic_wings_flap_speed.format=%d%%
 rago.option.cosmetic_hat.wizard_hat=Wizard hat
-rago.option.cosmetic_hat.cap_red=Neon cap
-rago.option.cosmetic_hat.help=The top hat, wizard hat and neon cap are voxel models by VoxelBear on Sketchfab (CC BY 4.0).
+rago.option.cosmetic_hat.help=The top hat and wizard hat are voxel models by VoxelBear on Sketchfab (CC BY 4.0). The Rago cap's neon colour colours its logo and the strap at the back; the beanie's, its logo and pompom.
 rago.option.cosmetic_wings.help=The dragon and small dragon wings are Rago's own.
 
 # 1.3: item counter, generator timers, item physics
@@ -1199,3 +1197,18 @@ rago.choice.purple=Purple
 rago.choice.pink=Pink
 rago.choice.white=White
 rago.locker.neon=Neon colour
+rago.option.cosmetic_neon_glow=Neon glow
+rago.option.cosmetic_neon_glow.help=A faint glow on the neon parts, as on the Rago cape, seen even in the dark. Turn it off to save a little performance (one more draw per neon cosmetic).
+rago.module.nick_hider=Nick Hider
+rago.module.nick_hider.desc=For streaming: your name is replaced by the nick you choose wherever the game draws text (chat, tab list, name tags, scoreboard, menus), and your skin by Steve, Alex or a locker skin in third person and in the tab list. Only your screen changes: the server and other players still see your real name and skin.
+rago.option.nick_name=Nick
+rago.option.nick_name.help=The name shown instead of yours. & colour codes work: &b for aqua, &l for bold, &r to reset.
+rago.option.nick_skin=Skin
+rago.option.nick_skin.own=Your skin
+rago.option.nick_skin.steve=Steve
+rago.option.nick_skin.alex=Alex
+rago.option.nick_skin.locker=Locker skin
+rago.option.nick_skin.help=The skin shown on your player in third person and on your head in the tab list.
+rago.option.nick_locker_skin=Locker skin name
+rago.option.nick_locker_skin.help=The name of a skin in your locker (shirt button on the home screen), or pick it there with the mask button.
+rago.locker.nick_set=Nick Hider: %s's skin shown on your player

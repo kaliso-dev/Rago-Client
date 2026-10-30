@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.15.** What it contains:
+**Current version: 1.4.16.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -169,7 +169,7 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - a developer key from developer.hypixel.net has 300 requests a day: when they are used up, the
     API key card in the menu, Bed Wars Quests and a chat message from Bed Wars Stats say so and
     when they come back, instead of a green "Key OK" and empty stats
-  - the Rago cape, the neon cap (was the red cap), the small dragon wings and the Rago shield come
+  - the Rago cape, the Rago cap and beanie, the small dragon wings and the Rago shield come
     in nine neon colours (red, orange, yellow, green, cyan, blue, purple, pink, white), picked with
     swatches in the Locker; the red of the texture is recoloured in game with its shading kept
   - the mushroom hats and the angel and butterfly wings are gone; a saved choice of one of them
@@ -180,6 +180,20 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     asked again every 30 minutes in a lobby and after the quest master's menu only (not every chest
     menu); a game's waiting room is recognised from its sidebar ("Players: 5/16"), and any other
     place with more than 16 players is a lobby whose players only get spare requests
+  - Nick Hider, for streaming: your name is replaced by a nick of your choice (with & colour codes)
+    in the chat, the tab list, name tags, the scoreboard and Rago's menus, and your skin by Steve,
+    Alex or a locker skin (mask button on a locker card) in F5 and in the tab list; only on your
+    screen
+  - the Rago cap's neon colour now colours its front logo and a snapback strap at the back; the
+    separate neon cap is gone (a saved choice of it falls back to none)
+  - neon cosmetics (Rago cap and beanie logos, small dragon wings, Rago shield) get the same faint
+    bloom as the Rago cape, in every colour; one switch in the Locker turns it off
+  - qRago's skin ships inside the jar, so it is in every locker even without a connection to
+    Mojang's servers (added once, not worn)
+  - the Rago logo next to your name (tab list and F5) no longer turns into another icon after a
+    resource pack change
+  - on a daily-quota key, your quests are asked again at most every 20 minutes after games, and a
+    failed request waits 30 minutes before the next try
   - the 1.2 Particles mod is merged into Particle Multiplier, which can now also hide block-breaking
     and block-mining particles
   - Item Scale (held and dropped items from 25% to 400%), Item Physics (dropped items lie on the
@@ -314,7 +328,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.15+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.4.16+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

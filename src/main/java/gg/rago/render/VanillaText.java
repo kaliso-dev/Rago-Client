@@ -1,5 +1,6 @@
 package gg.rago.render;
 
+import gg.rago.hooks.Hooks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
@@ -25,6 +26,7 @@ public final class VanillaText {
 
 	/** Whether {@code s} can be drawn here exactly as vanilla would draw it. */
 	public static boolean batchable(String s) {
+		s = Hooks.nick(s);
 		if (Minecraft.getMinecraft().fontRendererObj.getUnicodeFlag() || s.isEmpty() || textureId() < 0) {
 			return false;
 		}
@@ -65,6 +67,7 @@ public final class VanillaText {
 
 	/** Adds the glyphs of a {@link #batchable} string to a batch begun with the ASCII page bound. */
 	public static void append(WorldRenderer b, String s, float x, float y, int argb, boolean shadow) {
+		s = Hooks.nick(s);
 		if ((argb & 0xFC000000) == 0) {
 			argb |= 0xFF000000; // as vanilla: a colour without alpha is opaque
 		}

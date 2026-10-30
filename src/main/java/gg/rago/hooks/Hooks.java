@@ -13,6 +13,7 @@ import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
 import gg.rago.modules.LowLatency;
+import gg.rago.modules.NickHider;
 import gg.rago.modules.BedwarsStats;
 import gg.rago.modules.RagoBadge;
 import gg.rago.modules.AntiArmor;
@@ -69,6 +70,7 @@ public final class Hooks {
 	public static volatile EngineTweaks engine;
 	public static volatile RagoCape cape;
 	public static volatile SkinChanger skins;
+	public static volatile NickHider nickHider;
 	public static volatile BedwarsStats bedwarsStats;
 	public static volatile ClientFixes clientFixes;
 	public static volatile Screenshots screenshots;
@@ -398,16 +400,48 @@ public final class Hooks {
 		return r != null ? r.tabName(name, info) : name;
 	}
 
-	/** AbstractClientPlayer.getLocationSkin: the locker skin on your own player. */
+	/** AbstractClientPlayer.getLocationSkin: the Nick Hider's or the locker skin on your own player. */
 	public static ResourceLocation skin(ResourceLocation vanilla, AbstractClientPlayer player) {
+		NickHider n = nickHider;
+		if (n != null && n.isEnabled()) {
+			ResourceLocation r = n.skinFor(player, null);
+			if (r != null) {
+				return r;
+			}
+		}
 		SkinChanger s = skins;
 		return s != null && s.isEnabled() ? s.skinFor(player, vanilla) : vanilla;
 	}
 
-	/** AbstractClientPlayer.getSkinType: slim or wide arms to go with the locker skin. */
+	/** AbstractClientPlayer.getSkinType: slim or wide arms to go with that skin. */
 	public static String skinModel(String vanilla, AbstractClientPlayer player) {
+		NickHider n = nickHider;
+		if (n != null && n.isEnabled()) {
+			String m = n.modelFor(player);
+			if (m != null) {
+				return m;
+			}
+		}
 		SkinChanger s = skins;
 		return s != null && s.isEnabled() ? s.modelFor(player, vanilla) : vanilla;
+	}
+
+	/** NetworkPlayerInfo.getLocationSkin: your head in the tab list with the Nick Hider's skin. */
+	public static ResourceLocation tabSkin(ResourceLocation vanilla, NetworkPlayerInfo info) {
+		NickHider n = nickHider;
+		return n != null && n.isEnabled() ? n.skinFor(info, vanilla) : vanilla;
+	}
+
+	/** Text about to be drawn with its § codes: your name replaced while the Nick Hider is on. */
+	public static String nick(String s) {
+		NickHider n = nickHider;
+		return n != null && s != null && n.isEnabled() ? n.formatted(s) : s;
+	}
+
+	/** {@link #nick} for text drawn without § codes (Rago's menus). */
+	public static String nickPlain(String s) {
+		NickHider n = nickHider;
+		return n != null && s != null && n.isEnabled() ? n.plain(s) : s;
 	}
 
 	/** AbstractClientPlayer.getLocationCape: the Rago cape for players who wear it. */

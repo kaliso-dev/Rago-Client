@@ -84,6 +84,7 @@ import gg.rago.modules.LowFire;
 import gg.rago.modules.ModernSounds;
 import gg.rago.modules.MotionBlur;
 import gg.rago.modules.MainMenu;
+import gg.rago.modules.NickHider;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.NoPumpkin;
 import gg.rago.modules.NoWaterOverlay;
@@ -288,6 +289,7 @@ public final class RagoClient {
 		RagoCape cape = MODULES.register(new RagoCape());
 		MODULES.register(new Cosmetics());
 		SkinChanger skinChanger = MODULES.register(new SkinChanger());
+		NickHider nickHider = MODULES.register(new NickHider());
 		GlintColor glint = MODULES.register(new GlintColor());
 		mainMenu = MODULES.register(new MainMenu());
 		profile = MODULES.register(new CompetitiveProfile(configDir));
@@ -305,6 +307,7 @@ public final class RagoClient {
 		Hooks.hitColor = hitColor;
 		Hooks.cape = cape;
 		Hooks.skins = skinChanger;
+		Hooks.nickHider = nickHider;
 		Skins.load(configDir);
 		Hooks.glint = glint;
 		ClientCommandHandler.instance.registerCommand(new RagoCommand(hypixel, () -> openMenu = true));

@@ -1,7 +1,10 @@
 package gg.rago.gui;
 
 import com.mojang.authlib.GameProfile;
+import gg.rago.hooks.Hooks;
+import gg.rago.modules.NickHider;
 import gg.rago.accounts.Skins;
+import gg.rago.config.BooleanOption;
 import gg.rago.config.ChoiceOption;
 import gg.rago.config.Option;
 import gg.rago.core.Module;
@@ -489,6 +492,11 @@ public final class LockerScreen extends GuiScreen {
 		}
 		ResourceLocation tex = s.texture();
 		cardFrame("locker:" + s.name, x, y, w, selected, tex, s.slim, s.name, s.slim ? t("rago.locker.slim") : t("rago.locker.classic"));
+		NickHider nick = Hooks.nickHider;
+		boolean nickSkin = nick != null && nick.isEnabled() && s.name.equalsIgnoreCase(nick.lockerSkinName());
+		if (nickSkin && !hover) {
+			Ui.icon("venetian-mask", x + w - 20, y + 9, 11, Theme.ACCENT);
+		}
 		if (busy || confirmApply != null) {
 			return;
 		}
@@ -506,6 +514,20 @@ public final class LockerScreen extends GuiScreen {
 				message = t("rago.locker.removed", s.name);
 				messageError = false;
 			});
+			if (nick != null) {
+				// the skin the Nick Hider shows on your player instead of yours
+				float nx = dx - 24;
+				float nh = Widgets.hoverAmount("locker:nick" + s.name, nx, y + 6, 20, 20);
+				Ui.round(nx, y + 6, 20, 20, 6, Ui.mix(0xCC141316, 0xFF2A1A18, nh));
+				Ui.icon("venetian-mask", nx + 4.5f, y + 10.5f, 11, nickSkin ? Theme.ACCENT : Ui.mix(0xFFB9B7BE, Theme.ACCENT, nh));
+				Ui.click(nx, y + 6, 20, 20, () -> {
+					nick.useLockerSkin(s.name);
+					nick.setEnabled(true);
+					RagoClient.saveConfig();
+					message = t("rago.locker.nick_set", s.name);
+					messageError = false;
+				});
+			}
 		}
 	}
 
@@ -587,7 +609,14 @@ public final class LockerScreen extends GuiScreen {
 			cy = section(x, cy, w, "shield", t("rago.locker.shield"), choice(cos, "cosmetic_shield"), cos, false);
 			cy = neon(x, cy, w, choice(cos, "cosmetic_shield_neon"), cos);
 		}
-		// colours, sizes and the rest stay in the mod's own settings
+		// the neon glow can be turned off here; colours, sizes and the rest stay in the mod's own settings
+		BooleanOption glow = cos == null ? null : bool(cos, "cosmetic_neon_glow");
+		if (glow != null && glow.visible() && cos.isEnabled()) {
+			Widgets.toggle(x, cy, glow.get());
+			Ui.click(x, cy, Widgets.SWITCH_W, Widgets.SWITCH_H, () -> glow.set(!glow.get()));
+			Ui.text(Ui.MEDIUM, t("rago.option.cosmetic_neon_glow"), x + Widgets.SWITCH_W + 10, cy + 5, 10, Theme.TEXT);
+			cy += Widgets.SWITCH_H + 14;
+		}
 		String more = t("rago.locker.more");
 		float mw = Ui.textWidth(Ui.SEMIBOLD, more, 9.5f) + 44;
 		Widgets.button(x, cy + 4, mw, 26, "sliders-horizontal", more, false, 9.5f);
@@ -596,6 +625,15 @@ public final class LockerScreen extends GuiScreen {
 		Ui.endScissor();
 		float total = cy + scroll - y;
 		scroll = Math.max(0, Math.min(scroll, Math.max(0, total - h)));
+	}
+
+	private static BooleanOption bool(Module m, String key) {
+		for (Option<?> o : m.options()) {
+			if (o instanceof BooleanOption && o.key().equals(key)) {
+				return (BooleanOption) o;
+			}
+		}
+		return null;
 	}
 
 	private static ChoiceOption choice(Module m, String key) {

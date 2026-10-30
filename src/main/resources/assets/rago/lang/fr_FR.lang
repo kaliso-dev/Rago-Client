@@ -674,7 +674,7 @@ rago.option.shop_no_duplicates=Pas d'épée ni de stick knockback en double
 
 # 1.2: cosmetics
 rago.module.cosmetics=Cosmétiques
-rago.module.cosmetics.desc=Un chapeau (casquette Rago, bonnet Rago, casquette néon, haut-de-forme, chapeau de sorcier, couronne ou auréole), des ailes 3D en voxels (dragon ou petit dragon) et un bouclier Rago dans la main gauche (cinq styles) sur ton joueur, chacun avec sa couleur et sa taille. La casquette néon, le petit dragon et le bouclier Rago existent en neuf couleurs néon. Toi seul les vois.
+rago.module.cosmetics.desc=Un chapeau (casquette Rago, bonnet Rago, haut-de-forme, chapeau de sorcier, couronne ou auréole), des ailes 3D en voxels (dragon ou petit dragon) et un bouclier Rago dans la main gauche (cinq styles) sur ton joueur, chacun avec sa couleur et sa taille. Le logo de la casquette et du bonnet Rago, le petit dragon et le bouclier Rago existent en neuf couleurs néon, avec une légère lueur. Toi seul les vois.
 rago.option.cosmetic_hat=Chapeau
 rago.option.cosmetic_hat.none=Aucun
 rago.option.cosmetic_hat.top_hat=Haut-de-forme
@@ -743,7 +743,6 @@ rago.option.tnt_fuse.help=Le temps avant que la TNT allumée explose sur ton ser
 # 1.3 : cosmétiques
 rago.option.cosmetic_hat.rago_cap=Casquette Rago
 rago.option.cosmetic_hat.rago_beanie=Bonnet Rago
-rago.option.cosmetic_logo_color=Couleur du logo
 rago.option.cosmetic_hat_scale=Taille du chapeau
 rago.option.cosmetic_hat_scale.format=%d%%
 rago.option.cosmetic_wings_scale=Taille des ailes
@@ -751,8 +750,7 @@ rago.option.cosmetic_wings_scale.format=%d%%
 rago.option.cosmetic_wings_flap_speed=Vitesse des battements
 rago.option.cosmetic_wings_flap_speed.format=%d%%
 rago.option.cosmetic_hat.wizard_hat=Chapeau de sorcier
-rago.option.cosmetic_hat.cap_red=Casquette néon
-rago.option.cosmetic_hat.help=Le haut-de-forme, le chapeau de sorcier et la casquette néon sont des modèles voxel de VoxelBear sur Sketchfab (CC BY 4.0).
+rago.option.cosmetic_hat.help=Le haut-de-forme et le chapeau de sorcier sont des modèles voxel de VoxelBear sur Sketchfab (CC BY 4.0). La couleur néon de la casquette Rago colore son logo et la sangle derrière ; celle du bonnet, son logo et son pompon.
 rago.option.cosmetic_wings.help=Les ailes de dragon et de petit dragon sont celles de Rago.
 
 # 1.3: item counter, generator timers, item physics
@@ -1199,3 +1197,18 @@ rago.choice.purple=Violet
 rago.choice.pink=Rose
 rago.choice.white=Blanc
 rago.locker.neon=Couleur néon
+rago.option.cosmetic_neon_glow=Lueur néon
+rago.option.cosmetic_neon_glow.help=Une légère lueur sur les parties néon, comme sur la cape Rago, visible même dans le noir. Coupe-la pour gagner un peu de performance (une image de plus par cosmétique néon).
+rago.module.nick_hider=Nick Hider
+rago.module.nick_hider.desc=Pour streamer : ton pseudo est remplacé par le nick choisi partout où le jeu écrit du texte (chat, tab, nametags, scoreboard, menus), et ton skin par Steve, Alex ou un skin du casier en F5 et dans le tab. Seul ton écran change : le serveur et les autres joueurs voient toujours ton vrai pseudo et ton vrai skin.
+rago.option.nick_name=Nick
+rago.option.nick_name.help=Le nom affiché à la place du tien. Les codes couleur & marchent : &b pour cyan, &l pour gras, &r pour revenir à la normale.
+rago.option.nick_skin=Skin
+rago.option.nick_skin.own=Ton skin
+rago.option.nick_skin.steve=Steve
+rago.option.nick_skin.alex=Alex
+rago.option.nick_skin.locker=Skin du casier
+rago.option.nick_skin.help=Le skin affiché sur ton joueur en F5 et sur ta tête dans le tab.
+rago.option.nick_locker_skin=Nom du skin du casier
+rago.option.nick_locker_skin.help=Le nom d'un skin de ton casier (bouton t-shirt de l'écran d'accueil), ou choisis-le là-bas avec le bouton masque.
+rago.locker.nick_set=Nick Hider : skin de %s affiché sur ton joueur

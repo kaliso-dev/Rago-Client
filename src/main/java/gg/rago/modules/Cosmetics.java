@@ -32,13 +32,15 @@ import java.util.Map;
  * colour for the hat and wings). The Rago cap and beanie are textured boxes; the voxel hats, wings
  * and shields are {@link CosmeticModel}s built by tools/models.py (credits in
  * tools/models/CREDITS.md); the crown and halo are simple shapes. The pieces in Rago's neon red (the
- * neon cap, the small dragon wings, the Rago shield) come in the {@link NeonColors}. Off by default,
- * and each piece can be set to none. Only this client draws them.
+ * logo of the Rago cap and beanie, the small dragon wings, the Rago shield) come in the
+ * {@link NeonColors}, with a faint glow that can be turned off. Off by default, and each piece can be
+ * set to none. Only this client draws them.
  */
 public final class Cosmetics extends Module {
 	private static final ResourceLocation TEX_CAP = new ResourceLocation("rago", "textures/cosmetics/cap.png");
 	private static final ResourceLocation TEX_BEANIE = new ResourceLocation("rago", "textures/cosmetics/beanie.png");
 	private static final ResourceLocation TEX_LOGO = new ResourceLocation("rago", "textures/logo.png");
+	private static final ResourceLocation TEX_LOGO_GLOW = new ResourceLocation("rago", "textures/logo_glow.png");
 	private static final float PX = 1 / 16f;
 	/** The voxel hats, by option value. */
 	private static final Map<String, CosmeticModel> HATS = new HashMap<>();
@@ -50,17 +52,16 @@ public final class Cosmetics extends Module {
 	static {
 		HATS.put("top_hat", model("top_hat", "hats_atlas"));
 		HATS.put("wizard_hat", model("wizard_hat", "wizard_hat"));
-		HATS.put("cap_red", model("cap_red", "cap_red"));
 		for (int i = 1; i < SHIELDS.length; i++) {
 			SHIELD_MODELS.put(SHIELDS[i], model("shield_" + SHIELDS[i], "shield_" + SHIELDS[i]));
 		}
 	}
 
 	private final ChoiceOption hat = addOption(new ChoiceOption("cosmetic_hat", "none", "none", "rago_cap", "rago_beanie",
-		"cap_red", "top_hat", "wizard_hat", "crown", "halo"));
+		"top_hat", "wizard_hat", "crown", "halo"));
+	/** The colour of the Rago cap's and beanie's logo, the cap's strap and the beanie's pompom. */
 	private final ChoiceOption hatNeon = addOption(new ChoiceOption("cosmetic_hat_neon", "red", NeonColors.IDS));
 	private final ColorOption hatColor = addOption(new ColorOption("cosmetic_hat_color", 0xFFFFFFFF));
-	private final ColorOption logoColor = addOption(new ColorOption("cosmetic_logo_color", 0xFFF2392C));
 	private final IntOption hatScale = addOption(new IntOption("cosmetic_hat_scale", 100, 70, 150));
 	private final ChoiceOption wings = addOption(new ChoiceOption("cosmetic_wings", "none", "none", "dragon", "dragon_small"));
 	private final ChoiceOption wingsNeon = addOption(new ChoiceOption("cosmetic_wings_neon", "red", NeonColors.IDS));
@@ -71,7 +72,8 @@ public final class Cosmetics extends Module {
 	private final ChoiceOption shield = addOption(new ChoiceOption("cosmetic_shield", "none", SHIELDS));
 	private final ChoiceOption shieldNeon = addOption(new ChoiceOption("cosmetic_shield_neon", "red", NeonColors.IDS));
 	private final IntOption shieldScale = addOption(new IntOption("cosmetic_shield_scale", 100, 50, 150));
-	/** 0: facing forward beside the arm; 90: flat against the outside of the arm. */
+	/** The faint glow of the neon pieces: one more draw of each, added at full brightness. */
+	private final BooleanOption neonGlow = addOption(new BooleanOption("cosmetic_neon_glow", true));
 	private boolean installed;
 
 	private static CosmeticModel model(String name, String texture) {
@@ -81,10 +83,10 @@ public final class Cosmetics extends Module {
 	public Cosmetics() {
 		super("cosmetics", FeatureClass.VISUAL, false);
 		hatColor.showIf(() -> !hat.is("none"));
-		hatNeon.showIf(() -> hat.is("cap_red"));
+		hatNeon.showIf(this::ragoHat);
 		wingsNeon.showIf(() -> wings.is("dragon_small"));
 		shieldNeon.showIf(() -> shield.is("rago"));
-		logoColor.showIf(() -> hat.is("rago_cap") || hat.is("rago_beanie"));
+		neonGlow.showIf(() -> ragoHat() || wings.is("dragon_small") || shield.is("rago"));
 		hatScale.showIf(() -> !hat.is("none"));
 		wingsColor.showIf(() -> !wings.is("none"));
 		wingsScale.showIf(() -> !wings.is("none"));
@@ -96,6 +98,36 @@ public final class Cosmetics extends Module {
 	@Override
 	public Category category() {
 		return Category.VISUAL;
+	}
+
+	private boolean ragoHat() {
+		return hat.is("rago_cap") || hat.is("rago_beanie");
+	}
+
+	/** The colour of the Rago hats' logo, strap and pompom. */
+	private int hatNeonColor() {
+		return NeonColors.swatch(hatNeon.get());
+	}
+
+	/**
+	 * Draws {@code pass} once more over what is there, added at full brightness whatever the light:
+	 * the faint glow of the neon pieces. Nothing when the glow is turned off.
+	 */
+	private void glow(Runnable pass) {
+		if (!neonGlow.get()) {
+			return;
+		}
+		float lx = OpenGlHelper.lastBrightnessX;
+		float ly = OpenGlHelper.lastBrightnessY;
+		OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240, 240);
+		GlStateManager.enableBlend();
+		GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+		GlStateManager.depthMask(false);
+		pass.run();
+		GlStateManager.depthMask(true);
+		GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+		GlStateManager.disableBlend();
+		OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, lx, ly);
 	}
 
 	@SubscribeEvent
@@ -208,7 +240,6 @@ public final class Cosmetics extends Module {
 			case "rago_beanie":
 				half = 4.5f;
 				break;
-			case "cap_red":
 			case "top_hat":
 			case "wizard_hat":
 				half = 4.1f;
@@ -265,7 +296,7 @@ public final class Cosmetics extends Module {
 					GlStateManager.pushMatrix();
 					GlStateManager.translate(0, lift, 0);
 					GlStateManager.disableBlend();
-					m.render("hat", hatColor.get(), hat.is("cap_red") ? NeonColors.texture(m.texture(), hatNeon.get()) : m.texture());
+					m.render("hat", hatColor.get());
 					GlStateManager.popMatrix();
 					untextured();
 				}
@@ -329,6 +360,7 @@ public final class Cosmetics extends Module {
 
 	private void drawCap(float lift) {
 		int c = color(hatColor, 0xFF232328);
+		int neon = hatNeonColor();
 		textured(TEX_CAP);
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(0, lift, 0);
@@ -340,29 +372,52 @@ public final class Cosmetics extends Module {
 		texBox(-4.5f, -0.5f, -5, 4.5f, 0.25f, 0, 0, 14, 9, 1, 5, 64, 32, c);
 		GlStateManager.popMatrix();
 		texBox(-0.5f, -9.25f, -0.5f, 0.5f, -8.75f, 0.5f, 40, 0, 1, 1, 1, 64, 32, c);
-		logo(-1.6f, -8.3f, 3.2f, -4.53f);
+		logo(-1.6f, -8.3f, 3.2f, -4.53f, neon);
+		// the back, as on a snapback: the opening, the strap under it in the logo's colour, its buckle
+		untextured();
+		box(-1.7f * PX, -7.1f * PX, 4.5f * PX, 1.7f * PX, -5.7f * PX, 4.55f * PX, 0xFF0B0B0E);
+		box(-2.8f * PX, -5.7f * PX, 4.5f * PX, 2.8f * PX, -4.95f * PX, 4.7f * PX, neon);
+		box(1.3f * PX, -5.85f * PX, 4.7f * PX, 2.2f * PX, -4.8f * PX, 4.8f * PX, 0xFFC9C9D0);
+		glow(() -> {
+			logoGlow(-1.6f, -8.3f, 3.2f, -4.56f, neon);
+			untextured();
+			box(-2.9f * PX, -5.8f * PX, 4.5f * PX, 2.9f * PX, -4.85f * PX, 4.74f * PX, 0x55000000 | neon & 0xFFFFFF);
+		});
 		GlStateManager.popMatrix();
 		untextured();
 	}
 
 	private void drawBeanie(float lift) {
 		int c = color(hatColor, 0xFF232328);
+		int neon = hatNeonColor();
 		textured(TEX_BEANIE);
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(0, lift, 0);
 		texBox(-4.5f, -9.25f, -4.5f, 4.5f, -5.5f, 4.5f, 0, 0, 9, 4, 9, 64, 32, c);
 		texBox(-4.8f, -5.75f, -4.8f, 4.8f, -3.9f, 4.8f, 0, 14, 9, 2, 9, 64, 32, c);
-		int pom = logoColor.get();
-		texBox(-1.5f, -11.6f, -1.5f, 1.5f, -9.1f, 1.5f, 40, 0, 3, 3, 3, 64, 32, pom);
-		logo(-0.9f, -5.65f, 1.8f, -4.83f);
+		texBox(-1.5f, -11.6f, -1.5f, 1.5f, -9.1f, 1.5f, 40, 0, 3, 3, 3, 64, 32, neon);
+		logo(-0.9f, -5.65f, 1.8f, -4.83f, neon);
+		glow(() -> logoGlow(-0.9f, -5.65f, 1.8f, -4.86f, neon));
 		GlStateManager.popMatrix();
 		untextured();
 	}
 
 	/** Rago's logo on the front of a hat: a square {@code size} pixels wide at depth {@code z}. */
-	private void logo(float x, float y, float size, float z) {
+	private static void logo(float x, float y, float size, float z, int argb) {
 		Minecraft.getMinecraft().getTextureManager().bindTexture(TEX_LOGO);
-		int c = logoColor.get();
+		flatQuad(x, y, size, z, argb);
+	}
+
+	/** The soft light around the logo, twice its size, for {@link #glow}. */
+	private static void logoGlow(float x, float y, float size, float z, int argb) {
+		GlStateManager.enableTexture2D();
+		Minecraft.getMinecraft().getTextureManager().bindTexture(TEX_LOGO_GLOW);
+		GlStateManager.alphaFunc(GL11.GL_GREATER, 0.004f);
+		flatQuad(x - size / 2, y - size / 2, size * 2, z, 0x70000000 | argb & 0xFFFFFF);
+		GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1f);
+	}
+
+	private static void flatQuad(float x, float y, float size, float z, int argb) {
 		Tessellator t = Tessellator.getInstance();
 		WorldRenderer w = t.getWorldRenderer();
 		w.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
@@ -372,10 +427,10 @@ public final class Cosmetics extends Module {
 		float y1 = (y + size) * PX;
 		float zz = z * PX;
 		// The face looks toward -z, so the viewer's right is +x.
-		texVertex(w, x1, y0, zz, 1, 0, c, 1);
-		texVertex(w, x0, y0, zz, 0, 0, c, 1);
-		texVertex(w, x0, y1, zz, 0, 1, c, 1);
-		texVertex(w, x1, y1, zz, 1, 1, c, 1);
+		texVertex(w, x1, y0, zz, 1, 0, argb, 1);
+		texVertex(w, x0, y0, zz, 0, 0, argb, 1);
+		texVertex(w, x0, y1, zz, 0, 1, argb, 1);
+		texVertex(w, x1, y1, zz, 1, 1, argb, 1);
 		t.draw();
 	}
 
@@ -460,6 +515,10 @@ public final class Cosmetics extends Module {
 		GlStateManager.disableBlend();
 		if (small) {
 			DRAGON_SMALL.render("wing", c, NeonColors.texture(DRAGON_SMALL.texture(), wingsNeon.get()));
+			ResourceLocation lit = NeonColors.glow(DRAGON_SMALL.texture(), wingsNeon.get());
+			if (lit != null) {
+				glow(() -> DRAGON_SMALL.render("wing", c, lit));
+			}
 		} else {
 			DRAGON.render("wing", c);
 		}
@@ -486,7 +545,15 @@ public final class Cosmetics extends Module {
 		GlStateManager.rotate(-90, 0, 1, 0);
 		GlStateManager.scale(size, size, size);
 		GlStateManager.disableBlend();
-		m.render("shield", 0xFFFFFFFF, shield.is("rago") ? NeonColors.texture(m.texture(), shieldNeon.get()) : m.texture());
+		if (shield.is("rago")) {
+			m.render("shield", 0xFFFFFFFF, NeonColors.texture(m.texture(), shieldNeon.get()));
+			ResourceLocation lit = NeonColors.glow(m.texture(), shieldNeon.get());
+			if (lit != null) {
+				glow(() -> m.render("shield", 0xFFFFFFFF, lit));
+			}
+		} else {
+			m.render("shield", 0xFFFFFFFF);
+		}
 		GlStateManager.popMatrix();
 		untextured();
 	}

@@ -15,9 +15,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * The colours of Rago's neon red cosmetics (the Rago cape, the neon cap, the small dragon wings and
- * the Rago shield). The red of the texture is turned into the chosen colour with its shading kept,
- * while the black and the other colours stay as they are. A texture is recoloured once, the first
+ * The colours of Rago's neon red cosmetics (the Rago cape, the small dragon wings and the Rago
+ * shield; the Rago cap and beanie take the {@link #swatch} colour). The red of the texture is turned
+ * into the chosen colour with its shading kept, while the black and the other colours stay as they
+ * are; {@link #glow} makes the faint light added over them. A texture is recoloured once, the first
  * time it is drawn in a colour; only the colour in use is kept for each texture.
  */
 public final class NeonColors {
@@ -30,6 +31,7 @@ public final class NeonColors {
 	private static final int RAGO_RED = 0xFFF2392C;
 
 	private static final Map<ResourceLocation, Made> MADE = new HashMap<>();
+	private static final Map<ResourceLocation, Made> GLOWS = new HashMap<>();
 
 	private static final class Made {
 		final String id;
@@ -50,24 +52,40 @@ public final class NeonColors {
 		if (hue == 0) {
 			return base;
 		}
-		Made m = MADE.get(base);
+		ResourceLocation made = make(MADE, base, id, "rago_neon_", img -> recolor(img, hue));
+		return made == null ? base : made;
+	}
+
+	/**
+	 * The glow of {@code base} in colour {@code id}, to be added over it: its bright neon pixels at
+	 * half strength and a faint halo two pixels around them, the rest clear. Null when it cannot be made.
+	 */
+	public static ResourceLocation glow(ResourceLocation base, String id) {
+		float hue = hue(id);
+		return make(GLOWS, base, id, "rago_neon_glow_", img -> glow(img, hue));
+	}
+
+	/** The texture made from {@code base} for {@code id}, once; the one made for another colour is freed. */
+	private static ResourceLocation make(Map<ResourceLocation, Made> made, ResourceLocation base, String id, String name,
+		java.util.function.Consumer<BufferedImage> change) {
+		Made m = made.get(base);
 		if (m != null && m.id.equals(id)) {
-			return m.texture == null ? base : m.texture;
+			return m.texture;
 		}
 		Minecraft mc = Minecraft.getMinecraft();
 		if (m != null && m.texture != null) {
 			mc.getTextureManager().deleteTexture(m.texture);
 		}
-		ResourceLocation made = null;
+		ResourceLocation tex = null;
 		try (InputStream in = mc.getResourceManager().getResource(base).getInputStream()) {
 			BufferedImage img = TextureUtil.readBufferedImage(in);
-			recolor(img, hue);
-			made = mc.getTextureManager().getDynamicTextureLocation("rago_neon_" + id, new DynamicTexture(img));
+			change.accept(img);
+			tex = mc.getTextureManager().getDynamicTextureLocation(name + id, new DynamicTexture(img));
 		} catch (IOException | RuntimeException e) {
 			LOG.warn("Cannot recolour {}: {}", base, e.toString());
 		}
-		MADE.put(base, new Made(id, made));
-		return made == null ? base : made;
+		made.put(base, new Made(id, tex));
+		return tex;
 	}
 
 	/** The colour a choice shows as, for its swatch. */
@@ -93,6 +111,57 @@ public final class NeonColors {
 			px[i] = recolor(px[i], hue);
 		}
 		img.setRGB(0, 0, w, h, px, 0, w);
+	}
+
+	/** Whether a pixel is a bright part of the neon (not the dark red of a wing's membrane). */
+	static boolean bright(int argb) {
+		if (argb >>> 24 == 0) {
+			return false;
+		}
+		float[] hsb = Color.RGBtoHSB(argb >> 16 & 0xFF, argb >> 8 & 0xFF, argb & 0xFF, null);
+		float deg = hsb[0] * 360;
+		return (deg < 30 || deg > 330) && hsb[1] >= 0.4f && hsb[2] >= 0.45f;
+	}
+
+	static void glow(BufferedImage img, float hue) {
+		int w = img.getWidth();
+		int h = img.getHeight();
+		int[] px = img.getRGB(0, 0, w, h, null, 0, w);
+		boolean[] lit = new boolean[px.length];
+		for (int i = 0; i < px.length; i++) {
+			lit[i] = bright(px[i]);
+		}
+		int halo = recolor(RAGO_RED, hue) & 0xFFFFFF;
+		int[] out = new int[px.length];
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int i = y * w + x;
+				if (px[i] >>> 24 == 0) {
+					continue;
+				}
+				if (lit[i]) {
+					out[i] = 0x80000000 | recolor(px[i], hue) & 0xFFFFFF;
+					continue;
+				}
+				// the halo: by how close the nearest bright pixel is, one or two pixels away
+				int near = 3;
+				for (int dy = -2; dy <= 2 && near > 1; dy++) {
+					for (int dx = -2; dx <= 2; dx++) {
+						int nx = x + dx;
+						int ny = y + dy;
+						if (nx >= 0 && ny >= 0 && nx < w && ny < h && lit[ny * w + nx]) {
+							near = Math.min(near, Math.max(Math.abs(dx), Math.abs(dy)));
+						}
+					}
+				}
+				if (near == 1) {
+					out[i] = 0x48000000 | halo;
+				} else if (near == 2) {
+					out[i] = 0x22000000 | halo;
+				}
+			}
+		}
+		img.setRGB(0, 0, w, h, out, 0, w);
 	}
 
 	/**

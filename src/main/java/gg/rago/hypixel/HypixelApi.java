@@ -44,6 +44,8 @@ public final class HypixelApi {
 	/** A rate-limit window longer than this is a daily quota: lobby players then get nothing. */
 	private static final int SHORT_WINDOW_S = 600;
 	private static final long RETRY_MS = 2 * 60_000L;
+	/** A failed answer is asked again only after this on a daily quota, where each request counts. */
+	private static final long DAILY_RETRY_MS = 30 * 60_000L;
 	/** The gap between requests until Hypixel has said how many the key has left. */
 	private static final long GAP_MS = 1_000L;
 	/** Never closer than this, however many requests the key has left. */
@@ -280,7 +282,7 @@ public final class HypixelApi {
 	public Stats get(UUID player, boolean spare) {
 		Stats s = cache.get(player);
 		long now = System.currentTimeMillis();
-		boolean stale = s == null || now - s.time > (s.failed ? RETRY_MS : FRESH_MS);
+		boolean stale = s == null || now - s.time > (s.failed ? dailyQuota() ? DAILY_RETRY_MS : RETRY_MS : FRESH_MS);
 		if (stale && !spare) {
 			queued.replace(player, Boolean.FALSE, Boolean.TRUE); // a spare player waiting now matters
 		}

@@ -28,6 +28,11 @@ import java.util.regex.Pattern;
 public final class BedwarsQuestsHud extends TextHudElement {
 	/** How long after a game ends Hypixel is given to save it before Rago asks again. */
 	private static final int REFRESH_AFTER_GAME_TICKS = 20 * 20;
+	/**
+	 * On a daily quota, quests are asked again after a game only if the last time was this long ago:
+	 * the counts follow the game live in between.
+	 */
+	private static final int DAILY_AFTER_GAME_TICKS = 20 * 60 * 20;
 	/** Out of a game, your quests are asked for again this often (Hypixel's quota can be a daily one). */
 	private static final int LOBBY_REFRESH_TICKS = 30 * 60 * 20;
 	/** After the quest master's menu closes in a lobby, the API is asked again this soon. */
@@ -141,7 +146,9 @@ public final class BedwarsQuestsHud extends TextHudElement {
 				quests.count(Quests.Kind.WIN);
 			}
 			quests.count(Quests.Kind.GAME);
-			refreshAt = ticks + REFRESH_AFTER_GAME_TICKS;
+			if (!RagoClient.hypixel().dailyQuota() || ticks - lastAsked >= DAILY_AFTER_GAME_TICKS) {
+				refreshAt = ticks + REFRESH_AFTER_GAME_TICKS;
+			}
 		}
 	}
 

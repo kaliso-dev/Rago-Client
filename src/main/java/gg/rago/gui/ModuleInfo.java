@@ -88,6 +88,7 @@ final class ModuleInfo {
 		ICONS.put("upgrades_hud", "sword");
 		ICONS.put("title_mod", "type");
 		ICONS.put("low_latency", "zap");
+		ICONS.put("nick_hider", "venetian-mask");
 	}
 
 	private ModuleInfo() {

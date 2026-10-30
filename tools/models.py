@@ -140,7 +140,7 @@ def drop_hidden(tris):
 
 HATS = {
     # glb file: {name of the hat's node: (model name, texture name)}
-    'hats_mini_pack_1.glb': {'cape1_5': ('cap_red', 'cap_red'), 'cylinder_18': ('top_hat', 'hats_atlas')},
+    'hats_mini_pack_1.glb': {'cylinder_18': ('top_hat', 'hats_atlas')},
     'hats_mini_pack_3.glb': {'magehat_20': ('wizard_hat', 'wizard_hat')},
 }
 
@@ -178,28 +178,7 @@ def hats():
                 p = pos - np.array([centre[0], 0.25, centre[2]])
                 converted.append((p * np.array([1, -1, -1]), uv))
             write_model(model, [('hat', (0, 0, 0), drop_hidden(converted))])
-            png = texture(j, data, tris[0][2])
-            if tex == 'cap_red':
-                rago_red(png).save(os.path.join(TEXTURES, tex + '.png'))
-            else:
-                open(os.path.join(TEXTURES, tex + '.png'), 'wb').write(png)
-
-
-def rago_red(png):
-    """The blue cap in Rago's red: blue pixels turn to the red of the logo, keeping their shading."""
-    import colorsys
-    import io
-    img = Image.open(io.BytesIO(png)).convert('RGBA')
-    px = img.load()
-    for y in range(img.size[1]):
-        for x in range(img.size[0]):
-            r, g, b, a = px[x, y]
-            h, l, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
-            if a and sat > 0.2 and 0.45 < h < 0.75:
-                # #F2392C is hue 0.01; keep the lightness, a little darker so white stays white
-                nr, ng, nb = colorsys.hls_to_rgb(0.01, min(l * 0.92, 0.85), min(1, sat * 1.15))
-                px[x, y] = (round(nr * 255), round(ng * 255), round(nb * 255), a)
-    return img
+            open(os.path.join(TEXTURES, tex + '.png'), 'wb').write(texture(j, data, tris[0][2]))
 
 
 # ---- extruded pixel-art wings ---------------------------------------------------------------------

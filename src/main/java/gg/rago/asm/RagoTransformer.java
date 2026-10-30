@@ -290,6 +290,14 @@ public final class RagoTransformer implements IClassTransformer {
 			"func_175154_l", "getSkinType", "()Ljava/lang/String;",
 			m -> ownPlayerFilter(m, Opcodes.ARETURN, "skinModel",
 				"(Ljava/lang/String;Lnet/minecraft/client/entity/AbstractClientPlayer;)Ljava/lang/String;")));
+		add("net.minecraft.client.network.NetworkPlayerInfo", new Patch("nick hider skin in the tab list",
+			"func_178837_g", "getLocationSkin", "()Lnet/minecraft/util/ResourceLocation;",
+			m -> ownPlayerFilter(m, Opcodes.ARETURN, "tabSkin",
+				"(Lnet/minecraft/util/ResourceLocation;Lnet/minecraft/client/network/NetworkPlayerInfo;)Lnet/minecraft/util/ResourceLocation;")));
+		add("net.minecraft.client.gui.FontRenderer", new Patch("nick hider text",
+			"func_180455_b", "renderString", "(Ljava/lang/String;FFIZ)I", m -> replaceArgument(m, 1, "nick")));
+		add("net.minecraft.client.gui.FontRenderer", new Patch("nick hider text width",
+			"func_78256_a", "getStringWidth", "(Ljava/lang/String;)I", m -> replaceArgument(m, 1, "nick")));
 		add("net.minecraft.client.renderer.entity.RenderItem", new Patch("glint colour on items",
 			"func_180451_a", "renderEffect", "(Lnet/minecraft/client/resources/model/IBakedModel;)V",
 			RagoTransformer::itemGlint));
@@ -335,6 +343,16 @@ public final class RagoTransformer implements IClassTransformer {
 			}
 		}
 		return found;
+	}
+
+	/** At the start of the method, the String in {@code slot} goes through {@code Hooks.hook(String)}. */
+	private static boolean replaceArgument(MethodNode m, int slot, String hook) {
+		InsnList head = new InsnList();
+		head.add(new VarInsnNode(Opcodes.ALOAD, slot));
+		head.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, hook, "(Ljava/lang/String;)Ljava/lang/String;", false));
+		head.add(new VarInsnNode(Opcodes.ASTORE, slot));
+		m.instructions.insert(head);
+		return true;
 	}
 
 	private static void add(String className, Patch patch) {

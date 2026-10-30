@@ -44,8 +44,10 @@ public final class Skins {
 	private static final Pattern NAME = Pattern.compile("[A-Za-z0-9_]{1,16}");
 	private static final String UPLOAD = "https://api.minecraftservices.com/minecraft/profile/skins";
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	/** The skin a new locker starts with. */
+	/** The skin a new locker starts with, shipped in the jar so no connection is needed. */
 	private static final String STARTER = "qRago";
+	private static final String STARTER_PNG = "/assets/rago/skins/qrago.png";
+	private static final String STARTER_URL = "http://textures.minecraft.net/texture/ccc8da6f3d61d3b997e4f0b9b3a86e483468db1582351feb3eb9d4b1e04af82";
 
 	private static final List<Skin> skins = new CopyOnWriteArrayList<>();
 	private static volatile String worn;
@@ -134,7 +136,7 @@ public final class Skins {
 			}
 			String w = root.has("worn") && !root.get("worn").isJsonNull() ? root.get("worn").getAsString() : null;
 			worn = w != null && find(w) != null ? find(w).name : null;
-			starterAdded = root.has("starter_added") && root.get("starter_added").getAsBoolean();
+			starterAdded = root.has("starter_skin") && root.get("starter_skin").getAsBoolean();
 		} catch (IOException | RuntimeException e) {
 			RagoClient.LOG.warn("Cannot read {}: {}", file, e.toString());
 		}
@@ -149,16 +151,24 @@ public final class Skins {
 		}
 	}
 
-	/** Fetches the starter skin in the background; without a connection, it is tried again next game. */
+	/** Puts the starter skin, copied from the jar, at the end of the locker; it is not worn. */
 	private static void addStarter() {
-		add(STARTER, s -> starterDone(), f -> {
-			if (f != Failure.NETWORK) {
-				starterDone();
+		if (find(STARTER) == null) {
+			Skin s = new Skin(STARTER, false, STARTER_URL, png(STARTER));
+			try (InputStream in = Skins.class.getResourceAsStream(STARTER_PNG)) {
+				if (in == null) {
+					throw new IOException(STARTER_PNG + " is not in the jar");
+				}
+				Files.createDirectories(folder);
+				Files.copy(in, s.png.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			} catch (IOException | RuntimeException e) {
+				RagoClient.LOG.warn("Cannot add {}'s skin to the locker: {}", STARTER, e.toString());
+				return;
 			}
-		});
-	}
-
-	private static void starterDone() {
+			skins.add(s);
+			background("Rago locker " + STARTER, s::load);
+			RagoClient.LOG.info("Locker: {}'s skin added", STARTER);
+		}
 		starterAdded = true;
 		save();
 	}
@@ -173,7 +183,7 @@ public final class Skins {
 		}
 		JsonObject root = new JsonObject();
 		root.addProperty("worn", worn);
-		root.addProperty("starter_added", starterAdded);
+		root.addProperty("starter_skin", starterAdded);
 		JsonArray list = new JsonArray();
 		for (Skin s : skins) {
 			JsonObject o = new JsonObject();

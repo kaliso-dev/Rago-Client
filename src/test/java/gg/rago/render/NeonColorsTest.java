@@ -38,4 +38,20 @@ class NeonColorsTest {
 		assertEquals(0xFFF2392C, NeonColors.recolor(0xFFF2392C, NeonColors.hue("red")));
 		assertEquals(0xFFF2392C, NeonColors.swatch("red"));
 	}
+
+	@Test
+	void theGlowKeepsTheBrightNeonAndAFaintHaloAroundIt() {
+		java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(7, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+		img.setRGB(0, 0, 0xFFF2392C);
+		for (int x = 1; x < 6; x++) {
+			img.setRGB(x, 0, 0xFF0F0F12);
+		}
+		NeonColors.glow(img, NeonColors.hue("blue"));
+		assertEquals(0x80, img.getRGB(0, 0) >>> 24);
+		assertEquals(222, hue(img.getRGB(0, 0)), 3);
+		assertEquals(0x48, img.getRGB(1, 0) >>> 24);
+		assertEquals(0x22, img.getRGB(2, 0) >>> 24);
+		assertEquals(0, img.getRGB(3, 0) >>> 24);
+		assertEquals(0, img.getRGB(6, 0) >>> 24);
+	}
 }

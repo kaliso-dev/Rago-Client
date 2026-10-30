@@ -12,6 +12,7 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.ITextureObject;
+import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
@@ -33,7 +34,6 @@ public final class RagoBadge extends Module {
 	private final ColorOption color = addOption(new ColorOption("badge_color", Theme.ACCENT).fixedAlpha(0xFF));
 	/** Your tab list line as last given to the game, to know it again when it is drawn. */
 	private String ownTabLine;
-	private int texture;
 
 	public RagoBadge() {
 		super("rago_badge", FeatureClass.VISUAL, true);
@@ -52,20 +52,19 @@ public final class RagoBadge extends Module {
 		return color.get();
 	}
 
-	/** The logo's GL texture, smoothed when made smaller; 0 if it could not be loaded. */
+	/**
+	 * The logo's GL texture (smoothed by its .mcmeta); 0 if it could not be loaded. Asked of the
+	 * texture manager each time: a resource reload (a pack change) gives the logo a new texture and
+	 * frees the old one, which the next texture made (a menu icon) can take.
+	 */
 	public int texture() {
-		if (texture == 0) {
-			Minecraft mc = Minecraft.getMinecraft();
-			mc.getTextureManager().bindTexture(LOGO);
-			ITextureObject tex = mc.getTextureManager().getTexture(LOGO);
-			if (tex == null) {
-				return 0;
-			}
-			texture = tex.getGlTextureId();
-			GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-			GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+		TextureManager textures = Minecraft.getMinecraft().getTextureManager();
+		ITextureObject tex = textures.getTexture(LOGO);
+		if (tex == null) {
+			textures.bindTexture(LOGO);
+			tex = textures.getTexture(LOGO);
 		}
-		return texture;
+		return tex == null ? 0 : tex.getGlTextureId();
 	}
 
 	/** GuiPlayerTabOverlay.getPlayerName: room for the logo before your own name. */
@@ -81,7 +80,8 @@ public final class RagoBadge extends Module {
 
 	/** Whether {@code text} is your tab line, the logo drawn before it; draw the text from {@link #tabText}. */
 	public boolean tabLogo(String text, float x, float y) {
-		if (ownTabLine == null || !ownTabLine.equals(text) || texture() == 0) {
+		int texture = ownTabLine != null && ownTabLine.equals(text) ? texture() : 0;
+		if (texture == 0) {
 			return false;
 		}
 		int argb = color.get();

@@ -1,6 +1,7 @@
 package gg.rago.render;
 
 import gg.rago.gui.ui.TtfFont;
+import gg.rago.hooks.Hooks;
 import gg.rago.gui.ui.Ui;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
@@ -206,7 +207,7 @@ public final class LabelBatch {
 	public boolean text(int layer, TtfFont font, float em, float pixelsPerUnit, String s, float x, float y, int argb, boolean shadow) {
 		Layer l = layers[layer];
 		if (font == null) {
-			return vanillaText(l, s, x, y, argb, shadow);
+			return vanillaText(l, Hooks.nick(s), x, y, argb, shadow);
 		}
 		float px = Math.max(6, Math.round(em * pixelsPerUnit * 2) / 2f);
 		float k = px / em;
