@@ -81,6 +81,7 @@ final class ModuleInfo {
 		ICONS.put("raw_input", "mouse-pointer-click");
 		ICONS.put("emotes", "party-popper");
 		ICONS.put("auto_text", "message-square");
+		ICONS.put("quickplay", "zap");
 		ICONS.put("auto_messages", "sparkles");
 		ICONS.put("rago_badge", "award");
 		ICONS.put("anti_armor", "shirt");

@@ -85,6 +85,7 @@ import gg.rago.modules.ModernSounds;
 import gg.rago.modules.MotionBlur;
 import gg.rago.modules.MainMenu;
 import gg.rago.modules.NickHider;
+import gg.rago.modules.Quickplay;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.NoPumpkin;
 import gg.rago.modules.NoWaterOverlay;
@@ -272,6 +273,7 @@ public final class RagoClient {
 		Hooks.titles = MODULES.register(new TitleMod());
 		Hooks.lowLatency = MODULES.register(new LowLatency());
 		autoText = MODULES.register(new AutoText());
+		Quickplay quickplay = MODULES.register(new Quickplay());
 		MODULES.register(new AutoMessages());
 		NoHurtCam noHurtCam = MODULES.register(new NoHurtCam());
 		OldAnimations animations = MODULES.register(new OldAnimations());
@@ -341,6 +343,8 @@ public final class RagoClient {
 		ClientRegistry.registerKeyBinding(captureKey);
 		ClientRegistry.registerKeyBinding(zoomKey);
 		ClientRegistry.registerKeyBinding(Hooks.emotes.key());
+		ClientRegistry.registerKeyBinding(quickplay.key());
+		ClientRegistry.registerKeyBinding(quickplay.replayKey());
 		for (KeyBinding k : autoText.keys()) {
 			ClientRegistry.registerKeyBinding(k);
 		}
