@@ -133,6 +133,9 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.gui.GuiPlayerTabOverlay", new Patch("tab list look",
 			"func_175249_a", "renderPlayerlist", "(ILnet/minecraft/scoreboard/Scoreboard;Lnet/minecraft/scoreboard/ScoreObjective;)V",
 			RagoTransformer::tabLook));
+		add("net.minecraft.client.gui.GuiPlayerTabOverlay", new Patch("tab list sorted by strength",
+			"func_175249_a", "renderPlayerlist", "(ILnet/minecraft/scoreboard/Scoreboard;Lnet/minecraft/scoreboard/ScoreObjective;)V",
+			RagoTransformer::tabOrder));
 		add("net.minecraft.entity.player.EntityPlayer", new Patch("eating fix",
 			"func_70071_h_", "onUpdate", "()V",
 			m -> {
@@ -255,6 +258,9 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.renderer.ItemRenderer", new Patch("no re-equip animation when the held item only changes",
 			"func_78441_a", "updateEquippedItem", "()V",
 			RagoTransformer::reequip));
+		add("net.minecraft.client.renderer.ItemRenderer", new Patch("instant item switch",
+			"func_78441_a", "updateEquippedItem", "()V",
+			m -> returnIf(m, "instantSwitch", "(Lnet/minecraft/client/renderer/ItemRenderer;)Z", new int[] {Opcodes.ALOAD, 0}, -1, Opcodes.RETURN)));
 		add("net.minecraft.client.gui.GuiNewChat", new Patch("chat background and text shadow",
 			"func_146230_a", "drawChat", "(I)V",
 			RagoTransformer::chatLook));
@@ -791,6 +797,18 @@ public final class RagoTransformer implements IClassTransformer {
 	 * returning, rectangle colours through {@code Hooks.tabRect}, the header and footer fields
 	 * through {@code Hooks.tabHeaderFooter}, and text through {@code Hooks.tabText}.
 	 */
+	/** The players vanilla sorted ({@code Ordering.sortedCopy}) go through {@code Hooks.tabOrder}. */
+	private static boolean tabOrder(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof MethodInsnNode && "sortedCopy".equals(((MethodInsnNode) insn).name)
+				&& "com/google/common/collect/Ordering".equals(((MethodInsnNode) insn).owner)) {
+				m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "tabOrder", "(Ljava/util/List;)Ljava/util/List;", false));
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static boolean tabLook(MethodNode m) {
 		int rects = 0;
 		int fields = 0;

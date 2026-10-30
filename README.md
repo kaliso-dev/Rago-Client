@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.5.3.** What it contains:
+**Current version: 1.5.4.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -341,8 +341,29 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - Disable fog no longer removes blindness: with the setting on (it is in Max performance and in
     a play preset), the black fog of blindness (the Bed Wars Blindness trap) was cancelled with the
     distance fog, so the trap left the screen clear. Water, lava and blindness keep their fog
+  - Bed Wars Stats load faster: up to four requests to Hypixel at once, starting 50 ms apart,
+    while the key has more than a quarter of its requests left (at least 20); past that, what is
+    left is spread over the rest of Hypixel's window as before. Before, requests went one at a time,
+    spread over the window from the first one (about one a second with a fresh 300 per 5 minutes
+    key). The tab list shows new stats within a fifth of a second instead of on the next second. In
+    our test (a local stand-in for Hypixel answering in 150 ms), the stats of 11 players not seen
+    before came in 0.65 s
+  - Bed Wars Stats: **Sort the tab list, strongest first** (on by default): possible snipers, then
+    nicks, then everyone by danger tier, FKDR and star; players out of the game stay at the bottom
+  - Bed Wars Stats: the game-start message lists every enemy, not only the strong players and the
+    nicks: team by team (the team with the strongest player first), each with their star, their
+    name in their team's colour, their FKDR and their tier, strongest first, the danger sign before
+    strong players, nicks and possible snipers. It goes once the teams are given out (their number
+    holds still for half a second) and the stats are in, from one second after the start, instead
+    of three seconds at the earliest; it waits 10 s at most for stats (15 before). In our test with
+    the 11 players' stats not in yet, it came 1 s after the start
+  - 1.7 animations: **Instant item switch** (on by default). Changing hotbar slot shows the new
+    item in your hand at once, instead of lowering the old one and raising the new one (about 270
+    ms in our test). Only how your hand is drawn changes: the server is told of your slot as in
+    vanilla, before each hit or use
   - developer tools: `-Drago.bench.sample=<seconds>` logs where the render thread spends its time,
-    and the frame profile has a line for drawing the other players
+    and the frame profile has a line for drawing the other players; `/rago testgame [n]` fills the
+    test game's tab list with players in four teams
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -402,7 +423,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.5.3+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.5.4+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

@@ -14,6 +14,7 @@ import net.minecraft.util.MovingObjectPosition;
  * 1.7 animations and held-item tweaks: the sword swings while you block-hit, the arm swings while
  * eating or drawing a bow, armour turns red with the player when hit, the arm swings when you click
  * while using an item, no lower-and-raise animation when the held item only changes (durability),
+ * a new hotbar slot's item shown at once instead of lowered and raised (Instant item switch),
  * swing speed, the held item's position (its size is in Item Scale), and a camera that lowers smoothly when you sneak. All of it only changes how your own client
  * draws things; nothing here is sent to the server.
  */
@@ -24,6 +25,7 @@ public final class OldAnimations extends Module {
 	private final BooleanOption eatSwing = addOption(new BooleanOption("eat_swing", true));
 	private final BooleanOption bowSwing = addOption(new BooleanOption("bow_swing", true));
 	private final BooleanOption noReequip = addOption(new BooleanOption("no_reequip", true));
+	private final BooleanOption instantSwitch = addOption(new BooleanOption("instant_switch", true));
 	private final BooleanOption smoothSneak = addOption(new BooleanOption("smooth_sneak", true));
 	private final IntOption swingSpeed;
 	private final IntOption itemX;
@@ -72,6 +74,10 @@ public final class OldAnimations extends Module {
 
 	public boolean noReequip() {
 		return noReequip.get();
+	}
+
+	public boolean instantSwitch() {
+		return instantSwitch.get();
 	}
 
 	/** Swing length in ticks for the local player; higher speed means a shorter swing. */

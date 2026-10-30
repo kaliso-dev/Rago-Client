@@ -142,6 +142,65 @@ class HypixelApiLimitTest {
 	}
 
 	@Test
+	void requestsGoAsFastAsAllowedUntilTheReserveThenSpreadOut() {
+		assertEquals(1000, HypixelApi.gap(-1, -1, -1), "until Hypixel told the budget");
+		assertEquals(50, HypixelApi.gap(299, 288, 300), "plenty left");
+		assertEquals(50, HypixelApi.gap(120, 76, 300));
+		assertEquals(1000L * 120 / 75, HypixelApi.gap(120, 75, 300), "the last quarter is spread over the window");
+		assertEquals(50, HypixelApi.gap(1, 75, 300), "never closer than the minimum");
+		assertEquals(1000L * 100 / 20, HypixelApi.gap(100, 20, 60), "at least the reserve of 20 on a small key");
+		assertEquals(50, HypixelApi.gap(66_850, 5, 300), "a daily quota goes as fast as the players that matter come");
+	}
+
+	@Test
+	void aGamesPlayersAreAskedForSeveralAtOnce(@TempDir Path dir) throws Exception {
+		AtomicInteger calls = new AtomicInteger();
+		AtomicInteger inFlight = new AtomicInteger();
+		AtomicInteger most = new AtomicInteger();
+		server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+		server.setExecutor(java.util.concurrent.Executors.newFixedThreadPool(8));
+		server.createContext("/player", exchange -> {
+			calls.incrementAndGet();
+			most.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+			try {
+				Thread.sleep(200); // the trip to Hypixel
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+			inFlight.decrementAndGet();
+			byte[] body = "{\"success\":true,\"player\":{\"networkExp\":0,\"achievements\":{\"bedwars_level\":12}}}".getBytes(StandardCharsets.UTF_8);
+			exchange.getResponseHeaders().add("RateLimit-Limit", "300");
+			exchange.getResponseHeaders().add("RateLimit-Remaining", String.valueOf(300 - calls.get()));
+			exchange.getResponseHeaders().add("RateLimit-Reset", "250");
+			exchange.sendResponseHeaders(200, body.length);
+			try (OutputStream out = exchange.getResponseBody()) {
+				out.write(body);
+			}
+		});
+		server.start();
+		HypixelApi api = new HypixelApi(dir, "http://127.0.0.1:" + server.getAddress().getPort() + "/player?uuid=");
+		api.setKey(KEY, UUID.randomUUID());
+		waitFor(calls, 1);
+		UUID[] players = new UUID[12];
+		for (int i = 0; i < players.length; i++) {
+			players[i] = UUID.randomUUID();
+			api.get(players[i]);
+		}
+		long until = System.currentTimeMillis() + 10_000;
+		int known = 0;
+		while (known < players.length && System.currentTimeMillis() < until) {
+			Thread.sleep(20);
+			known = 0;
+			for (UUID p : players) {
+				known += api.get(p) != null ? 1 : 0;
+			}
+		}
+		assertEquals(players.length, known);
+		assertTrue(most.get() > 1, "requests overlapped: " + most.get());
+		assertTrue(most.get() <= 4, "no more than the request threads at once: " + most.get());
+	}
+
+	@Test
 	void theBudgetIsWhatHypixelSaidUntilTheWindowEnds() {
 		assertNull(HypixelApi.budget(1000, -1, -1, 0));
 		int[] b = HypixelApi.budget(10_000, 287, 300, 10_000 + 192_500);

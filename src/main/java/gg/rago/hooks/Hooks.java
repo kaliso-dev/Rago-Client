@@ -187,6 +187,20 @@ public final class Hooks {
 		return item.shouldCauseReequipAnimation(oldStack, newStack, slotChanged);
 	}
 
+	/**
+	 * At the start of ItemRenderer.updateEquippedItem: with Instant item switch, a new hotbar slot
+	 * shows its item at once, fully raised, instead of lowering the old item and raising the new one
+	 * over about a third of a second. True when done, and vanilla's update is skipped this tick.
+	 */
+	public static boolean instantSwitch(net.minecraft.client.renderer.ItemRenderer renderer) {
+		OldAnimations a = animations;
+		net.minecraft.entity.player.EntityPlayer p = Minecraft.getMinecraft().thePlayer;
+		if (a == null || !a.isEnabled() || !a.instantSwitch() || p == null) {
+			return false;
+		}
+		return gg.rago.render.HeldItem.switchAtOnce(renderer, p.inventory.currentItem, p.inventory.getCurrentItem());
+	}
+
 	/** The same call in OptiFine's ItemRenderer, made through OptiFine's reflection helper with boxed arguments. */
 	public static boolean reequipArgs(Object item, Object reflectorMethod, Object[] args) {
 		return reequip((Item) item, (ItemStack) args[0], (ItemStack) args[1], (Boolean) args[2]);
@@ -427,6 +441,12 @@ public final class Hooks {
 	public static String resourcePackUrl(String url) {
 		ClientFixes f = clientFixes;
 		return f != null && f.isEnabled() ? f.resourcePackUrl(url) : url;
+	}
+
+	/** GuiPlayerTabOverlay.renderPlayerlist, the players in vanilla's order: strongest first with Bed Wars Stats. */
+	public static java.util.List<NetworkPlayerInfo> tabOrder(java.util.List<NetworkPlayerInfo> vanilla) {
+		BedwarsStats s = bedwarsStats;
+		return s != null && s.isEnabled() ? s.tabOrder(vanilla) : vanilla;
 	}
 
 	/** GuiPlayerTabOverlay.getPlayerName: Bed Wars star and ratio around the name. */

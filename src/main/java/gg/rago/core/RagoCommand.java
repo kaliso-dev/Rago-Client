@@ -76,6 +76,10 @@ final class RagoCommand extends CommandBase {
 			gg.rago.debug.FakeBedwars.players(args.length > 1 ? Integer.parseInt(args[1]) : 16, args.length > 2 && args[2].equals("armor"));
 			return;
 		}
+		if (args[0].equalsIgnoreCase("testgame") && gg.rago.debug.FakeBedwars.ON) {
+			gg.rago.debug.FakeBedwars.game(args.length > 1 ? Integer.parseInt(args[1]) : 12);
+			return;
+		}
 		if (args[0].equalsIgnoreCase("testbw") && gg.rago.debug.FakeBedwars.ON) {
 			gg.rago.debug.FakeBedwars.start(args.length > 1 ? Integer.parseInt(args[1]) : 337);
 			return;
