@@ -1069,12 +1069,18 @@ key.rago.auto_text_4=Message hotkey 4
 
 # 1.4: automatic messages
 rago.module.auto_messages=Auto Messages
-rago.module.auto_messages.desc=On Hypixel: GG (and a message of yours) when a Bed Wars game ends, a message when you kill someone, and /tip all now and then. Off by default; kill messages wait a minimum time between them so you are not muted for spam.
+rago.module.auto_messages.desc=On Hypixel: GG (and a message of yours) when a Bed Wars game ends, a message when you kill someone, and /tip all now and then. Off by default; kill messages wait a minimum time between them so you are not muted for spam. Each message can be written three ways: one is picked at random, never the same as last time (Hypixel refuses the same message twice in a row).
 rago.option.auto_gg=Auto GG at the end of a game
-rago.option.auto_gg_text=GG message
-rago.option.auto_end_text=Second end-of-game message
+rago.option.auto_gg_text=GG message 1
+rago.option.auto_gg_text_2=GG message 2
+rago.option.auto_gg_text_3=GG message 3
+rago.option.auto_end_text=Message after the GG 1
+rago.option.auto_end_text_2=Message after the GG 2
+rago.option.auto_end_text_3=Message after the GG 3
 rago.option.auto_kill=Message when you kill someone
-rago.option.auto_kill_text=Kill message
+rago.option.auto_kill_text=Kill message 1
+rago.option.auto_kill_text_2=Kill message 2
+rago.option.auto_kill_text_3=Kill message 3
 rago.option.auto_kill_final_only=Final kills only
 rago.option.auto_kill_gap=Minimum time between kill messages
 rago.option.auto_kill_gap.format=%d s
