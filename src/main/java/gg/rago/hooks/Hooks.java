@@ -201,6 +201,12 @@ public final class Hooks {
 		return gg.rago.render.HeldItem.switchAtOnce(renderer, p.inventory.currentItem, p.inventory.getCurrentItem());
 	}
 
+	/** EntityLivingBase.onUpdate: the way a moving body turns to (1.15+ backwards walking, in 1.7 animations). */
+	public static float walkYaw(float moving, net.minecraft.entity.EntityLivingBase entity) {
+		OldAnimations a = animations;
+		return a != null && a.isEnabled() ? a.walkYaw(moving, entity.rotationYaw) : moving;
+	}
+
 	/** The same call in OptiFine's ItemRenderer, made through OptiFine's reflection helper with boxed arguments. */
 	public static boolean reequipArgs(Object item, Object reflectorMethod, Object[] args) {
 		return reequip((Item) item, (ItemStack) args[0], (ItemStack) args[1], (Boolean) args[2]);

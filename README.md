@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.5.6.** What it contains:
+**Current version: 1.5.7.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -30,7 +30,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - hide tall grass, ferns, flowers and dead bushes, a particle cap, particle collisions and a fog switch
 - a Controls page to rebind every key (keyboard or mouse), with conflicts shown in red
 - a module system: every feature is a module with an on/off switch and its own options
-- a HUD editor: drag elements, snap them to the screen centre, resize them with the mouse wheel;
+- a HUD editor: drag elements, snap them to the screen centre, resize them with the mouse wheel,
+  open an element's settings from the gear by it;
   elements left at their default place on the left edge stack themselves so they never overlap
 - HUD styles: every text element has a preset (Rago, Vanilla, Box, Classic, Minimal) and then each
   detail on its own: font (Minecraft, Poppins, Inter), label before or after the value, separator,
@@ -362,10 +363,18 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     three seconds at the earliest; it waits 10 s at most for stats (15 before), and does not wait
     when Hypixel is out of reach. In our test with the 11 players' stats not in yet, it came 1 s
     after the start
-  - 1.7 animations: **Instant item switch** (on by default). Changing hotbar slot shows the new
-    item in your hand at once, instead of lowering the old one and raising the new one (about 270
-    ms in our test). Only how your hand is drawn changes: the server is told of your slot as in
-    vanilla, before each hit or use
+  - 1.7 animations: **Instant item switch** (off by default; it was on in 1.5.4 to 1.5.6 and is
+    now a new setting, so it starts off again). Changing hotbar slot shows the new item in your
+    hand at once, instead of lowering the old one and raising the new one (about 270 ms in our
+    test). Only how your hand is drawn changes: the server is told of your slot as in vanilla,
+    before each hit or use
+  - 1.7 animations: **1.15+ backwards walking** (off by default). Walking backwards, your body
+    and legs face where you look, as in 1.15 and later, instead of turning towards where you go
+    (1.8 twists the body up to 75° to one side). Every player and mob is drawn this way on your screen;
+    only how bodies are drawn changes
+  - HUD editor: the element under the mouse, or the last one clicked, has a gear by its corner;
+    clicking it opens that mod's page in the Rago menu. The help line at the bottom goes on two
+    lines when the screen is too narrow for it
   - developer tools: `-Drago.bench.sample=<seconds>` logs where the render thread spends its time,
     and the frame profile has a line for drawing the other players; `/rago testgame [n]` fills the
     test game's tab list with players in four teams
@@ -428,7 +437,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.5.6+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.5.7+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
@@ -500,8 +509,8 @@ OptiFine jar from the mods folder. Only publish such builds if you have that per
 
 All keys can be changed in Options → Controls → Rago. On a Mac keyboard, press `fn` with the F key.
 
-In the HUD editor: drag to move, mouse wheel to resize, right-click to reset an element, Esc to save
-and go back. The HUD only draws while you are in a world.
+In the HUD editor: drag to move, mouse wheel to resize, right-click to reset an element, the gear
+by an element to open its settings, Esc to save and go back. The HUD only draws while you are in a world.
 
 ## Measuring performance
 

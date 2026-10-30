@@ -145,6 +145,13 @@ public final class RagoMenuScreen extends GuiScreen {
 		this.parent = parent;
 	}
 
+	/** Shows a module's own page (its settings), as from the HUD editor's gear. */
+	public RagoMenuScreen show(Module m) {
+		tab = Tab.MODS;
+		module = m;
+		return this;
+	}
+
 	/** Opens the window on the Settings tab. */
 	public static RagoMenuScreen settings(GuiScreen parent) {
 		RagoMenuScreen s = new RagoMenuScreen(parent);

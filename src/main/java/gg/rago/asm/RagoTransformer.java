@@ -133,6 +133,9 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.gui.GuiPlayerTabOverlay", new Patch("tab list look",
 			"func_175249_a", "renderPlayerlist", "(ILnet/minecraft/scoreboard/Scoreboard;Lnet/minecraft/scoreboard/ScoreObjective;)V",
 			RagoTransformer::tabLook));
+		add("net.minecraft.entity.EntityLivingBase", new Patch("1.15+ backwards walking",
+			"func_70071_h_", "onUpdate", "()V",
+			RagoTransformer::walkYaw));
 		add("net.minecraft.client.gui.GuiPlayerTabOverlay", new Patch("tab list sorted by strength",
 			"func_175249_a", "renderPlayerlist", "(ILnet/minecraft/scoreboard/Scoreboard;Lnet/minecraft/scoreboard/ScoreObjective;)V",
 			RagoTransformer::tabOrder));
@@ -797,6 +800,31 @@ public final class RagoTransformer implements IClassTransformer {
 	 * returning, rectangle colours through {@code Hooks.tabRect}, the header and footer fields
 	 * through {@code Hooks.tabHeaderFooter}, and text through {@code Hooks.tabText}.
 	 */
+	/**
+	 * The way the body turns to while moving ({@code atan2(dz, dx) * 180 / PI - 90}, stored right
+	 * after) goes through {@code Hooks.walkYaw} with the entity.
+	 */
+	private static boolean walkYaw(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (!(insn instanceof MethodInsnNode) || !isMethod((MethodInsnNode) insn, "func_181159_b", "atan2", "(DD)D")) {
+				continue;
+			}
+			for (AbstractInsnNode n = insn.getNext(); n != null; n = n.getNext()) {
+				if (n.getOpcode() == Opcodes.FSTORE) {
+					InsnList call = new InsnList();
+					call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+					call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "walkYaw", "(FLnet/minecraft/entity/EntityLivingBase;)F", false));
+					m.instructions.insertBefore(n, call);
+					return true;
+				}
+				if (n instanceof MethodInsnNode || n instanceof JumpInsnNode) {
+					return false; // not the expected arithmetic
+				}
+			}
+		}
+		return false;
+	}
+
 	/** The players vanilla sorted ({@code Ordering.sortedCopy}) go through {@code Hooks.tabOrder}. */
 	private static boolean tabOrder(MethodNode m) {
 		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {

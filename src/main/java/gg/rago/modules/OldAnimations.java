@@ -14,7 +14,8 @@ import net.minecraft.util.MovingObjectPosition;
  * 1.7 animations and held-item tweaks: the sword swings while you block-hit, the arm swings while
  * eating or drawing a bow, armour turns red with the player when hit, the arm swings when you click
  * while using an item, no lower-and-raise animation when the held item only changes (durability),
- * a new hotbar slot's item shown at once instead of lowered and raised (Instant item switch),
+ * a new hotbar slot's item shown at once instead of lowered and raised (Instant item switch, off by
+ * default), the body facing forward when walking backwards as from 1.15 (off by default),
  * swing speed, the held item's position (its size is in Item Scale), and a camera that lowers smoothly when you sneak. All of it only changes how your own client
  * draws things; nothing here is sent to the server.
  */
@@ -25,7 +26,9 @@ public final class OldAnimations extends Module {
 	private final BooleanOption eatSwing = addOption(new BooleanOption("eat_swing", true));
 	private final BooleanOption bowSwing = addOption(new BooleanOption("bow_swing", true));
 	private final BooleanOption noReequip = addOption(new BooleanOption("no_reequip", true));
-	private final BooleanOption instantSwitch = addOption(new BooleanOption("instant_switch", true));
+	/** A new key: 1.5.4 to 1.5.6 had it on by default, and it is off now. */
+	private final BooleanOption instantSwitch = addOption(new BooleanOption("instant_item_switch", false));
+	private final BooleanOption backwardsWalk = addOption(new BooleanOption("backwards_walk", false));
 	private final BooleanOption smoothSneak = addOption(new BooleanOption("smooth_sneak", true));
 	private final IntOption swingSpeed;
 	private final IntOption itemX;
@@ -78,6 +81,21 @@ public final class OldAnimations extends Module {
 
 	public boolean instantSwitch() {
 		return instantSwitch.get();
+	}
+
+	/**
+	 * The way the body turns to while moving, given the way of the movement: walking backwards
+	 * (the movement more than 95 degrees from where you look), it turns to face where you look,
+	 * as in newer versions, instead of twisting sideways towards the movement as 1.8 does.
+	 */
+	public float walkYaw(float moving, float lookYaw) {
+		return backwardsWalk.get() ? backwardsYaw(moving, lookYaw) : moving;
+	}
+
+	/** Newer versions' rule: a movement between 95 and 265 degrees from the look is walking backwards. */
+	static float backwardsYaw(float moving, float lookYaw) {
+		float off = Math.abs(net.minecraft.util.MathHelper.wrapAngleTo180_float(lookYaw) - moving);
+		return off > 95f && off < 265f ? moving - 180f : moving;
 	}
 
 	/** Swing length in ticks for the local player; higher speed means a shorter swing. */
