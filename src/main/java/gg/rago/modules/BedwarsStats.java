@@ -84,8 +84,8 @@ public final class BedwarsStats extends Module {
 	/** The red danger sign before strong and nicked players. */
 	static final String MARK = "§4§l\u26a0§r";
 
-	/** More players than any Bed Wars game but the 40v40 ones: a lobby. */
-	private static final int BIG_LOBBY = 24;
+	/** More players than a four-team game, outside a game and its waiting room: a lobby. */
+	private static final int BIG_LOBBY = 16;
 	private boolean bigLobby;
 	/** Said once per wait that Hypixel asks for, so the stats missing from the tab list are explained. */
 	private boolean pauseWarned;
@@ -191,7 +191,7 @@ public final class BedwarsStats extends Module {
 		tab.clear();
 		boolean playing = BedwarsGame.playing();
 		// a big lobby (not a game, not its waiting room): those players only get the key's spare requests
-		bigLobby = !playing && net.getPlayerInfoMap().size() > BIG_LOBBY;
+		bigLobby = !playing && !BedwarsGame.waitingRoom() && net.getPlayerInfoMap().size() > BIG_LOBBY;
 		for (NetworkPlayerInfo info : net.getPlayerInfoMap()) {
 			UUID id = info.getGameProfile().getId();
 			if (id == null) {

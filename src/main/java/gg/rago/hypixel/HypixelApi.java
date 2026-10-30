@@ -28,17 +28,17 @@ import java.util.regex.Pattern;
 
 /**
  * Reads players' network level and Bedwars star from the public Hypixel API with the player's own
- * API key (from developer.hypixel.net). Requests run one at a time on a background thread, at most
- * one per second, and answers are kept for ten minutes, so a lobby full of players costs one
- * request per player. Nothing is sent to the Minecraft server.
+ * API key (from developer.hypixel.net). Requests run one at a time on a background thread, spaced to
+ * fit what the key has left, and answers are kept two days, on disk too, so a player met again
+ * costs nothing. Nothing is sent to the Minecraft server.
  */
 public final class HypixelApi {
 	private static final String URL_PLAYER = "https://api.hypixel.net/v2/player?uuid=";
 	private static final Pattern KEY = Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
 	/** Other players' stats are asked again after this; your own are asked by the quests when needed. */
-	private static final long FRESH_MS = 6 * 3_600_000L;
+	private static final long FRESH_MS = 48 * 3_600_000L;
 	/** Stats saved on disk are used again for this long after a restart. */
-	private static final long KEEP_ON_DISK_MS = 24 * 3_600_000L;
+	private static final long KEEP_ON_DISK_MS = FRESH_MS;
 	private static final int MAX_ON_DISK = 3000;
 	private static final long SAVE_EVERY_MS = 30_000L;
 	/** A rate-limit window longer than this is a daily quota: lobby players then get nothing. */

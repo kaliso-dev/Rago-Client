@@ -9,6 +9,7 @@ import gg.rago.core.RagoClient;
 import gg.rago.gui.ui.Anim;
 import gg.rago.gui.ui.Ui;
 import gg.rago.gui.ui.Widgets;
+import gg.rago.render.NeonColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.entity.EntityOtherPlayerMP;
@@ -576,11 +577,15 @@ public final class LockerScreen extends GuiScreen {
 		if (cape != null) {
 			ChoiceOption design = choice(cape, "cape_design");
 			cy = section(x, cy, w, "flag", t("rago.locker.cape"), design, cape, true);
+			cy = neon(x, cy, w, choice(cape, "cape_neon"), cape);
 		}
 		if (cos != null) {
 			cy = section(x, cy, w, "crown", t("rago.locker.hat"), choice(cos, "cosmetic_hat"), cos, false);
+			cy = neon(x, cy, w, choice(cos, "cosmetic_hat_neon"), cos);
 			cy = section(x, cy, w, "wind", t("rago.locker.wings"), choice(cos, "cosmetic_wings"), cos, false);
+			cy = neon(x, cy, w, choice(cos, "cosmetic_wings_neon"), cos);
 			cy = section(x, cy, w, "shield", t("rago.locker.shield"), choice(cos, "cosmetic_shield"), cos, false);
+			cy = neon(x, cy, w, choice(cos, "cosmetic_shield_neon"), cos);
 		}
 		// colours, sizes and the rest stay in the mod's own settings
 		String more = t("rago.locker.more");
@@ -646,6 +651,38 @@ public final class LockerScreen extends GuiScreen {
 			cx += cw + 8;
 		}
 		return y + chipH + 22;
+	}
+
+	/**
+	 * The neon colours of the piece just above, as a row of swatches, when that piece is worn and
+	 * comes in them.
+	 */
+	private float neon(float x, float y, float w, ChoiceOption option, Module module) {
+		if (option == null || !option.visible() || !module.isEnabled()) {
+			return y;
+		}
+		y -= 12;
+		String title = t("rago.locker.neon") + " · " + label(option.key(), option.get());
+		Ui.text(Ui.MEDIUM, title, x, y, 9, Theme.MUTED);
+		y += 16;
+		float d = 18;
+		float sx = x;
+		for (String id : option.ids()) {
+			if (sx + d > x + w) {
+				sx = x;
+				y += d + 8;
+			}
+			float hv = Widgets.hoverAmount("locker:neon" + option.key() + id, sx, y, d, d);
+			if (option.is(id)) {
+				Ui.annulus(sx + d / 2, y + d / 2, d / 2 + 2.5f, 1.5f, Theme.TEXT);
+			} else if (hv > 0.01f) {
+				Ui.annulus(sx + d / 2, y + d / 2, d / 2 + 2.5f, 1.5f, Ui.alpha(Theme.TEXT, 0.45f * hv));
+			}
+			Ui.circle(sx + d / 2, y + d / 2, d / 2, NeonColors.swatch(id));
+			Ui.click(sx, y, d, d, () -> option.select(id));
+			sx += d + 9;
+		}
+		return y + d + 22;
 	}
 
 	private static List<String> withNone(List<String> ids) {

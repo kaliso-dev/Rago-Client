@@ -12,12 +12,14 @@ import gg.rago.hypixel.HypixelApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.inventory.GuiChest;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.inventory.ContainerChest;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.world.World;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
  * Your Hypixel Bed Wars daily and weekly quests and how much is left of each ("Final kills 7/15"),
@@ -27,9 +29,11 @@ public final class BedwarsQuestsHud extends TextHudElement {
 	/** How long after a game ends Hypixel is given to save it before Rago asks again. */
 	private static final int REFRESH_AFTER_GAME_TICKS = 20 * 20;
 	/** Out of a game, your quests are asked for again this often (Hypixel's quota can be a daily one). */
-	private static final int LOBBY_REFRESH_TICKS = 15 * 60 * 20;
-	/** After a chest menu closes in a lobby (the quest master's, say), the API is asked again this soon. */
+	private static final int LOBBY_REFRESH_TICKS = 30 * 60 * 20;
+	/** After the quest master's menu closes in a lobby, the API is asked again this soon. */
 	private static final int AFTER_MENU_TICKS = 3 * 20;
+	/** The titles of the menus where quests are accepted (in English or French on Hypixel). */
+	private static final Pattern QUEST_MENU = Pattern.compile("(?i)quest|qu[eê]te|challenge|d[ée]fi");
 
 	private final BooleanOption daily = addOption(new BooleanOption("quests_daily", true));
 	private final BooleanOption weekly = addOption(new BooleanOption("quests_weekly", true));
@@ -87,8 +91,8 @@ public final class BedwarsQuestsHud extends TextHudElement {
 			inGame = true;
 		}
 		readTitle();
-		// chest menus only: the quest master's is one, your own inventory is not
-		boolean menu = mc.currentScreen instanceof GuiChest;
+		// the quest master's menu only: other chest menus and your own inventory change no quest
+		boolean menu = mc.currentScreen instanceof GuiChest && QUEST_MENU.matcher(title((GuiChest) mc.currentScreen)).find();
 		if (menuOpen && !menu && !inGame && BedwarsGame.inBedwars()) {
 			// quests are accepted at the quest master, in a chest menu
 			refreshAt = ticks + AFTER_MENU_TICKS;
@@ -116,6 +120,11 @@ public final class BedwarsQuestsHud extends TextHudElement {
 	@Override
 	protected void onEnable() {
 		asked = false;
+	}
+
+	private static String title(GuiChest chest) {
+		return chest.inventorySlots instanceof ContainerChest
+			? ((ContainerChest) chest.inventorySlots).getLowerChestInventory().getDisplayName().getUnformattedText() : "";
 	}
 
 	/** "VICTORY!" or "GAME OVER!" ends the game; titles fire no event. */

@@ -34,12 +34,15 @@ public final class BedwarsGame {
 	private static final Pattern CAPITAL_ENDING = Pattern.compile("\\p{Lu}[\\p{Lu} ]{3,}\\s*!\\s*$");
 	/** "BED DESTRUCTION > Red Bed was destroyed by You!": words in capitals, then an arrow. */
 	private static final Pattern CAPITAL_ANNOUNCE = Pattern.compile("^\\s*\\p{Lu}[\\p{Lu} ]{4,}\\s*[>\u00bb]");
+	/** The waiting room's player count ("Players: 5/16", "Joueurs : 5/16"), up to the 16 of a four-team game. */
+	private static final Pattern WAITING_PLAYERS = Pattern.compile("(?<![\\d.,])\\d{1,2}/(8|12|16)$");
 	private static Field titleField;
 	private static boolean titleFieldMissing;
 	private static long readAt;
 	private static Map<Character, Boolean> beds = Collections.emptyMap();
 	private static Map<Character, Boolean> alive = Collections.emptyMap();
 	private static String eventLine;
+	private static boolean waiting;
 
 	private BedwarsGame() {
 	}
@@ -68,6 +71,7 @@ public final class BedwarsGame {
 		Map<Character, Boolean> out = new LinkedHashMap<>();
 		Map<Character, Boolean> teamsAlive = new LinkedHashMap<>();
 		String event = null;
+		boolean wait = false;
 		Minecraft mc = Minecraft.getMinecraft();
 		if (inBedwars()) {
 			Scoreboard board = mc.theWorld.getScoreboard();
@@ -81,14 +85,27 @@ public final class BedwarsGame {
 					teamsAlive.put(line.charAt(0), alive(line));
 				} else if (event == null && GameEvents.hasCountdown(line)) {
 					event = line;
+				} else if (waitingLine(line)) {
+					wait = true;
 				}
 			}
 		}
 		eventLine = out.size() >= 2 ? event : null;
+		waiting = out.size() < 2 && wait;
 		// a single line could be something else: a game has at least two teams
 		beds = out.size() >= 2 ? out : Collections.<Character, Boolean>emptyMap();
 		alive = out.size() >= 2 ? teamsAlive : Collections.<Character, Boolean>emptyMap();
 		return beds;
+	}
+
+	static boolean waitingLine(String line) {
+		return WAITING_PLAYERS.matcher(line.trim()).find();
+	}
+
+	/** Whether you are in a game's waiting room, before it starts: its sidebar counts the players. */
+	public static boolean waitingRoom() {
+		teamBeds();
+		return waiting;
 	}
 
 	/** The sidebar's countdown to the next game event ("Diamond II in 5:37"), or null. */

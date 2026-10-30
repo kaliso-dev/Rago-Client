@@ -592,7 +592,7 @@ rago.option.blur_sensitivity.format=%d%%
 rago.option.blur_frame_independent=Same look at any FPS
 rago.option.blur_pause_zoom=Off while zooming
 rago.module.rago_cape=Rago Cape
-rago.module.rago_cape.desc=The Rago Optimizer cape on your player, in six HD designs: Rago, Midnight, Flame, Ocean, Royal and Frost. Only you see it for now.
+rago.module.rago_cape.desc=The Rago Optimizer cape on your player, in six HD designs: Rago, Midnight, Flame, Ocean, Royal and Frost. The Rago cape comes in nine neon colours. Only you see it for now.
 rago.option.cape_over_own=Replace my Minecraft cape
 rago.module.glint_color=Glint Colour
 rago.module.glint_color.desc=The colour of the enchantment shine on items and armour.
@@ -674,7 +674,7 @@ rago.option.shop_no_duplicates=No duplicate swords or knockback stick
 
 # 1.2: cosmetics
 rago.module.cosmetics=Cosmetics
-rago.module.cosmetics.desc=A hat (Rago cap, Rago beanie, top hat, wizard hat, red cap, mushrooms, crown or halo), 3D voxel wings (angel, butterfly, dragon or small dragon) and a Rago shield in your left hand (five styles) on your player, each with its colour and size. Only you see them.
+rago.module.cosmetics.desc=A hat (Rago cap, Rago beanie, neon cap, top hat, wizard hat, crown or halo), 3D voxel wings (dragon or small dragon) and a Rago shield in your left hand (five styles) on your player, each with its colour and size. The neon cap, the small dragon wings and the Rago shield come in nine neon colours. Only you see them.
 rago.option.cosmetic_hat=Hat
 rago.option.cosmetic_hat.none=None
 rago.option.cosmetic_hat.top_hat=Top hat
@@ -683,7 +683,6 @@ rago.option.cosmetic_hat.halo=Halo
 rago.option.cosmetic_hat_color=Hat colour
 rago.option.cosmetic_wings=Wings
 rago.option.cosmetic_wings.none=None
-rago.option.cosmetic_wings.angel=Angel
 rago.option.cosmetic_wings.dragon=Dragon
 rago.option.cosmetic_wings.dragon_small=Small dragon
 rago.option.cosmetic_wings_color=Wings colour
@@ -747,17 +746,14 @@ rago.option.cosmetic_hat.rago_beanie=Rago beanie
 rago.option.cosmetic_logo_color=Logo colour
 rago.option.cosmetic_hat_scale=Hat size
 rago.option.cosmetic_hat_scale.format=%d%%
-rago.option.cosmetic_wings.butterfly=Butterfly
 rago.option.cosmetic_wings_scale=Wings size
 rago.option.cosmetic_wings_scale.format=%d%%
 rago.option.cosmetic_wings_flap_speed=Flapping speed
 rago.option.cosmetic_wings_flap_speed.format=%d%%
 rago.option.cosmetic_hat.wizard_hat=Wizard hat
-rago.option.cosmetic_hat.cap_red=Red cap
-rago.option.cosmetic_hat.mushroom_red=Red mushroom
-rago.option.cosmetic_hat.mushroom_green=Green mushroom
-rago.option.cosmetic_hat.help=The top hat, wizard hat, red cap and mushrooms are voxel models by VoxelBear on Sketchfab (CC BY 4.0).
-rago.option.cosmetic_wings.help=The angel wings are a voxel model by playswolrdgames on Sketchfab (CC BY 4.0), a port of the Wings mod by pau101 (MIT). The butterfly and dragon wings are Rago's own.
+rago.option.cosmetic_hat.cap_red=Neon cap
+rago.option.cosmetic_hat.help=The top hat, wizard hat and neon cap are voxel models by VoxelBear on Sketchfab (CC BY 4.0).
+rago.option.cosmetic_wings.help=The dragon and small dragon wings are Rago's own.
 
 # 1.3: item counter, generator timers, item physics
 rago.module.item_counter=Item Counter
@@ -1187,3 +1183,19 @@ rago.apikey.paused=Too many requests, back in %s
 rago.quests.paused_daily=Quests: your key's daily quota is used up, back in %s
 rago.stats.paused_daily=Bed Wars Stats: your Hypixel key's daily quota is used up (%s requests a day), the stats are back in %s.
 rago.stats.paused=Bed Wars Stats: Hypixel asks to wait (too many requests), the stats are back in %s.
+
+# 1.4.15: neon colours
+rago.option.cape_neon=Neon colour
+rago.option.cosmetic_hat_neon=Neon colour
+rago.option.cosmetic_wings_neon=Neon colour
+rago.option.cosmetic_shield_neon=Neon colour
+rago.choice.red=Red
+rago.choice.orange=Orange
+rago.choice.yellow=Yellow
+rago.choice.green=Green
+rago.choice.cyan=Cyan
+rago.choice.blue=Blue
+rago.choice.purple=Purple
+rago.choice.pink=Pink
+rago.choice.white=White
+rago.locker.neon=Neon colour

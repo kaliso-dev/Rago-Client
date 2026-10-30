@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.14.** What it contains:
+**Current version: 1.4.15.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -88,8 +88,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - Fast Shop (input class, off by default, Hypixel only): one click buys in the Bed Wars shop,
     affordable items are highlighted in their resource colour, and a sword or knockback stick you
     already own is not bought twice
-  - Cosmetics (off by default, seen only by you): a hat (top hat, crown, halo) and wings (angel or
-    dragon, with flapping), each with its colour
+  - Cosmetics (off by default, seen only by you): a hat (top hat, crown, halo) and wings (dragon,
+    with flapping), each with its colour
   - resource packs screen: every pack as a card with its icon, description and the textures it
     changes (sword, pearl, golden apple, wool...), search by typing, your own folders to sort packs,
     priority arrows; the vanilla screen stays one click away
@@ -98,9 +98,9 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - the HUD works out each element's text once per frame instead of several times, and no longer
     filters the module list every frame
 - new in 1.3:
-  - Cosmetics redone in 3D: voxel hats (top hat, wizard hat, caps, red and green
-    mushrooms) and voxel angel wings imported under CC BY 4.0 (credits in `tools/models/CREDITS.md`),
-    Rago's own cap and beanie with the logo, butterfly and dragon wings extruded into voxels; each
+  - Cosmetics redone in 3D: voxel hats (top hat, wizard hat, caps) imported under CC BY 4.0
+    (credits in `tools/models/CREDITS.md`), Rago's own cap and beanie with the logo, dragon wings
+    extruded into voxels; each
     model is compiled once into a display list, so thousands of voxels are one draw call. Hat and
     wings size, logo colour, flapping speed
   - the Rago cape in six HD designs: Rago, Midnight, Flame, Ocean, Royal, Frost
@@ -169,6 +169,17 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - a developer key from developer.hypixel.net has 300 requests a day: when they are used up, the
     API key card in the menu, Bed Wars Quests and a chat message from Bed Wars Stats say so and
     when they come back, instead of a green "Key OK" and empty stats
+  - the Rago cape, the neon cap (was the red cap), the small dragon wings and the Rago shield come
+    in nine neon colours (red, orange, yellow, green, cyan, blue, purple, pink, white), picked with
+    swatches in the Locker; the red of the texture is recoloured in game with its shading kept
+  - the mushroom hats and the angel and butterfly wings are gone; a saved choice of one of them
+    falls back to none
+  - the Locker starts with qRago's skin (added once; removing it is up to you)
+  - home screen: "Made by Rago" at the bottom, a softer glow behind the logo, slightly wider buttons
+  - fewer Hypixel API requests: other players' stats are kept two days (on disk too); your quests are
+    asked again every 30 minutes in a lobby and after the quest master's menu only (not every chest
+    menu); a game's waiting room is recognised from its sidebar ("Players: 5/16"), and any other
+    place with more than 16 players is a lobby whose players only get spare requests
   - the 1.2 Particles mod is merged into Particle Multiplier, which can now also hide block-breaking
     and block-mining particles
   - Item Scale (held and dropped items from 25% to 400%), Item Physics (dropped items lie on the
@@ -303,7 +314,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.14+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.4.15+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
@@ -411,4 +422,4 @@ spends per frame on occlusion culling, the HUD, name tags and its tick, and the 
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE). The bundled In-Game Account Switcher is LGPL-3.0 (see
-`libs/ias/`), the bundled PolyPatcher is CC BY-NC-SA 4.0 (see `libs/patcher/`), the Poppins font is under the SIL Open Font License (see `Poppins-OFL.txt` next to it). The voxel hats (by VoxelBear) and angel wings (by playswolrdgames, a port of the Wings mod by pau101) are under CC BY 4.0, see `tools/models/CREDITS.md`.
+`libs/ias/`), the bundled PolyPatcher is CC BY-NC-SA 4.0 (see `libs/patcher/`), the Poppins font is under the SIL Open Font License (see `Poppins-OFL.txt` next to it). The voxel hats (by VoxelBear) are under CC BY 4.0, see `tools/models/CREDITS.md`.

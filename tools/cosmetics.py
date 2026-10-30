@@ -18,43 +18,6 @@ def grey(v, a=255):
     return (v, v, v, a)
 
 
-
-def butterfly():
-    """Fore and hind wing as one layer, veins and border dark so the tint colours the rest."""
-    img = Image.new('RGBA', (N, N))
-    d = ImageDraw.Draw(img)
-    fore = [(2, 26), (12, 12), (28, 4), (46, 1), (60, 3), (62, 10), (56, 20), (44, 30), (26, 34), (8, 32)]
-    hind = [(4, 32), (22, 34), (38, 38), (46, 48), (42, 58), (30, 62), (16, 58), (6, 46)]
-    for shape in (hind, fore):
-        d.polygon(shape, fill=grey(34))
-    # inner area: inset copies, light towards the edge
-    def inset(shape, k, cx, cy):
-        return [(cx + (x - cx) * k, cy + (y - cy) * k) for x, y in shape]
-    for shape, (cx, cy) in ((fore, (8, 26)), (hind, (8, 36))):
-        d.polygon(inset(shape, 0.86, cx, cy), fill=grey(225))
-        d.polygon(inset(shape, 0.55, cx, cy), fill=grey(200))
-        d.polygon(inset(shape, 0.3, cx, cy), fill=grey(170))
-    # veins from the root
-    for tx, ty in ((58, 6), (50, 16), (40, 26), (26, 32), (36, 42), (34, 56), (20, 58)):
-        d.line([(5, 30), (tx, ty)], fill=grey(40), width=1)
-    # white dots in the dark border
-    rnd = random.Random(7)
-    for shape in (fore, hind):
-        for i in range(len(shape)):
-            x0, y0 = shape[i]
-            x1, y1 = shape[(i + 1) % len(shape)]
-            if rnd.random() < 0.75 and (x0, y0) not in ((2, 26), (4, 32)):
-                t = 0.5
-                cx, cy = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
-                # pull the dot just inside the edge
-                cx += (12 - cx) * 0.06
-                cy += (30 - cy) * 0.06
-                d.point([(round(cx), round(cy))], fill=grey(250))
-    # the body side: a dark sliver at the root
-    d.line([(1, 24), (2, 40)], fill=grey(20), width=2)
-    return img
-
-
 def scales(img, shape_mask, seed, light=196, dark=124):
     """Overlapping scales on the membrane: little rounded cells, each darker along its lower rim."""
     rnd = random.Random(seed)
@@ -280,7 +243,6 @@ def shield(style):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    butterfly().save(os.path.join(OUT, 'butterfly.png'))
     dragon().save(os.path.join(OUT, 'dragon.png'))
     dragon_small().save(os.path.join(OUT, 'dragon_small.png'))
     cap().save(os.path.join(OUT, 'cap.png'))

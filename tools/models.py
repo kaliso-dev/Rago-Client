@@ -140,10 +140,8 @@ def drop_hidden(tris):
 
 HATS = {
     # glb file: {name of the hat's node: (model name, texture name)}
-    'hats_mini_pack_1.glb': {'cape1_5': ('cap_red', 'cap_red'), 'mushroomhead0_11': ('mushroom_red', 'hats_atlas'),
-                             'cylinder_18': ('top_hat', 'hats_atlas')},
-    'hats_mini_pack_3.glb': {'mushroomhead2_11': ('mushroom_green', 'hats_atlas'),
-                             'magehat_20': ('wizard_hat', 'wizard_hat')},
+    'hats_mini_pack_1.glb': {'cape1_5': ('cap_red', 'cap_red'), 'cylinder_18': ('top_hat', 'hats_atlas')},
+    'hats_mini_pack_3.glb': {'magehat_20': ('wizard_hat', 'wizard_hat')},
 }
 
 
@@ -202,24 +200,6 @@ def rago_red(png):
                 nr, ng, nb = colorsys.hls_to_rgb(0.01, min(l * 0.92, 0.85), min(1, sat * 1.15))
                 px[x, y] = (round(nr * 255), round(ng * 255), round(nb * 255), a)
     return img
-
-
-# ---- the voxel angel wings -------------------------------------------------------------------------
-
-def angel():
-    j, data = load_glb(os.path.join(SRC, 'wings_angel.glb'))
-    tris = []
-    walk(j, lambda node, world, path: tris.extend(triangles(j, data, node, world)) if 'mesh' in node else None)
-    # glTF: feet at y 0, the wings behind on +z. Minecraft's body space: y down from the neck at 1.5,
-    # the back toward +z. Turning half a circle around z keeps the back where it is.
-    left, right = [], []
-    for pos, uv, _ in tris:
-        p = (pos - np.array([0, 1.5, 0])) * np.array([-1, -1, 1])
-        (left if p[:, 0].mean() > 0 else right).append((p, uv))
-    # each wing turns around its root, close to the spine at shoulder height
-    write_model('angel', [('left', (0.04, 0.3, 0.2), drop_hidden(left)),
-                          ('right', (-0.04, 0.3, 0.2), drop_hidden(right))])
-    open(os.path.join(TEXTURES, 'angel.png'), 'wb').write(texture(j, data, tris[0][2]))
 
 
 # ---- extruded pixel-art wings ---------------------------------------------------------------------
@@ -302,7 +282,6 @@ def neon_bones(p):
 
 
 def wings():
-    write_model('butterfly', [('wing', (0, 0, 0), extrude('butterfly', (4, 30), bones_thicker, 0.1))])
     write_model('dragon', [('wing', (0, 0, 0), extrude('dragon', (3, 12), bones_thicker))])
     write_model('dragon_small', [('wing', (0, 0, 0), extrude('dragon_small', (3, 22), neon_bones))])
 
@@ -323,5 +302,4 @@ def shields():
 if __name__ == '__main__':
     shields()
     hats()
-    angel()
     wings()

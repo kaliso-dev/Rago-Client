@@ -592,7 +592,7 @@ rago.option.blur_sensitivity.format=%d%%
 rago.option.blur_frame_independent=Même rendu à tous les FPS
 rago.option.blur_pause_zoom=Désactivé pendant le zoom
 rago.module.rago_cape=Cape Rago
-rago.module.rago_cape.desc=La cape Rago Optimizer sur ton joueur, en six designs HD : Rago, Minuit, Flammes, Océan, Royal et Givre. Toi seul la vois pour l'instant.
+rago.module.rago_cape.desc=La cape Rago Optimizer sur ton joueur, en six designs HD : Rago, Minuit, Flammes, Océan, Royal et Givre. La cape Rago existe en neuf couleurs néon. Toi seul la vois pour l'instant.
 rago.option.cape_over_own=Remplacer ma cape Minecraft
 rago.module.glint_color=Couleur d'enchantement
 rago.module.glint_color.desc=La couleur de l'effet brillant des objets et armures enchantés.
@@ -674,7 +674,7 @@ rago.option.shop_no_duplicates=Pas d'épée ni de stick knockback en double
 
 # 1.2: cosmetics
 rago.module.cosmetics=Cosmétiques
-rago.module.cosmetics.desc=Un chapeau (casquette Rago, bonnet Rago, haut-de-forme, chapeau de sorcier, casquette rouge, champignons, couronne ou auréole), des ailes 3D en voxels (ange, papillon, dragon ou petit dragon) et un bouclier Rago dans la main gauche (cinq styles) sur ton joueur, chacun avec sa couleur et sa taille. Toi seul les vois.
+rago.module.cosmetics.desc=Un chapeau (casquette Rago, bonnet Rago, casquette néon, haut-de-forme, chapeau de sorcier, couronne ou auréole), des ailes 3D en voxels (dragon ou petit dragon) et un bouclier Rago dans la main gauche (cinq styles) sur ton joueur, chacun avec sa couleur et sa taille. La casquette néon, le petit dragon et le bouclier Rago existent en neuf couleurs néon. Toi seul les vois.
 rago.option.cosmetic_hat=Chapeau
 rago.option.cosmetic_hat.none=Aucun
 rago.option.cosmetic_hat.top_hat=Haut-de-forme
@@ -683,7 +683,6 @@ rago.option.cosmetic_hat.halo=Auréole
 rago.option.cosmetic_hat_color=Couleur du chapeau
 rago.option.cosmetic_wings=Ailes
 rago.option.cosmetic_wings.none=Aucune
-rago.option.cosmetic_wings.angel=Ange
 rago.option.cosmetic_wings.dragon=Dragon
 rago.option.cosmetic_wings.dragon_small=Petit dragon
 rago.option.cosmetic_wings_color=Couleur des ailes
@@ -747,17 +746,14 @@ rago.option.cosmetic_hat.rago_beanie=Bonnet Rago
 rago.option.cosmetic_logo_color=Couleur du logo
 rago.option.cosmetic_hat_scale=Taille du chapeau
 rago.option.cosmetic_hat_scale.format=%d%%
-rago.option.cosmetic_wings.butterfly=Papillon
 rago.option.cosmetic_wings_scale=Taille des ailes
 rago.option.cosmetic_wings_scale.format=%d%%
 rago.option.cosmetic_wings_flap_speed=Vitesse des battements
 rago.option.cosmetic_wings_flap_speed.format=%d%%
 rago.option.cosmetic_hat.wizard_hat=Chapeau de sorcier
-rago.option.cosmetic_hat.cap_red=Casquette rouge
-rago.option.cosmetic_hat.mushroom_red=Champignon rouge
-rago.option.cosmetic_hat.mushroom_green=Champignon vert
-rago.option.cosmetic_hat.help=Le haut-de-forme, le chapeau de sorcier, la casquette rouge et les champignons sont des modèles voxel de VoxelBear sur Sketchfab (CC BY 4.0).
-rago.option.cosmetic_wings.help=Les ailes d'ange sont un modèle voxel de playswolrdgames sur Sketchfab (CC BY 4.0), repris du mod Wings de pau101 (MIT). Les ailes de papillon et de dragon sont celles de Rago.
+rago.option.cosmetic_hat.cap_red=Casquette néon
+rago.option.cosmetic_hat.help=Le haut-de-forme, le chapeau de sorcier et la casquette néon sont des modèles voxel de VoxelBear sur Sketchfab (CC BY 4.0).
+rago.option.cosmetic_wings.help=Les ailes de dragon et de petit dragon sont celles de Rago.
 
 # 1.3: item counter, generator timers, item physics
 rago.module.item_counter=Compteur d'items
@@ -1187,3 +1183,19 @@ rago.apikey.paused=Trop de requêtes, reprise dans %s
 rago.quests.paused_daily=Quêtes : quota du jour de ta clé atteint, reprise dans %s
 rago.stats.paused_daily=Stats Bed Wars : le quota du jour de ta clé Hypixel est atteint (%s requêtes par jour), les stats reviennent dans %s.
 rago.stats.paused=Stats Bed Wars : Hypixel demande d'attendre (trop de requêtes), les stats reviennent dans %s.
+
+# 1.4.15 : couleurs néon
+rago.option.cape_neon=Couleur néon
+rago.option.cosmetic_hat_neon=Couleur néon
+rago.option.cosmetic_wings_neon=Couleur néon
+rago.option.cosmetic_shield_neon=Couleur néon
+rago.choice.red=Rouge
+rago.choice.orange=Orange
+rago.choice.yellow=Jaune
+rago.choice.green=Vert
+rago.choice.cyan=Cyan
+rago.choice.blue=Bleu
+rago.choice.purple=Violet
+rago.choice.pink=Rose
+rago.choice.white=Blanc
+rago.locker.neon=Couleur néon

@@ -38,17 +38,21 @@ import java.util.regex.Pattern;
  * The skin locker: skins taken from other players by name, kept in {@code config/rago-skins/},
  * and the one you wear. Wearing a skin changes it in this client straight away; it can also be
  * set as your Minecraft account's skin, through Mojang's API with the session you are signed in
- * with, so that everyone sees it.
+ * with, so that everyone sees it. A new locker starts with qRago's skin.
  */
 public final class Skins {
 	private static final Pattern NAME = Pattern.compile("[A-Za-z0-9_]{1,16}");
 	private static final String UPLOAD = "https://api.minecraftservices.com/minecraft/profile/skins";
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+	/** The skin a new locker starts with. */
+	private static final String STARTER = "qRago";
 
 	private static final List<Skin> skins = new CopyOnWriteArrayList<>();
 	private static volatile String worn;
 	private static volatile Skin account;
 	private static volatile boolean accountRequested;
+	/** Whether the starter skin was put in the locker once; after that, removing it is the player's choice. */
+	private static volatile boolean starterAdded;
 	private static Path file;
 	private static Path folder;
 	private static int textureIds;
@@ -113,6 +117,7 @@ public final class Skins {
 		file = configDir.resolve("rago-locker.json");
 		folder = configDir.resolve("rago-skins");
 		if (!Files.isRegularFile(file)) {
+			addStarter();
 			return;
 		}
 		try (Reader in = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
@@ -129,6 +134,7 @@ public final class Skins {
 			}
 			String w = root.has("worn") && !root.get("worn").isJsonNull() ? root.get("worn").getAsString() : null;
 			worn = w != null && find(w) != null ? find(w).name : null;
+			starterAdded = root.has("starter_added") && root.get("starter_added").getAsBoolean();
 		} catch (IOException | RuntimeException e) {
 			RagoClient.LOG.warn("Cannot read {}: {}", file, e.toString());
 		}
@@ -138,6 +144,23 @@ public final class Skins {
 				s.load();
 			}
 		});
+		if (!starterAdded) {
+			addStarter();
+		}
+	}
+
+	/** Fetches the starter skin in the background; without a connection, it is tried again next game. */
+	private static void addStarter() {
+		add(STARTER, s -> starterDone(), f -> {
+			if (f != Failure.NETWORK) {
+				starterDone();
+			}
+		});
+	}
+
+	private static void starterDone() {
+		starterAdded = true;
+		save();
 	}
 
 	private static File png(String name) {
@@ -150,6 +173,7 @@ public final class Skins {
 		}
 		JsonObject root = new JsonObject();
 		root.addProperty("worn", worn);
+		root.addProperty("starter_added", starterAdded);
 		JsonArray list = new JsonArray();
 		for (Skin s : skins) {
 			JsonObject o = new JsonObject();

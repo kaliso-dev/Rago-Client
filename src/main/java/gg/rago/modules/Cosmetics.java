@@ -8,6 +8,7 @@ import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import gg.rago.render.CosmeticModel;
+import gg.rago.render.NeonColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.model.ModelPlayer;
@@ -30,8 +31,9 @@ import java.util.Map;
  * Cosmetics on your own player: a hat, wings and a shield in the left hand, each with its size (and
  * colour for the hat and wings). The Rago cap and beanie are textured boxes; the voxel hats, wings
  * and shields are {@link CosmeticModel}s built by tools/models.py (credits in
- * tools/models/CREDITS.md); the crown and halo are simple shapes. Off by default, and each piece can
- * be set to none. Only this client draws them.
+ * tools/models/CREDITS.md); the crown and halo are simple shapes. The pieces in Rago's neon red (the
+ * neon cap, the small dragon wings, the Rago shield) come in the {@link NeonColors}. Off by default,
+ * and each piece can be set to none. Only this client draws them.
  */
 public final class Cosmetics extends Module {
 	private static final ResourceLocation TEX_CAP = new ResourceLocation("rago", "textures/cosmetics/cap.png");
@@ -40,17 +42,13 @@ public final class Cosmetics extends Module {
 	private static final float PX = 1 / 16f;
 	/** The voxel hats, by option value. */
 	private static final Map<String, CosmeticModel> HATS = new HashMap<>();
-	private static final CosmeticModel ANGEL = model("angel", "angel");
-	private static final CosmeticModel BUTTERFLY = model("butterfly", "butterfly");
 	private static final CosmeticModel DRAGON = model("dragon", "dragon");
 	private static final CosmeticModel DRAGON_SMALL = model("dragon_small", "dragon_small");
 	private static final String[] SHIELDS = {"none", "rago", "crimson", "gold", "frost", "void"};
 	private static final Map<String, CosmeticModel> SHIELD_MODELS = new HashMap<>();
 
 	static {
-		for (String h : new String[] {"top_hat", "mushroom_red", "mushroom_green"}) {
-			HATS.put(h, model(h, "hats_atlas"));
-		}
+		HATS.put("top_hat", model("top_hat", "hats_atlas"));
 		HATS.put("wizard_hat", model("wizard_hat", "wizard_hat"));
 		HATS.put("cap_red", model("cap_red", "cap_red"));
 		for (int i = 1; i < SHIELDS.length; i++) {
@@ -59,16 +57,19 @@ public final class Cosmetics extends Module {
 	}
 
 	private final ChoiceOption hat = addOption(new ChoiceOption("cosmetic_hat", "none", "none", "rago_cap", "rago_beanie",
-		"cap_red", "top_hat", "wizard_hat", "mushroom_red", "mushroom_green", "crown", "halo"));
+		"cap_red", "top_hat", "wizard_hat", "crown", "halo"));
+	private final ChoiceOption hatNeon = addOption(new ChoiceOption("cosmetic_hat_neon", "red", NeonColors.IDS));
 	private final ColorOption hatColor = addOption(new ColorOption("cosmetic_hat_color", 0xFFFFFFFF));
 	private final ColorOption logoColor = addOption(new ColorOption("cosmetic_logo_color", 0xFFF2392C));
 	private final IntOption hatScale = addOption(new IntOption("cosmetic_hat_scale", 100, 70, 150));
-	private final ChoiceOption wings = addOption(new ChoiceOption("cosmetic_wings", "none", "none", "angel", "butterfly", "dragon", "dragon_small"));
+	private final ChoiceOption wings = addOption(new ChoiceOption("cosmetic_wings", "none", "none", "dragon", "dragon_small"));
+	private final ChoiceOption wingsNeon = addOption(new ChoiceOption("cosmetic_wings_neon", "red", NeonColors.IDS));
 	private final ColorOption wingsColor = addOption(new ColorOption("cosmetic_wings_color", 0xFFFFFFFF));
 	private final IntOption wingsScale = addOption(new IntOption("cosmetic_wings_scale", 100, 50, 160));
 	private final BooleanOption flap = addOption(new BooleanOption("cosmetic_wings_flap", true));
 	private final IntOption flapSpeed = addOption(new IntOption("cosmetic_wings_flap_speed", 100, 25, 300));
 	private final ChoiceOption shield = addOption(new ChoiceOption("cosmetic_shield", "none", SHIELDS));
+	private final ChoiceOption shieldNeon = addOption(new ChoiceOption("cosmetic_shield_neon", "red", NeonColors.IDS));
 	private final IntOption shieldScale = addOption(new IntOption("cosmetic_shield_scale", 100, 50, 150));
 	/** 0: facing forward beside the arm; 90: flat against the outside of the arm. */
 	private boolean installed;
@@ -80,6 +81,9 @@ public final class Cosmetics extends Module {
 	public Cosmetics() {
 		super("cosmetics", FeatureClass.VISUAL, false);
 		hatColor.showIf(() -> !hat.is("none"));
+		hatNeon.showIf(() -> hat.is("cap_red"));
+		wingsNeon.showIf(() -> wings.is("dragon_small"));
+		shieldNeon.showIf(() -> shield.is("rago"));
 		logoColor.showIf(() -> hat.is("rago_cap") || hat.is("rago_beanie"));
 		hatScale.showIf(() -> !hat.is("none"));
 		wingsColor.showIf(() -> !wings.is("none"));
@@ -148,13 +152,9 @@ public final class Cosmetics extends Module {
 						GlStateManager.translate(0, 0.2f, 0);
 					}
 					model.bipedBody.postRender(0.0625f);
-					float beat = flap.get() ? flapAngle(player, ageInTicks * flapSpeed.get() / 100f, wings.is("butterfly")) : 0;
-					if (wings.is("angel")) {
-						angelWings(beat);
-					} else {
-						extrudedWing(-1, beat);
-						extrudedWing(1, beat);
-					}
+					float beat = flap.get() ? flapAngle(player, ageInTicks * flapSpeed.get() / 100f) : 0;
+					extrudedWing(-1, beat);
+					extrudedWing(1, beat);
 					GlStateManager.popMatrix();
 				}
 				if (!shield.is("none")) {
@@ -180,13 +180,10 @@ public final class Cosmetics extends Module {
 		}
 	}
 
-	private static float flapAngle(AbstractClientPlayer player, float age, boolean butterfly) {
+	private static float flapAngle(AbstractClientPlayer player, float age) {
 		boolean airborne = !player.onGround || player.capabilities.isFlying;
 		float speed = airborne ? 0.45f : 0.12f;
-		float amount = butterfly ? (airborne ? 40 : 14) : airborne ? 22 : 6;
-		if (butterfly) {
-			speed *= 1.6f;
-		}
+		float amount = airborne ? 22 : 6;
 		return (float) Math.sin(age * speed) * amount;
 	}
 
@@ -268,7 +265,7 @@ public final class Cosmetics extends Module {
 					GlStateManager.pushMatrix();
 					GlStateManager.translate(0, lift, 0);
 					GlStateManager.disableBlend();
-					m.render("hat", hatColor.get());
+					m.render("hat", hatColor.get(), hat.is("cap_red") ? NeonColors.texture(m.texture(), hatNeon.get()) : m.texture());
 					GlStateManager.popMatrix();
 					untextured();
 				}
@@ -444,57 +441,28 @@ public final class Cosmetics extends Module {
 	// ---- wings: body space, the back of the body at z = 0.125 --------------------------------------
 
 	/**
-	 * The voxel angel wings: both wings in one model, each turning around its root near the spine. The
-	 * model's texture is grey so the chosen colour tints it.
-	 */
-	private void angelWings(float beat) {
-		int c = wingsColor.get();
-		float span = wingsScale.get() / 100f;
-		GlStateManager.disableBlend();
-		GlStateManager.pushMatrix();
-		// higher than the source model, so the wings start at the top of the shoulder blades
-		GlStateManager.translate(0, -0.16f, 0);
-		for (int side = -1; side <= 1; side += 2) {
-			String group = side > 0 ? "left" : "right";
-			float[] p = ANGEL.pivot(group);
-			GlStateManager.pushMatrix();
-			GlStateManager.translate(p[0], p[1], p[2]);
-			// beating sweeps the tips back and forth
-			GlStateManager.rotate(-side * beat, 0, 1, 0);
-			GlStateManager.scale(span, span, span);
-			GlStateManager.translate(-p[0], -p[1], -p[2]);
-			ANGEL.render(group, c);
-			GlStateManager.popMatrix();
-		}
-		GlStateManager.popMatrix();
-		untextured();
-	}
-
-	/**
-	 * One butterfly or dragon wing: Rago's pixel-art wing extruded into voxels, its root on the back.
-	 * The other side is the same model mirrored.
+	 * One dragon wing: Rago's pixel-art wing extruded into voxels, its root on the back. The other
+	 * side is the same model mirrored.
 	 */
 	private void extrudedWing(int side, float beat) {
-		boolean butterfly = wings.is("butterfly");
 		boolean small = wings.is("dragon_small");
 		// the small dragon wings are coloured in their texture (Rago's red and black): untinted by default
-		int c = color(wingsColor, butterfly ? 0xFF4FA3FF : small ? 0xFFFFFFFF : 0xFF5A3E78);
+		int c = color(wingsColor, small ? 0xFFFFFFFF : 0xFF5A3E78);
 		// the small dragon wings are compact, like Lunar Client's
-		float span = (butterfly ? 0.9f : small ? 0.7f : 1.15f) * wingsScale.get() / 100f;
+		float span = (small ? 0.7f : 1.15f) * wingsScale.get() / 100f;
 		GlStateManager.pushMatrix();
 		// the root high on the back, between the shoulder blades
-		GlStateManager.translate(side * 0.05f, butterfly ? 0.14f : 0.04f, 0.16f);
-		if (butterfly) {
-			// butterflies open and close around the spine
-			GlStateManager.rotate(side * (-20 + beat), 0, 1, 0);
-		} else {
-			GlStateManager.rotate(side * (-30 + beat), 0, 1, 0);
-			// raised, the tips above the shoulders
-			GlStateManager.rotate(side * -22, 0, 0, 1);
-		}
+		GlStateManager.translate(side * 0.05f, 0.04f, 0.16f);
+		GlStateManager.rotate(side * (-30 + beat), 0, 1, 0);
+		// raised, the tips above the shoulders
+		GlStateManager.rotate(side * -22, 0, 0, 1);
 		GlStateManager.scale(side * span, span, span);
 		GlStateManager.disableBlend();
-		(butterfly ? BUTTERFLY : small ? DRAGON_SMALL : DRAGON).render("wing", c);
+		if (small) {
+			DRAGON_SMALL.render("wing", c, NeonColors.texture(DRAGON_SMALL.texture(), wingsNeon.get()));
+		} else {
+			DRAGON.render("wing", c);
+		}
 		GlStateManager.popMatrix();
 		untextured();
 	}
@@ -518,7 +486,7 @@ public final class Cosmetics extends Module {
 		GlStateManager.rotate(-90, 0, 1, 0);
 		GlStateManager.scale(size, size, size);
 		GlStateManager.disableBlend();
-		m.render("shield", 0xFFFFFFFF);
+		m.render("shield", 0xFFFFFFFF, shield.is("rago") ? NeonColors.texture(m.texture(), shieldNeon.get()) : m.texture());
 		GlStateManager.popMatrix();
 		untextured();
 	}

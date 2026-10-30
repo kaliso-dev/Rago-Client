@@ -82,7 +82,7 @@ public final class RagoTitleScreen extends GuiScreen {
 		Ui.text(Ui.SEMIBOLD, "Rago ", tx, ty, size, Theme.TEXT);
 		Ui.text(Ui.REGULAR, "Client", tx + rw, ty, size, 0xFFB4B2B9);
 
-		float bw = 290;
+		float bw = 302;
 		float bh = 25;
 		float by = ty + 40;
 		String[] labels = {t("menu.singleplayer"), t("menu.multiplayer"), t("rago.title.join_discord")};
@@ -123,7 +123,7 @@ public final class RagoTitleScreen extends GuiScreen {
 		// the glow swells a little each time a ring leaves
 		float pulse = t < 0.25f || t > 1.6f ? 0 : (float) Math.sin((t - 0.25f) / 1.35f * Math.PI);
 		float half = size / 2;
-		Ui.logoGlow(cx - half, cy - half, size, Ui.alpha(Theme.ACCENT, 0.55f + 0.2f * pulse));
+		Ui.logoGlow(cx - half, cy - half, size, Ui.alpha(Theme.ACCENT, 0.42f + 0.15f * pulse));
 		Ui.logo(cx - half, cy - half, size, Theme.ACCENT);
 	}
 
@@ -155,7 +155,7 @@ public final class RagoTitleScreen extends GuiScreen {
 		float p = intro(380, 500);
 		Ui.opacity(p);
 		float x = w / 2 - total / 2;
-		float y = h - 54 + (1 - p) * 10;
+		float y = h - 62 + (1 - p) * 10;
 		for (int i = 0; i < icons.length; i++) {
 			String icon = icons[i];
 			float hv = Anim.to("dock:" + icon, Ui.hover(x, y, size, size) ? 1 : 0, 120);
@@ -248,6 +248,10 @@ public final class RagoTitleScreen extends GuiScreen {
 		Ui.opacity(intro(500, 500));
 		Ui.text(Ui.MONO, "Rago Client 1.8.9 (" + RagoClient.version() + ")", 14, h - 20, size, 0xFF8A888F);
 		Ui.textRight(Ui.REGULAR, t("rago.title.legal"), w - 14, h - 20, size, 0xFF8A888F);
+		float made = Ui.textWidth(Ui.REGULAR, "Made by ", size);
+		float mx = w / 2 - (made + Ui.textWidth(Ui.SEMIBOLD, "Rago", size)) / 2;
+		Ui.text(Ui.REGULAR, "Made by ", mx, h - 20, size, 0xFF8A888F);
+		Ui.text(Ui.SEMIBOLD, "Rago", mx + made, h - 20, size, Theme.ACCENT);
 		Ui.opacity(1);
 	}
 
