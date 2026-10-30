@@ -27,7 +27,7 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - entity render distances for players, hostile mobs, passive mobs and other entities
   - hide arrows stuck in players, item frames, paintings, armor stands, XP orbs, fireworks, falling blocks
   - tile entity distance, and hide skulls, signs, enchanting books, banners, beacon beams, end portals
-  - hide tall grass, ferns, flowers and dead bushes, a particle cap and a fog switch
+  - hide tall grass, ferns, flowers and dead bushes, a particle cap, particle collisions and a fog switch
 - a Controls page to rebind every key (keyboard or mouse), with conflicts shown in red
 - a module system: every feature is a module with an on/off switch and its own options
 - a HUD editor: drag elements, snap them to the screen centre, resize them with the mouse wheel;
@@ -203,6 +203,11 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     list, columns, size, corner radius, accent and tile colours, icons, commands shown or not;
     right click pins a favourite, the pencil hides modes, 1 to 9 join the first nine, four entries of
     your own ("Name: /command"), and a key to join the last mode again
+  - Performance page, World: **Particle collisions** (on by default, off in Max performance). Off, a
+    new particle skips the collision test vanilla runs for it every tick (a look-up of the blocks and
+    entities around it) and goes through blocks. In our test (singleplayer, 17 entities, after
+    warm-up), one tick of particle updates with 1000 particles went from 490 to 536 µs to 82 to
+    158 µs, and with 200 from 87 to 16 µs. This is per game tick (20 per second), not per frame
   - the 1.2 Particles mod is merged into Particle Multiplier, which can now also hide block-breaking
     and block-mining particles
   - Item Scale (held and dropped items from 25% to 400%), Item Physics (dropped items lie on the
@@ -304,7 +309,7 @@ Rago never adds, delays or alters packets, and every optimisation only changes w
 draws. The jar contains one class transformer (`gg.rago.asm`) with a few small patches, each
 calling `gg.rago.hooks.Hooks`: the frame-rate cap for menus and unfocused windows, occlusion culling
 of entities, the hurt camera strength, the 1.7 animations and held item, the hit colour, the tab list
-ping, the chat history, background and shadow, the mouse delay fix, the world-switch clean-up,
+ping, the chat history, background and shadow, the mouse delay fix, the world-switch clean-up, particle collisions,
 dropped stacks, borderless fullscreen, the Rago cape and the glint colour. Each one keeps vanilla behaviour while its feature is off, and a patch that
 does not fit (another mod changed the method) is skipped and logged. Start the game with
 `-Drago.dumpClasses=true` to save such a class to `rago-dump/` for a bug report. Everything else

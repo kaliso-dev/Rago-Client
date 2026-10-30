@@ -33,6 +33,7 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.network.NetworkPlayerInfo;
+import net.minecraft.client.particle.EntityFX;
 import net.minecraft.client.resources.model.IBakedModel;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -208,6 +209,14 @@ public final class Hooks {
 	public static int itemCopies(int vanilla) {
 		EngineTweaks e = engine;
 		return e != null && e.unstackedItems() ? 1 : vanilla;
+	}
+
+	/** EffectRenderer.addEffect, first thing: a new particle skips block collisions when they are off. */
+	public static void particleAdded(EntityFX fx) {
+		EngineTweaks e = engine;
+		if (e != null && !e.particleCollisions()) {
+			fx.noClip = true;
+		}
 	}
 
 	/** Minecraft.loadWorld: vanilla forces a full garbage collection on every world change. */

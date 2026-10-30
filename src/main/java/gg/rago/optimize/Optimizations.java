@@ -96,6 +96,7 @@ public final class Optimizations {
 	private final BooleanOption hideFlowers;
 	private final BooleanOption hideDeadBushes;
 	private final IntOption maxParticles;
+	private final BooleanOption particleCollisions;
 	private final BooleanOption fastWorldSwitch;
 	private final BooleanOption unstackedItems;
 	private final BooleanOption skipGlErrors;
@@ -164,6 +165,7 @@ public final class Optimizations {
 		disableFog = s.bool(p, WORLD, "disable_fog", false, null);
 		maxParticles = s.slider(p, WORLD, "max_particles", 4000, 100, 4000, 100,
 			v -> v >= 4000 ? I18n.format("rago.value.vanilla") : Integer.toString(v), null);
+		particleCollisions = s.bool(p, WORLD, "particle_collisions", true, null);
 
 		fastWorldSwitch = s.bool(p, ENGINE, "fast_world_switch", true, null);
 		unstackedItems = s.bool(p, ENGINE, "unstacked_items", false, null);
@@ -171,7 +173,7 @@ public final class Optimizations {
 		hudCache = s.bool(p, ENGINE, "hud_cache", true, null);
 		hudCacheRate = s.slider(p, ENGINE, "hud_cache_rate", 144, 30, 360, 6, v -> v + " FPS", null);
 		visibleWhen(s, "hud_cache_rate", hudCache::get);
-		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get);
+		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get, particleCollisions::get);
 	}
 
 	/** Whether Rago's HUD is drawn into an image a fixed number of times per second. */

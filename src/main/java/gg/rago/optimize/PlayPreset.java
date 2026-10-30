@@ -112,6 +112,7 @@ public final class PlayPreset {
 			.row("particles", 0)
 			.row("mipmap_levels", 4)
 			.row("disable_fog", 0)
+			.row("particle_collisions", 1)
 			.row("of_fast_render", 1)
 			.row("of_fast_math", 1));
 	}

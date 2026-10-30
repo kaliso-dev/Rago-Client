@@ -205,6 +205,16 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return found;
 			}));
+		add("net.minecraft.client.particle.EffectRenderer", new Patch("particle collisions",
+			"func_78873_a", "addEffect", "(Lnet/minecraft/client/particle/EntityFX;)V",
+			m -> {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ALOAD, 1));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "particleAdded",
+					"(Lnet/minecraft/client/particle/EntityFX;)V", false));
+				m.instructions.insert(call);
+				return true;
+			}));
 		add("net.minecraft.client.particle.EffectRenderer", new Patch("hit particle amount",
 			"func_178926_a", "emitParticleAtEntity", "(Lnet/minecraft/entity/Entity;Lnet/minecraft/util/EnumParticleTypes;)V",
 			m -> returnIf(m, "emitParticles", "(Lnet/minecraft/entity/Entity;Lnet/minecraft/util/EnumParticleTypes;)Z",
