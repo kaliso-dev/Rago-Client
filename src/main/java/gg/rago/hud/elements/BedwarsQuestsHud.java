@@ -162,7 +162,8 @@ public final class BedwarsQuestsHud extends TextHudElement {
 			return "§c" + I18n.format(status == HypixelApi.Status.NO_KEY ? "rago.quests.no_key" : "rago.quests.bad_key");
 		}
 		if (!quests.known()) {
-			return "§7" + I18n.format("rago.quests.loading");
+			int wait = RagoClient.hypixel().pausedSeconds();
+			return wait > 0 ? "§e" + I18n.format("rago.quests.paused", wait) : "§7" + I18n.format("rago.quests.loading");
 		}
 		long now = System.currentTimeMillis();
 		StringBuilder b = new StringBuilder();

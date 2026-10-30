@@ -31,12 +31,12 @@ import java.util.regex.Pattern;
 public final class HypixelApi {
 	private static final String URL_PLAYER = "https://api.hypixel.net/v2/player?uuid=";
 	private static final Pattern KEY = Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
-	private static final long FRESH_MS = 10 * 60_000L;
+	private static final long FRESH_MS = 20 * 60_000L;
 	private static final long RETRY_MS = 2 * 60_000L;
+	/** The gap between requests until Hypixel has said how many the key has left. */
 	private static final long GAP_MS = 1_000L;
-	/** The gap while plenty of the key's requests are left (300 per 5 minutes for a personal key). */
-	private static final long FAST_GAP_MS = 120L;
-	private static final int FAST_WHILE_REMAINING = 60;
+	/** Never closer than this, however many requests the key has left. */
+	private static final long MIN_GAP_MS = 120L;
 	private static final int MAX_QUEUE = 64;
 	/** A new key's first answer comes in a few seconds; past this the check is called failed, never left hanging. */
 	private static final long CHECK_TIMEOUT_MS = 20_000L;
@@ -117,6 +117,7 @@ public final class HypixelApi {
 	public enum Status { NO_KEY, CHECKING, OK, BAD_KEY, UNREACHABLE }
 
 	private final Path keyFile;
+	private final String playerUrl;
 	private final Map<UUID, Stats> cache = new ConcurrentHashMap<>();
 	private final LinkedBlockingDeque<UUID> queue = new LinkedBlockingDeque<>();
 	private final Map<UUID, Boolean> queued = new ConcurrentHashMap<>();
@@ -124,12 +125,21 @@ public final class HypixelApi {
 	private volatile Status status = Status.NO_KEY;
 	private volatile long pausedUntil;
 	private volatile long gap = GAP_MS;
+	/** What Hypixel said last about the key's budget: requests per window, left in this window; -1 until known. */
+	private volatile int limit = -1;
+	private volatile int remaining = -1;
 	private volatile long checkingSince;
 	private volatile int requests;
 	private volatile int lastCode;
 	private Thread worker;
 
 	public HypixelApi(Path configDir) {
+		this(configDir, URL_PLAYER);
+	}
+
+	/** With another address for Hypixel's player endpoint, for tests. */
+	HypixelApi(Path configDir, String playerUrl) {
+		this.playerUrl = playerUrl;
 		this.keyFile = configDir.resolve("rago-hypixel-key.txt");
 		try {
 			if (Files.exists(keyFile)) {
@@ -181,6 +191,7 @@ public final class HypixelApi {
 		Thread w = worker;
 		return "status=" + status + " key=" + (key != null) + " thread=" + (w == null ? "none" : w.isAlive() ? "running" : "stopped")
 			+ " waiting=" + queue.size() + " known=" + cache.size() + " requests=" + requests + " lastCode=" + lastCode
+			+ " budget=" + remaining + "/" + limit + " gap=" + gap + "ms"
 			+ " paused=" + Math.max(0, pausedUntil - System.currentTimeMillis()) / 1000 + "s";
 	}
 
@@ -233,14 +244,42 @@ public final class HypixelApi {
 
 	/** The cached stats, or null; asks for them in the background when missing or stale. */
 	public Stats get(UUID player) {
+		return get(player, false);
+	}
+
+	/**
+	 * The cached stats, or null. When they are missing or stale they are asked for in the background,
+	 * unless {@code spare} (a player who only might matter, such as one in a big lobby) and the key has
+	 * used more than half of its requests for now: those are kept for the players of your game.
+	 */
+	public Stats get(UUID player, boolean spare) {
 		Stats s = cache.get(player);
 		long now = System.currentTimeMillis();
 		boolean stale = s == null || now - s.time > (s.failed ? RETRY_MS : FRESH_MS);
-		if (stale && key != null && status != Status.BAD_KEY && queue.size() < MAX_QUEUE && queued.putIfAbsent(player, Boolean.TRUE) == null) {
+		if (stale && key != null && status != Status.BAD_KEY && !(spare && lowOnRequests()) && queued.putIfAbsent(player, Boolean.TRUE) == null) {
+			if (queue.size() >= MAX_QUEUE) {
+				// the players seen longest ago make room: they are the least likely to be on screen
+				UUID old = queue.pollLast();
+				if (old != null) {
+					queued.remove(old);
+				}
+			}
 			queue.offerFirst(player); // newest first: the players just seen are the ones on screen
 			startWorker();
 		}
 		return s == null || s.failed ? null : s;
+	}
+
+	/** Whether the key has used more than half of its requests in Hypixel's current window. */
+	private boolean lowOnRequests() {
+		int l = limit;
+		int r = remaining;
+		return l > 0 && r >= 0 && r * 2 < l || pausedUntil > System.currentTimeMillis();
+	}
+
+	/** Seconds until Hypixel takes requests from this key again, after it said there were too many; 0 when it does. */
+	public int pausedSeconds() {
+		return (int) Math.max(0, (pausedUntil - System.currentTimeMillis() + 999) / 1000);
 	}
 
 	/** Starts the request thread, or starts it again if it ever stopped. */
@@ -266,8 +305,9 @@ public final class HypixelApi {
 				RagoClient.LOG.warn("Hypixel API: the request thread was interrupted");
 				return;
 			}
+			boolean again = false;
 			try {
-				fetch(id);
+				again = !fetch(id);
 			} catch (RuntimeException | Error e) {
 				// whatever goes wrong with one answer, the thread keeps serving the others
 				RagoClient.LOG.warn("Hypixel API request failed", e);
@@ -276,7 +316,9 @@ public final class HypixelApi {
 					status = Status.UNREACHABLE;
 				}
 			} finally {
-				queued.remove(id);
+				if (!again) {
+					queued.remove(id);
+				}
 			}
 			try {
 				Thread.sleep(gap);
@@ -295,15 +337,16 @@ public final class HypixelApi {
 		}
 	}
 
-	private void fetch(UUID id) {
+	/** Asks Hypixel for one player; false when the player has to be asked again later (too many requests). */
+	private boolean fetch(UUID id) {
 		String k = key;
 		if (k == null) {
-			return;
+			return true;
 		}
 		long now = System.currentTimeMillis();
 		HttpURLConnection c = null;
 		try {
-			c = (HttpURLConnection) new URL(URL_PLAYER + id.toString().replace("-", "")).openConnection();
+			c = (HttpURLConnection) new URL(playerUrl + id.toString().replace("-", "")).openConnection();
 			c.setConnectTimeout(5000);
 			c.setReadTimeout(8000);
 			c.setRequestProperty("API-Key", k);
@@ -311,28 +354,34 @@ public final class HypixelApi {
 			int code = c.getResponseCode();
 			requests++;
 			lastCode = code;
-			String remaining = c.getHeaderField("RateLimit-Remaining");
-			gap = remaining != null && remaining.matches("\\d{1,5}") && Integer.parseInt(remaining) > FAST_WHILE_REMAINING ? FAST_GAP_MS : GAP_MS;
+			int reset = header(c, "RateLimit-Reset");
+			limit = header(c, "RateLimit-Limit");
+			remaining = header(c, "RateLimit-Remaining");
+			// what is left of the key's requests is spread over what is left of Hypixel's window, so the
+			// key never runs dry halfway through a lobby
+			gap = reset < 0 || remaining < 0 ? GAP_MS : Math.max(MIN_GAP_MS, 1000L * reset / Math.max(1, remaining));
 			if (code == 403) {
 				status = Status.BAD_KEY;
 				RagoClient.LOG.warn("Hypixel API: the key was refused (expired or wrong)");
-				return;
+				return true;
 			}
 			if (code == 429) {
 				if (status == Status.CHECKING) {
 					accepted(); // only a valid key is counted against a limit
 				}
-				String reset = c.getHeaderField("RateLimit-Reset");
-				pausedUntil = now + 1000L * (reset != null && reset.matches("\\d{1,4}") ? Integer.parseInt(reset) : 60);
-				queue.offerLast(id);
-				return;
+				int wait = reset > 0 ? reset : 60;
+				pausedUntil = now + 1000L * wait;
+				RagoClient.LOG.warn("Hypixel API: too many requests for this key ({} of {} left, {}), waiting {} s",
+					Math.max(remaining, 0), limit < 0 ? "?" : String.valueOf(limit), cause(c), wait);
+				queue.offerFirst(id); // keeps its place: often your own stats, for the quests
+				return false;
 			}
 			if (code != 200) {
 				if (status == Status.CHECKING) {
 					accepted(); // the key was accepted, the player was not
 				}
 				cache.put(id, new Stats(-1, -1, now, true));
-				return;
+				return true;
 			}
 			try (InputStream in = c.getInputStream()) {
 				JsonElement json = new JsonParser().parse(new InputStreamReader(in, StandardCharsets.UTF_8));
@@ -354,6 +403,30 @@ public final class HypixelApi {
 			if (c != null) {
 				c.disconnect();
 			}
+		}
+		return true;
+	}
+
+	private static int header(HttpURLConnection c, String name) {
+		String v = c.getHeaderField(name);
+		return v != null && v.trim().matches("\\d{1,6}") ? Integer.parseInt(v.trim()) : -1;
+	}
+
+	/** Hypixel's reason for a refusal ("Key throttle"...), from the small JSON it answers with. */
+	private static String cause(HttpURLConnection c) {
+		try (InputStream in = c.getErrorStream()) {
+			if (in == null) {
+				return "no reason given";
+			}
+			JsonElement json = new JsonParser().parse(new InputStreamReader(in, StandardCharsets.UTF_8));
+			if (json.isJsonObject() && json.getAsJsonObject().has("cause")) {
+				String cause = json.getAsJsonObject().get("cause").getAsString();
+				boolean global = json.getAsJsonObject().has("global") && json.getAsJsonObject().get("global").getAsBoolean();
+				return "\"" + cause + "\"" + (global ? ", for all of Hypixel's API" : "");
+			}
+			return "no reason given";
+		} catch (IOException | RuntimeException e) {
+			return "no reason given";
 		}
 	}
 

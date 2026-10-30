@@ -84,6 +84,10 @@ public final class BedwarsStats extends Module {
 	/** The red danger sign before strong and nicked players. */
 	static final String MARK = "§4§l\u26a0§r";
 
+	/** More players than any Bed Wars game but the 40v40 ones: a lobby. */
+	private static final int BIG_LOBBY = 24;
+	private boolean bigLobby;
+
 	public BedwarsStats(HypixelApi api) {
 		super("bedwars_stats", FeatureClass.INFORMATIONAL, false);
 		section("sniper");
@@ -173,6 +177,8 @@ public final class BedwarsStats extends Module {
 		}
 		tab.clear();
 		boolean playing = BedwarsGame.playing();
+		// a big lobby (not a game, not its waiting room): those players only get the key's spare requests
+		bigLobby = !playing && net.getPlayerInfoMap().size() > BIG_LOBBY;
 		for (NetworkPlayerInfo info : net.getPlayerInfoMap()) {
 			UUID id = info.getGameProfile().getId();
 			if (id == null) {
@@ -241,11 +247,11 @@ public final class BedwarsStats extends Module {
 			return null;
 		}
 		String warn = mark.get() ? MARK + " " : "";
-		String sniperTag = sniperReason(id, info.getGameProfile().getName(), Hypixel.realPlayer(id) ? api.get(id) : null) != null ? "§d[S] " : "";
+		String sniperTag = sniperReason(id, info.getGameProfile().getName(), Hypixel.realPlayer(id) ? api.get(id, bigLobby) : null) != null ? "§d[S] " : "";
 		if (!Hypixel.realPlayer(id)) {
 			return nicks.get() ? new String[] {warn + "§c[NICK] ", ""} : null;
 		}
-		HypixelApi.Stats s = api.get(id);
+		HypixelApi.Stats s = api.get(id, bigLobby);
 		if (s == null) {
 			return null;
 		}

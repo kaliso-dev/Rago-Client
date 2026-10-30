@@ -80,7 +80,8 @@ public final class LevelHead extends Module {
 		if (!Hypixel.realPlayer(p.getUniqueID())) {
 			return;
 		}
-		HypixelApi.Stats stats = api.get(p.getUniqueID());
+		// outside a Bed Wars game, the players around you only get the key's spare requests
+		HypixelApi.Stats stats = api.get(p.getUniqueID(), !self && !gg.rago.bedwars.BedwarsGame.playing());
 		String text = stats == null ? null : cachedText(stats);
 		if (text != null) {
 			double line = nametags.lineHeight();
