@@ -662,6 +662,8 @@ rago.setting.undo_play_preset.button=Annuler
 # 1.2: hit delay fix
 rago.module.hit_delay_fix=Hit Delay Fix
 rago.module.hit_delay_fix.desc=Un clic dans le vide ne bloque plus ta prochaine attaque pendant une demi-seconde (comportement 1.8). Vérifie les règles de ton serveur.
+rago.module.block_edit_fix=Block Edit Fix
+rago.module.block_edit_fix.desc=En 1.8, un clic droit ne fait rien pendant que le jeu croit que tu casses un bloc, et le clic gauche passe en premier dans un tick : si tu cliques vite en passant à la laine, le bloc visé commence à se casser et la laine se pose 1 à 4 ticks plus tard, ou pas du tout tant que tu cliques. Activé, quand les deux clics tombent dans le même tick avec un bloc en main, le bloc est posé d'abord. Chaque clic a toujours lieu une fois, envoyé comme en vanilla. Vérifie les règles de ton serveur.
 
 # 1.2: eating fix
 rago.option.eating_fix=Correctif de la mange

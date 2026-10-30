@@ -319,6 +319,12 @@ public final class RagoTransformer implements IClassTransformer {
 			"func_177183_a", "renderGlint",
 			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
 			RagoTransformer::armorGlint));
+		add("net.minecraft.client.Minecraft", new Patch("block edit fix",
+			"func_147116_af", "clickMouse", "()V",
+			m -> {
+				m.instructions.insert(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "beforeLeftClick", "()V", false));
+				return true;
+			}));
 		add("net.minecraft.client.Minecraft", new Patch("left click trace",
 			"func_147116_af", "clickMouse", "()V", m -> clickTrace(m, false)));
 		add("net.minecraft.client.Minecraft", new Patch("right click trace",

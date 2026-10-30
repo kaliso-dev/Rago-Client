@@ -7,6 +7,7 @@ import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.GlintColor;
 import gg.rago.modules.HitColor;
 import gg.rago.modules.HitDelayFix;
+import gg.rago.modules.BlockEditFix;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.HitParticles;
@@ -64,6 +65,7 @@ public final class Hooks {
 	public static volatile ItemScale itemScale;
 	public static volatile ItemPhysics itemPhysics;
 	public static volatile HitDelayFix hitDelay;
+	public static volatile BlockEditFix blockEdit;
 	public static volatile FastShop fastShop;
 	public static volatile Chat chat;
 	public static volatile GameplayFixes fixes;
@@ -286,6 +288,14 @@ public final class Hooks {
 		FastShop f = fastShop;
 		if (f != null && f.isEnabled()) {
 			f.beforeSlot(gui, slot);
+		}
+	}
+
+	/** Minecraft.clickMouse, first thing: with Block Edit Fix, a right click of the same tick goes first. */
+	public static void beforeLeftClick() {
+		BlockEditFix b = blockEdit;
+		if (b != null && b.isEnabled()) {
+			b.beforeLeftClick();
 		}
 	}
 

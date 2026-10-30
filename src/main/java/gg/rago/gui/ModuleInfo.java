@@ -65,6 +65,7 @@ final class ModuleInfo {
 		ICONS.put("tab_list", "table-properties");
 		ICONS.put("color_grading", "contrast");
 		ICONS.put("hit_delay_fix", "swords");
+		ICONS.put("block_edit_fix", "box");
 		ICONS.put("fast_shop", "shopping-cart");
 		ICONS.put("cosmetics", "crown");
 		ICONS.put("item_scale", "scaling");

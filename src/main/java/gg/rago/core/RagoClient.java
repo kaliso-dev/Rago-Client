@@ -98,6 +98,7 @@ import gg.rago.modules.FastShop;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.HitColor;
 import gg.rago.modules.HitDelayFix;
+import gg.rago.modules.BlockEditFix;
 import gg.rago.modules.Nametags;
 import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
@@ -257,6 +258,7 @@ public final class RagoClient {
 		TabPing tabPing = MODULES.register(new TabPing());
 		Hooks.tabList = MODULES.register(new TabList());
 		Hooks.hitDelay = MODULES.register(new HitDelayFix());
+		Hooks.blockEdit = MODULES.register(new BlockEditFix());
 		Hooks.fastShop = MODULES.register(new FastShop());
 		Chat chat = MODULES.register(new Chat());
 		Nametags nametags = MODULES.register(new Nametags());

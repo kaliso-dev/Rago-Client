@@ -662,6 +662,8 @@ rago.setting.undo_play_preset.button=Undo
 # 1.2: hit delay fix
 rago.module.hit_delay_fix=Hit Delay Fix
 rago.module.hit_delay_fix.desc=A missed click no longer blocks your next attack for half a second (1.8 behaviour). Check the rules of your server.
+rago.module.block_edit_fix=Block Edit Fix
+rago.module.block_edit_fix.desc=In 1.8, a right click does nothing while the game thinks you are breaking a block, and the left click goes first within a tick: clicking fast while you switch to wool starts breaking the block you aim at, and the wool is placed 1 to 4 ticks later, or not at all while you keep clicking. With this on, when both clicks act in the same tick with a block in hand, the block is placed first. Each click still happens once, as vanilla sends it. Check the rules of your server.
 
 # 1.2: eating fix
 rago.option.eating_fix=Eating fix

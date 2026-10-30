@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.4.19.** What it contains:
+**Current version: 1.4.20.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -215,6 +215,14 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     other symbols the game does not draw), wherever they sit; with `/rago debug`, the sidebar as
     received and as read goes to the log every 5 seconds, for Event Timers, Upgrades HUD and
     Auto Messages, which all start from it
+  - Block Edit Fix (PvP, input class, off by default; check the server's rules before turning it on).
+    In 1.8, a right click does nothing while the game thinks you are breaking a block, and a left click
+    on a block in the same tick sets that state, so the block is placed one or more ticks later, or
+    not at all. With the fix, when you hold a block and both clicks act in the same tick, the right
+    click runs first. Each click still happens once, as vanilla sends it; only their order within the
+    tick changes. In our test (left and right pressed in the same tick, 8 times): placed 1 tick late
+    every time without it, in the same tick every time with it; holding right click while clicking
+    left fast still places at vanilla's rate of one block every 4 ticks
   - the 1.2 Particles mod is merged into Particle Multiplier, which can now also hide block-breaking
     and block-mining particles
   - Item Scale (held and dropped items from 25% to 400%), Item Physics (dropped items lie on the
@@ -349,7 +357,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.4.19+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.4.20+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
