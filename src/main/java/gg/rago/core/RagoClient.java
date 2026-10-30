@@ -107,6 +107,8 @@ import gg.rago.netdiag.LatencySampler;
 import gg.rago.perf.FrameCapture;
 import gg.rago.perf.FrameTimer;
 import net.minecraft.client.Minecraft;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.Session;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiMultiplayer;
 import net.minecraft.client.gui.GuiScreen;
@@ -370,13 +372,42 @@ public final class RagoClient {
 		return hypixel;
 	}
 
-	/** The signed-in account's UUID, or null when the session has none (offline). */
-	public static UUID ownId() {
-		try {
-			return Minecraft.getMinecraft().getSession().getProfile().getId();
-		} catch (RuntimeException e) {
-			return null;
+	/** The account {@link #ownId} was read from, and its UUID. */
+	private static final class OwnId {
+		final Session session;
+		final UUID id;
+
+		OwnId(Session session, UUID id) {
+			this.session = session;
+			this.id = id;
 		}
+	}
+
+	private static volatile OwnId own;
+
+	/**
+	 * The signed-in account's UUID, or null when the session has none (offline). Read once per
+	 * account: the game's own getProfile() parses the UUID text (with a regular expression) and
+	 * makes a new profile on every call, and this is asked for every player drawn.
+	 */
+	public static UUID ownId() {
+		Session session = Minecraft.getMinecraft().getSession();
+		OwnId o = own;
+		if (o == null || o.session != session) {
+			UUID id;
+			try {
+				id = session.getProfile().getId();
+			} catch (RuntimeException e) {
+				id = null;
+			}
+			own = o = new OwnId(session, id);
+		}
+		return o.id;
+	}
+
+	/** Whether {@code player} is you: the player you control, or a copy of you with your UUID. */
+	public static boolean isOwn(EntityPlayer player) {
+		return player == Minecraft.getMinecraft().thePlayer || player.getUniqueID().equals(ownId());
 	}
 
 	public static HudManager hud() {

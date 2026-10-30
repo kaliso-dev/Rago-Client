@@ -7,6 +7,7 @@ import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
+import gg.rago.core.RagoClient;
 import gg.rago.render.CosmeticModel;
 import gg.rago.render.NeonColors;
 import net.minecraft.client.Minecraft;
@@ -151,9 +152,7 @@ public final class Cosmetics extends Module {
 		@Override
 		public void doRenderLayer(AbstractClientPlayer player, float limbSwing, float limbSwingAmount, float partialTicks,
 			float ageInTicks, float netHeadYaw, float headPitch, float scale) {
-			Minecraft mc = Minecraft.getMinecraft();
-			if (!isEnabled() || player.isInvisible()
-				|| player != mc.thePlayer && !player.getUniqueID().equals(mc.getSession().getProfile().getId())) {
+			if (!isEnabled() || player.isInvisible() || !RagoClient.isOwn(player)) {
 				return;
 			}
 			ModelPlayer model = render.getMainModel();

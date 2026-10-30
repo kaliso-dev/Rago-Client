@@ -6,6 +6,7 @@ import gg.rago.config.StringOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
+import gg.rago.core.RagoClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.network.NetworkPlayerInfo;
@@ -55,8 +56,7 @@ public final class NickHider extends Module {
 	}
 
 	private static boolean own(UUID id) {
-		Minecraft mc = Minecraft.getMinecraft();
-		return id != null && id.equals(mc.getSession().getProfile().getId());
+		return id != null && id.equals(RagoClient.ownId());
 	}
 
 	/** {@code s} with your name replaced by the nick and its & colour codes, for text drawn with § codes. */

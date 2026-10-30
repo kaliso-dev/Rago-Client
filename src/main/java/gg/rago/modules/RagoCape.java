@@ -5,8 +5,8 @@ import gg.rago.config.ChoiceOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
+import gg.rago.core.RagoClient;
 import gg.rago.render.NeonColors;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.util.ResourceLocation;
 
@@ -45,8 +45,7 @@ public final class RagoCape extends Module {
 
 	/** The cape {@code player} wears, given the one the game would show ({@code vanilla}, may be null). */
 	public ResourceLocation capeFor(AbstractClientPlayer player, ResourceLocation vanilla) {
-		Minecraft mc = Minecraft.getMinecraft();
-		if (player != mc.thePlayer && !player.getUniqueID().equals(mc.getSession().getProfile().getId())) {
+		if (!RagoClient.isOwn(player)) {
 			return vanilla;
 		}
 		return vanilla == null || overOwnCape.get() ? texture() : vanilla;

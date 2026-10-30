@@ -4,7 +4,7 @@ import gg.rago.accounts.Skins;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
-import net.minecraft.client.Minecraft;
+import gg.rago.core.RagoClient;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.util.ResourceLocation;
 
@@ -23,8 +23,7 @@ public final class SkinChanger extends Module {
 	}
 
 	private static Skins.Skin wornBy(AbstractClientPlayer player) {
-		Minecraft mc = Minecraft.getMinecraft();
-		if (player != mc.thePlayer && !player.getUniqueID().equals(mc.getSession().getProfile().getId())) {
+		if (!RagoClient.isOwn(player)) {
 			return null;
 		}
 		return Skins.worn();
