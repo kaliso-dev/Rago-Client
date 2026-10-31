@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.6.4.** What it contains:
+**Current version: 1.7.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,31 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.7.0:
+  - **welcome guide** on the first start (and from Settings, General): what you play (the mods for
+    Hypixel Bed Wars, 1.8 PvP or both), your look, and performance (max FPS, your own video
+    settings, or beautiful). Skip or Escape changes nothing but the look you picked
+  - **menu themes**: Dark (as before), OLED black (black background, solid panels) and High
+    contrast (grey text and icons lifted towards white, stronger borders). The HUD and the game
+    are never touched
+  - **team colours for colour blindness** (Settings, General, Accessibility): a red-green and a
+    blue-yellow palette for the § colours, chosen so the eight Bed Wars teams stay apart for that
+    colour blindness (Machado 2009 simulation, OKLab distances, see `TextColorsTest`) and with
+    normal sight. Names in chat, the tab list, the sidebar and above heads change, only on your screen
+  - **Discord Rich Presence** (Windows): "Playing Rago Client", where you play (Hypixel, Minemen Club
+    and other big PvP networks by name, other servers as Multiplayer unless you show their
+    address), what you do (Bed Wars game, waiting room, lobby) and for how long. It appears once
+    Rago's Discord application exists
+  - a **[GG]** button in the end-of-game line: it puts `/ac gg` in the chat field, nothing is sent
+    until you press Enter
+  - lighter on the frame: HUD texts are made again only when what they show changes, name tags,
+    their health line and the vertices sent to the graphics card no longer make new objects every
+    frame, and the Bed Wars sidebar is read 5 times a second instead of 25. Measured in a Bed Wars
+    scene with 20 players (software rendering, 60 s, `-Drago.bench.frame=true`): memory Rago
+    allocates per frame went from 25.4 KB to 7.9 KB (HUD 10.5 to 2.1 KB, name tags 9.2 to 4.0 KB),
+    and its own time per frame from 1.68 to 1.42 ms on that slow renderer
+  - Rago Network: players who do not use Rago yet are asked about again after 30 s instead of 60
+  - filter chips and the search field of the Mods tab fit any window width without overlapping
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -562,7 +587,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.6.4+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.7.0+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
