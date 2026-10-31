@@ -253,7 +253,7 @@ public final class Optimizations {
 	@SubscribeEvent
 	public void onRenderTick(TickEvent.RenderTickEvent event) {
 		if (event.phase == TickEvent.Phase.START) {
-			long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
+			long t = gg.rago.debug.FrameProfile.ON ? gg.rago.debug.FrameProfile.start() : 0;
 			culler.update(Minecraft.getMinecraft(), event.renderTickTime);
 			if (gg.rago.debug.FrameProfile.ON) {
 				gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.CULLING, System.nanoTime() - t);

@@ -55,7 +55,7 @@ public final class Hitboxes extends Module {
 		if (!isEnabled() || mc.theWorld == null || mc.getRenderViewEntity() == null) {
 			return;
 		}
-		long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
+		long t = gg.rago.debug.FrameProfile.ON ? gg.rago.debug.FrameProfile.start() : 0;
 		draw(mc, event.partialTicks);
 		if (gg.rago.debug.FrameProfile.ON) {
 			gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.HITBOXES, System.nanoTime() - t);

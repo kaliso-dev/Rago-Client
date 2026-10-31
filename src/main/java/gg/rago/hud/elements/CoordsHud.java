@@ -4,12 +4,12 @@ import gg.rago.config.BooleanOption;
 import gg.rago.config.IntOption;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.Entity;
 
-import java.util.Locale;
 
 /** Player position (the same numbers as F3) and the direction they face. */
 public final class CoordsHud extends TextHudElement {
@@ -25,6 +25,8 @@ public final class CoordsHud extends TextHudElement {
 		return Minecraft.getMinecraft().thePlayer != null;
 	}
 
+	private final Shown shown = new Shown();
+
 	@Override
 	protected String value(boolean placeholder) {
 		Entity p = Minecraft.getMinecraft().thePlayer;
@@ -32,12 +34,16 @@ public final class CoordsHud extends TextHudElement {
 		double y = placeholder || p == null ? 64 : p.posY;
 		double z = placeholder || p == null ? -30.25 : p.posZ;
 		float yaw = placeholder || p == null ? 180 : p.rotationYaw;
-		String fmt = "%." + decimals.get() + "f";
-		String s = String.format(Locale.ROOT, "X " + fmt + "\nY " + fmt + "\nZ " + fmt, x, y, z);
-		if (showFacing.get()) {
-			s += "\n" + facing(yaw);
+		int d = decimals.get();
+		int facing = showFacing.get() ? 4 + Math.floorMod(Math.round(yaw / 90f), 4) : 0;
+		if (!shown.same(Shown.key(x, d), Shown.key(y, d), (Shown.key(z, d) * 4 + d) * 8 + facing)) {
+			String s = "X " + Shown.fixed(x, d) + "\nY " + Shown.fixed(y, d) + "\nZ " + Shown.fixed(z, d);
+			if (facing != 0) {
+				s += "\n" + facing(yaw);
+			}
+			shown.set(s);
 		}
-		return s;
+		return shown.text();
 	}
 
 	/** Cardinal direction for a yaw, matching vanilla: 0 = south (+Z), 90 = west (-X). */

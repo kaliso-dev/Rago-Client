@@ -5,9 +5,12 @@ import gg.rago.accounts.Skins;
 import gg.rago.gui.AccountsButton;
 import gg.rago.config.BooleanOption;
 import gg.rago.config.ConfigStore;
+import gg.rago.config.IntOption;
 import gg.rago.debug.FrameProfile;
 import gg.rago.gui.ui.Anim;
+import gg.rago.gui.ui.TextColors;
 import gg.rago.gui.ui.Ui;
+import gg.rago.gui.ui.UiTheme;
 import gg.rago.optimize.OptiFineFields;
 import gg.rago.optimize.PlayPreset;
 import gg.rago.optimize.Optimizations;
@@ -20,6 +23,7 @@ import gg.rago.settings.Settings;
 import gg.rago.gui.HudEditorScreen;
 import gg.rago.gui.RagoMenuScreen;
 import gg.rago.gui.RagoTitleScreen;
+import gg.rago.gui.WelcomeScreen;
 import gg.rago.gui.AccountsScreen;
 import gg.rago.gui.PacksScreen;
 import gg.rago.hud.HudCache;
@@ -94,6 +98,7 @@ import gg.rago.modules.NoPumpkin;
 import gg.rago.modules.NoWaterOverlay;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.DiscordPresence;
 import gg.rago.modules.RagoNetwork;
 import gg.rago.modules.RawInput;
 import gg.rago.modules.Screenshots;
@@ -147,6 +152,9 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -193,6 +201,12 @@ public final class RagoClient {
 	private static BooleanOption menuVideo;
 	private static BooleanOption hudInDebug;
 	private static BooleanOption chatCopy;
+	private static IntOption uiTheme;
+	private static IntOption teamColors;
+	private static PerformancePreset maxPerformance;
+	private static PlayPreset playPreset;
+	/** The welcome guide opens by itself once, before the first title screen. */
+	private static boolean welcomeShown;
 	private static ConfigStore config;
 	private static Path configDir;
 	private static HypixelApi hypixel;
@@ -310,6 +324,9 @@ public final class RagoClient {
 		SkinChanger skinChanger = MODULES.register(new SkinChanger());
 		NickHider nickHider = MODULES.register(new NickHider());
 		GlintColor glint = MODULES.register(new GlintColor());
+		if (DiscordPresence.available()) {
+			MODULES.register(new DiscordPresence(version()));
+		}
 		mainMenu = MODULES.register(new MainMenu());
 		profile = MODULES.register(new CompetitiveProfile(configDir));
 		registerGeneralSettings();
@@ -345,6 +362,8 @@ public final class RagoClient {
 		Anim.setEnabled(menuAnimations.get());
 		Ui.setGlass(glassEffect.get());
 		Ui.setMenuVideo(menuVideo.get());
+		UiTheme.set(uiTheme.get());
+		TextColors.set(teamColors.get());
 		optimizations.start();
 		if (OptiFineFields.installed()) {
 			LOG.info("OptiFine settings: {}", OptiFineFields.describe());
@@ -456,6 +475,7 @@ public final class RagoClient {
 		Setting.Tab p = Setting.Tab.PERFORMANCE;
 		String presets = "rago.section.presets";
 		PerformancePreset preset = new PerformancePreset(SETTINGS, configDir);
+		maxPerformance = preset;
 		SETTINGS.button(p, presets, "max_performance", () -> {
 			int changed = preset.apply();
 			LOG.info("Max performance preset changed {} settings", changed);
@@ -467,6 +487,7 @@ public final class RagoClient {
 			saveConfig();
 		}).visibleWhen(preset::canUndo);
 		PlayPreset play = new PlayPreset(SETTINGS, MODULES, configDir);
+		playPreset = play;
 		SETTINGS.button(p, presets, "preset_ranked_bedwars", () -> {
 			LOG.info("Ranked Bedwars preset changed {} mods and settings", play.apply(PlayPreset.Kind.RANKED_BEDWARS));
 			saveConfig();
@@ -491,6 +512,14 @@ public final class RagoClient {
 		menuVideo = SETTINGS.bool(g, ui, "menu_video", true, Ui::setMenuVideo);
 		SETTINGS.choice(g, ui, "main_menu_style", () -> mainMenu.isEnabled() ? 0 : 1, i -> mainMenu.setEnabled(i == 0),
 			"rago.value.rago", "rago.value.vanilla");
+		SETTINGS.button(g, ui, "welcome_guide", () -> {
+			Minecraft mc = Minecraft.getMinecraft();
+			mc.displayGuiScreen(new WelcomeScreen(mc.currentScreen));
+		});
+		uiTheme = SETTINGS.choice(g, ui, "ui_theme", UiTheme.DARK, UiTheme::set,
+			"rago.value.theme_dark", "rago.value.theme_oled", "rago.value.theme_contrast");
+		teamColors = SETTINGS.choice(g, "rago.section.accessibility", "team_colors", TextColors.NORMAL, TextColors::set,
+			"rago.value.colors_normal", "rago.value.colors_red_green", "rago.value.colors_blue_yellow");
 		hudInDebug = SETTINGS.bool(g, "rago.section.hud", "hud_in_debug", false, null);
 		SETTINGS.toggle(g, "rago.section.hud", "hud_visible", () -> overlayVisible, v -> overlayVisible = v);
 		chatCopy = SETTINGS.bool(g, "rago.section.chat", "chat_copy", true, null);
@@ -503,6 +532,48 @@ public final class RagoClient {
 
 	public static Settings settings() {
 		return SETTINGS;
+	}
+
+	/** Sets the menu theme as the setting does (kept with the settings). */
+	public static void setUiTheme(int theme) {
+		uiTheme.set(theme);
+		UiTheme.set(theme);
+	}
+
+	/** Sets the team colours for colour blindness as the setting does (kept with the settings). */
+	public static void setTeamColors(int palette) {
+		teamColors.set(palette);
+		TextColors.set(palette);
+	}
+
+	private static Path welcomeMarker() {
+		return configDir.resolve("rago-welcome.txt");
+	}
+
+	/** Whether the welcome guide has not been through yet on this installation. */
+	public static boolean welcomeDue() {
+		return configDir != null && !Files.exists(welcomeMarker());
+	}
+
+	/**
+	 * The end of the welcome guide: the mods for what the player plays ({@code game}, null for no
+	 * change) and the video settings (0 max FPS, 1 their own, 2 beautiful), then never again by itself.
+	 */
+	public static void finishWelcome(PlayPreset.Kind game, int performance) {
+		if (game != null && playPreset != null) {
+			LOG.info("Welcome guide: {} turned {} mods on", game, playPreset.apply(game));
+		}
+		if (performance == 0 && maxPerformance != null) {
+			LOG.info("Welcome guide: max FPS changed {} settings", maxPerformance.apply());
+		} else if (performance == 2 && playPreset != null) {
+			LOG.info("Welcome guide: beautiful changed {} mods and settings", playPreset.apply(PlayPreset.Kind.QUALITY));
+		}
+		saveConfig();
+		try {
+			Files.write(welcomeMarker(), ("Welcome guide done " + LocalDateTime.now() + "\n").getBytes(StandardCharsets.UTF_8));
+		} catch (IOException e) {
+			LOG.warn("Could not write {}", welcomeMarker(), e);
+		}
 	}
 
 	public static ModProfiles profiles() {
@@ -619,7 +690,7 @@ public final class RagoClient {
 			// the card's work too: everything queued before is finished first, and the HUD's own after
 			org.lwjgl.opengl.GL11.glFinish();
 		}
-		long t = FrameProfile.ON ? System.nanoTime() : 0;
+		long t = FrameProfile.ON ? FrameProfile.start() : 0;
 		if (optimizations.hudCache()) {
 			HUD_CACHE.render(() -> HUD.render(!ownHud), optimizations.hudCacheRate());
 		} else {
@@ -641,6 +712,10 @@ public final class RagoClient {
 	public void onGuiOpen(GuiOpenEvent event) {
 		if (event.gui instanceof GuiMainMenu && useMainMenu()) {
 			event.gui = new RagoTitleScreen();
+		}
+		if ((event.gui instanceof GuiMainMenu || event.gui instanceof RagoTitleScreen) && !welcomeShown && welcomeDue()) {
+			welcomeShown = true;
+			event.gui = new WelcomeScreen(event.gui);
 		} else if (event.gui != null && event.gui.getClass().getName().startsWith("cc.polyfrost.oneconfig.gui.")
 			&& menuKeyHeld()) {
 			// the bundled Patcher's settings library opens on Right Shift too; that key is Rago's
@@ -690,7 +765,7 @@ public final class RagoClient {
 	@SubscribeEvent
 	public void onClientTick(TickEvent.ClientTickEvent event) {
 		if (event.phase == TickEvent.Phase.END) {
-			long t = FrameProfile.ON ? System.nanoTime() : 0;
+			long t = FrameProfile.ON ? FrameProfile.start() : 0;
 			onTick(Minecraft.getMinecraft());
 			if (FrameProfile.ON) {
 				FrameProfile.add(FrameProfile.TICK, System.nanoTime() - t);
@@ -726,6 +801,7 @@ public final class RagoClient {
 	}
 
 	private static void onTick(Minecraft mc) {
+		TextColors.applyTo(mc.fontRendererObj);
 		while (menuKey.isPressed()) {
 			if (mc.currentScreen == null) {
 				mc.displayGuiScreen(new RagoMenuScreen(null));

@@ -400,11 +400,29 @@ public final class RagoMenuScreen extends GuiScreen {
 		}
 	}
 
+	/** Room kept right of the chips for the two icon toggles. */
+	private static final float TOGGLES_W = 52;
+	private static final float SEARCH_MIN = 130;
+	private static final float SEARCH_MAX = 170;
+
 	private void chips(float x, float y, float w) {
+		Chip[] all = Chip.values();
+		String[] labels = new String[all.length];
+		float textW = 0;
+		for (int i = 0; i < all.length; i++) {
+			labels[i] = t("rago.menu.chip." + all[i].name().toLowerCase(Locale.ROOT));
+			textW += Ui.textWidth(Ui.MEDIUM, labels[i], 9.5f);
+		}
+		// the chips give up padding before they would run under the toggles and the search field
+		float room = w - TOGGLES_W - SEARCH_MIN - 8;
+		float[] fit = chipFit(textW, all.length, room);
+		float pad = fit[0];
+		float gap = fit[1];
 		float cx = x;
-		for (Chip ch : Chip.values()) {
-			String label = t("rago.menu.chip." + ch.name().toLowerCase(Locale.ROOT));
-			float cw = Ui.textWidth(Ui.MEDIUM, label, 9.5f) + 24;
+		for (int i = 0; i < all.length; i++) {
+			Chip ch = all[i];
+			String label = labels[i];
+			float cw = Ui.textWidth(Ui.MEDIUM, label, 9.5f) + pad;
 			boolean active = chip == ch;
 			float hv = Widgets.hoverAmount("chip:" + ch, cx, y, cw, 22);
 			int fill;
@@ -429,14 +447,29 @@ public final class RagoMenuScreen extends GuiScreen {
 				chip = ch;
 				scrolls.remove("mods");
 			});
-			cx += cw + 6;
+			cx += cw + gap;
 		}
-		float sw = Math.max(110, Math.min(170, x + w - cx - 58));
+		float sw = Math.max(SEARCH_MIN, Math.min(SEARCH_MAX, x + w - cx - TOGGLES_W - 6));
 		float sx = x + w - sw;
 		searchField(sx, y, sw);
-		float ix = sx - 50;
+		float ix = sx - TOGGLES_W + 2;
 		iconToggle("grid-3x3", ix, y, fourColumns, () -> fourColumns = !fourColumns);
 		iconToggle("arrow-up-down", ix + 24, y, sortByName, () -> sortByName = !sortByName);
+	}
+
+	/**
+	 * The padding inside each chip and the gap between them so that {@code n} chips whose labels are
+	 * {@code textW} wide together fit in {@code room}: 24 and 6 when they can, down to 12 and 4.
+	 */
+	static float[] chipFit(float textW, int n, float room) {
+		float pad = 24;
+		float gap = 6;
+		float need = textW + n * pad + (n - 1) * gap;
+		if (need > room) {
+			gap = 4;
+			pad = Math.max(12, (room - textW - (n - 1) * gap) / n);
+		}
+		return new float[] {pad, gap};
 	}
 
 	private void iconToggle(String icon, float x, float y, boolean on, Runnable action) {
@@ -450,6 +483,15 @@ public final class RagoMenuScreen extends GuiScreen {
 		Ui.glassBorder(x, y, w, 22, 11, 0xFF141316, focused ? 0x55F2392C : 0x1FFFFFFF);
 		Ui.icon("search", x + 9, y + 5.5f, 11, 0xFF8A888F);
 		String shown = query.isEmpty() ? t(tab == Tab.MODS ? "rago.menu.search_mods" : "rago.menu.search_settings") : query;
+		float room = w - 26 - (query.isEmpty() ? 10 : 24);
+		if (query.isEmpty()) {
+			shown = Ui.ellipsize(Ui.REGULAR, shown, 9.5f, room);
+		} else {
+			// the end of what is typed stays in view
+			while (shown.length() > 1 && Ui.textWidth(Ui.REGULAR, shown, 9.5f) > room) {
+				shown = shown.substring(1);
+			}
+		}
 		Ui.text(Ui.REGULAR, shown, x + 26, y + (22 - 9.5f * 1.21f) / 2, 9.5f, query.isEmpty() ? 0xFF7C7A82 : Theme.TEXT);
 		if (!query.isEmpty()) {
 			Ui.icon("x", x + w - 18, y + 6, 10, 0xFF9A98A0);

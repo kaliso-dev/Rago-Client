@@ -98,10 +98,17 @@ public final class BedwarsGame {
 		return !teamBeds().isEmpty();
 	}
 
+	/**
+	 * How often the sidebar is read again. Reading it allocates (each line is put together, cleaned
+	 * and matched), many things ask every frame (each name tag, the HUD), and Hypixel changes it a
+	 * few times a second at most: five readings a second is still within a fifth of a second.
+	 */
+	static final long READ_EVERY_NS = 200_000_000L;
+
 	/** Each team's bed in the sidebar now, by the team's letter: true while it stands. */
 	public static Map<Character, Boolean> teamBeds() {
 		long now = System.nanoTime();
-		if (now - readAt < 40_000_000L) {
+		if (now - readAt < READ_EVERY_NS) {
 			return beds;
 		}
 		readAt = now;

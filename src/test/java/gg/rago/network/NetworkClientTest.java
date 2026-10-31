@@ -161,17 +161,17 @@ class NetworkClientTest {
 		assertNull(client.player(OTHER));
 		assertNull(client.player(SELF));
 
-		// known for five minutes: nothing more to ask in the meantime, only the presence every minute
-		for (int s = 1; s <= 290; s++) {
+		// nothing more to ask for half a minute; then the player who is not on Rago, in case they just signed in
+		for (int s = 1; s <= 25; s++) {
 			now.addAndGet(1000);
 			tick();
 		}
 		assertEquals(1, lookups.size());
-		assertEquals(5, presences.size());
-		now.addAndGet(15_000);
+		now.addAndGet(6_000);
 		tick();
 		tick();
 		assertEquals(2, lookups.size());
+		assertEquals(1, lookups.get(1).size());
 	}
 
 	@Test
@@ -233,6 +233,23 @@ class NetworkClientTest {
 		now.addAndGet(NetworkClient.LOOKUP_GAP);
 		tick(1, crowd);
 		assertEquals(Arrays.asList(100, 100, 50), Arrays.asList(lookups.get(0).size(), lookups.get(1).size(), lookups.get(2).size()));
+	}
+
+	@Test
+	void someoneNotOnRagoYetIsAskedAboutAgainSooner() {
+		tick();
+		tick();
+		tick();
+		assertEquals(1, lookups.size());
+		now.addAndGet(NetworkClient.UNKNOWN_FOR);
+		tick();
+		assertEquals(2, lookups.size(), "the player who was not on Rago, half a minute later");
+		assertEquals(1, lookups.get(1).size());
+		assertEquals(OTHER.toString(), lookups.get(1).get(0).getAsString());
+		now.addAndGet(NetworkClient.KNOWN_FOR - NetworkClient.UNKNOWN_FOR);
+		tick();
+		tick();
+		assertEquals(3, lookups.size(), "the Rago player again after a minute, for a changed cape");
 	}
 
 	@Test

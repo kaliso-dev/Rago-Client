@@ -5,14 +5,16 @@ import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 
-import java.util.Locale;
 
 /** Your horizontal speed in blocks per second, averaged over the last quarter second. */
 public final class SpeedHud extends TextHudElement {
+	/** The text shown, made again only when it changes. */
+	private final Shown shown = new Shown();
 	private static final int SAMPLES = 5;
 	private final double[] samples = new double[SAMPLES];
 	private int next;
@@ -55,6 +57,12 @@ public final class SpeedHud extends TextHudElement {
 			sum += s;
 		}
 		double speed = placeholder ? 5.61 : sum / SAMPLES;
-		return String.format(Locale.ROOT, "%." + decimals.get() + "f", unit.is("kmh") ? speed * 3.6 : speed);
+		boolean kmh = unit.is("kmh");
+		double v = kmh ? speed * 3.6 : speed;
+		int d = decimals.get();
+		if (!shown.same(Shown.key(v, d), d, kmh ? 1 : 0)) {
+			shown.set(Shown.fixed(v, d));
+		}
+		return shown.text();
 	}
 }

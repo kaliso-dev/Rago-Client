@@ -55,6 +55,8 @@ public final class GameDebrief extends Module {
 	static final long SAY_BY_MS = 8_000;
 	/** Lines that still come this long after the game put it back at the bottom (one copy only). */
 	static final long KEEP_LAST_MS = 12_000;
+	/** What the GG button puts in the chat bar: all chat, since a party chat mode would keep it in the party. */
+	static final String GG = "/ac gg";
 	/** The line's chat ID, outside the range Rago's chat stacking uses. */
 	private static final int LINE_ID = 0x52A70001;
 
@@ -287,6 +289,12 @@ public final class GameDebrief extends Module {
 			.setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/rago debrief"))
 			.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(I18n.format("rago.debrief.chat_open_tip")))));
 		line.appendSibling(open);
+		// a GG ready in the chat bar: the player sends it with Enter, or not at all
+		IChatComponent gg = new ChatComponentText(" " + I18n.format("rago.debrief.chat_gg"));
+		gg.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.AQUA).setBold(true)
+			.setChatClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, GG))
+			.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(I18n.format("rago.debrief.chat_gg_tip", GG)))));
+		line.appendSibling(gg);
 		return line;
 	}
 }

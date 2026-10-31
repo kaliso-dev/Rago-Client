@@ -30,6 +30,7 @@ import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -179,7 +180,7 @@ public final class Nametags extends Module implements Styled {
 		if (!isEnabled() || !(event.entity instanceof EntityPlayer)) {
 			return;
 		}
-		long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
+		long t = gg.rago.debug.FrameProfile.ON ? gg.rago.debug.FrameProfile.start() : 0;
 		namePre(event);
 		if (gg.rago.debug.FrameProfile.ON) {
 			gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.NAMES_QUEUED, System.nanoTime() - t);
@@ -213,7 +214,8 @@ public final class Nametags extends Module implements Styled {
 	private void drawName(EntityPlayer p, double x, double y, double z) {
 		Minecraft mc = Minecraft.getMinecraft();
 		double base = y + p.height + 0.5 - (p.isChild() ? p.height / 2 : 0);
-		String name = displayName(p);
+		Name n = name(p);
+		String name = n.text;
 		if (p.isSneaking()) {
 			// vanilla: lower, only where the player is visible, faint text
 			label(name, x, base, z, SNEAK_DROP, false, 0x20);
@@ -225,7 +227,15 @@ public final class Nametags extends Module implements Styled {
 		ScoreObjective below = board.getObjectiveInDisplaySlot(2);
 		if (below != null && distSq < 100) {
 			Score score = board.getValueFromObjective(p.getName(), below);
-			label(score.getScorePoints() + " " + below.getDisplayName(), x, top, z, 0, throughWalls.get(), 0xFF);
+			int points = score.getScorePoints();
+			String objective = below.getDisplayName();
+			if (n.belowText == null || n.belowPoints != points || !objective.equals(n.belowObjective)) {
+				// the line under the name (health in Bed Wars) is made when it changes, not every frame
+				n.belowPoints = points;
+				n.belowObjective = objective;
+				n.belowText = points + " " + objective;
+			}
+			label(n.belowText, x, top, z, 0, throughWalls.get(), 0xFF);
 			top += lineHeight();
 		}
 		RagoBadge badge = gg.rago.hooks.Hooks.ragoBadge;
@@ -241,6 +251,10 @@ public final class Nametags extends Module implements Styled {
 		String suffix;
 		String base;
 		String text;
+		/** The line under the name (below-name objective), with what it was made from. */
+		int belowPoints;
+		String belowObjective;
+		String belowText;
 	}
 
 	/** Names are made again at least this often, for mods that change them without a team change. */
@@ -254,7 +268,7 @@ public final class Nametags extends Module implements Styled {
 	 * hover action (an NBT tag turned to text) each time it is asked, so the name is made again only
 	 * when the team, its prefix or suffix or the name change, and once a second whatever happens.
 	 */
-	private String displayName(EntityPlayer p) {
+	private Name name(EntityPlayer p) {
 		if (p.worldObj != namesWorld) {
 			namesWorld = p.worldObj;
 			names.clear();
@@ -277,7 +291,7 @@ public final class Nametags extends Module implements Styled {
 			n.base = base;
 			n.text = p.getDisplayName().getFormattedText();
 		}
-		return n.text;
+		return n;
 	}
 
 	/**
@@ -292,7 +306,7 @@ public final class Nametags extends Module implements Styled {
 
 	/** {@link #label}, with the Rago logo before the text in colour {@code logo} (none for 0). */
 	private void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha, int logo) {
-		String shown = colorMode.is("custom") ? TtfFont.strip(text) : text;
+		String shown = colorMode.is("custom") ? stripped(text) : text;
 		int color = colorMode.is("custom") ? nameColor.get() : 0xFFFFFFFF;
 		float s = WorldDraw.LABEL_SCALE * scale.get() / 100f;
 		int pad = background.get() ? PADDING : 0;
@@ -340,6 +354,21 @@ public final class Nametags extends Module implements Styled {
 		}
 	}
 
+	/** Texts without their § codes, for the custom colour: the same names are drawn every frame. */
+	private final Map<String, String> stripped = new HashMap<>();
+
+	private String stripped(String text) {
+		String s = stripped.get(text);
+		if (s == null) {
+			if (stripped.size() >= 512) {
+				stripped.clear();
+			}
+			s = TtfFont.strip(text);
+			stripped.put(text, s);
+		}
+		return s;
+	}
+
 	/**
 	 * A background or border: a faint copy at {@code wall} of its opacity that ignores depth, and the
 	 * depth-tested part with the rest, so where the player is visible the two add up to the set colour.
@@ -374,7 +403,7 @@ public final class Nametags extends Module implements Styled {
 
 	@SubscribeEvent
 	public void onWorldDrawn(RenderWorldLastEvent event) {
-		long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
+		long t = gg.rago.debug.FrameProfile.ON ? gg.rago.debug.FrameProfile.start() : 0;
 		batch.flush();
 		if (gg.rago.debug.FrameProfile.ON) {
 			gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.NAMETAGS, System.nanoTime() - t);

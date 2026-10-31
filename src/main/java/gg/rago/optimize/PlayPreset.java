@@ -31,8 +31,18 @@ public final class PlayPreset {
 	private static final Logger LOG = LogManager.getLogger("Rago");
 
 	public enum Kind {
-		RANKED_BEDWARS, QUALITY
+		RANKED_BEDWARS, QUALITY,
+		/** The welcome guide's choices: the mods for what you play, without touching the video settings. */
+		BEDWARS, PVP, BOTH
 	}
+
+	/** What a Hypixel Bed Wars player wants on screen. */
+	private static final String[] BEDWARS_MODS = {"fps", "ping", "cps", "keystrokes", "armor", "potions", "bedwars_resources",
+		"height_limit", "block_counter", "tab_ping", "tab_list", "old_animations", "hit_color", "zoom", "low_fire",
+		"hide_achievements", "no_hurt_cam", "upgrades_hud", "event_timers", "trap_notifier", "tnt_timer", "game_debrief", "quickplay"};
+	/** What a 1.8 PvP player (Minemen Club, duels, practice) wants on screen. */
+	private static final String[] PVP_MODS = {"fps", "ping", "cps", "keystrokes", "armor", "potions", "combo", "reach",
+		"tab_ping", "old_animations", "hit_color", "zoom", "low_fire", "hide_achievements", "no_hurt_cam"};
 
 	private static final class Values {
 		final Map<String, Boolean> modules = new LinkedHashMap<>();
@@ -97,6 +107,11 @@ public final class PlayPreset {
 			.row("of_clouds", 3)
 			.row("of_dynamic_lights", 0)
 			.row("of_vignette", 1));
+		PRESETS.put(Kind.BEDWARS, new Values().on(BEDWARS_MODS));
+		PRESETS.put(Kind.PVP, new Values().on(PVP_MODS));
+		java.util.Set<String> both = new java.util.LinkedHashSet<>(java.util.Arrays.asList(BEDWARS_MODS));
+		both.addAll(java.util.Arrays.asList(PVP_MODS));
+		PRESETS.put(Kind.BOTH, new Values().on(both.toArray(new String[0])));
 		PRESETS.put(Kind.QUALITY, new Values()
 			.on("color_grading", "old_animations")
 			.off("motion_blur")

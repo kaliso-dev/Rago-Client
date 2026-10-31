@@ -160,7 +160,8 @@ public final class TtfFont {
 		Tessellator.getInstance().getWorldRenderer().begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
 	}
 
-	private static final QuadSink TESSELLATOR_SINK = (x0, y0, x1, y1, u0, v0, u1, v1, argb) -> {
+	/** Glyph quads straight into the tessellator, which must have been begun with POSITION_TEX_COLOR quads. */
+	public static final QuadSink TESSELLATOR_SINK = (x0, y0, x1, y1, u0, v0, u1, v1, argb) -> {
 		WorldRenderer w = Tessellator.getInstance().getWorldRenderer();
 		int r = argb >> 16 & 0xFF;
 		int g = argb >> 8 & 0xFF;
@@ -190,22 +191,6 @@ public final class TtfFont {
 			cx += gl.advance;
 		}
 		return cx - Math.round(x);
-	}
-
-	/** Minecraft's sixteen formatting colours (§0 to §f), as RGB. */
-	private static final int[] CODE_COLORS = new int[16];
-
-	static {
-		for (int i = 0; i < 16; i++) {
-			int j = (i >> 3 & 1) * 85;
-			int r = (i >> 2 & 1) * 170 + j;
-			int g = (i >> 1 & 1) * 170 + j;
-			int b = (i & 1) * 170 + j;
-			if (i == 6) {
-				r += 85;
-			}
-			CODE_COLORS[i] = r << 16 | g << 8 | b;
-		}
 	}
 
 	/** Width of {@code s} without its § formatting codes. */
@@ -267,7 +252,7 @@ public final class TtfFont {
 				char code = Character.toLowerCase(s.charAt(++i));
 				int index = "0123456789abcdef".indexOf(code);
 				if (index >= 0) {
-					color = alpha | CODE_COLORS[index];
+					color = alpha | TextColors.rgb(index);
 				} else if (code == 'r') {
 					color = argb;
 				}

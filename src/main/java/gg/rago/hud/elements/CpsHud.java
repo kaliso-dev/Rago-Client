@@ -4,6 +4,7 @@ import gg.rago.config.BooleanOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import gg.rago.input.InputState;
 
@@ -27,14 +28,19 @@ public final class CpsHud extends TextHudElement {
 		return after ? "CPS" : "CPS";
 	}
 
+	private final Shown shown = new Shown();
+
 	@Override
 	protected String value(boolean placeholder) {
 		long now = System.nanoTime();
 		int left = placeholder ? 9 : input.attackCps(now);
 		if (!showRight.get()) {
-			return Integer.toString(left);
+			return Shown.of(left);
 		}
 		int right = placeholder ? 4 : input.useCps(now);
-		return left + " | " + right;
+		if (!shown.same(left, right, 0)) {
+			shown.set(left + " | " + right);
+		}
+		return shown.text();
 	}
 }

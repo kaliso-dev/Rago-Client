@@ -206,8 +206,11 @@ public final class LabelBatch {
 			return;
 		}
 		float inner = Math.max(0, r - width);
-		float[] cx = {x + w - r, x + w - r, x + r, x + r};
-		float[] cy = {y + r, y + h - r, y + h - r, y + r};
+		// corner centres in the order of RING_COS/RING_SIN: top right, bottom right, bottom left, top left
+		float right = x + w - r;
+		float left = x + r;
+		float top = y + r;
+		float bottom = y + h - r;
 		float px0 = 0;
 		float py0 = 0;
 		float px1 = 0;
@@ -221,10 +224,12 @@ public final class LabelBatch {
 				}
 				float cos = RING_COS[k * CORNER_SEGMENTS + i];
 				float sin = RING_SIN[k * CORNER_SEGMENTS + i];
-				float ox0 = cx[k] + cos * r;
-				float oy0 = cy[k] + sin * r;
-				float ix0 = cx[k] + cos * inner;
-				float iy0 = cy[k] + sin * inner;
+				float ccx = k < 2 ? right : left;
+				float ccy = k == 1 || k == 2 ? bottom : top;
+				float ox0 = ccx + cos * r;
+				float oy0 = ccy + sin * r;
+				float ix0 = ccx + cos * inner;
+				float iy0 = ccy + sin * inner;
 				if (!first) {
 					tri(l, px0, py0, px1, py1, ox0, oy0, argb);
 					tri(l, ox0, oy0, px1, py1, ix0, iy0, argb);
@@ -450,39 +455,44 @@ public final class LabelBatch {
 			size += STRIDE;
 		}
 
-		/** The vertices in the layout the renderer keeps them, reused while their number stays the same. */
-		private int[] packed = new int[0];
+		/**
+		 * Vertices in the layout the renderer keeps them, {@link #CHUNK} at a time: the renderer takes
+		 * a whole array, and the number of vertices changes from frame to frame, so a fixed-size array
+		 * is filled again and again rather than a new one made for each count.
+		 */
+		private int[] chunk = new int[0];
+		/** One vertex, for the last few that do not fill a chunk. */
+		private int[] single = new int[0];
+		static final int CHUNK = 96;
 
 		/**
-		 * Hands the vertices to the renderer in one copy when its format is the usual one (position,
-		 * texture, colour), else one call per value as before.
+		 * Hands the vertices to the renderer in copies of {@link #CHUNK} vertices when its format is
+		 * the usual one (position, texture, colour), else one call per value as before.
 		 */
 		void upload(WorldRenderer w, boolean textured) {
 			int per = textured ? 6 : 4;
 			if (w.getVertexFormat().getIntegerSize() == per) {
-				int n = size / STRIDE * per;
-				if (packed.length != n) {
-					packed = new int[n];
+				if (chunk.length != CHUNK * per) {
+					chunk = new int[CHUNK * per];
+					single = new int[per];
 				}
 				boolean little = java.nio.ByteOrder.nativeOrder() == java.nio.ByteOrder.LITTLE_ENDIAN;
+				int vertices = size / STRIDE;
+				int full = vertices / CHUNK * CHUNK;
 				int o = 0;
-				for (int i = 0; i < size; i += STRIDE) {
-					packed[o++] = Float.floatToRawIntBits(data[i]);
-					packed[o++] = Float.floatToRawIntBits(data[i + 1]);
-					packed[o++] = Float.floatToRawIntBits(data[i + 2]);
-					if (textured) {
-						packed[o++] = Float.floatToRawIntBits(data[i + 3]);
-						packed[o++] = Float.floatToRawIntBits(data[i + 4]);
+				for (int v = 0; v < vertices; v++) {
+					int[] into = v < full ? chunk : single;
+					if (v >= full) {
+						o = 0;
 					}
-					int c = Float.floatToRawIntBits(data[i + 5]);
-					int r = c >> 16 & 0xFF;
-					int g = c >> 8 & 0xFF;
-					int b = c & 0xFF;
-					int a = c >>> 24;
-					// as WorldRenderer.color writes it: the bytes red, green, blue, alpha in memory
-					packed[o++] = little ? a << 24 | b << 16 | g << 8 | r : r << 24 | g << 16 | b << 8 | a;
+					o = pack(into, o, v * STRIDE, textured, little);
+					if (v < full && o == chunk.length) {
+						w.addVertexData(chunk);
+						o = 0;
+					} else if (v >= full) {
+						w.addVertexData(single);
+					}
 				}
-				w.addVertexData(packed);
 				return;
 			}
 			for (int i = 0; i < size; i += STRIDE) {
@@ -493,6 +503,25 @@ public final class LabelBatch {
 				}
 				w.color(c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF, c >>> 24).endVertex();
 			}
+		}
+
+		/** Writes the vertex at {@code i} into {@code into} from {@code o}; returns where it ended. */
+		private int pack(int[] into, int o, int i, boolean textured, boolean little) {
+			into[o++] = Float.floatToRawIntBits(data[i]);
+			into[o++] = Float.floatToRawIntBits(data[i + 1]);
+			into[o++] = Float.floatToRawIntBits(data[i + 2]);
+			if (textured) {
+				into[o++] = Float.floatToRawIntBits(data[i + 3]);
+				into[o++] = Float.floatToRawIntBits(data[i + 4]);
+			}
+			int c = Float.floatToRawIntBits(data[i + 5]);
+			int r = c >> 16 & 0xFF;
+			int g = c >> 8 & 0xFF;
+			int b = c & 0xFF;
+			int a = c >>> 24;
+			// as WorldRenderer.color writes it: the bytes red, green, blue, alpha in memory
+			into[o++] = little ? a << 24 | b << 16 | g << 8 | r : r << 24 | g << 16 | b << 8 | a;
+			return o;
 		}
 	}
 }

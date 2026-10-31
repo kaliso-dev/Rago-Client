@@ -89,19 +89,24 @@ public final class HudText {
 	private static int scaleH;
 	private static int scaleSetting;
 	private static boolean scaleUnicode;
-	private static int scale = 1;
+	private static ScaledResolution resolution;
 
 	/** The GUI scale factor, as ScaledResolution works it out, without making one for every string. */
 	public static int guiScale() {
+		return resolution().getScaleFactor();
+	}
+
+	/** The game's ScaledResolution, made again only when the window size or the GUI scale changes. */
+	public static ScaledResolution resolution() {
 		Minecraft mc = Minecraft.getMinecraft();
-		if (mc.displayWidth != scaleW || mc.displayHeight != scaleH || mc.gameSettings.guiScale != scaleSetting || mc.isUnicode() != scaleUnicode) {
+		if (resolution == null || mc.displayWidth != scaleW || mc.displayHeight != scaleH || mc.gameSettings.guiScale != scaleSetting || mc.isUnicode() != scaleUnicode) {
 			scaleW = mc.displayWidth;
 			scaleH = mc.displayHeight;
 			scaleSetting = mc.gameSettings.guiScale;
 			scaleUnicode = mc.isUnicode();
-			scale = new ScaledResolution(mc).getScaleFactor();
+			resolution = new ScaledResolution(mc);
 		}
-		return scale;
+		return resolution;
 	}
 
 	/** Draws with its line box top at (x, y), on the HUD or in a menu. */
@@ -146,16 +151,25 @@ public final class HudText {
 	 * labels (keystrokes). Strings the batch cannot take are drawn the normal way at {@link #end}.
 	 */
 	public static final class Batch {
-		private final String font;
-		private final TtfFont ttf;
-		private final float em;
-		private final float px;
-		private final float kk;
+		private String font;
+		private TtfFont ttf;
+		private float em;
+		private float px;
+		private float kk;
 		private final java.util.List<Object[]> fallback = new java.util.ArrayList<>(0);
 		private int count;
 		private boolean begun;
 
+		/** A batch to {@link #start} each frame: the same one can be used again and again. */
+		public Batch() {
+		}
+
 		public Batch(String font) {
+			start(font);
+		}
+
+		/** Starts a new batch in {@code font} at the current matrix; returns this batch. */
+		public Batch start(String font) {
 			this.font = font;
 			this.ttf = ttf(font);
 			this.em = ttf == null ? 0 : em(font);
@@ -166,6 +180,10 @@ public final class HudText {
 				px = 0;
 				kk = 1;
 			}
+			fallback.clear();
+			count = 0;
+			begun = false;
+			return this;
 		}
 
 		private void begin() {
@@ -194,21 +212,12 @@ public final class HudText {
 				begin();
 			}
 			count++;
-			WorldRenderer b = Tessellator.getInstance().getWorldRenderer();
 			if (ttf != null) {
 				float top = (y + BASELINE) * kk - ttf.ascent(px);
-				ttf.emitFormatted(s, x * kk, top, px, argb, shadow, Math.max(1, kk * 0.75f), (x0, y0, x1, y1, u0, v0, u1, v1, c) -> {
-					int r = c >> 16 & 0xFF;
-					int g = c >> 8 & 0xFF;
-					int bl = c & 0xFF;
-					int a = c >>> 24;
-					b.pos(x0, y1, 0).tex(u0, v1).color(r, g, bl, a).endVertex();
-					b.pos(x1, y1, 0).tex(u1, v1).color(r, g, bl, a).endVertex();
-					b.pos(x1, y0, 0).tex(u1, v0).color(r, g, bl, a).endVertex();
-					b.pos(x0, y0, 0).tex(u0, v0).color(r, g, bl, a).endVertex();
-				});
+				// the tessellator's own sink: a lambda here would be a new object for every string
+				ttf.emitFormatted(s, x * kk, top, px, argb, shadow, Math.max(1, kk * 0.75f), TtfFont.TESSELLATOR_SINK);
 			} else {
-				VanillaText.append(b, s, x, y, argb, shadow);
+				VanillaText.append(Tessellator.getInstance().getWorldRenderer(), s, x, y, argb, shadow);
 			}
 		}
 

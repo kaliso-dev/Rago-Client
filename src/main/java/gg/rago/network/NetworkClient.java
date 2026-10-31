@@ -91,7 +91,10 @@ public final class NetworkClient {
 	static final long LOOKUP_GAP = 5_000;
 	/** When nobody new is around, how soon to look again. */
 	static final long LOOKUP_IDLE = 1_000;
-	static final long KNOWN_FOR = 5 * 60_000;
+	/** A Rago player is asked about again after this, so a new cape or hat shows within a minute. */
+	static final long KNOWN_FOR = 60_000;
+	/** Someone not (yet) on Rago Network is asked about again sooner: a friend who just signed in shows within 30 s. */
+	static final long UNKNOWN_FOR = 30_000;
 	static final int BATCH = 100;
 	static final long FIRST_RETRY = 30_000;
 	static final long LAST_RETRY = 15 * 60_000;
@@ -360,9 +363,9 @@ public final class NetworkClient {
 			if (!b.equals(base)) {
 				return;
 			}
-			long until = now + KNOWN_FOR;
 			for (UUID u : due) {
-				known.put(u, new Known(found.get(u), until));
+				Player p = found.get(u);
+				known.put(u, new Known(p, now + (p != null ? KNOWN_FOR : UNKNOWN_FOR)));
 			}
 			nextLookup = now + LOOKUP_GAP;
 		} catch (StatusException e) {
