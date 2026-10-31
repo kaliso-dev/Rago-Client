@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.8.0.** What it contains:
+**Current version: 1.8.1.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,11 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.8.1: **3D beds** in 3D Items (option "3D beds", on with the mod): Rago's own bed model
+  with four real legs, the wooden frame, the mattress set in from it, a raised pillow, the blanket
+  folded below it and over the foot's end, drawn with the bed textures in use so a pack's colours
+  stay (`gg.rago.render.Bed3D`). The legs take the width the pack draws them; a pack with its own
+  bed model keeps it; the hitbox is vanilla's
 - new in 1.8.0:
   - **Overlays** (Visual tab): Rago's own wool and stained clay for Bed Wars and The Bridge (flat,
     outline, bevel, and knit for wool), in the colour-blind team colours when you use them; six skies
@@ -608,7 +613,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.8.0+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.8.1+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
