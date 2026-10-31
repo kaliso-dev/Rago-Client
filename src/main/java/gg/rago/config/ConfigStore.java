@@ -149,6 +149,25 @@ public final class ConfigStore {
 		return modules;
 	}
 
+	/** Every module as it starts out: on or off by default, default options and HUD positions. */
+	public static JsonObject defaultsToJson(ModuleRegistry registry) {
+		JsonObject modules = new JsonObject();
+		for (Module module : registry.all()) {
+			JsonObject m = new JsonObject();
+			m.addProperty("enabled", module.defaultEnabled());
+			JsonObject options = new JsonObject();
+			for (Option<?> option : module.options()) {
+				options.add(option.key(), option.defaultJson());
+			}
+			m.add("options", options);
+			if (module instanceof HudElement) {
+				m.add("hud", ((HudElement) module).position().defaultJson());
+			}
+			modules.add(module.id(), m);
+		}
+		return modules;
+	}
+
 	public void save(ModuleRegistry registry) throws IOException {
 		save(registry, null, null);
 	}

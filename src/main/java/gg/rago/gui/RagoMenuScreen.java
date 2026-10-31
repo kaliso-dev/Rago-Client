@@ -20,6 +20,7 @@ import gg.rago.modules.BedwarsStats;
 import gg.rago.modules.Overlays;
 import gg.rago.optimize.OptiFineFields;
 import gg.rago.profile.ModProfiles;
+import gg.rago.profile.ProfileFiles;
 import gg.rago.settings.Button;
 import gg.rago.settings.Choice;
 import gg.rago.settings.Setting;
@@ -80,6 +81,10 @@ public final class RagoMenuScreen extends GuiScreen {
 	private boolean sortByName;
 	private String renaming;
 	private String renameText = "";
+	/** What exporting or importing a profile just did, shown in the sidebar for a few seconds. */
+	private String shareNote;
+	private boolean shareNoteOk;
+	private long shareNoteAt;
 	/** The Hypixel API key being typed on a Hypixel module's page; never saved in rago.json. */
 	private String keyText = "";
 	private boolean keyEditing;
@@ -348,25 +353,42 @@ public final class RagoMenuScreen extends GuiScreen {
 			ty += 15;
 			Ui.text(Ui.REGULAR, t("rago.menu.mods_enabled", on, RagoClient.modules().all().size()), x + 12, ty, 9, Theme.MUTED);
 			ty += 18;
+			boolean note = shareNoteFresh();
 			if (boxY + boxH - ty > 30) {
-				for (String line : Ui.wrap(Ui.REGULAR, t("rago.menu.profile_hint"), 8.5f, w - 24)) {
+				String text = note ? shareNote : t("rago.menu.profile_hint");
+				int color = note ? (shareNoteOk ? Theme.GREEN : Theme.ACCENT) : 0xFF7C7A82;
+				for (String line : Ui.wrap(Ui.REGULAR, text, 8.5f, w - 24)) {
 					if (ty > boxY + boxH - 14) {
 						break;
 					}
-					Ui.text(Ui.REGULAR, line, x + 12, ty, 8.5f, 0xFF7C7A82);
+					Ui.text(Ui.REGULAR, line, x + 12, ty, 8.5f, color);
 					ty += 12;
 				}
+			} else if (note) {
+				tooltip = shareNote;
 			}
+		} else if (shareNoteFresh()) {
+			tooltip = shareNote;
 		}
 		float by = y + h - 62;
-		float hv = Widgets.hoverAmount("saveprofile", x + 8, by, w - 16, 22);
-		Ui.roundBorder(x + 8, by, w - 16, 22, 11, Ui.mix(0x00FFFFFF, 0x14FFFFFF, hv), 0x2EFFFFFF);
-		Ui.textCentered(Ui.MEDIUM, t("rago.menu.save_profile"), x + w / 2, by + (22 - 9.5f * 1.21f) / 2, 9.5f, Theme.TEXT);
-		Ui.click(x + 8, by, w - 16, 22, () -> {
+		float sw = w - 16 - 26;
+		float hv = Widgets.hoverAmount("saveprofile", x + 8, by, sw, 22);
+		Ui.roundBorder(x + 8, by, sw, 22, 11, Ui.mix(0x00FFFFFF, 0x14FFFFFF, hv), 0x2EFFFFFF);
+		Ui.textCentered(Ui.MEDIUM, t("rago.menu.save_profile"), x + 8 + sw / 2, by + (22 - 9.5f * 1.21f) / 2, 9.5f, Theme.TEXT);
+		Ui.click(x + 8, by, sw, 22, () -> {
 			String name = profiles.saveAsNew(RagoClient.modules());
 			renaming = name;
 			renameText = name;
 		});
+		// importing a friend's profile: the code they sent, copied
+		float ix = x + w - 8 - 22;
+		hv = Widgets.hoverAmount("importprofile", ix, by, 22, 22);
+		Ui.roundBorder(ix, by, 22, 22, 11, Ui.mix(0x00FFFFFF, 0x14FFFFFF, hv), 0x2EFFFFFF);
+		Ui.icon("download", ix + 5.5f, by + 5.5f, 11, Ui.mix(0xFFB4B2B9, Theme.TEXT, hv));
+		if (Ui.hover(ix, by, 22, 22)) {
+			tooltip = t("rago.menu.import_profile");
+		}
+		Ui.click(ix, by, 22, 22, this::importProfile);
 		Ui.rect(x, by + 30, w, 1 / Ui.scale(), 0x14FFFFFF);
 		float eh = 24;
 		float ey = y + h - eh;
@@ -396,11 +418,71 @@ public final class RagoMenuScreen extends GuiScreen {
 			renaming = name;
 			renameText = name;
 		});
+		if (hv > 0.5f && !editing) {
+			ix -= 16;
+			boolean over = Ui.hover(ix - 3, y, 15, rh);
+			Ui.icon("upload", ix, y + 6.5f, 10, over ? Theme.TEXT : 0xFF9A98A0);
+			if (over) {
+				tooltip = t("rago.menu.export_profile");
+			}
+			Ui.click(ix - 3, y, 15, rh, () -> exportProfile(name));
+		}
 		if (hv > 0.5f && profiles.names().size() > 1 && !editing) {
 			ix -= 16;
 			Ui.icon("trash-2", ix, y + 6.5f, 10, 0xFF9A98A0);
 			Ui.click(ix - 3, y, 15, rh, () -> profiles.delete(name, RagoClient.modules()));
 		}
+	}
+
+	private boolean shareNoteFresh() {
+		return shareNote != null && System.currentTimeMillis() - shareNoteAt < 9000;
+	}
+
+	private void shareNote(String text, boolean ok) {
+		shareNote = text;
+		shareNoteOk = ok;
+		shareNoteAt = System.currentTimeMillis();
+	}
+
+	/** Copies a profile's code for a friend, and keeps it in a file too (for codes too long for a chat message). */
+	private void exportProfile(String name) {
+		String code = RagoClient.profiles().exportCode(name, RagoClient.modules());
+		if (code == null) {
+			return;
+		}
+		GuiScreen.setClipboardString(code);
+		String file = ProfileFiles.write(RagoClient.configDir(), name, code);
+		if (code.length() > ProfileFiles.CHAT_LIMIT && file != null) {
+			shareNote(t("rago.menu.profile_exported_file", name, file), true);
+		} else {
+			shareNote(t("rago.menu.profile_exported", name), true);
+		}
+	}
+
+	/** Adds the profile whose code is on the clipboard, or else the newest file in rago-profiles/import. */
+	private void importProfile() {
+		ModProfiles profiles = RagoClient.profiles();
+		String name = profiles.importCode(GuiScreen.getClipboardString(), RagoClient.modules());
+		if (name == null) {
+			java.nio.file.Path file = ProfileFiles.newestImport(RagoClient.configDir());
+			String text = file == null ? null : ProfileFiles.read(file);
+			name = text == null ? null : profiles.importCode(text, RagoClient.modules());
+			if (name != null) {
+				ProfileFiles.markImported(file);
+			}
+		}
+		if (name == null) {
+			shareNote(t("rago.menu.profile_import_none"), false);
+			return;
+		}
+		RagoClient.saveConfig();
+		int risky = 0;
+		for (Module m : RagoClient.modules().all()) {
+			if (m.isEnabled() && (ModuleInfo.risky(m) || ModuleInfo.riskyOptionOn(m) != null)) {
+				risky++;
+			}
+		}
+		shareNote(risky > 0 ? t("rago.menu.profile_imported_risky", name, risky) : t("rago.menu.profile_imported", name), true);
 	}
 
 	/** Room kept right of the chips for the two icon toggles. */

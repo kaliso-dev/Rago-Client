@@ -124,6 +124,39 @@ public final class ModProfiles {
 		return true;
 	}
 
+	/** A share code for a profile (see {@link ProfileShare}); null when there is no such profile. */
+	public String exportCode(String name, ModuleRegistry registry) {
+		Entry e = profiles.get(name);
+		if (e == null) {
+			return null;
+		}
+		if (name.equals(active)) {
+			capture(registry);
+		}
+		return ProfileShare.encode(name, e.icon,
+			ProfileShare.changes(e.modules, ConfigStore.defaultsToJson(registry)));
+	}
+
+	/**
+	 * Adds the profile in a friend's code (also found inside a longer text) as a new profile and
+	 * switches to it; the personal mods keep the settings the player has now. Returns the new
+	 * profile's name, or null when the text holds no readable code.
+	 */
+	public String importCode(String text, ModuleRegistry registry) {
+		ProfileShare.Shared shared = ProfileShare.decode(text);
+		if (shared == null) {
+			return null;
+		}
+		capture(registry);
+		JsonObject modules = ProfileShare.merge(ConfigStore.defaultsToJson(registry),
+			ConfigStore.modulesToJson(registry), shared.changes);
+		String name = ProfileShare.freeName(shared.name, profiles.keySet());
+		profiles.put(name, new Entry(shared.icon, modules));
+		ConfigStore.modulesFromJson(registry, modules);
+		active = name;
+		return name;
+	}
+
 	public JsonObject toJson() {
 		JsonObject o = new JsonObject();
 		o.addProperty("active", active);

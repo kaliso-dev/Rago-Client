@@ -70,6 +70,17 @@ public abstract class Option<T> {
 
 	public abstract JsonElement toJson();
 
+	/** The default value as it is stored, without changing the current one. */
+	public final JsonElement defaultJson() {
+		T now = value;
+		value = defaultValue;
+		try {
+			return toJson();
+		} finally {
+			value = now;
+		}
+	}
+
 	/** Reads a stored value; anything unreadable keeps the default. */
 	public final void fromJson(JsonElement json) {
 		try {

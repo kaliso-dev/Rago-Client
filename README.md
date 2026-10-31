@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.8.7.** What it contains:
+**Current version: 1.8.8.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,15 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.8.8: **share a profile with a friend**. Hover a profile in the Rago menu and click the
+  arrow: its code (`RAGO1:…`) is copied, short enough for a Discord message, and also saved in
+  `config/rago-profiles`. Your friend copies the code and clicks the import button next to "New
+  profile": it becomes a new profile of theirs and is loaded. The code holds only what differs
+  from Rago's defaults (mods on or off, options, HUD positions); your cape, cosmetics, nick, badge,
+  skin, Discord status, Rago Network server and automatic messages stay out of it and keep the
+  importer's own settings, and the Hypixel key is never in a profile. A code too long for one
+  message can be sent as its file, put in `config/rago-profiles/import` by the friend. After an
+  import Rago says how many mods marked risky on Hypixel the profile turns on
 - new in 1.8.7: the **game debrief line** comes as the game ends for you: at your final death
   (at once, and again as a win if your team wins after it), at "VICTORY!" or at "GAME OVER!". A
   game you leave before its end (going to the lobby, a disconnection) keeps its debrief in
@@ -642,7 +651,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.8.7+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.8.8+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
