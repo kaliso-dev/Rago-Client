@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.8.5.** What it contains:
+**Current version: 1.8.6.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -461,7 +461,7 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     It has a new option key, so configs saved with it on start off too
   - **Risky on Hypixel**: an amber sign on the card and page of Hit Delay Fix, Block Edit Fix, Fast
     Shop, Auto Messages and Message hotkeys, and next to the options "Through walls" (TNT timer),
-    "Send the targets to your team" and the "suspicious gear" sniper sign; hover it for the reason.
+    "Also send it in the chat" and the "suspicious gear" sniper sign; hover it for the reason.
     A card also shows the sign when one of its risky options is on. Nothing is locked: you choose
     where you use them
   - hovering an option in a mod's page shows its explanation (written for many options, but never
@@ -499,6 +499,11 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.8.6: Bed Wars Stats' **game-start line** names, when there is nobody to target, the
+  whole team of the strongest enemy (strongest first, whatever their star or FKDR) instead of
+  "nobody". **"Also send it in the chat"** (was "Send the targets to your team", still off by
+  default) now works in every mode, solo included, and with or without targets: to your party
+  with `/pc` or to the game's general chat; the line sent is plain ASCII (accents taken off)
 - new in 1.8.5: the tab list's **server header and footer** are now shown whole, **without their
   ads** (the default) or hidden. Without ads leaves out only the lines with a web address
   (MC.HYPIXEL.NET, STORE.HYPIXEL.NET, a Discord link) and the empty lines around them, so the game's
@@ -604,7 +609,7 @@ uses Forge events.
 Rago does not include reach, velocity, auto-clickers or anything else that changes what a packet
 says. A few mods change how your inputs are handled or write in the chat for you: Hit Delay Fix,
 Block Edit Fix, Fast Shop, Message hotkeys and Auto Messages. They are off until you turn them on,
-and the menu marks them, with the TNT timer's "Through walls", "Send the targets to your team" and
+and the menu marks them, with the TNT timer's "Through walls", "Also send it in the chat" and
 the "suspicious gear" sniper sign, as **risky on Hypixel**, with the reason. Nothing is locked: you
 choose where you use them.
 
@@ -632,7 +637,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.8.5+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.8.6+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

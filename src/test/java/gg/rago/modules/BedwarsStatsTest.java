@@ -65,4 +65,25 @@ class BedwarsStatsTest {
 		String one = BedwarsStats.shareLine("/pc Target: ", Collections.singletonList(new String(new char[150]).replace('\0', 'a')));
 		assertEquals(BedwarsStats.CHAT_MAX, one.length());
 	}
+
+	private static BedwarsStats.Enemy enemy(String name, char team, double strength) {
+		return new BedwarsStats.Enemy(name, team, 'c', null, null, false, strength);
+	}
+
+	@Test
+	void withNoTargetTheStrongestPlayersWholeTeamIsListed() {
+		BedwarsStats.Enemy weak = enemy("Weak", 'R', 1e5);
+		BedwarsStats.Enemy best = enemy("Best", 'B', 3e5);
+		BedwarsStats.Enemy mate = enemy("Mate", 'B', 2e5);
+		BedwarsStats.Enemy unknown = enemy("Unknown", 'G', -1);
+		java.util.List<BedwarsStats.Enemy> team = BedwarsStats.strongestTeam(Arrays.asList(weak, mate, unknown, best));
+		assertEquals(Arrays.asList(best, mate), team, "the strongest first, their team mate after");
+		assertTrue(BedwarsStats.strongestTeam(Collections.singletonList(unknown)).isEmpty(), "no stats: no team to name");
+	}
+
+	@Test
+	void theLineSentInTheChatIsPlainAscii() {
+		assertEquals("/pc A cibler : Equipe Rouge", BedwarsStats.ascii("/pc À cibler : Équipe Rouge"));
+		assertEquals("Steve (120* 1.2)", BedwarsStats.ascii("Steve (120* 1.2)\u272b"));
+	}
 }
