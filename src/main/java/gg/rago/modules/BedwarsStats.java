@@ -2,6 +2,7 @@ package gg.rago.modules;
 
 import gg.rago.bedwars.BedwarsGame;
 import gg.rago.config.BooleanOption;
+import gg.rago.config.ChoiceOption;
 import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
@@ -63,6 +64,11 @@ public final class BedwarsStats extends Module {
 	private final IntOption strongStar = addOption(new IntOption("stats_strong_star", 300, 50, 2000));
 	private final BooleanOption alert = addOption(new BooleanOption("stats_alert", true));
 	private final BooleanOption alertSound = addOption(new BooleanOption("stats_alert_sound", true));
+	/**
+	 * The targets also sent in the chat, to your party (/pc) or the game's chat (your team's in a
+	 * team game), when teams have two players or more; off by default, as it is a message sent.
+	 */
+	private final ChoiceOption alertShare = addOption(new ChoiceOption("stats_alert_share", "off", "off", "party", "team"));
 	private final BooleanOption sniper;
 	private final BooleanOption sniperName;
 	private final BooleanOption sniperStats;
@@ -118,6 +124,7 @@ public final class BedwarsStats extends Module {
 		section(null);
 		this.api = api;
 		alertSound.showIf(alert::get);
+		alertShare.showIf(alert::get);
 	}
 
 	@Override
@@ -451,15 +458,17 @@ public final class BedwarsStats extends Module {
 		}
 		char own = BedwarsGame.ownTeam();
 		List<NetworkPlayerInfo> enemies = new ArrayList<>();
+		Map<Character, Integer> teamSizes = new HashMap<>();
 		boolean waiting = false;
 		for (NetworkPlayerInfo info : net.getPlayerInfoMap()) {
 			UUID id = info.getGameProfile().getId();
-			if (id == null || id.equals(mc.thePlayer.getUniqueID()) || Hypixel.npc(id) || !inTeam(info)
-				|| info.getGameType() == WorldSettings.GameType.SPECTATOR) {
+			if (id == null || Hypixel.npc(id) || !inTeam(info) || info.getGameType() == WorldSettings.GameType.SPECTATOR) {
 				continue;
 			}
 			ScorePlayerTeam team = info.getPlayerTeam();
-			if (own != 0 && team != null && BedwarsGame.teamLetter(team) == own) {
+			char letter = BedwarsGame.teamLetter(team);
+			teamSizes.merge(letter, 1, Integer::sum);
+			if (id.equals(mc.thePlayer.getUniqueID()) || own != 0 && letter == own) {
 				continue;
 			}
 			enemies.add(info);
@@ -490,6 +499,7 @@ public final class BedwarsStats extends Module {
 			(ticks - startedAt) * 50, enemies.size(), waiting ? ", some stats still on their way" : "");
 		// only the enemies to target (the star or FKDR settings, 300 or 5 by default), strongest first
 		List<Object[]> targets = new ArrayList<>();
+		List<Object[]> shared = new ArrayList<>();
 		for (NetworkPlayerInfo info : enemies) {
 			UUID id = info.getGameProfile().getId();
 			String name = info.getGameProfile().getName();
@@ -501,10 +511,14 @@ public final class BedwarsStats extends Module {
 			if (s != null && strong(s)) {
 				ScorePlayerTeam team = info.getPlayerTeam();
 				char color = team == null ? 0 : BedwarsGame.teamColor(team);
-				targets.add(new Object[] {strength(s, false, why != null, true), targetEntry(name, color == 0 ? "§f" : "§" + color, s, why)});
+				double strength = strength(s, false, why != null, true);
+				targets.add(new Object[] {strength, targetEntry(name, color == 0 ? "§f" : "§" + color, s, why)});
+				String teamWord = color == 0 ? "" : I18n.format("rago.team." + color) + " ";
+				shared.add(new Object[] {strength, name + " (" + teamWord + Math.max(s.star, 0) + "* " + Danger.ratio(s.fkdr()) + ")"});
 			}
 		}
 		targets.sort((a, b) -> Double.compare((Double) b[0], (Double) a[0]));
+		shared.sort((a, b) -> Double.compare((Double) b[0], (Double) a[0]));
 		StringBuilder line = new StringBuilder("§c§lRago §8» §f").append(I18n.format("rago.stats.alert_targets")).append(' ');
 		if (targets.isEmpty()) {
 			line.append("§a").append(I18n.format("rago.stats.alert_no_target", strongStar.get(), strongFkdr.get()));
@@ -516,6 +530,44 @@ public final class BedwarsStats extends Module {
 		if (!targets.isEmpty()) {
 			ping(mc);
 		}
+		// to the team too, in modes of two or more a team (doubles, 3s, 4s, 4v4, Dream modes)
+		int biggest = 0;
+		for (int n : teamSizes.values()) {
+			biggest = Math.max(biggest, n);
+		}
+		if (!shared.isEmpty() && !alertShare.is("off") && biggest >= 2) {
+			List<String> entries = new ArrayList<>();
+			for (Object[] t : shared) {
+				entries.add((String) t[1]);
+			}
+			String message = shareLine((alertShare.is("party") ? "/pc " : "") + I18n.format("rago.stats.alert_targets") + " ", entries);
+			RagoClient.LOG.info("Bed Wars Stats: targets sent to the {}: \"{}\"", alertShare.get(), message);
+			mc.thePlayer.sendChatMessage(message);
+		}
+	}
+
+	/** Longest chat message the server takes. */
+	static final int CHAT_MAX = 100;
+
+	/**
+	 * The targets as one chat message of {@value #CHAT_MAX} characters at most, without colours (a
+	 * server refuses them): as many entries as fit, then "+2" for those left out.
+	 */
+	static String shareLine(String start, List<String> entries) {
+		StringBuilder b = new StringBuilder(start);
+		for (int i = 0; i < entries.size(); i++) {
+			String entry = (i == 0 ? "" : ", ") + entries.get(i);
+			int left = entries.size() - i - 1;
+			String more = left > 0 ? " +" + left : "";
+			if (b.length() + entry.length() + more.length() > CHAT_MAX) {
+				if (i == 0) {
+					return b.append(entry, 0, Math.max(0, CHAT_MAX - b.length())).toString();
+				}
+				return b.append(" +").append(entries.size() - i).toString();
+			}
+			b.append(entry);
+		}
+		return b.toString();
 	}
 
 	/**

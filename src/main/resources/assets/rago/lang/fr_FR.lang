@@ -624,7 +624,7 @@ rago.module.pack_display.desc=Le pack de ressources que tu utilises : son logo e
 
 # 1.2: tab list
 rago.module.tab_list=Tab
-rago.module.tab_list.desc=Transparence du tab, en-tête et pied du serveur, ombre du texte et taille.
+rago.module.tab_list.desc=Transparence du tab, en-tête et pied du serveur, ombre du texte, taille et bots Hypixel masqués.
 rago.option.tab_background=Opacité du fond
 rago.option.tab_background.format=%d%%
 rago.option.tab_rows=Opacité des lignes
@@ -633,6 +633,8 @@ rago.option.tab_header=En-tête du serveur
 rago.option.tab_footer=Pied du serveur
 rago.option.tab_scale=Taille
 rago.option.tab_scale.format=%d%%
+rago.option.tab_hide_bots=Masquer les bots Hypixel
+rago.option.tab_hide_bots.help=Retire du tab les PNJ qu'Hypixel y met avec des pseudos inventés, comme les marchands en Bed Wars.
 
 # 1.2: colour grading
 rago.module.color_grading=Saturation et couleurs
@@ -792,6 +794,10 @@ rago.option.gen_soon.format=%ds
 rago.option.gen_soon_color=Couleur du surlignage
 rago.module.item_physics=Item Physics
 rago.module.item_physics.desc=Les items au sol sont posés par terre au lieu de flotter et tourner : les items plats sont à plat, les blocs posés au sol, et ils tournoient en tombant.
+rago.module.items_3d=Objets 3D
+rago.module.items_3d.desc=Échelles en 3D sans resource pack : montants et barreaux qui dépassent du mur, faits à partir de la texture d'échelle de ton pack. Ne change que leur apparence ; l'activer ou le désactiver recharge les ressources une fois.
+rago.option.items_3d_ladder=Échelles 3D
+rago.option.items_3d_ladder.help=Faites à partir de la texture d'échelle utilisée : ses colonnes pleines sur toute la hauteur deviennent les montants, ses lignes entre les deux les barreaux. Un pack qui a son propre modèle d'échelle le garde.
 rago.option.physics_tumble=Tournoyer en tombant
 rago.option.physics_tumble_speed=Vitesse de rotation
 rago.option.physics_tumble_speed.format=%d%%
@@ -872,20 +878,24 @@ rago.option.stats_nicks=Signaler les joueurs nick
 rago.option.stats_alert=Alerte en début de partie
 rago.option.stats_alert_sound=Son de l'alerte
 rago.option.stats_alert.help=Le tier de danger est propre à Rago : le FKDR compte le plus, puis l'étoile. D pour un débutant, S pour un joueur à gérer en premier.
+rago.option.stats_alert_share=Envoyer les cibles à ton équipe
+rago.option.stats_alert_share.off=Non
+rago.option.stats_alert_share.party=Party (/pc)
+rago.option.stats_alert_share.team=Chat de la game
+rago.option.stats_alert_share.help=Dans les modes à deux ou plus par équipe (doubles, 3v3v3v3, 4v4v4v4, 4v4, modes Dream), la ligne « À cibler » part aussi dans le chat, une fois par game et seulement s'il y a des cibles : à ta party avec /pc, ou dans le chat de la game, qu'Hypixel n'envoie qu'à ton équipe en mode équipe. Sans couleurs, 100 caractères au plus.
 rago.stats.no_key=[Rago] Stats Bed Wars a besoin de ta clé API Hypixel : crée-la sur developer.hypixel.net, puis colle-la dans les réglages du mod (Shift droit) ou tape /rago hypixelkey <clé>
 rago.stats.alert_targets=À cibler :
 rago.stats.alert_no_target=personne (%s✫ ou %s FKDR et plus)
 rago.module.trap_notifier=Trap Notifier
-rago.module.trap_notifier.desc=Hypixel Bed Wars : un son et un message quand un de tes pièges se déclenche, et un rappel quand ton équipe n'a plus de piège.
+rago.module.trap_notifier.desc=Hypixel Bed Wars : un son et un message quand un de tes pièges se déclenche, et un rappel quand ton équipe n'a pas de piège alors que tu as un diamant pour en acheter un.
 rago.option.trap_triggered=Alerte quand un piège se déclenche
-rago.option.trap_empty=Rappel quand il n'y a plus de piège
-rago.option.trap_empty_after=Rappel après
-rago.option.trap_empty_after.format=%ds
+rago.option.trap_empty=Rappel quand tu peux acheter un piège
+rago.option.trap_empty.help=Quand ton équipe n'a pas de piège et que tu gardes un diamant sur toi une seconde (le premier piège en coûte un) : plus de rappel en début de game, quand personne n'a encore de diamant.
 rago.option.trap_repeat=Puis toutes les
 rago.option.trap_repeat.format=%ds
 rago.option.trap_repeat.help=0 ne rappelle qu'une fois jusqu'au prochain piège.
 rago.option.trap_sound=Son
-rago.trap.none=Ton équipe n'a plus de piège : achètes-en un au shop des améliorations.
+rago.trap.none=Ton équipe n'a pas de piège et tu as %d diamant(s) sur toi : achètes-en un au shop des améliorations.
 rago.trap.triggered=Un de tes pièges s'est déclenché : un ennemi est dans ta base !
 
 # 1.4: action sounds

@@ -80,6 +80,18 @@ final class RagoCommand extends CommandBase {
 			gg.rago.debug.FakeBedwars.game(args.length > 1 ? Integer.parseInt(args[1]) : 12);
 			return;
 		}
+		if (args[0].equalsIgnoreCase("testmod") && args.length >= 3 && gg.rago.debug.FakeBedwars.ON) {
+			// "testmod <module> on|off" as its switch in the menu; "testmod <module> <option> <value>" sets an option
+			RagoClient.modules().get(args[1]).ifPresent(m -> {
+				if (args.length == 3) {
+					m.setEnabled(args[2].equalsIgnoreCase("on"));
+					return;
+				}
+				m.options().stream().filter(o -> o.key().equals(args[2])).findFirst()
+					.ifPresent(o -> o.fromJson(new com.google.gson.JsonParser().parse(args[3])));
+			});
+			return;
+		}
 		if (args[0].equalsIgnoreCase("testbw") && gg.rago.debug.FakeBedwars.ON) {
 			gg.rago.debug.FakeBedwars.start(args.length > 1 ? Integer.parseInt(args[1]) : 337);
 			return;

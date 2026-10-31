@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.5.7.** What it contains:
+**Current version: 1.5.8.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -270,7 +270,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     (Rago's own formula: FKDR first, then star), nicked players marked, and a chat alert listing the
     most dangerous enemies when a game starts; needs your Hypixel API key
   - Trap Notifier: a sound and a chat line (no title) when one of your traps goes off, and a reminder
-    when your team has had no trap for a while
+    when your team has no trap while you carry a diamond to buy one (since 1.5.8; before, it came
+    30 s into every game, when nobody can buy a trap yet)
   - Action Sounds: your own sounds for hitting a player (once the server confirms the hit), getting
     hit and breaking a block: seven sounds made by `tools/sounds.py`, satisfying 1.8 sounds (arrow
     ding, XP orb, item pop), or the attack sounds of recent versions, read from your own Minecraft
@@ -363,6 +364,20 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     three seconds at the earliest; it waits 10 s at most for stats (15 before), and does not wait
     when Hypixel is out of reach. In our test with the 11 players' stats not in yet, it came 1 s
     after the start
+  - Bed Wars Stats: **Send the targets to your team** (off by default): in modes of two or more
+    a team (doubles, 3s, 4s, 4v4, Dream modes), the Target line also goes in the chat once a game,
+    when there are targets: to your party with `/pc`, or to the game's chat (your team's in team
+    modes). Without colours and cut to 100 characters, the most a chat message takes ("+1" for
+    the targets left out)
+  - Tab List: **Hide Hypixel bots** (on by default). The NPCs Hypixel lists in the tab with
+    made-up names, such as shopkeepers with a skin ("38qx60s71a"), are left out: version 2 ids,
+    or in a game an entry with no team and a name of ten lower-case letters and digits. No stats
+    were ever asked for them, and none are
+  - **3D Items** (new, off by default): ladders in 3D without a resource pack. The model is worked
+    out from the ladder texture in use, whatever pack it comes from: its full-height columns become
+    rails standing 2/16 off the wall (the depth of the ladder's hitbox), its rows between them
+    rungs. A pack with a ladder model of its own keeps it. Only how ladders look changes; turning it
+    on or off reloads the resources once
   - 1.7 animations: **Instant item switch** (off by default; it was on in 1.5.4 to 1.5.6 and is
     now a new setting, so it starts off again). Changing hotbar slot shows the new item in your
     hand at once, instead of lowering the old one and raising the new one (about 270 ms in our
@@ -377,7 +392,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     lines when the screen is too narrow for it
   - developer tools: `-Drago.bench.sample=<seconds>` logs where the render thread spends its time,
     and the frame profile has a line for drawing the other players; `/rago testgame [n]` fills the
-    test game's tab list with players in four teams
+    test game's tab list with players in four teams and two bots; `/rago testmod <mod> on|off` or
+    `/rago testmod <mod> <option> <value>` (test game only) switches mods and options
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -437,7 +453,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.5.7+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.5.8+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

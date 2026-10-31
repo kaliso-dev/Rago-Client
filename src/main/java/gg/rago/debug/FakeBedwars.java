@@ -13,7 +13,7 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
  * for Hypixel, {@code /rago testbw [seconds]} draws a Bed Wars sidebar on your screen (two teams
  * and "Diamond II in m:ss", counting down) so the Bed Wars HUDs can be tried without a server, and
  * {@code /rago testplayers [n]} puts other players around you to measure name tags and hitboxes,
- * and {@code /rago testgame [n]} fills the tab list with players in four teams.
+ * and {@code /rago testgame [n]} fills the tab list with players in four teams and two bots.
  */
 public final class FakeBedwars {
 	public static final boolean ON = Boolean.getBoolean("rago.test.hypixel");
@@ -105,6 +105,11 @@ public final class FakeBedwars {
 			players.put(id, new net.minecraft.client.network.NetworkPlayerInfo(new com.mojang.authlib.GameProfile(id, name)));
 			join(board, name, teams[i % teams.length]);
 		}
+		// two of Hypixel's bots, with no team: a version 2 id, and a name like theirs
+		java.util.UUID npc = new java.util.UUID(random.nextLong() & ~0xF000L | 0x2000L, random.nextLong() & 0x3FFFFFFFFFFFFFFFL | 0x8000000000000000L);
+		players.put(npc, new net.minecraft.client.network.NetworkPlayerInfo(new com.mojang.authlib.GameProfile(npc, "38qx60s71a")));
+		java.util.UUID other = java.util.UUID.randomUUID();
+		players.put(other, new net.minecraft.client.network.NetworkPlayerInfo(new com.mojang.authlib.GameProfile(other, "b5jxhjk15i")));
 	}
 
 	private static void join(Scoreboard board, String player, String[] t) {

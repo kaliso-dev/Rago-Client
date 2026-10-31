@@ -73,6 +73,7 @@ final class ModuleInfo {
 		ICONS.put("item_counter", "apple");
 		ICONS.put("gen_timers", "timer");
 		ICONS.put("item_physics", "package");
+		ICONS.put("items_3d", "box");
 		ICONS.put("bedwars_stats", "trophy");
 		ICONS.put("bedwars_quests", "list-checks");
 		ICONS.put("trap_notifier", "bell");

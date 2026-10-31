@@ -449,10 +449,15 @@ public final class Hooks {
 		return f != null && f.isEnabled() ? f.resourcePackUrl(url) : url;
 	}
 
-	/** GuiPlayerTabOverlay.renderPlayerlist, the players in vanilla's order: strongest first with Bed Wars Stats. */
+	/**
+	 * GuiPlayerTabOverlay.renderPlayerlist, the players in vanilla's order: without Hypixel's bots
+	 * (Tab List), then strongest first with Bed Wars Stats.
+	 */
 	public static java.util.List<NetworkPlayerInfo> tabOrder(java.util.List<NetworkPlayerInfo> vanilla) {
+		TabList t = tabList;
+		java.util.List<NetworkPlayerInfo> list = t != null && t.isEnabled() ? t.withoutBots(vanilla) : vanilla;
 		BedwarsStats s = bedwarsStats;
-		return s != null && s.isEnabled() ? s.tabOrder(vanilla) : vanilla;
+		return s != null && s.isEnabled() ? s.tabOrder(list) : list;
 	}
 
 	/** GuiPlayerTabOverlay.getPlayerName: Bed Wars star and ratio around the name. */

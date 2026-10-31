@@ -13,6 +13,7 @@ import gg.rago.optimize.PlayPreset;
 import gg.rago.optimize.Optimizations;
 import gg.rago.optimize.PerformancePreset;
 import gg.rago.optimize.VideoRows;
+import gg.rago.render.Pack3D;
 import gg.rago.profile.ModProfiles;
 import gg.rago.settings.Setting;
 import gg.rago.settings.Settings;
@@ -74,6 +75,7 @@ import gg.rago.modules.HideAchievements;
 import gg.rago.modules.Hitboxes;
 import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
+import gg.rago.modules.Items3D;
 import gg.rago.modules.ItemScale;
 import gg.rago.modules.TntTimer;
 import gg.rago.modules.LowLatency;
@@ -215,6 +217,7 @@ public final class RagoClient {
 		configDir = event.getModConfigurationDirectory().toPath();
 		// before the first resource load, so recent sounds need no reload
 		ModernSounds.install();
+		Pack3D.install();
 	}
 
 	@Mod.EventHandler
@@ -254,6 +257,7 @@ public final class RagoClient {
 		Hooks.hitParticles = MODULES.register(new HitParticles());
 		Hooks.itemScale = MODULES.register(new ItemScale());
 		Hooks.itemPhysics = MODULES.register(new ItemPhysics());
+		MODULES.register(new Items3D());
 		MODULES.register(new TntTimer());
 		TabPing tabPing = MODULES.register(new TabPing());
 		Hooks.tabList = MODULES.register(new TabList());
