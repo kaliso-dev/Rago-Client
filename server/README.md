@@ -56,7 +56,7 @@ Copy `config.example.json` to `config.json` and edit it:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `host`, `port` | `0.0.0.0`, `8080` | where to listen |
+| `host`, `port` | `0.0.0.0`, `8080` | where to listen (the `PORT` environment variable, set by hosts such as Render, wins over `port`) |
 | `trust_proxy` | `false` | use `X-Forwarded-For` from the reverse proxy for rate limits |
 | `database` | `rago-network.db` | SQLite file |
 | `cosmetics` | | path to `cosmetics.json` |
@@ -98,3 +98,33 @@ network.example.com {
 ```
 
 Then set the server's address in the client (Settings, Rago Network).
+
+## Free hosting (Render)
+
+[`render.yaml`](../render.yaml) at the root of the repository describes the server for Render's
+free plan, so it takes a few clicks and no command line:
+
+1. Sign in on [render.com](https://render.com) with GitHub and allow it to read this repository.
+2. **New > Blueprint**, pick this repository and the branch that has `server/`, then **Apply**.
+   Render builds the Dockerfile and gives the server an address like
+   `https://rago-network-xxxx.onrender.com` (HTTPS included).
+3. Open `https://<that address>/v1/health`: it answers `{"ok": true}`.
+4. Put the address in the client: the Rago Network mod, option "Server".
+
+What the free plan means here:
+
+- The server sleeps after 15 minutes without a request and takes about a minute to wake. The
+  client gives up after 5 seconds and tries again 30 seconds later, so the first player after a
+  quiet time gets the Rago logos and cosmetics a little later; nothing else changes. While someone
+  plays, their presence every minute keeps it awake.
+- 750 free instance hours a month per Render workspace, enough for one service all month; past
+  them Render suspends the workspace's free services until the next month.
+- The disk is not kept: when the server sleeps, restarts or is redeployed, the database starts
+  empty. Players sign in again on their own (the client does it on the 401), their cosmetics come
+  back with their next presence (every minute) and roles given in `role_names` come back when
+  those players sign in. Roles given with the `role` command are lost: put them in `role_names`
+  (or `roles`) in `config.example.json`, which the Docker image uses as its config.
+- `PORT`, which Render sets, wins over `port` in the config.
+
+When Rago has many players, the same Docker image runs on any small server with a disk (see
+"Running it" above), and only the address in the client changes.

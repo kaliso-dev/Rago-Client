@@ -22,8 +22,9 @@ def main():
         changed = network.store.set_role(dashed(undashed(args.command[1])), args.command[2])
         print("updated" if changed else "no such player (they have to sign in once first)")
         return
-    server = serve(network, config.get("host", "0.0.0.0"), int(config.get("port", 8080)),
-                   bool(config.get("trust_proxy", False)))
+    # hosts such as Render or Koyeb say which port to listen on in PORT
+    port = int(os.environ.get("PORT") or config.get("port", 8080))
+    server = serve(network, config.get("host", "0.0.0.0"), port, bool(config.get("trust_proxy", False)))
     print(f"Rago Network on {server.server_address[0]}:{server.server_address[1]}")
     server.serve_forever()
 

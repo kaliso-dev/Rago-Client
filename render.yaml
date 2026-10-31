@@ -1,0 +1,15 @@
+# Render Blueprint for the Rago Network server (server/), on Render's free plan.
+# On render.com: New > Blueprint > this repository > Apply. See server/README.md, "Free hosting".
+services:
+  - type: web
+    name: rago-network
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    healthCheckPath: /v1/health
+    # only changes to the server redeploy it
+    buildFilter:
+      paths:
+        - server/**
