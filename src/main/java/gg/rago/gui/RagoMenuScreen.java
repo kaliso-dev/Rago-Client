@@ -514,6 +514,17 @@ public final class RagoMenuScreen extends GuiScreen {
 		Ui.icon(ModuleInfo.icon(m), x + (w - is) / 2, y - lift + topH / 2 - is / 2 - 10, is, iconColor);
 		String name = fit(Ui.REGULAR, t(m.nameKey()), fourColumns ? 11.5f : 13, w - 12);
 		Ui.textCentered(Ui.REGULAR, name, x + w / 2, y - lift + topH / 2 + 14, fourColumns ? 11.5f : 13, Ui.mix(0xFFB4B2B9, Theme.TEXT, on));
+		Option<?> riskyOption = ModuleInfo.risky(m) ? null : ModuleInfo.riskyOptionOn(m);
+		if (ModuleInfo.risky(m) || riskyOption != null) {
+			// risky on Hypixel: a warning, never a lock
+			float bx = x + w - 22;
+			float by = y - lift + 6;
+			Ui.icon("triangle-alert", bx + 4, by + 4, 11, Theme.WARNING);
+			if (inside && Ui.hover(bx, by, 19, 19)) {
+				tooltip = riskyOption == null ? t("rago.risk.tooltip", t(ModuleInfo.riskKey(m.id())))
+					: t("rago.risk.tooltip_option", t("rago.option." + riskyOption.key()), t(ModuleInfo.riskKey(riskyOption.key())));
+			}
+		}
 		if (inside) {
 			Ui.click(x, y, w, topH, () -> m.setEnabled(!m.isEnabled()));
 		}
@@ -578,6 +589,9 @@ public final class RagoMenuScreen extends GuiScreen {
 			cy += 14;
 		}
 		cy += 8;
+		if (ModuleInfo.risky(m)) {
+			cy = riskBox(t(ModuleInfo.riskKey(m.id())), x, cy, w - 8) + 10;
+		}
 		if (ModuleInfo.usesHypixelKey(m)) {
 			cy = hypixelKey(x, cy, w - 8, inside) + 10;
 		}
@@ -645,6 +659,22 @@ public final class RagoMenuScreen extends GuiScreen {
 		float total = cy + sc - top;
 		setBody(x, top, w, area, total);
 		scrollbar(x + w - 3, top, area, total, sc);
+	}
+
+	/** Why a mod is risky on Hypixel, and that Rago leaves the choice to the player. */
+	private static float riskBox(String reason, float x, float y, float w) {
+		List<String> lines = Ui.wrap(Ui.REGULAR, reason + " " + t("rago.risk.note"), 9, w - 46);
+		float h = 30 + lines.size() * 12;
+		Ui.round(x, y, w, h, 8, Ui.alpha(Theme.WARNING, 0.07f));
+		Ui.outline(x, y, w, h, 8, Ui.alpha(Theme.WARNING, 0.38f));
+		Ui.icon("triangle-alert", x + 12, y + 10, 14, Theme.WARNING);
+		Ui.text(Ui.MEDIUM, t("rago.risk.title"), x + 34, y + 9, 10, Theme.WARNING);
+		float ly = y + 24;
+		for (String line : lines) {
+			Ui.text(Ui.REGULAR, line, x + 34, ly, 9, 0xFFD4D2D9);
+			ly += 12;
+		}
+		return y + h;
 	}
 
 	/** The Hypixel API key: where it stands, a field to paste a new one, and where to get one. */
@@ -819,8 +849,25 @@ public final class RagoMenuScreen extends GuiScreen {
 	private float optionRow(Option<?> option, float x, float y, float w, boolean inside) {
 		boolean editing = option == editingColor;
 		rowFrame(x, y, w, editing ? 30 + COLOR_EDITOR_H : 30);
-		String label = fit(Ui.REGULAR, t("rago.option." + option.key()), 10.5f, w * 0.45f);
+		boolean risky = ModuleInfo.risky(option);
+		String label = fit(Ui.REGULAR, t("rago.option." + option.key()), 10.5f, w * 0.45f - (risky ? 16 : 0));
 		Ui.text(Ui.REGULAR, label, x + 12, y + (30 - 10.5f * 1.21f) / 2, 10.5f, Theme.TEXT);
+		float labelEnd = x + 12 + Ui.textWidth(Ui.REGULAR, label, 10.5f);
+		if (risky) {
+			Ui.icon("triangle-alert", labelEnd + 6, y + 9.5f, 11, Theme.WARNING);
+			labelEnd += 17;
+		}
+		if (inside && dragging == null && editingText == null && Ui.hover(x, y, Math.max(labelEnd - x + 8, w * 0.4f), 30)) {
+			String help = "rago.option." + option.key() + ".help";
+			String text = has(help) ? t(help) : null;
+			if (risky) {
+				String warning = t("rago.risk.tooltip", t(ModuleInfo.riskKey(option.key())));
+				text = text == null ? warning : warning + " " + text;
+			}
+			if (text != null) {
+				tooltip = text;
+			}
+		}
 		float right = x + w - 12;
 		if (option instanceof BooleanOption) {
 			BooleanOption b = (BooleanOption) option;
@@ -1379,6 +1426,9 @@ public final class RagoMenuScreen extends GuiScreen {
 		float bh = lines.size() * 13 + 10;
 		float x = Math.min(Ui.mouseX() + 12, w - bw - 6);
 		float y = Ui.mouseY() + 14;
+		if (y + bh > Ui.height() - 6) {
+			y = Math.max(6, Ui.mouseY() - bh - 6);
+		}
 		Ui.glassBorder(x, y, bw, bh, 6, 0xF7151417, 0x2EFFFFFF);
 		float ly = y + 5;
 		for (String l : lines) {

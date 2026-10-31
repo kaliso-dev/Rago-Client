@@ -93,6 +93,7 @@ import gg.rago.modules.NoPumpkin;
 import gg.rago.modules.NoWaterOverlay;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.RagoNetwork;
 import gg.rago.modules.RawInput;
 import gg.rago.modules.Screenshots;
 import gg.rago.modules.SkinChanger;
@@ -190,6 +191,7 @@ public final class RagoClient {
 	private static BooleanOption glassEffect;
 	private static BooleanOption menuVideo;
 	private static BooleanOption hudInDebug;
+	private static BooleanOption chatCopy;
 	private static ConfigStore config;
 	private static Path configDir;
 	private static HypixelApi hypixel;
@@ -299,7 +301,8 @@ public final class RagoClient {
 		MODULES.register(new ColorGrading());
 		MODULES.register(new Vignette());
 		RagoCape cape = MODULES.register(new RagoCape());
-		MODULES.register(new Cosmetics());
+		Hooks.cosmetics = MODULES.register(new Cosmetics());
+		Hooks.network = MODULES.register(new RagoNetwork());
 		SkinChanger skinChanger = MODULES.register(new SkinChanger());
 		NickHider nickHider = MODULES.register(new NickHider());
 		GlintColor glint = MODULES.register(new GlintColor());
@@ -362,6 +365,7 @@ public final class RagoClient {
 			MinecraftForge.EVENT_BUS.register(bench);
 		}
 		MinecraftForge.EVENT_BUS.register(optimizations);
+		MinecraftForge.EVENT_BUS.register(new gg.rago.chat.ChatCopy(chatCopy::get));
 		MinecraftForge.EVENT_BUS.register(new gg.rago.debug.InputTrace());
 		gg.rago.debug.StackSampler.startIfAsked();
 		if (FrameProfile.ON) {
@@ -480,6 +484,7 @@ public final class RagoClient {
 			"rago.value.rago", "rago.value.vanilla");
 		hudInDebug = SETTINGS.bool(g, "rago.section.hud", "hud_in_debug", false, null);
 		SETTINGS.toggle(g, "rago.section.hud", "hud_visible", () -> overlayVisible, v -> overlayVisible = v);
+		chatCopy = SETTINGS.bool(g, "rago.section.chat", "chat_copy", true, null);
 		SETTINGS.toggle(g, "rago.section.competitive", "competitive_profile", () -> profile.isEnabled(), v -> profile.setEnabled(v));
 		SETTINGS.button(g, "rago.section.competitive", "edit_hud", () -> {
 			Minecraft mc = Minecraft.getMinecraft();

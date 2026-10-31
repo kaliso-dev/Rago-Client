@@ -37,12 +37,12 @@ class FixAndPvpModulesTest {
 			new BlockOverlay(), new TabPing(), new Chat(), nametags, new LevelHead(new HypixelApi(dir), nametags),
 			new ClockHud(), new MemoryHud(), new ScoreboardHud(), new GameplayFixes(), new HitColor(),
 			new MotionBlur(new Zoom(null)), new GlintColor(), new HeightLimitHud(dir), new BlockCounterHud(), new DirectionHud(),
-			new PackDisplayHud(), new Vignette());
+			new PackDisplayHud(), new Vignette(), new Cosmetics());
 	}
 
-	/** Modules that are on from the start and change nothing anyone else sees. */
+	/** Modules that are on from the start and change nothing in the game (Rago Network sends nothing without a server set). */
 	private List<Module> onByDefault() {
-		return Arrays.asList(new RagoCape());
+		return Arrays.asList(new RagoCape(), new RagoNetwork());
 	}
 
 	/** Every new module has a name, a description and a label for each option, in both languages. */

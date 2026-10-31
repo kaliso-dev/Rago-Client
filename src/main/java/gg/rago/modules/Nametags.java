@@ -229,8 +229,8 @@ public final class Nametags extends Module implements Styled {
 			top += lineHeight();
 		}
 		RagoBadge badge = gg.rago.hooks.Hooks.ragoBadge;
-		boolean logo = p == mc.thePlayer && badge != null && badge.onNametag();
-		label(name, x, top, z, 0, throughWalls.get(), 0xFF, logo ? badge : null);
+		int logo = badge != null && badge.onNametag() ? badge.logoColor(p.getUniqueID()) : 0;
+		label(name, x, top, z, 0, throughWalls.get(), 0xFF, logo);
 	}
 
 	/** A player's name as the game shows it, what it was made from, and the tick it was made. */
@@ -287,18 +287,20 @@ public final class Nametags extends Module implements Styled {
 	 * all together after the world (see {@link LabelBatch}).
 	 */
 	public void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha) {
-		label(text, x, anchorY, z, drop, seeThrough, alpha, null);
+		label(text, x, anchorY, z, drop, seeThrough, alpha, 0);
 	}
 
-	/** {@link #label}, with the Rago logo before the text when {@code logo} is given. */
-	private void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha, RagoBadge logo) {
+	/** {@link #label}, with the Rago logo before the text in colour {@code logo} (none for 0). */
+	private void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha, int logo) {
 		String shown = colorMode.is("custom") ? TtfFont.strip(text) : text;
 		int color = colorMode.is("custom") ? nameColor.get() : 0xFFFFFFFF;
 		float s = WorldDraw.LABEL_SCALE * scale.get() / 100f;
 		int pad = background.get() ? PADDING : 0;
 		TtfFont ttf = HudText.ttf(font.get());
 		float em = HudText.em(font.get());
-		float logoW = logo != null ? RagoBadge.LOGO_SIZE + 2 : 0;
+		RagoBadge badge = logo != 0 ? gg.rago.hooks.Hooks.ragoBadge : null;
+		int logoTexture = badge != null ? badge.texture() : 0;
+		float logoW = logoTexture != 0 ? RagoBadge.LOGO_SIZE + 2 : 0;
 		float w = LabelBatch.width(ttf, em, WORLD_SHARPNESS, shown) + logoW;
 		float half = w / 2f;
 		// keep the bottom of the text where vanilla's is, so a bigger tag grows upwards, away from the head
@@ -328,10 +330,9 @@ public final class Nametags extends Module implements Styled {
 			ok = batch.text(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, ttf, em, WORLD_SHARPNESS, shown, tx, 0,
 				a << 24 | color & 0xFFFFFF, shadow.get());
 		}
-		int logoTexture = logo != null ? logo.texture() : 0;
 		if (ok && logoTexture != 0) {
 			batch.image(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, logoTexture, -half, -0.5f, RagoBadge.LOGO_SIZE, RagoBadge.LOGO_SIZE,
-				logo.color());
+				logo);
 		}
 		if (!ok) {
 			// characters outside the Minecraft font's ASCII page (or the Unicode font): vanilla draws it

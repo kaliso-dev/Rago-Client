@@ -24,6 +24,8 @@ public final class Theme {
 	public static final int GREEN = 0xFF34D399;
 	public static final int BLUE = 0xFF60A5FA;
 	public static final int YELLOW = 0xFFFACC15;
+	/** Warnings that do not block anything ("risky on Hypixel"). */
+	public static final int WARNING = 0xFFFBBF24;
 	public static final int SWITCH_OFF = 0xFF3A383E;
 	public static final int KNOB_OFF = 0xFFC9C8CD;
 

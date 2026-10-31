@@ -672,7 +672,7 @@ public final class Ui {
 	public static List<String> wrap(TtfFont font, String text, float size, float maxWidth) {
 		List<String> lines = new ArrayList<>();
 		StringBuilder line = new StringBuilder();
-		for (String word : text.split(" ")) {
+		for (String word : words(text)) {
 			String candidate = line.length() == 0 ? word : line + " " + word;
 			if (line.length() > 0 && textWidth(font, candidate, size) > maxWidth) {
 				lines.add(line.toString());
@@ -685,6 +685,26 @@ public final class Ui {
 			lines.add(line.toString());
 		}
 		return lines;
+	}
+
+	/**
+	 * The words of {@code text}, with French spaced punctuation kept on the word it belongs to, so
+	 * that no line starts with ":" or "»" and none ends with "«".
+	 */
+	static List<String> words(String text) {
+		String[] raw = text.split(" ");
+		List<String> words = new ArrayList<>();
+		for (int i = 0; i < raw.length; i++) {
+			String w = raw[i];
+			if (!words.isEmpty() && !w.isEmpty() && (w.length() == 1 && ":;!?".indexOf(w.charAt(0)) >= 0 || w.charAt(0) == '\u00bb')) {
+				words.set(words.size() - 1, words.get(words.size() - 1) + " " + w);
+			} else if (w.equals("\u00ab") && i + 1 < raw.length) {
+				words.add(w + " " + raw[++i]);
+			} else {
+				words.add(w);
+			}
+		}
+		return words;
 	}
 
 	// ---- clipping -------------------------------------------------------------------------------

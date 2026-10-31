@@ -1,6 +1,7 @@
 package gg.rago.hooks;
 
 import gg.rago.modules.Chat;
+import gg.rago.modules.Cosmetics;
 import gg.rago.modules.Emotes;
 import gg.rago.modules.FastShop;
 import gg.rago.modules.GameplayFixes;
@@ -20,6 +21,7 @@ import gg.rago.modules.RagoBadge;
 import gg.rago.modules.AntiArmor;
 import gg.rago.modules.ClientFixes;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.RagoNetwork;
 import gg.rago.modules.Screenshots;
 import gg.rago.modules.SkinChanger;
 import gg.rago.modules.TabList;
@@ -82,6 +84,8 @@ public final class Hooks {
 	public static volatile AntiArmor antiArmor;
 	public static volatile TitleMod titles;
 	public static volatile LowLatency lowLatency;
+	public static volatile RagoNetwork network;
+	public static volatile Cosmetics cosmetics;
 
 	/** Minecraft.runGameLoop, first thing: waits for the graphics card when Low Latency is on. */
 	public static void frameStart() {
@@ -527,7 +531,7 @@ public final class Hooks {
 	/** AbstractClientPlayer.getLocationCape: the Rago cape for players who wear it. */
 	public static ResourceLocation cape(ResourceLocation vanilla, AbstractClientPlayer player) {
 		RagoCape c = cape;
-		return c != null && c.isEnabled() ? c.capeFor(player, vanilla) : vanilla;
+		return c != null ? c.capeFor(player, vanilla) : vanilla;
 	}
 
 	/** RenderItem.renderEffect: the colour of the glint on items (vanilla -8372020, purple). */

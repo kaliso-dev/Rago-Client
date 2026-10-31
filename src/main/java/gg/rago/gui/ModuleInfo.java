@@ -1,5 +1,8 @@
 package gg.rago.gui;
 
+import gg.rago.config.BooleanOption;
+import gg.rago.config.ChoiceOption;
+import gg.rago.config.Option;
 import gg.rago.core.Module;
 
 import java.util.Arrays;
@@ -12,6 +15,14 @@ import java.util.Set;
 final class ModuleInfo {
 	private static final Map<String, String> ICONS = new HashMap<>();
 	private static final Set<String> HYPIXEL_KEY = new HashSet<>(Arrays.asList("level_head", "bedwars_stats", "bedwars_quests"));
+	/**
+	 * Mods and options that Hypixel's rules may punish (automation, macros, what the client sends,
+	 * seeing through blocks, other players' armour). They only get a warning: nothing is locked, the
+	 * player chooses where to use them. Each has its reason under {@code rago.risk.<id>}.
+	 */
+	static final Set<String> RISKY_MODULES = new HashSet<>(Arrays.asList("hit_delay_fix", "block_edit_fix", "fast_shop",
+		"auto_messages", "auto_text"));
+	static final Set<String> RISKY_OPTIONS = new HashSet<>(Arrays.asList("tnt_see_through_walls", "stats_alert_share", "sniper_gear"));
 
 	static {
 		ICONS.put("fps", "gauge");
@@ -93,6 +104,7 @@ final class ModuleInfo {
 		ICONS.put("title_mod", "type");
 		ICONS.put("low_latency", "zap");
 		ICONS.put("nick_hider", "venetian-mask");
+		ICONS.put("rago_network", "globe");
 	}
 
 	private ModuleInfo() {
@@ -110,5 +122,41 @@ final class ModuleInfo {
 
 	static String descKey(Module m) {
 		return "rago.module." + m.id() + ".desc";
+	}
+
+	/** Whether the whole mod is risky on Hypixel. */
+	static boolean risky(Module m) {
+		return RISKY_MODULES.contains(m.id());
+	}
+
+	/** Whether this option is risky on Hypixel when it is on. */
+	static boolean risky(Option<?> o) {
+		return RISKY_OPTIONS.contains(o.key());
+	}
+
+	/** Whether a risky option is on: a switch that is on, or a choice other than "off". */
+	static boolean riskOn(Option<?> o) {
+		if (o instanceof BooleanOption) {
+			return ((BooleanOption) o).get();
+		}
+		if (o instanceof ChoiceOption) {
+			return !"off".equals(((ChoiceOption) o).get());
+		}
+		return true;
+	}
+
+	/** The risky option of {@code m} that is on, if any. */
+	static Option<?> riskyOptionOn(Module m) {
+		for (Option<?> o : m.options()) {
+			if (risky(o) && riskOn(o)) {
+				return o;
+			}
+		}
+		return null;
+	}
+
+	/** Why a mod ({@code id}) or an option ({@code key}) is risky on Hypixel. */
+	static String riskKey(String id) {
+		return "rago.risk." + id;
 	}
 }

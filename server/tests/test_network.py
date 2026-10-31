@@ -5,7 +5,7 @@ import unittest
 import urllib.error
 import urllib.request
 
-from rago_network.app import Network, serve
+from rago_network.app import Network, join_id, serve
 from rago_network.limits import Limiter
 from rago_network.store import Store
 
@@ -46,13 +46,25 @@ def network(clock=None, mojang=None):
 def sign_in(n, name="qRago", ip="1.2.3.4"):
     status, start = n.auth_start({"name": name}, ip)
     assert status == 200, start
-    n.mojang.join(name, start["serverId"])
+    n.mojang.join(name, join_id(start["serverId"]))
     status, done = n.auth_finish({"name": name, "serverId": start["serverId"]}, ip)
     assert status == 200, done
     return done
 
 
 class AuthTest(unittest.TestCase):
+    def test_mojang_is_told_a_hash_of_the_challenge(self):
+        # the same values as the client's NetworkClientTest; Minecraft's own form (two's complement hex)
+        self.assertEqual(join_id("abc"), "3eb134e9faffe05e70d4f1174927717bece96767")
+        self.assertEqual(join_id("3f1c9a0e5b7d2c4a6e8f0b1d3c5a7e9f2b4d6a8c"), "-1ed171fca8556eb96ab06194d04b3938f1367609")
+
+    def test_joining_the_challenge_itself_is_refused(self):
+        n = network()
+        status, start = n.auth_start({"name": "qRago"}, "1.2.3.4")
+        n.mojang.join("qRago", start["serverId"])
+        status, body = n.auth_finish({"name": "qRago", "serverId": start["serverId"]}, "1.2.3.4")
+        self.assertEqual(status, 401, body)
+
     def test_a_player_mojang_confirms_gets_a_token(self):
         n = network()
         done = sign_in(n)
@@ -69,7 +81,7 @@ class AuthTest(unittest.TestCase):
     def test_a_server_id_works_once_and_only_for_its_name(self):
         n = network()
         _, start = n.auth_start({"name": "Steve"}, "1.2.3.4")
-        n.mojang.join("qRago", start["serverId"])
+        n.mojang.join("qRago", join_id(start["serverId"]))
         status, _ = n.auth_finish({"name": "qRago", "serverId": start["serverId"]}, "1.2.3.4")
         self.assertEqual(status, 401)
         status, _ = n.auth_finish({"name": "Steve", "serverId": start["serverId"]}, "1.2.3.4")
@@ -79,7 +91,7 @@ class AuthTest(unittest.TestCase):
         clock = Clock()
         n = network(clock)
         _, start = n.auth_start({"name": "Steve"}, "1.2.3.4")
-        n.mojang.join("Steve", start["serverId"])
+        n.mojang.join("Steve", join_id(start["serverId"]))
         clock.now += 61
         status, _ = n.auth_finish({"name": "Steve", "serverId": start["serverId"]}, "1.2.3.4")
         self.assertEqual(status, 401)
@@ -200,7 +212,7 @@ class HttpTest(unittest.TestCase):
         try:
             self.assertEqual(call("GET", "/v1/health"), (200, {"ok": True}))
             status, start = call("POST", "/v1/auth/start", {"name": "qRago"})
-            n.mojang.join("qRago", start["serverId"])
+            n.mojang.join("qRago", join_id(start["serverId"]))
             status, done = call("POST", "/v1/auth/finish", {"name": "qRago", "serverId": start["serverId"]})
             self.assertEqual(status, 200)
             self.assertEqual(call("POST", "/v1/presence", {"visible": True})[0], 401)

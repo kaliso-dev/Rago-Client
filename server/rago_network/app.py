@@ -1,5 +1,6 @@
 """The HTTP API (JSON over HTTPS, behind a reverse proxy that handles TLS)."""
 
+import hashlib
 import json
 import re
 import secrets
@@ -17,6 +18,14 @@ HEX32 = re.compile(r"^[0-9a-f]{32}$")
 ROLES = ("user", "partner", "staff", "creator")
 MAX_BODY = 16 * 1024
 MAX_LOOKUP = 100
+
+
+def join_id(challenge):
+    """The server id the client gives Mojang for a sign-in challenge: the SHA-1 of "rago-network:" and
+    the challenge, in Minecraft's own form (two's complement hex). A Minecraft server asks for the hash
+    of its key and a secret instead, so this sign-in can never be used to join a Minecraft server."""
+    digest = hashlib.sha1(("rago-network:" + challenge).encode("utf-8")).digest()
+    return format(int.from_bytes(digest, "big", signed=True), "x")
 
 
 def dashed(uuid32):
@@ -77,7 +86,7 @@ class Network:
             nonce = self._nonces.pop(server_id, None)
         if nonce is None or nonce[0] != name.lower() or nonce[1] <= self.clock():
             return 401, {"error": "unknown_server_id"}
-        joined = self.mojang.has_joined(name, server_id)
+        joined = self.mojang.has_joined(name, join_id(server_id))
         if joined is None:
             return 401, {"error": "not_verified"}
         uuid = dashed(joined[0])

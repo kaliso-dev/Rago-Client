@@ -6,6 +6,8 @@ import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import gg.rago.gui.Theme;
+import gg.rago.hooks.Hooks;
+import gg.rago.network.NetworkClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.renderer.GlStateManager;
@@ -17,10 +19,14 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 /**
- * The Rago logo next to your own name: in the tab list, and on your name tag in third person (with
- * Nametags showing your own name). Only on your screen: there is no Rago server telling clients
- * who else plays with Rago, so other players' names are left as they are.
+ * The Rago logo next to the names of players who use Rago, in the tab list and on name tags: yours in
+ * the colour you choose (on your name tag in third person, with Nametags showing your own name), and
+ * other Rago players' as {@link RagoNetwork} tells (Rago's red, or their role's colour).
  */
 public final class RagoBadge extends Module {
 	/** Size of the logo, in name tag and tab list units (the height of a line of text). */
@@ -32,8 +38,8 @@ public final class RagoBadge extends Module {
 	private final BooleanOption inTab = addOption(new BooleanOption("badge_tab", true));
 	private final BooleanOption onName = addOption(new BooleanOption("badge_nametag", true));
 	private final ColorOption color = addOption(new ColorOption("badge_color", Theme.ACCENT).fixedAlpha(0xFF));
-	/** Your tab list line as last given to the game, to know it again when it is drawn. */
-	private String ownTabLine;
+	/** The tab lines given a logo lately, with its colour, to know them again when they are drawn. */
+	private final Map<String, Integer> tabLines = new HashMap<>();
 
 	public RagoBadge() {
 		super("rago_badge", FeatureClass.VISUAL, true);
@@ -67,24 +73,48 @@ public final class RagoBadge extends Module {
 		return tex == null ? 0 : tex.getGlTextureId();
 	}
 
-	/** GuiPlayerTabOverlay.getPlayerName: room for the logo before your own name. */
-	public String tabName(String name, NetworkPlayerInfo info) {
+	/**
+	 * The colour of the logo before the name of the player {@code id}: yours, or another Rago player's
+	 * (Rago's red, or their role's colour); 0 for someone not using Rago.
+	 */
+	public int logoColor(UUID id) {
 		Minecraft mc = Minecraft.getMinecraft();
-		if (!isEnabled() || !inTab.get() || mc.thePlayer == null || info == null
-			|| !mc.thePlayer.getUniqueID().equals(info.getGameProfile().getId())) {
-			return name;
+		if (id == null) {
+			return 0;
 		}
-		ownTabLine = TAB_GAP + name;
-		return ownTabLine;
+		if (mc.thePlayer != null && id.equals(mc.thePlayer.getUniqueID())) {
+			return color.get();
+		}
+		RagoNetwork network = Hooks.network;
+		NetworkClient.Player p = network != null ? network.player(id) : null;
+		return p == null ? 0 : RagoNetwork.roleColor(p.role, Theme.ACCENT);
 	}
 
-	/** Whether {@code text} is your tab line, the logo drawn before it; draw the text from {@link #tabText}. */
+	/** GuiPlayerTabOverlay.getPlayerName: room for the logo before the names of Rago players. */
+	public String tabName(String name, NetworkPlayerInfo info) {
+		if (!isEnabled() || !inTab.get() || Minecraft.getMinecraft().thePlayer == null || info == null) {
+			return name;
+		}
+		int c = logoColor(info.getGameProfile().getId());
+		if (c == 0) {
+			return name;
+		}
+		String line = TAB_GAP + name;
+		if (tabLines.size() > 512) {
+			tabLines.clear();
+		}
+		tabLines.put(line, c);
+		return line;
+	}
+
+	/** Whether {@code text} is a tab line with the logo, drawn before it; draw the text from {@link #tabText}. */
 	public boolean tabLogo(String text, float x, float y) {
-		int texture = ownTabLine != null && ownTabLine.equals(text) ? texture() : 0;
+		Integer c = tabLines.get(text);
+		int texture = c != null ? texture() : 0;
 		if (texture == 0) {
 			return false;
 		}
-		int argb = color.get();
+		int argb = c;
 		GlStateManager.enableBlend();
 		GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
 		GlStateManager.enableTexture2D();

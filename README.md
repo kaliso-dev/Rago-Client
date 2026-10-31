@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.6.1.** What it contains:
+**Current version: 1.6.2.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -438,6 +438,35 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - developer tools: `-Drago.bench.hud=true` times the HUD on the graphics card (with `glFinish`),
     `-Drago.bench.latency=true` logs when each frame that turned the camera was finished, and
     `/rago testset <setting> <value>` (test game only) changes a client setting
+- new in 1.6.2:
+  - Rago Network in the client: a new **Rago Network** mod (Visual) shows the Rago logo of the
+    other Rago players next to their name (tab list and name tags; gold for the creator, purple for
+    partners, cyan for staff) and the cosmetics they wear (cape, hat, wings, shield, with their neon
+    colours), and shows yours to them. It talks only to the Rago Network server set in its options
+    and sends nothing while that address is empty; no server is hosted yet. You sign in the way
+    Minecraft servers check a player (`joinServer` to Mojang, `hasJoined` on the server side), so
+    your Minecraft token goes to Mojang only, and the server id given to Mojang is a hash Rago
+    computes from the server's challenge, so a Rago Network server, even a hostile one, cannot use
+    your sign-in to join a Minecraft server as you. It sends your name, your cosmetics and Rago's version
+    every minute (sooner when you change a cosmetic), and the IDs of the players in your tab list,
+    at most 100 every 5 seconds, each answer kept 5 minutes. "Show that I use Rago" off hides you;
+    "See other Rago players" off sends nothing about the players around you. HTTPS only (plain HTTP
+    only to your own computer, for tests), with Let's Encrypt's two root certificates bundled for
+    the old Java 8 that launchers use for 1.8.9. `/rago network` says where it stands
+  - neon cosmetics are kept per colour, so players wearing different neon colours show each their own
+  - copy a chat message with **Shift + click** (Settings > General > Chat, on by default): with the
+    chat open, the whole message is copied, even when it wraps on several lines, without colour
+    codes, Rago's time stamp or its (x2) counter. Nothing is sent
+  - TNT timer: "Through walls" is now off by default (Hypixel does not allow seeing through blocks).
+    It has a new option key, so configs saved with it on start off too
+  - **Risky on Hypixel**: an amber sign on the card and page of Hit Delay Fix, Block Edit Fix, Fast
+    Shop, Auto Messages and Message hotkeys, and next to the options "Through walls" (TNT timer),
+    "Send the targets to your team" and the "suspicious gear" sniper sign; hover it for the reason.
+    A card also shows the sign when one of its risky options is on. Nothing is locked: you choose
+    where you use them
+  - hovering an option in a mod's page shows its explanation (written for many options, but never
+    shown until now), and tooltips stay on screen near the bottom
+  - French text no longer wraps with a line starting with ":" or "»"
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -470,11 +499,15 @@ does not fit (another mod changed the method) is skipped and logged. Start the g
 `-Drago.dumpClasses=true` to save such a class to `rago-dump/` for a bug report. Everything else
 uses Forge events.
 
-Rago does not include NoHitDelay or anything else that changes combat timing, reach or what the
-client sends: those are cheats on Hypixel and Minemen Club.
+Rago does not include reach, velocity, auto-clickers or anything else that changes what a packet
+says. A few mods change how your inputs are handled or write in the chat for you: Hit Delay Fix,
+Block Edit Fix, Fast Shop, Message hotkeys and Auto Messages. They are off until you turn them on,
+and the menu marks them, with the TNT timer's "Through walls", "Send the targets to your team" and
+the "suspicious gear" sniper sign, as **risky on Hypixel**, with the reason. Nothing is locked: you
+choose where you use them.
 
-Toggle sprint/sneak and the keybind fix are the only features that affect input: they make a
-vanilla key read as held, nothing more, and they are off until you turn them on. The mouse delay
+Toggle sprint/sneak and the keybind fix make a vanilla key read as held, nothing more, and they
+are off until you turn them on. The mouse delay
 fix makes the crosshair target follow the camera you already see, instead of the head angle from
 one tick earlier; it does not change reach, timing or what is sent.
 
@@ -497,7 +530,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.6.1+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.6.2+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

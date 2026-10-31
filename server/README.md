@@ -10,15 +10,20 @@ Python 3.10 or newer, standard library only, SQLite for storage.
 
 This is the check every Minecraft server makes when you join it:
 
-1. The client asks for a random server id: `POST /v1/auth/start {"name": "qRago"}`.
-2. The client tells **Mojang** that it is joining that server id (`joinServer` in the game's own
-   authlib, with the player's Minecraft token). The token goes to Mojang only.
-3. The client asks us to check: `POST /v1/auth/finish {"name": "qRago", "serverId": "..."}`. We ask
-   Mojang (`hasJoined`) whether that player joined that server id. If Mojang says yes, we know the
-   player's real uuid and name, and give the client a session token (valid 24 hours). Only a SHA-256
-   hash of that token is stored.
+1. The client asks for a random challenge: `POST /v1/auth/start {"name": "qRago"}` →
+   `{"serverId": "<40 hex digits>"}`.
+2. The client tells **Mojang** that it is joining a server whose id is the SHA-1 of
+   `rago-network:` followed by that challenge, written the way Minecraft writes server ids (two's
+   complement hex) (`joinServer` in the game's own authlib, with the player's Minecraft token). The
+   token goes to Mojang only.
+3. The client asks us to check: `POST /v1/auth/finish {"name": "qRago", "serverId": "<the challenge>"}`.
+   We compute the same id and ask Mojang (`hasJoined`) whether that player joined it. If Mojang says
+   yes, we know the player's real uuid and name, and give the client a session token (valid 24
+   hours). Only a SHA-256 hash of that token is stored.
 
-A server id works once, for one name, for 60 seconds.
+A challenge works once, for one name, for 60 seconds. Because the id given to Mojang is a hash the
+client computes, a Rago Network server (even a hostile one) cannot hand the client the id of a real
+Minecraft server's login and so join that server as the player.
 
 ## API
 

@@ -37,7 +37,11 @@ public final class TntTimer extends Module {
 	private final ColorOption color = addOption(new ColorOption("tnt_color", 0xFFFFFFFF));
 	private final IntOption scale = addOption(new IntOption("tnt_scale", 150, 50, 400));
 	private final BooleanOption background = addOption(new BooleanOption("background", true));
-	private final BooleanOption throughWalls = addOption(new BooleanOption("tnt_through_walls", true));
+	/**
+	 * Off by default (Hypixel does not allow seeing through blocks); a new key, so configs saved
+	 * when it was on by default start off too.
+	 */
+	private final BooleanOption throughWalls = addOption(new BooleanOption("tnt_see_through_walls", false));
 	private final IntOption distance = addOption(new IntOption("tnt_distance", 48, 8, 128));
 	/** Fuse length in ticks (80 is vanilla's 4 seconds). */
 	private final IntOption fuse = addOption(new IntOption("tnt_fuse", 80, 10, 160));

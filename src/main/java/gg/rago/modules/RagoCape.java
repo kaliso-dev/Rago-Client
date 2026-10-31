@@ -6,20 +6,22 @@ import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import gg.rago.core.RagoClient;
+import gg.rago.hooks.Hooks;
+import gg.rago.network.NetworkClient;
 import gg.rago.render.NeonColors;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.util.ResourceLocation;
 
 /**
  * The Rago cape on your own player, on by default, in one of six designs; the Rago design comes in the
- * {@link NeonColors}. A cape you already own (Minecraft or OptiFine)
- * is kept unless you choose to show Rago's instead. Only this client draws it: Minecraft servers
- * do not send cosmetics, so other players see it only if their client knows you wear it.
+ * {@link NeonColors}. A cape you already own (Minecraft or OptiFine) is kept unless you choose to show
+ * Rago's instead. Minecraft servers do not send cosmetics: other Rago players see your cape through
+ * {@link RagoNetwork}, and you see theirs (on players who have no Minecraft cape of their own).
  */
 public final class RagoCape extends Module {
 	public static final ResourceLocation TEXTURE = new ResourceLocation("rago", "textures/cape.png");
-	/** The other designs, drawn by tools/capes.py. */
-	private static final String[] DESIGNS = {"rago", "midnight", "flame", "ocean", "royal", "frost"};
+	/** The designs (Rago Network's capes but "none"); the others are drawn by tools/capes.py. */
+	static final String[] DESIGNS = {"rago", "midnight", "flame", "ocean", "royal", "frost"};
 	private static final ResourceLocation[] TEXTURES = new ResourceLocation[DESIGNS.length];
 
 	static {
@@ -43,18 +45,35 @@ public final class RagoCape extends Module {
 		return Category.VISUAL;
 	}
 
-	/** The cape {@code player} wears, given the one the game would show ({@code vanilla}, may be null). */
+	/**
+	 * The cape {@code player} wears, given the one the game would show ({@code vanilla}, may be null):
+	 * yours while this is on, another Rago player's from Rago Network when they have no other cape.
+	 */
 	public ResourceLocation capeFor(AbstractClientPlayer player, ResourceLocation vanilla) {
-		if (!RagoClient.isOwn(player)) {
+		if (RagoClient.isOwn(player)) {
+			return isEnabled() && (vanilla == null || overOwnCape.get()) ? texture(design.get(), neon.get()) : vanilla;
+		}
+		RagoNetwork network = Hooks.network;
+		if (vanilla != null || network == null) {
 			return vanilla;
 		}
-		return vanilla == null || overOwnCape.get() ? texture() : vanilla;
+		NetworkClient.Player p = network.player(player.getUniqueID());
+		return p == null || p.loadout.cape.equals("none") ? null : texture(p.loadout.cape, p.loadout.capeNeon);
 	}
 
-	private ResourceLocation texture() {
-		String d = design.get();
+	/** The design you chose. */
+	public String design() {
+		return design.get();
+	}
+
+	/** The colour of the Rago design. */
+	public String neon() {
+		return neon.get();
+	}
+
+	private static ResourceLocation texture(String d, String neonId) {
 		if (d.equals("rago")) {
-			return NeonColors.texture(TEXTURE, neon.get());
+			return NeonColors.texture(TEXTURE, neonId);
 		}
 		for (int i = 1; i < DESIGNS.length; i++) {
 			if (DESIGNS[i].equals(d)) {

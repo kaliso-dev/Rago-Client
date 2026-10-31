@@ -8,6 +8,9 @@ import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import gg.rago.core.RagoClient;
+import gg.rago.hooks.Hooks;
+import gg.rago.network.Loadout;
+import gg.rago.network.NetworkClient;
 import gg.rago.render.CosmeticModel;
 import gg.rago.render.NeonColors;
 import net.minecraft.client.Minecraft;
@@ -35,7 +38,8 @@ import java.util.Map;
  * tools/models/CREDITS.md); the crown and halo are simple shapes. The pieces in Rago's neon red (the
  * logo of the Rago cap and beanie, the small dragon wings, the Rago shield) come in the
  * {@link NeonColors}, with a faint glow that can be turned off. Off by default, and each piece can be
- * set to none. Only this client draws them.
+ * set to none. Everything is drawn from a {@link Loadout}: yours from these options, another Rago
+ * player's from {@link RagoNetwork}, which also sends yours to the others.
  */
 public final class Cosmetics extends Module {
 	private static final ResourceLocation TEX_CAP = new ResourceLocation("rago", "textures/cosmetics/cap.png");
@@ -47,7 +51,7 @@ public final class Cosmetics extends Module {
 	private static final Map<String, CosmeticModel> HATS = new HashMap<>();
 	private static final CosmeticModel DRAGON = model("dragon", "dragon");
 	private static final CosmeticModel DRAGON_SMALL = model("dragon_small", "dragon_small");
-	private static final String[] SHIELDS = {"none", "rago", "crimson", "gold", "frost", "void"};
+	private static final String[] SHIELDS = Loadout.SHIELDS;
 	private static final Map<String, CosmeticModel> SHIELD_MODELS = new HashMap<>();
 
 	static {
@@ -58,24 +62,30 @@ public final class Cosmetics extends Module {
 		}
 	}
 
-	private final ChoiceOption hat = addOption(new ChoiceOption("cosmetic_hat", "none", "none", "rago_cap", "rago_beanie",
-		"top_hat", "wizard_hat", "crown", "halo"));
+	private final ChoiceOption hat = addOption(new ChoiceOption("cosmetic_hat", "none", Loadout.HATS));
 	/** The colour of the Rago cap's and beanie's logo, the cap's strap and the beanie's pompom. */
 	private final ChoiceOption hatNeon = addOption(new ChoiceOption("cosmetic_hat_neon", "red", NeonColors.IDS));
 	private final ColorOption hatColor = addOption(new ColorOption("cosmetic_hat_color", 0xFFFFFFFF));
-	private final IntOption hatScale = addOption(new IntOption("cosmetic_hat_scale", 100, 70, 150));
-	private final ChoiceOption wings = addOption(new ChoiceOption("cosmetic_wings", "none", "none", "dragon", "dragon_small"));
+	private final IntOption hatScale = addOption(new IntOption("cosmetic_hat_scale", 100, Loadout.HAT_SCALE_MIN,
+		Loadout.HAT_SCALE_MAX));
+	private final ChoiceOption wings = addOption(new ChoiceOption("cosmetic_wings", "none", Loadout.WINGS));
 	private final ChoiceOption wingsNeon = addOption(new ChoiceOption("cosmetic_wings_neon", "red", NeonColors.IDS));
 	private final ColorOption wingsColor = addOption(new ColorOption("cosmetic_wings_color", 0xFFFFFFFF));
-	private final IntOption wingsScale = addOption(new IntOption("cosmetic_wings_scale", 100, 50, 160));
+	private final IntOption wingsScale = addOption(new IntOption("cosmetic_wings_scale", 100, Loadout.WINGS_SCALE_MIN,
+		Loadout.WINGS_SCALE_MAX));
 	private final BooleanOption flap = addOption(new BooleanOption("cosmetic_wings_flap", true));
-	private final IntOption flapSpeed = addOption(new IntOption("cosmetic_wings_flap_speed", 100, 25, 300));
+	private final IntOption flapSpeed = addOption(new IntOption("cosmetic_wings_flap_speed", 100, Loadout.FLAP_SPEED_MIN,
+		Loadout.FLAP_SPEED_MAX));
 	private final ChoiceOption shield = addOption(new ChoiceOption("cosmetic_shield", "none", SHIELDS));
 	private final ChoiceOption shieldNeon = addOption(new ChoiceOption("cosmetic_shield_neon", "red", NeonColors.IDS));
-	private final IntOption shieldScale = addOption(new IntOption("cosmetic_shield_scale", 100, 50, 150));
+	private final IntOption shieldScale = addOption(new IntOption("cosmetic_shield_scale", 100, Loadout.SHIELD_SCALE_MIN,
+		Loadout.SHIELD_SCALE_MAX));
 	/** The faint glow of the neon pieces: one more draw of each, added at full brightness. */
 	private final BooleanOption neonGlow = addOption(new BooleanOption("cosmetic_neon_glow", true));
 	private boolean installed;
+	/** Your loadout as drawn on you, made again when an option changes ({@link #ownSignature}). */
+	private Loadout own;
+	private int ownSignature;
 
 	private static CosmeticModel model(String name, String texture) {
 		return new CosmeticModel(name, new ResourceLocation("rago", "textures/cosmetics/" + texture + ".png"));
@@ -105,17 +115,64 @@ public final class Cosmetics extends Module {
 		return hat.is("rago_cap") || hat.is("rago_beanie");
 	}
 
-	/** The colour of the Rago hats' logo, strap and pompom. */
-	private int hatNeonColor() {
-		return NeonColors.swatch(hatNeon.get());
+	/** Your loadout as Rago Network sends it: nothing on you while this or the cape is off. */
+	public Loadout shared(RagoCape cape) {
+		return loadout(isEnabled(), cape);
+	}
+
+	/** Changes whenever {@link #shared} would, without making anything. */
+	public int sharedSignature(RagoCape cape) {
+		return signature(isEnabled(), cape);
+	}
+
+	private Loadout loadout(boolean on, RagoCape cape) {
+		boolean capeOn = cape != null && cape.isEnabled();
+		return new Loadout(capeOn ? cape.design() : "none", cape != null ? cape.neon() : "red",
+			on ? hat.get() : "none", hatNeon.get(), hatColor.get(), hatScale.get(),
+			on ? wings.get() : "none", wingsNeon.get(), wingsColor.get(), wingsScale.get(), flap.get(), flapSpeed.get(),
+			on ? shield.get() : "none", shieldNeon.get(), shieldScale.get(), neonGlow.get());
+	}
+
+	private int signature(boolean on, RagoCape cape) {
+		int h = on ? 1 : 0;
+		h = 31 * h + hat.get().hashCode();
+		h = 31 * h + hatNeon.get().hashCode();
+		h = 31 * h + hatColor.get();
+		h = 31 * h + hatScale.get();
+		h = 31 * h + wings.get().hashCode();
+		h = 31 * h + wingsNeon.get().hashCode();
+		h = 31 * h + wingsColor.get();
+		h = 31 * h + wingsScale.get();
+		h = 31 * h + (flap.get() ? 1 : 0);
+		h = 31 * h + flapSpeed.get();
+		h = 31 * h + shield.get().hashCode();
+		h = 31 * h + shieldNeon.get().hashCode();
+		h = 31 * h + shieldScale.get();
+		h = 31 * h + (neonGlow.get() ? 1 : 0);
+		if (cape != null) {
+			h = 31 * h + (cape.isEnabled() ? 1 : 0);
+			h = 31 * h + cape.design().hashCode();
+			h = 31 * h + cape.neon().hashCode();
+		}
+		return h;
+	}
+
+	/** Your loadout as drawn on you (the cape is drawn by {@link RagoCape}). */
+	private Loadout ownLoadout() {
+		int sig = signature(true, null);
+		if (own == null || sig != ownSignature) {
+			own = loadout(true, null);
+			ownSignature = sig;
+		}
+		return own;
 	}
 
 	/**
 	 * Draws {@code pass} once more over what is there, added at full brightness whatever the light:
-	 * the faint glow of the neon pieces. Nothing when the glow is turned off.
+	 * the faint glow of the neon pieces. Nothing when the loadout's glow is turned off.
 	 */
-	private void glow(Runnable pass) {
-		if (!neonGlow.get()) {
+	private static void glow(Loadout l, Runnable pass) {
+		if (!l.neonGlow) {
 			return;
 		}
 		float lx = OpenGlHelper.lastBrightnessX;
@@ -152,7 +209,24 @@ public final class Cosmetics extends Module {
 		@Override
 		public void doRenderLayer(AbstractClientPlayer player, float limbSwing, float limbSwingAmount, float partialTicks,
 			float ageInTicks, float netHeadYaw, float headPitch, float scale) {
-			if (!isEnabled() || player.isInvisible() || !RagoClient.isOwn(player)) {
+			if (player.isInvisible()) {
+				return;
+			}
+			Loadout l;
+			if (RagoClient.isOwn(player)) {
+				if (!isEnabled()) {
+					return;
+				}
+				l = ownLoadout();
+			} else {
+				RagoNetwork network = Hooks.network;
+				NetworkClient.Player p = network != null ? network.player(player.getUniqueID()) : null;
+				if (p == null) {
+					return;
+				}
+				l = p.loadout;
+			}
+			if (l.hat.equals("none") && l.wings.equals("none") && l.shield.equals("none")) {
 				return;
 			}
 			ModelPlayer model = render.getMainModel();
@@ -160,41 +234,41 @@ public final class Cosmetics extends Module {
 			GlStateManager.disableLighting();
 			GlStateManager.disableCull();
 			try {
-				if (!hat.is("none")) {
+				if (!l.hat.equals("none")) {
 					GlStateManager.pushMatrix();
 					if (player.isSneaking()) {
 						GlStateManager.translate(0, 0.2f, 0);
 					}
 					model.bipedHead.postRender(0.0625f);
 					// the hats that go around the head are always a little bigger, to clear the skin's hat layer
-					float hs = hatScale.get() / 100f * skinLayerFit(hat.get());
+					float hs = l.hatScale / 100f * skinLayerFit(l.hat);
 					if (hs != 1) {
 						// grow from the top of the head, where the hat sits
 						GlStateManager.translate(0, -0.5f, 0);
 						GlStateManager.scale(hs, hs, hs);
 						GlStateManager.translate(0, 0.5f, 0);
 					}
-					drawHat(player.getCurrentArmor(3) != null, ageInTicks);
+					drawHat(l, player.getCurrentArmor(3) != null, ageInTicks);
 					GlStateManager.popMatrix();
 				}
-				if (!wings.is("none")) {
+				if (!l.wings.equals("none")) {
 					GlStateManager.pushMatrix();
 					if (player.isSneaking()) {
 						GlStateManager.translate(0, 0.2f, 0);
 					}
 					model.bipedBody.postRender(0.0625f);
-					float beat = flap.get() ? flapAngle(player, ageInTicks * flapSpeed.get() / 100f) : 0;
-					extrudedWing(-1, beat);
-					extrudedWing(1, beat);
+					float beat = l.wingsFlap ? flapAngle(player, ageInTicks * l.wingsFlapSpeed / 100f) : 0;
+					extrudedWing(l, -1, beat);
+					extrudedWing(l, 1, beat);
 					GlStateManager.popMatrix();
 				}
-				if (!shield.is("none")) {
+				if (!l.shield.equals("none")) {
 					GlStateManager.pushMatrix();
 					if (player.isSneaking()) {
 						GlStateManager.translate(0, 0.2f, 0);
 					}
 					model.bipedLeftArm.postRender(0.0625f);
-					drawShield();
+					drawShield(l);
 					GlStateManager.popMatrix();
 				}
 			} finally {
@@ -218,9 +292,9 @@ public final class Cosmetics extends Module {
 		return (float) Math.sin(age * speed) * amount;
 	}
 
-	private int color(ColorOption option, int fallback) {
-		int c = option.get();
-		return c == 0xFFFFFFFF ? fallback : c;
+	/** A piece's colour: {@code c}, or {@code fallback} while it is left at white. */
+	private static int tint(int c, int fallback) {
+		return c == Loadout.NO_TINT ? fallback : c;
 	}
 
 	/** Half the width of the skin's second layer on the head (8 pixels and half a pixel each side). */
@@ -251,18 +325,18 @@ public final class Cosmetics extends Module {
 
 	// ---- hats: head space, 1 unit = 1 block, y down, top of the head at y = -0.5 ----------------
 
-	private void drawHat(boolean helmet, float age) {
+	private static void drawHat(Loadout l, boolean helmet, float age) {
 		float base = helmet ? -0.58f : -0.535f;
 		float lift = helmet ? -0.75f * PX : 0;
-		switch (hat.get()) {
+		switch (l.hat) {
 			case "rago_cap":
-				drawCap(lift);
+				drawCap(l, lift);
 				break;
 			case "rago_beanie":
-				drawBeanie(lift);
+				drawBeanie(l, lift);
 				break;
 			case "crown": {
-				int c = color(hatColor, 0xFFF2C14E);
+				int c = tint(l.hatColor, 0xFFF2C14E);
 				float r = 0.27f;
 				float t = 0.03f;
 				float top = base - 0.16f;
@@ -280,7 +354,7 @@ public final class Cosmetics extends Module {
 			}
 			case "halo": {
 				// halo: a glowing ring floating above the head
-				int c = color(hatColor, 0xFFFFE27A);
+				int c = tint(l.hatColor, 0xFFFFE27A);
 				float y = base - 0.22f + (float) Math.sin(age * 0.08f) * 0.02f;
 				float lx = OpenGlHelper.lastBrightnessX;
 				float ly = OpenGlHelper.lastBrightnessY;
@@ -290,12 +364,12 @@ public final class Cosmetics extends Module {
 				break;
 			}
 			default: {
-				CosmeticModel m = HATS.get(hat.get());
+				CosmeticModel m = HATS.get(l.hat);
 				if (m != null) {
 					GlStateManager.pushMatrix();
 					GlStateManager.translate(0, lift, 0);
 					GlStateManager.disableBlend();
-					m.render("hat", hatColor.get());
+					m.render("hat", l.hatColor);
 					GlStateManager.popMatrix();
 					untextured();
 				}
@@ -357,9 +431,9 @@ public final class Cosmetics extends Module {
 
 	// ---- textured hats: head space in pixels (1/16 block), y down, the face looking to -z --------
 
-	private void drawCap(float lift) {
-		int c = color(hatColor, 0xFF232328);
-		int neon = hatNeonColor();
+	private static void drawCap(Loadout l, float lift) {
+		int c = tint(l.hatColor, 0xFF232328);
+		int neon = NeonColors.swatch(l.hatNeon);
 		textured(TEX_CAP);
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(0, lift, 0);
@@ -377,7 +451,7 @@ public final class Cosmetics extends Module {
 		box(-1.7f * PX, -7.1f * PX, 4.5f * PX, 1.7f * PX, -5.7f * PX, 4.55f * PX, 0xFF0B0B0E);
 		box(-2.8f * PX, -5.7f * PX, 4.5f * PX, 2.8f * PX, -4.95f * PX, 4.7f * PX, neon);
 		box(1.3f * PX, -5.85f * PX, 4.7f * PX, 2.2f * PX, -4.8f * PX, 4.8f * PX, 0xFFC9C9D0);
-		glow(() -> {
+		glow(l, () -> {
 			logoGlow(-1.6f, -8.3f, 3.2f, -4.56f, neon);
 			untextured();
 			box(-2.9f * PX, -5.8f * PX, 4.5f * PX, 2.9f * PX, -4.85f * PX, 4.74f * PX, 0x55000000 | neon & 0xFFFFFF);
@@ -386,9 +460,9 @@ public final class Cosmetics extends Module {
 		untextured();
 	}
 
-	private void drawBeanie(float lift) {
-		int c = color(hatColor, 0xFF232328);
-		int neon = hatNeonColor();
+	private static void drawBeanie(Loadout l, float lift) {
+		int c = tint(l.hatColor, 0xFF232328);
+		int neon = NeonColors.swatch(l.hatNeon);
 		textured(TEX_BEANIE);
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(0, lift, 0);
@@ -396,7 +470,7 @@ public final class Cosmetics extends Module {
 		texBox(-4.8f, -5.75f, -4.8f, 4.8f, -3.9f, 4.8f, 0, 14, 9, 2, 9, 64, 32, c);
 		texBox(-1.5f, -11.6f, -1.5f, 1.5f, -9.1f, 1.5f, 40, 0, 3, 3, 3, 64, 32, neon);
 		logo(-0.9f, -5.65f, 1.8f, -4.83f, neon);
-		glow(() -> logoGlow(-0.9f, -5.65f, 1.8f, -4.86f, neon));
+		glow(l, () -> logoGlow(-0.9f, -5.65f, 1.8f, -4.86f, neon));
 		GlStateManager.popMatrix();
 		untextured();
 	}
@@ -498,12 +572,12 @@ public final class Cosmetics extends Module {
 	 * One dragon wing: Rago's pixel-art wing extruded into voxels, its root on the back. The other
 	 * side is the same model mirrored.
 	 */
-	private void extrudedWing(int side, float beat) {
-		boolean small = wings.is("dragon_small");
+	private static void extrudedWing(Loadout l, int side, float beat) {
+		boolean small = l.wings.equals("dragon_small");
 		// the small dragon wings are coloured in their texture (Rago's red and black): untinted by default
-		int c = color(wingsColor, small ? 0xFFFFFFFF : 0xFF5A3E78);
-		// the small dragon wings are compact, like Lunar Client's
-		float span = (small ? 0.7f : 1.15f) * wingsScale.get() / 100f;
+		int c = tint(l.wingsColor, small ? 0xFFFFFFFF : 0xFF5A3E78);
+		// the small dragon wings are compact
+		float span = (small ? 0.7f : 1.15f) * l.wingsScale / 100f;
 		GlStateManager.pushMatrix();
 		// the root high on the back, between the shoulder blades
 		GlStateManager.translate(side * 0.05f, 0.04f, 0.16f);
@@ -513,10 +587,10 @@ public final class Cosmetics extends Module {
 		GlStateManager.scale(side * span, span, span);
 		GlStateManager.disableBlend();
 		if (small) {
-			DRAGON_SMALL.render("wing", c, NeonColors.texture(DRAGON_SMALL.texture(), wingsNeon.get()));
-			ResourceLocation lit = NeonColors.glow(DRAGON_SMALL.texture(), wingsNeon.get());
+			DRAGON_SMALL.render("wing", c, NeonColors.texture(DRAGON_SMALL.texture(), l.wingsNeon));
+			ResourceLocation lit = l.neonGlow ? NeonColors.glow(DRAGON_SMALL.texture(), l.wingsNeon) : null;
 			if (lit != null) {
-				glow(() -> DRAGON_SMALL.render("wing", c, lit));
+				glow(l, () -> DRAGON_SMALL.render("wing", c, lit));
 			}
 		} else {
 			DRAGON.render("wing", c);
@@ -531,24 +605,24 @@ public final class Cosmetics extends Module {
 	 * A Rago shield on the left arm, as Badlion shows one: flat against the outer side of the
 	 * forearm, its face outward. Only seen in third person, like the rest of the player.
 	 */
-	private void drawShield() {
-		CosmeticModel m = SHIELD_MODELS.get(shield.get());
+	private static void drawShield(Loadout l) {
+		CosmeticModel m = SHIELD_MODELS.get(l.shield);
 		if (m == null) {
 			return;
 		}
 		// the model is one unit tall (and 5/6 of that wide): 16 pixels on the player at 100%
-		float size = shieldScale.get() / 100f;
+		float size = l.shieldScale / 100f;
 		GlStateManager.pushMatrix();
 		// against the outer side of the forearm (x = 3), turned a quarter so the face looks outward
 		GlStateManager.translate(3.5f * PX, 7 * PX, 0);
 		GlStateManager.rotate(-90, 0, 1, 0);
 		GlStateManager.scale(size, size, size);
 		GlStateManager.disableBlend();
-		if (shield.is("rago")) {
-			m.render("shield", 0xFFFFFFFF, NeonColors.texture(m.texture(), shieldNeon.get()));
-			ResourceLocation lit = NeonColors.glow(m.texture(), shieldNeon.get());
+		if (l.shield.equals("rago")) {
+			m.render("shield", 0xFFFFFFFF, NeonColors.texture(m.texture(), l.shieldNeon));
+			ResourceLocation lit = l.neonGlow ? NeonColors.glow(m.texture(), l.shieldNeon) : null;
 			if (lit != null) {
-				glow(() -> m.render("shield", 0xFFFFFFFF, lit));
+				glow(l, () -> m.render("shield", 0xFFFFFFFF, lit));
 			}
 		} else {
 			m.render("shield", 0xFFFFFFFF);
