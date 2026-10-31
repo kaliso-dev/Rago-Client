@@ -1,20 +1,22 @@
 """Draws Rago's HD capes into assets/rago/textures/capes: 32 times the 64 x 32 layout (2048 x 1024),
-an outer face of 320 x 512, or 64 times for black_cat. The game shows them smooth (filtered, with
-mipmaps: gg.rago.render.HdTexture).
+an outer face of 320 x 512, or 64 times (4096 x 2048, a face of 640 x 1024) for black_cat, primal and
+mfga. The game shows them smooth (filtered, with mipmaps: gg.rago.render.HdTexture).
 
   black_cat  the Discord picture of Rago's creator, a black cat, on an all black cape under a small logo
   pixel_cat  a plain black cat's face in Minecraft's pixel style, at a cape's own 10 x 16 (Rago's own)
   night_cat  a black cat on the roofs under the moon (a picture from Rago's creator)
   qrago      a photo of Rago's creator
+  primal     a photo of a meal by Rago's creator (beef tartare)
+  mfga       blue, white and red with golden fleurs-de-lis (Rago's own drawing)
 
-The three made from pictures need them (they are not kept in the repository):
-  python3 tools/hd_capes.py --discord cat.png --night night.png --photo me.jpg
-Any left out keeps the cape already drawn; the pixel cat is always drawn.
+The ones made from pictures need them (they are not kept in the repository):
+  python3 tools/hd_capes.py --discord cat.png --night night.png --photo me.jpg --meal meal.jpg
+Any left out keeps the cape already drawn; pixel_cat and mfga are always drawn.
 """
 import argparse
 import os
 
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 import capes
 
@@ -122,6 +124,116 @@ def qrago(src):
     return face, (34, 37, 42), S
 
 
+# ---- primal: a photo of a meal -----------------------------------------------------------------
+
+def primal(src):
+    """The photo cut to the cape around the plate (the jar above it, the fork beside it), its colours a
+    little livelier."""
+    img = ImageOps.exif_transpose(src).convert('RGB')
+    w, h = img.size
+    # in fractions of the photo: from just above the jar to below the board, the tartare in the middle
+    ch = round(h * 0.9)
+    cw = round(ch * BW / BH)
+    cx = round(w * 0.383)
+    left = max(0, min(w - cw, cx - cw // 2))
+    top = max(0, min(h - ch, round(h * 0.017)))
+    face = img.crop((left, top, left + cw, top + ch)).resize((BW, BH), Image.LANCZOS, reducing_gap=3.0)
+    face = ImageEnhance.Color(sharpen(face, 45)).enhance(1.12)
+    return face.convert('RGBA'), (40, 30, 22), BIG
+
+
+# ---- mfga: blue, white and red with fleurs-de-lis ----------------------------------------------
+
+FLAG = ((0, 45, 170), (250, 250, 248), (226, 18, 40))
+GOLD_LIGHT = (255, 224, 120)
+GOLD_DEEP = (206, 140, 30)
+GOLD_EDGE = (120, 76, 10)
+
+
+def bezier(p0, p1, p2, p3, n=48):
+    return [((1 - t) ** 3 * p0[0] + 3 * (1 - t) ** 2 * t * p1[0] + 3 * (1 - t) * t * t * p2[0] + t ** 3 * p3[0],
+             (1 - t) ** 3 * p0[1] + 3 * (1 - t) ** 2 * t * p1[1] + 3 * (1 - t) * t * t * p2[1] + t ** 3 * p3[1])
+            for t in (i / n for i in range(n + 1))]
+
+
+def outline(start, segments):
+    """Points along cubic curves (three points each) or straight lines (one point) from {@code start}."""
+    pts = [start]
+    for seg in segments:
+        pts += [seg[0]] if len(seg) == 1 else bezier(pts[-1], *seg)[1:]
+    return pts
+
+
+def mirrored(pts):
+    return [(100 - x, y) for x, y in pts]
+
+
+# A fleur-de-lis on a 100 x 116 grid, its middle at x 50: the tall middle petal, the two side petals
+# curling down, the band across them and the three small ends below it.
+FLEUR_MIDDLE = outline((43, 78), [((33, 60), (35, 26), (50, 2)), ((65, 26), (67, 60), (57, 78))])
+FLEUR_SIDE = outline((42, 68), [((38, 46), (30, 28), (17, 28)), ((7, 28), (1, 38), (2, 47)), ((3, 56), (9, 62), (13, 64)),
+                                ((10, 57), (12, 47), (19, 46)), ((27, 45), (32, 60), (33, 80)), [(42, 80)]])
+FLEUR_FOOT = outline((44, 89), [((45, 96), (47, 102), (50, 108)), ((53, 102), (55, 96), (56, 89))])
+FLEUR_FOOT_SIDE = outline((44, 89), [((36, 89), (25, 90), (20, 97)), ((16, 103), (19, 110), (26, 109)),
+                                     ((22, 105), (25, 100), (31, 99)), ((36, 98), (41, 95), (45, 93))])
+# the corner between the middle petal and each side petal, above the band
+FLEUR_CORNER = [(37, 72), (43, 64), (45, 80), (36, 80)]
+
+
+def fleur_mask(size):
+    """The fleur-de-lis, {@code size} pixels wide, as a mask (drawn bigger, then made smaller: smooth)."""
+    k = size * 4 / 100
+    mask = Image.new('L', (round(100 * k), round(118 * k)))
+    d = ImageDraw.Draw(mask)
+    for shape in (FLEUR_MIDDLE, FLEUR_SIDE, mirrored(FLEUR_SIDE), FLEUR_CORNER, mirrored(FLEUR_CORNER), FLEUR_FOOT,
+                  FLEUR_FOOT_SIDE, mirrored(FLEUR_FOOT_SIDE)):
+        d.polygon([(x * k, y * k) for x, y in shape], fill=255)
+    d.rounded_rectangle([28 * k, 78 * k, 72 * k, 89 * k], radius=3 * k, fill=255)
+    return mask.resize((size, round(size * 1.18)), Image.LANCZOS)
+
+
+def golden_fleur(size):
+    """A golden fleur-de-lis: light at the top, deeper below, a dark gold edge and a soft shadow."""
+    mask = fleur_mask(size)
+    w, h = mask.size
+    pad = max(4, size // 12)
+    out = Image.new('RGBA', (w + 2 * pad, h + 2 * pad))
+    shadow = Image.new('L', out.size)
+    shadow.paste(mask, (pad + size // 40, pad + size // 25))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(size / 40)).point(lambda v: v * 70 // 255)
+    out.paste(Image.new('RGBA', out.size, (0, 0, 0, 255)), (0, 0), shadow)
+    edge = Image.new('L', out.size)
+    edge.paste(mask, (pad, pad))
+    edge = edge.filter(ImageFilter.MaxFilter(3 if size < 160 else 5))
+    out.alpha_composite(Image.composite(Image.new('RGBA', out.size, GOLD_EDGE + (255,)), Image.new('RGBA', out.size), edge))
+    gold = capes.vertical(GOLD_LIGHT, GOLD_DEEP, w, h).convert('RGBA')
+    gold.putalpha(mask)
+    out.alpha_composite(gold, (pad, pad))
+    # the band's own edge, over the petals it binds (drawn bigger, then made smaller: smooth)
+    k = size / 100 * 4
+    band = Image.new('RGBA', (out.width * 4, out.height * 4))
+    ImageDraw.Draw(band).rounded_rectangle([pad * 4 + 28 * k, pad * 4 + 78 * k, pad * 4 + 72 * k, pad * 4 + 89 * k],
+                                           radius=3 * k, outline=GOLD_EDGE + (255,), width=max(4, round(k * 0.9)))
+    out.alpha_composite(band.resize(out.size, Image.LANCZOS))
+    return out
+
+
+def mfga():
+    """The three bands, blue, white and red, sown with golden fleurs-de-lis: three across, five down."""
+    face = Image.new('RGBA', (BW, BH))
+    d = ImageDraw.Draw(face)
+    for i, colour in enumerate(FLAG):
+        d.rectangle([round(i * BW / 3), 0, round((i + 1) * BW / 3) - 1, BH - 1], fill=colour + (255,))
+    fleur = golden_fleur(round(BW / 3 * 0.7))
+    rows = 5
+    for row in range(rows):
+        for col in range(3):
+            cx = (col + 0.5) * BW / 3
+            cy = (row + 0.5) * BH / rows
+            face.alpha_composite(fleur, (round(cx - fleur.width / 2), round(cy - fleur.height / 2)))
+    return face, (14, 26, 96), BIG
+
+
 def save(name, face, edge, s):
     os.makedirs(OUT, exist_ok=True)
     capes.cape(face.convert('RGBA'), edge, s=s).save(os.path.join(OUT, name + '.png'), optimize=True)
@@ -132,13 +244,16 @@ def main():
     p.add_argument('--discord', help='the Discord picture (black_cat)')
     p.add_argument('--night', help='the cat in the night (night_cat)')
     p.add_argument('--photo', help='the photo (qrago)')
-    p.add_argument('--preview', help='also save the four faces side by side to this file')
+    p.add_argument('--meal', help='the photo of the meal (primal)')
+    p.add_argument('--preview', help='also save the faces drawn side by side to this file')
     a = p.parse_args()
     faces = []
-    face, edge, s = pixel_cat()
-    save('pixel_cat', face, edge, s)
-    faces.append(face)
-    for name, path, fn in (('black_cat', a.discord, black_cat), ('night_cat', a.night, night_cat), ('qrago', a.photo, qrago)):
+    for name, fn in (('pixel_cat', pixel_cat), ('mfga', mfga)):
+        face, edge, s = fn()
+        save(name, face, edge, s)
+        faces.append(face.resize((W, H), Image.LANCZOS))
+    for name, path, fn in (('black_cat', a.discord, black_cat), ('night_cat', a.night, night_cat), ('qrago', a.photo, qrago),
+                           ('primal', a.meal, primal)):
         if path:
             face, edge, s = fn(Image.open(path))
             save(name, face, edge, s)

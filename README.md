@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.8.3.** What it contains:
+**Current version: 1.8.4.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,11 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.8.4:
+  - capes **Midnight, Flame, Ocean, Royal and Frost removed**: a config or a player still wearing
+    one shows the Rago cape (or none, for Rago Network)
+  - **two new HD capes**, 4096 x 2048: Primal (a photo of a beef tartare by the creator) and MFGA
+    (blue, white and red sown with golden fleurs-de-lis, Rago's own drawing, sharp at any size)
 - new in 1.8.3:
   - **the creator stands out** for every Rago player: the Rago logo before their name in a pink
     gradient, the name itself in shades of pink that move slowly along it (in a Bed Wars game it
@@ -623,7 +628,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.8.3+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.8.4+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

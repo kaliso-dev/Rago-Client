@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 /** Which cape another player shows: their Minecraft or OptiFine one, or their Rago cape. */
 class RagoCapeTest {
 	private static final ResourceLocation MINECRAFT_CAPE = new ResourceLocation("skins/abc");
-	private static final ResourceLocation FLAME = new ResourceLocation("rago", "textures/capes/flame.png");
+	private static final ResourceLocation MFGA = new ResourceLocation("rago", "textures/capes/mfga.png");
 
 	private static Loadout cape(String design, boolean overOwn) {
 		return new Loadout(design, "red", overOwn, "none", "red", Loadout.NO_TINT, 100, "none", "red", Loadout.NO_TINT, 100,
@@ -39,14 +39,14 @@ class RagoCapeTest {
 
 	@Test
 	void theRagoCapeShowsWhereThereIsNoOther() {
-		assertEquals(FLAME, RagoCape.otherCape(cape("flame", false), null));
+		assertEquals(MFGA, RagoCape.otherCape(cape("mfga", false), null));
 	}
 
 	/** The fix of 1.8: "Replace my Minecraft cape" now counts for the other Rago players too. */
 	@Test
 	void theRagoCapeReplacesAnotherWhenThePlayerChoseSo() {
-		assertSame(MINECRAFT_CAPE, RagoCape.otherCape(cape("flame", false), MINECRAFT_CAPE));
-		assertEquals(FLAME, RagoCape.otherCape(cape("flame", true), MINECRAFT_CAPE));
+		assertSame(MINECRAFT_CAPE, RagoCape.otherCape(cape("mfga", false), MINECRAFT_CAPE));
+		assertEquals(MFGA, RagoCape.otherCape(cape("mfga", true), MINECRAFT_CAPE));
 	}
 
 	/** Every design is a cape Rago Network passes on, and every cape it passes on is a design. */

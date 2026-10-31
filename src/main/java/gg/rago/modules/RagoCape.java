@@ -29,12 +29,8 @@ import java.util.Set;
  */
 public final class RagoCape extends Module {
 	public static final ResourceLocation TEXTURE = new ResourceLocation("rago", "textures/cape.png");
-	/**
-	 * The designs (Rago Network's capes but "none"); the others are drawn by tools/capes.py and, in HD,
-	 * tools/hd_capes.py.
-	 */
-	static final String[] DESIGNS = {"rago", "midnight", "flame", "ocean", "royal", "frost", "black_cat", "pixel_cat", "night_cat",
-		"qrago"};
+	/** The designs (Rago Network's capes but "none"); the others than Rago's are drawn by tools/hd_capes.py. */
+	static final String[] DESIGNS = {"rago", "black_cat", "pixel_cat", "night_cat", "qrago", "primal", "mfga"};
 	/**
 	 * The designs only the creator of Rago wears: their Discord picture and their photo. Rago Network
 	 * shows them only on the creator (server/cosmetics.json, "exclusive"); the menu offers them to no one else.

@@ -120,14 +120,23 @@ class PresenceTest(unittest.TestCase):
         n = network()
         me = sign_in(n)
         other = sign_in(n, "Steve")
-        n.presence(me["uuid"], {"visible": True, "version": "1.7.0", "cosmetics": {"cape": "flame", "hat": "crown"}})
+        n.presence(me["uuid"], {"visible": True, "version": "1.7.0", "cosmetics": {"cape": "mfga", "hat": "crown"}})
         status, body = n.lookup(other["uuid"], {"uuids": [me["uuid"].replace("-", ""), "not-a-uuid"]})
         self.assertEqual(status, 200)
         found = body["players"][me["uuid"]]
         self.assertEqual(found["role"], "creator")
-        self.assertEqual(found["cosmetics"]["cape"], "flame")
+        self.assertEqual(found["cosmetics"]["cape"], "mfga")
         self.assertEqual(found["cosmetics"]["hat"], "crown")
         self.assertEqual(found["cosmetics"]["wings"], "none", "missing fields take their default")
+
+    def test_a_cape_rago_no_longer_has_is_shown_as_none(self):
+        n = network()
+        me = sign_in(n)
+        other = sign_in(n, "Steve")
+        # an older client still wearing a cape removed since (Flame went in 1.8.4)
+        n.presence(me["uuid"], {"visible": True, "version": "1.8.3", "cosmetics": {"cape": "flame"}})
+        found = n.lookup(other["uuid"], {"uuids": [me["uuid"]]})[1]["players"][me["uuid"]]
+        self.assertEqual(found["cosmetics"]["cape"], "none")
 
     def test_a_hidden_or_gone_player_is_not_found(self):
         clock = Clock()
