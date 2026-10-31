@@ -34,8 +34,10 @@ import java.util.UUID;
 /**
  * The debrief after each Hypixel Bed Wars game: your kills, final kills, beds and deaths, when they
  * came (a timeline), your team's first upgrade, when your bed fell and, with your own API key, your
- * final kill ratio before and after. A line in chat (seen only by you) opens it; the debrief is also
- * a picture to copy into Discord. Everything is read from the chat, the sidebar and the titles of
+ * final kill ratio before and after. A line in chat (seen only by you) opens it, as the game ends for
+ * you: at "VICTORY!" or "GAME OVER!", or at your final death (and again if your team wins after it).
+ * A game you leave before its end keeps its debrief in /rago debrief, without the line, so none shows
+ * up when you join the next one. The debrief is also a picture to copy into Discord. Everything is read from the chat, the sidebar and the titles of
  * your own game; nothing is sent, and nothing is kept once the game closes.
  */
 public final class GameDebrief extends Module {
@@ -72,11 +74,16 @@ public final class GameDebrief extends Module {
 	private int ticks;
 	private Debrief awaitingStats;
 	private boolean statsAsked;
-	/** The game whose line waits to be said, the line once said, and when the last chat line came. */
+	/** When the game was over for Hypixel, from which your stats are asked for again; MAX_VALUE while it goes on. */
+	private long statsFrom = Long.MAX_VALUE;
+	/** The game whose line waits to be said, the line once said, since when, and when the last chat line came. */
 	private Debrief toSay;
 	private Debrief said;
+	private long sayFrom;
 	private long lastLineAt;
 	private boolean bump;
+	/** A game you were final-killed in, while you watch its end: your team may still win it. */
+	private Debrief eliminated;
 
 	public GameDebrief() {
 		super("game_debrief", FeatureClass.INFORMATIONAL, true);
@@ -115,16 +122,31 @@ public final class GameDebrief extends Module {
 		if (mc.theWorld != world) {
 			world = mc.theWorld;
 			lastTitle = "";
+			// a line still waiting goes now, before the chat of the next place
+			if (toSay != null) {
+				print(mc, toSay);
+				toSay = null;
+			}
+			said = null;
+			if (eliminated != null) {
+				eliminated = null;
+				statsFrom = Math.min(statsFrom, now);
+			}
 			if (tracker.inGame()) {
 				// gone before the end: after your final death, or still in the game
 				finish(tracker.current().count(Debrief.Kind.FINAL_DEATH) > 0 ? Debrief.Result.ELIMINATED : Debrief.Result.LEFT, now);
+				statsFrom = Math.min(statsFrom, now);
+				eliminated = null; // its end is not watched from here
+				toSay = null;
 			}
 		}
 		if (ticks % 20 == 0) {
 			tracker.sidebar(BedwarsGame.sidebarLines());
 		}
 		if (!tracker.inGame()) {
-			if (world != endedIn && BedwarsGame.playing()) {
+			if (eliminated != null) {
+				titleAfterElimination(now);
+			} else if (world != endedIn && BedwarsGame.playing()) {
 				start(mc, now);
 			}
 		} else {
@@ -149,7 +171,7 @@ public final class GameDebrief extends Module {
 	 */
 	private void lineAfterGame(Minecraft mc, long now) {
 		if (toSay != null) {
-			if (readyToSay(now - toSay.endedAt(), now - lastLineAt)) {
+			if (readyToSay(now - sayFrom, now - lastLineAt)) {
 				said = toSay;
 				toSay = null;
 				bump = false;
@@ -160,7 +182,7 @@ public final class GameDebrief extends Module {
 		if (said == null) {
 			return;
 		}
-		if (now - said.endedAt() > KEEP_LAST_MS) {
+		if (now - sayFrom > KEEP_LAST_MS) {
 			said = null;
 		} else if (bump) {
 			bump = false;
@@ -202,14 +224,42 @@ public final class GameDebrief extends Module {
 		lastTitle = t;
 		if (BedwarsGame.isVictory(t)) {
 			finish(Debrief.Result.WIN, now);
+			statsFrom = now;
 		} else if (BedwarsGame.isGameOver(t)) {
 			finish(Debrief.Result.LOSS, now);
+			statsFrom = now;
+		}
+	}
+
+	/**
+	 * After your final death, the end of the game: your team's "VICTORY!" makes it a win (the line
+	 * says so again); "GAME OVER!" leaves it as it is. Either way your stats can be asked for again.
+	 */
+	private void titleAfterElimination(long now) {
+		String t = BedwarsGame.title();
+		if (t.equals(lastTitle)) {
+			return;
+		}
+		lastTitle = t;
+		boolean won = BedwarsGame.isVictory(t);
+		if (!won && !BedwarsGame.isGameOver(t)) {
+			return;
+		}
+		Debrief d = eliminated;
+		eliminated = null;
+		statsFrom = now;
+		if (won) {
+			DebriefTracker.result(d, Debrief.Result.WIN);
+			if (chatLine.get()) {
+				say(d, now);
+			}
 		}
 	}
 
 	private void finish(Debrief.Result result, long now) {
 		Debrief d = tracker.end(result, now);
 		endedIn = world;
+		statsFrom = Long.MAX_VALUE;
 		if (d == null || d.seconds() < MIN_SECONDS && d.moments().isEmpty()) {
 			return;
 		}
@@ -217,22 +267,41 @@ public final class GameDebrief extends Module {
 		if (games.size() > KEPT) {
 			games.remove(0);
 		}
-		if (chatLine.get()) {
-			toSay = d;
-			said = null;
-			lastLineAt = now;
+		if (result == Debrief.Result.ELIMINATED) {
+			eliminated = d;
+		}
+		if (chatLine.get() && announced(result)) {
+			say(d, now);
+			if (result == Debrief.Result.ELIMINATED) {
+				// no end-of-game lines to wait for: the line goes at once, and stays last for a moment
+				said = d;
+				toSay = null;
+				print(Minecraft.getMinecraft(), d);
+			}
 		}
 		awaitingStats = !Double.isNaN(d.fkdrBefore()) && RagoClient.hypixel().hasKey() ? d : null;
 		statsAsked = false;
 	}
 
+	/** Whether a game ending so gets its line: not one you left before its end (it would show in the next place). */
+	static boolean announced(Debrief.Result result) {
+		return result != Debrief.Result.LEFT;
+	}
+
+	private void say(Debrief d, long now) {
+		toSay = d;
+		said = null;
+		sayFrom = now;
+		lastLineAt = now;
+	}
+
 	/** Your stats once Hypixel has saved the game, for the ratio after it. */
 	private void statsAfterGame(Minecraft mc, long now) {
 		Debrief d = awaitingStats;
-		if (d == null || now - d.endedAt() < STATS_AFTER_MS) {
+		if (d == null || statsFrom == Long.MAX_VALUE || now - statsFrom < STATS_AFTER_MS) {
 			return;
 		}
-		if (now - d.endedAt() > STATS_GIVE_UP_MS) {
+		if (now - statsFrom > STATS_GIVE_UP_MS) {
 			awaitingStats = null;
 			return;
 		}
@@ -244,7 +313,7 @@ public final class GameDebrief extends Module {
 			return;
 		}
 		HypixelApi.Stats s = api.get(me);
-		if (s != null && s.found && s.time() > d.endedAt() + STATS_AFTER_MS / 2) {
+		if (s != null && s.found && s.time() > statsFrom + STATS_AFTER_MS / 2) {
 			DebriefTracker.statsAfter(d, s.fkdr());
 			awaitingStats = null;
 		}
@@ -272,6 +341,10 @@ public final class GameDebrief extends Module {
 			players.add(info.getGameProfile().getName());
 		}
 		tracker.chat(line, mc.thePlayer.getName(), players, now);
+		if (tracker.current().count(Debrief.Kind.FINAL_DEATH) > 0) {
+			// your final death: the game is over for you, its debrief comes now
+			finish(Debrief.Result.ELIMINATED, now);
+		}
 	}
 
 	/** The line in chat after a game: the result, the four counts and a button that opens the debrief. */

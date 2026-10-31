@@ -53,6 +53,11 @@ public final class DebriefTracker {
 		}
 	}
 
+	/** The game's result once known after all: a team that wins after your final death. */
+	public static void result(Debrief d, Debrief.Result result) {
+		d.result = result;
+	}
+
 	/** Your final kill ratio once Hypixel has saved the game. */
 	public static void statsAfter(Debrief d, double fkdr) {
 		d.fkdrAfter = fkdr;
