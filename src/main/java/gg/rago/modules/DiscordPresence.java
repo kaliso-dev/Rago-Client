@@ -22,10 +22,10 @@ import java.util.Locale;
 public final class DiscordPresence extends Module {
 	/**
 	 * The Rago Client application in Discord's developer portal: its name is what friends read
-	 * ("Playing Rago Client"), its art asset "rago" is the picture. Rago shows nothing on Discord
-	 * while it is not set.
+	 * ("Playing Rago Client"), its art asset "rago" is the picture. An application id is public (Discord
+	 * shows it to anyone who looks at the activity); {@code -Drago.discord.app} replaces it for tests.
 	 */
-	public static final String APP_ID = System.getProperty("rago.discord.app", "");
+	public static final String APP_ID = System.getProperty("rago.discord.app", "1566130956530749544");
 
 	/** Networks shown by name, by the end of their address. */
 	private static final String[][] NETWORKS = {
@@ -77,7 +77,6 @@ public final class DiscordPresence extends Module {
 		if (ticks++ % 20 != 0) {
 			return;
 		}
-		client.start(); // does nothing once started; the setting turning it off stops it
 		Minecraft mc = Minecraft.getMinecraft();
 		String details;
 		String state = null;
@@ -103,6 +102,9 @@ public final class DiscordPresence extends Module {
 			since = System.currentTimeMillis() / 1000;
 		}
 		client.want(new DiscordClient.Activity(details, state, showTime.get() ? since : 0, "Rago Client " + version));
+		// after the activity is set, so the first thing Discord is sent is what you do; does nothing
+		// once started, and the module turned off stops it
+		client.start();
 	}
 
 	/**

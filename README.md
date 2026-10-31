@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.7.0.** What it contains:
+**Current version: 1.7.1.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -512,8 +512,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     normal sight. Names in chat, the tab list, the sidebar and above heads change, only on your screen
   - **Discord Rich Presence** (Windows): "Playing Rago Client", where you play (Hypixel, Minemen Club
     and other big PvP networks by name, other servers as Multiplayer unless you show their
-    address), what you do (Bed Wars game, waiting room, lobby) and for how long. It appears once
-    Rago's Discord application exists
+    address), what you do (Bed Wars game, waiting room, lobby) and for how long, with the Rago logo.
+    1.7.1 turns it on, as Rago's Discord application now exists (Visual tab, Discord, to turn it off)
   - a **[GG]** button in the end-of-game line: it puts `/ac gg` in the chat field, nothing is sent
     until you press Enter
   - lighter on the frame: HUD texts are made again only when what they show changes, name tags,
@@ -587,7 +587,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.7.0+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.7.1+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
