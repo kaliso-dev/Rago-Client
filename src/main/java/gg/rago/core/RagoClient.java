@@ -112,6 +112,7 @@ import gg.rago.modules.Nametags;
 import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
 import gg.rago.modules.TimeChanger;
+import gg.rago.modules.Overlays;
 import gg.rago.modules.Vignette;
 import gg.rago.modules.WeatherChanger;
 import gg.rago.modules.Zoom;
@@ -315,6 +316,7 @@ public final class RagoClient {
 		MODULES.register(new F5Crosshair());
 		MODULES.register(new WeatherChanger());
 		MODULES.register(new TimeChanger());
+		Hooks.overlays = MODULES.register(new Overlays());
 		MODULES.register(new MotionBlur(zoom));
 		MODULES.register(new ColorGrading());
 		MODULES.register(new Vignette());

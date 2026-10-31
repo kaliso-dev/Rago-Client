@@ -11,7 +11,8 @@ import com.google.gson.JsonPrimitive;
  * or not allowed falls back to its default, as the server itself does.
  */
 public final class Loadout {
-	public static final String[] CAPES = {"none", "rago", "midnight", "flame", "ocean", "royal", "frost"};
+	public static final String[] CAPES = {"none", "rago", "midnight", "flame", "ocean", "royal", "frost", "black_cat", "pixel_cat",
+		"night_cat", "qrago"};
 	public static final String[] HATS = {"none", "rago_cap", "rago_beanie", "top_hat", "wizard_hat", "crown", "halo"};
 	public static final String[] WINGS = {"none", "dragon", "dragon_small"};
 	public static final String[] SHIELDS = {"none", "rago", "crimson", "gold", "frost", "void"};
@@ -28,11 +29,13 @@ public final class Loadout {
 	/** A colour left at white: the piece's own colours. */
 	public static final int NO_TINT = 0xFFFFFFFF;
 
-	public static final Loadout NONE = new Loadout("none", "red", "none", "red", NO_TINT, 100, "none", "red", NO_TINT, 100,
+	public static final Loadout NONE = new Loadout("none", "red", false, "none", "red", NO_TINT, 100, "none", "red", NO_TINT, 100,
 		true, 100, "none", "red", 100, true);
 
 	public final String cape;
 	public final String capeNeon;
+	/** Whether the Rago cape is shown over the player's Minecraft or OptiFine cape (else only when they have none). */
+	public final boolean capeOverOwn;
 	public final String hat;
 	public final String hatNeon;
 	public final int hatColor;
@@ -48,11 +51,12 @@ public final class Loadout {
 	public final int shieldScale;
 	public final boolean neonGlow;
 
-	public Loadout(String cape, String capeNeon, String hat, String hatNeon, int hatColor, int hatScale, String wings,
-		String wingsNeon, int wingsColor, int wingsScale, boolean wingsFlap, int wingsFlapSpeed, String shield,
+	public Loadout(String cape, String capeNeon, boolean capeOverOwn, String hat, String hatNeon, int hatColor, int hatScale,
+		String wings, String wingsNeon, int wingsColor, int wingsScale, boolean wingsFlap, int wingsFlapSpeed, String shield,
 		String shieldNeon, int shieldScale, boolean neonGlow) {
 		this.cape = cape;
 		this.capeNeon = capeNeon;
+		this.capeOverOwn = capeOverOwn;
 		this.hat = hat;
 		this.hatNeon = hatNeon;
 		this.hatColor = hatColor;
@@ -79,6 +83,7 @@ public final class Loadout {
 		JsonObject o = new JsonObject();
 		o.addProperty("cape", cape);
 		o.addProperty("cape_neon", capeNeon);
+		o.addProperty("cape_over_own", capeOverOwn);
 		o.addProperty("hat", hat);
 		o.addProperty("hat_neon", hatNeon);
 		o.addProperty("hat_color", hex(hatColor));
@@ -103,14 +108,14 @@ public final class Loadout {
 		}
 		JsonObject o = json.getAsJsonObject();
 		return new Loadout(
-			choice(o, "cape", CAPES), choice(o, "cape_neon", NEON),
+			choice(o, "cape", CAPES), choice(o, "cape_neon", NEON), bool(o, "cape_over_own", false),
 			choice(o, "hat", HATS), choice(o, "hat_neon", NEON), color(o, "hat_color"),
 			integer(o, "hat_scale", HAT_SCALE_MIN, HAT_SCALE_MAX),
 			choice(o, "wings", WINGS), choice(o, "wings_neon", NEON), color(o, "wings_color"),
-			integer(o, "wings_scale", WINGS_SCALE_MIN, WINGS_SCALE_MAX), bool(o, "wings_flap"),
+			integer(o, "wings_scale", WINGS_SCALE_MIN, WINGS_SCALE_MAX), bool(o, "wings_flap", true),
 			integer(o, "wings_flap_speed", FLAP_SPEED_MIN, FLAP_SPEED_MAX),
 			choice(o, "shield", SHIELDS), choice(o, "shield_neon", NEON),
-			integer(o, "shield_scale", SHIELD_SCALE_MIN, SHIELD_SCALE_MAX), bool(o, "neon_glow"));
+			integer(o, "shield_scale", SHIELD_SCALE_MIN, SHIELD_SCALE_MAX), bool(o, "neon_glow", true));
 	}
 
 	static String hex(int argb) {
@@ -148,10 +153,10 @@ public final class Loadout {
 		return 100;
 	}
 
-	/** true or false, else true (every switch's default). */
-	private static boolean bool(JsonObject o, String key) {
+	/** true or false, else the switch's default. */
+	private static boolean bool(JsonObject o, String key, boolean fallback) {
 		JsonPrimitive p = primitive(o, key);
-		return p == null || !p.isBoolean() || p.getAsBoolean();
+		return p == null || !p.isBoolean() ? fallback : p.getAsBoolean();
 	}
 
 	/** #RRGGBB as an opaque colour, else white. */

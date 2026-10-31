@@ -17,6 +17,7 @@ import gg.rago.hud.HudPosition;
 import gg.rago.hypixel.Danger;
 import gg.rago.hypixel.HypixelApi;
 import gg.rago.modules.BedwarsStats;
+import gg.rago.modules.Overlays;
 import gg.rago.optimize.OptiFineFields;
 import gg.rago.profile.ModProfiles;
 import gg.rago.settings.Button;
@@ -88,6 +89,8 @@ public final class RagoMenuScreen extends GuiScreen {
 	private KeyBinding binding;
 	private SliderDrag dragging;
 	private String tooltip;
+	/** The Overlays mod's page, made when first shown; keeps the overlay packs turned on or off there. */
+	private OverlaysPanel overlaysPanel;
 	private long openedNs;
 	private long closingNs;
 	private long contentNs;
@@ -640,6 +643,12 @@ public final class RagoMenuScreen extends GuiScreen {
 		if (m instanceof BedwarsStats) {
 			cy = statsLegend((BedwarsStats) m, x, cy, w - 8) + 10;
 		}
+		if (m instanceof Overlays) {
+			if (overlaysPanel == null) {
+				overlaysPanel = new OverlaysPanel();
+			}
+			cy = overlaysPanel.draw((Overlays) m, x, cy, w - 8, inside, s -> tooltip = s) + 14;
+		}
 		if (m instanceof HudElement) {
 			preview((HudElement) m, x, cy, w - 8, 110);
 			cy += 122;
@@ -1072,7 +1081,7 @@ public final class RagoMenuScreen extends GuiScreen {
 	}
 
 	private void choiceControl(ChoiceOption co, float left, float y, float right, boolean inside) {
-		List<String> ids = co.ids();
+		List<String> ids = co.choices();
 		float total = 0;
 		String[] labels = new String[ids.size()];
 		for (int i = 0; i < labels.length; i++) {
@@ -1608,6 +1617,9 @@ public final class RagoMenuScreen extends GuiScreen {
 	@Override
 	public void onGuiClosed() {
 		Keyboard.enableRepeatEvents(false);
+		if (overlaysPanel != null) {
+			overlaysPanel.close();
+		}
 		if (blurOn && mc.entityRenderer.isShaderActive()) {
 			mc.entityRenderer.stopUseShader();
 		}

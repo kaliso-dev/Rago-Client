@@ -11,6 +11,7 @@ import gg.rago.modules.HitDelayFix;
 import gg.rago.modules.BlockEditFix;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.OldAnimations;
+import gg.rago.modules.Overlays;
 import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
@@ -61,6 +62,7 @@ public final class Hooks {
 	public static volatile OcclusionCuller culler;
 	public static volatile NoHurtCam noHurtCam;
 	public static volatile OldAnimations animations;
+	public static volatile Overlays overlays;
 	public static volatile TabPing tabPing;
 	public static volatile TabList tabList;
 	public static volatile HitParticles hitParticles;
@@ -140,8 +142,31 @@ public final class Hooks {
 	 * real one). {@code kind}: 0 eating or drinking, 1 blocking, 2 drawing a bow.
 	 */
 	public static float useSwing(float swing, int kind) {
+		Overlays o = overlays;
+		if (kind == 1 && o != null) {
+			Overlays.BlockStyle style = o.blockStyle();
+			if (style != null) {
+				return o.blockSwing(style, swing);
+			}
+		}
 		OldAnimations a = animations;
 		return a != null && a.isEnabled() && a.swingWhileUsing(kind) ? swing : 0f;
+	}
+
+	/** ItemRenderer.doBlockTransformations, first thing: the block-hit style's turn of the sword. */
+	public static void blockTransform() {
+		Overlays o = overlays;
+		if (o != null) {
+			o.blockTransform();
+		}
+	}
+
+	/** RenderGlobal.renderSky, after it turns for the sun: the packs' custom skies, without OptiFine. */
+	public static void packSky(float partialTicks) {
+		Overlays o = overlays;
+		if (o != null && o.isEnabled()) {
+			o.packSky(partialTicks);
+		}
 	}
 
 	/** EntityRenderer.orientCamera: the eye height the camera is placed at (smooth sneak). */
@@ -163,6 +188,10 @@ public final class Hooks {
 		OldAnimations a = animations;
 		if (a != null && a.isEnabled()) {
 			a.applyItemOffset();
+		}
+		Overlays o = overlays;
+		if (o != null) {
+			o.blockOffset();
 		}
 	}
 

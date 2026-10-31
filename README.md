@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.7.1.** What it contains:
+**Current version: 1.8.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,27 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.8.0:
+  - **Overlays** (Visual tab): Rago's own wool and stained clay for Bed Wars and The Bridge (flat,
+    outline, bevel, and knit for wool), in the colour-blind team colours when you use them; six skies
+    painted by Rago (clear day, sunset, night, galaxy, aurora, pastel) with fog to match; the skies
+    of your packs (OptiFine's format) shown even without OptiFine; five block-hit styles for the
+    sword (classic 1.7, low, slide, thrust, tilt); and the overlay packs of your resourcepacks
+    folder, listed with what they change, to put over your main pack. Only what you see changes
+  - **"Replace my Minecraft cape" now counts for the other Rago players**: they see your Rago cape
+    over your Minecraft or OptiFine cape (Rago Network passes the choice on). Players without Rago
+    still see your Minecraft or OptiFine cape
+  - **new Dragon wings**: bat wings, light bones (the arm, a claw, three fingers) holding a black
+    membrane whose edge curves between the fingers, drawn as smooth shapes (`gg.rago.render.BatWing`,
+    Rago's own). A colour chosen for them is the membrane's
+  - **four HD capes**, 2048 x 1024 (32 times Minecraft's cape): Black Cat (the creator's Discord
+    picture in a fine silver frame), Pixel Cat (a black cat in Minecraft's pixel style, green eyes,
+    red collar and gold bell), Night Cat (a cat on the roofs under the moon) and qRago (a photo of
+    the creator). Black Cat and qRago are the creator's own: only their account is offered them,
+    and Rago Network shows them on no one else. Drawn by `tools/hd_capes.py`
+  - the capes but the red Rago design are shown smooth, filtered with mipmaps (no shimmer when
+    small), and read on a thread of their own the first time they are worn, so a new cape does not
+    stall the game
 - new in 1.7.0:
   - **welcome guide** on the first start (and from Settings, General): what you play (the mods for
     Hypixel Bed Wars, 1.8 PvP or both), your look, and performance (max FPS, your own video
@@ -587,7 +608,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.7.1+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.8.0+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

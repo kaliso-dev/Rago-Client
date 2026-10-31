@@ -122,7 +122,7 @@ class NetworkClientTest {
 	}
 
 	private void tick(int signature, Collection<UUID> around) {
-		Loadout own = new Loadout("rago", "red", "none", "red", Loadout.NO_TINT, 100, "none", "red", Loadout.NO_TINT, 100,
+		Loadout own = new Loadout("rago", "red", false, "none", "red", Loadout.NO_TINT, 100, "none", "red", Loadout.NO_TINT, 100,
 			true, 100, "none", "red", 100, true);
 		client.tick(url, account, true, true, signature, () -> own, () -> around);
 	}

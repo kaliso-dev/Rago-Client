@@ -11,6 +11,7 @@ import gg.rago.core.RagoClient;
 import gg.rago.hooks.Hooks;
 import gg.rago.network.Loadout;
 import gg.rago.network.NetworkClient;
+import gg.rago.render.BatWing;
 import gg.rago.render.CosmeticModel;
 import gg.rago.render.NeonColors;
 import net.minecraft.client.Minecraft;
@@ -35,7 +36,7 @@ import java.util.Map;
  * Cosmetics on your own player: a hat, wings and a shield in the left hand, each with its size (and
  * colour for the hat and wings). The Rago cap and beanie are textured boxes; the voxel hats, wings
  * and shields are {@link CosmeticModel}s built by tools/models.py (credits in
- * tools/models/CREDITS.md); the crown and halo are simple shapes. The pieces in Rago's neon red (the
+ * tools/models/CREDITS.md); the Dragon wings ({@link BatWing}), the crown and the halo are shapes drawn in code. The pieces in Rago's neon red (the
  * logo of the Rago cap and beanie, the small dragon wings, the Rago shield) come in the
  * {@link NeonColors}, with a faint glow that can be turned off. Off by default, and each piece can be
  * set to none. Everything is drawn from a {@link Loadout}: yours from these options, another Rago
@@ -49,7 +50,6 @@ public final class Cosmetics extends Module {
 	private static final float PX = 1 / 16f;
 	/** The voxel hats, by option value. */
 	private static final Map<String, CosmeticModel> HATS = new HashMap<>();
-	private static final CosmeticModel DRAGON = model("dragon", "dragon");
 	private static final CosmeticModel DRAGON_SMALL = model("dragon_small", "dragon_small");
 	private static final String[] SHIELDS = Loadout.SHIELDS;
 	private static final Map<String, CosmeticModel> SHIELD_MODELS = new HashMap<>();
@@ -127,7 +127,7 @@ public final class Cosmetics extends Module {
 
 	private Loadout loadout(boolean on, RagoCape cape) {
 		boolean capeOn = cape != null && cape.isEnabled();
-		return new Loadout(capeOn ? cape.design() : "none", cape != null ? cape.neon() : "red",
+		return new Loadout(capeOn ? cape.design() : "none", cape != null ? cape.neon() : "red", cape != null && cape.overOwn(),
 			on ? hat.get() : "none", hatNeon.get(), hatColor.get(), hatScale.get(),
 			on ? wings.get() : "none", wingsNeon.get(), wingsColor.get(), wingsScale.get(), flap.get(), flapSpeed.get(),
 			on ? shield.get() : "none", shieldNeon.get(), shieldScale.get(), neonGlow.get());
@@ -153,6 +153,7 @@ public final class Cosmetics extends Module {
 			h = 31 * h + (cape.isEnabled() ? 1 : 0);
 			h = 31 * h + cape.design().hashCode();
 			h = 31 * h + cape.neon().hashCode();
+			h = 31 * h + (cape.overOwn() ? 1 : 0);
 		}
 		return h;
 	}
@@ -258,8 +259,13 @@ public final class Cosmetics extends Module {
 					}
 					model.bipedBody.postRender(0.0625f);
 					float beat = l.wingsFlap ? flapAngle(player, ageInTicks * l.wingsFlapSpeed / 100f) : 0;
-					extrudedWing(l, -1, beat);
-					extrudedWing(l, 1, beat);
+					if (l.wings.equals("dragon")) {
+						BatWing.draw(tint(l.wingsColor, BatWing.MEMBRANE), l.wingsScale / 100f, -1, beat);
+						BatWing.draw(tint(l.wingsColor, BatWing.MEMBRANE), l.wingsScale / 100f, 1, beat);
+					} else {
+						extrudedWing(l, -1, beat);
+						extrudedWing(l, 1, beat);
+					}
 					GlStateManager.popMatrix();
 				}
 				if (!l.shield.equals("none")) {
@@ -569,15 +575,14 @@ public final class Cosmetics extends Module {
 	// ---- wings: body space, the back of the body at z = 0.125 --------------------------------------
 
 	/**
-	 * One dragon wing: Rago's pixel-art wing extruded into voxels, its root on the back. The other
-	 * side is the same model mirrored.
+	 * One small dragon wing: Rago's pixel-art wing extruded into voxels, its root on the back. The
+	 * other side is the same model mirrored.
 	 */
 	private static void extrudedWing(Loadout l, int side, float beat) {
-		boolean small = l.wings.equals("dragon_small");
-		// the small dragon wings are coloured in their texture (Rago's red and black): untinted by default
-		int c = tint(l.wingsColor, small ? 0xFFFFFFFF : 0xFF5A3E78);
-		// the small dragon wings are compact
-		float span = (small ? 0.7f : 1.15f) * l.wingsScale / 100f;
+		// coloured in their texture (Rago's red and black): untinted by default
+		int c = tint(l.wingsColor, 0xFFFFFFFF);
+		// compact
+		float span = 0.7f * l.wingsScale / 100f;
 		GlStateManager.pushMatrix();
 		// the root high on the back, between the shoulder blades
 		GlStateManager.translate(side * 0.05f, 0.04f, 0.16f);
@@ -586,14 +591,10 @@ public final class Cosmetics extends Module {
 		GlStateManager.rotate(side * -22, 0, 0, 1);
 		GlStateManager.scale(side * span, span, span);
 		GlStateManager.disableBlend();
-		if (small) {
-			DRAGON_SMALL.render("wing", c, NeonColors.texture(DRAGON_SMALL.texture(), l.wingsNeon));
-			ResourceLocation lit = l.neonGlow ? NeonColors.glow(DRAGON_SMALL.texture(), l.wingsNeon) : null;
-			if (lit != null) {
-				glow(l, () -> DRAGON_SMALL.render("wing", c, lit));
-			}
-		} else {
-			DRAGON.render("wing", c);
+		DRAGON_SMALL.render("wing", c, NeonColors.texture(DRAGON_SMALL.texture(), l.wingsNeon));
+		ResourceLocation lit = l.neonGlow ? NeonColors.glow(DRAGON_SMALL.texture(), l.wingsNeon) : null;
+		if (lit != null) {
+			glow(l, () -> DRAGON_SMALL.render("wing", c, lit));
 		}
 		GlStateManager.popMatrix();
 		untextured();

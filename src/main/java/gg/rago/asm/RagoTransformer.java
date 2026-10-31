@@ -261,6 +261,15 @@ public final class RagoTransformer implements IClassTransformer {
 				m.instructions.insert(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "heldItemOffset", "()V", false));
 				return beforeReturns(m, Opcodes.RETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "heldItemScale", "()V", false));
 			}));
+		add("net.minecraft.client.renderer.ItemRenderer", new Patch("block-hit styles",
+			"func_178103_d", "doBlockTransformations", "()V",
+			m -> {
+				m.instructions.insert(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "blockTransform", "()V", false));
+				return true;
+			}));
+		add("net.minecraft.client.renderer.RenderGlobal", new Patch("packs' custom skies without OptiFine",
+			"func_174976_a", "renderSky", "(FI)V",
+			RagoTransformer::packSky));
 		add("net.minecraft.client.renderer.ItemRenderer", new Patch("no re-equip animation when the held item only changes",
 			"func_78441_a", "updateEquippedItem", "()V",
 			RagoTransformer::reequip));
@@ -713,6 +722,39 @@ public final class RagoTransformer implements IClassTransformer {
 			m.instructions.remove(site[0]);
 		}
 		return true;
+	}
+
+	/**
+	 * {@code Hooks.packSky(partialTicks)} right after {@code GlStateManager.rotate(-90, 0, 1, 0)}, the
+	 * turn the sun, the moon and OptiFine's custom skies are drawn in.
+	 */
+	private static boolean packSky(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (!(insn instanceof MethodInsnNode) || !isMethod((MethodInsnNode) insn, "func_179114_b", "rotate", "(FFFF)V")) {
+				continue;
+			}
+			AbstractInsnNode z = previousReal(insn);
+			AbstractInsnNode y = z == null ? null : previousReal(z);
+			AbstractInsnNode x = y == null ? null : previousReal(y);
+			AbstractInsnNode angle = x == null ? null : previousReal(x);
+			if (angle instanceof LdcInsnNode && Float.valueOf(-90f).equals(((LdcInsnNode) angle).cst)
+				&& x.getOpcode() == Opcodes.FCONST_0 && y.getOpcode() == Opcodes.FCONST_1 && z.getOpcode() == Opcodes.FCONST_0) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.FLOAD, 1));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "packSky", "(F)V", false));
+				m.instructions.insert(insn, call);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static AbstractInsnNode previousReal(AbstractInsnNode insn) {
+		AbstractInsnNode n = insn.getPrevious();
+		while (n != null && n.getOpcode() < 0) {
+			n = n.getPrevious();
+		}
+		return n;
 	}
 
 	/** The first method call within {@code limit} real instructions after {@code insn}. */

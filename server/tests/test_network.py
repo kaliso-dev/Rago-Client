@@ -153,6 +153,16 @@ class PresenceTest(unittest.TestCase):
         self.assertNotIn("anything", c)
         self.assertEqual(c["shield"], "gold")
 
+    def test_the_choice_to_replace_a_minecraft_cape_is_passed_on(self):
+        n = network()
+        me = sign_in(n)
+        _, body = n.presence(me["uuid"], {"cosmetics": {"cape": "rago"}})
+        self.assertEqual(body["cosmetics"]["cape_over_own"], False)
+        _, body = n.presence(me["uuid"], {"cosmetics": {"cape": "rago", "cape_over_own": True}})
+        self.assertEqual(body["cosmetics"]["cape_over_own"], True)
+        _, body = n.presence(me["uuid"], {"cosmetics": {"cape": "rago", "cape_over_own": "yes"}})
+        self.assertEqual(body["cosmetics"]["cape_over_own"], False)
+
     def test_exclusive_cosmetics_need_the_role(self):
         n = network()
         n.whitelist.fields["cape"]["values"].append("creator")
@@ -161,6 +171,21 @@ class PresenceTest(unittest.TestCase):
         other = sign_in(n, "Steve")
         self.assertEqual(n.presence(me["uuid"], {"cosmetics": {"cape": "creator"}})[1]["cosmetics"]["cape"], "creator")
         self.assertEqual(n.presence(other["uuid"], {"cosmetics": {"cape": "creator"}})[1]["cosmetics"]["cape"], "none")
+
+    def test_the_creators_own_capes_are_theirs_alone(self):
+        # their Discord picture and their photo (server/cosmetics.json, "exclusive"); three calls each at
+        # most, under the presence limit
+        n = network()
+        me = sign_in(n)
+        other = sign_in(n, "Steve")
+
+        def worn(player, cape):
+            return n.presence(player["uuid"], {"cosmetics": {"cape": cape}})[1]["cosmetics"]["cape"]
+
+        for cape in ("black_cat", "qrago"):
+            self.assertEqual(worn(me, cape), cape)
+            self.assertEqual(worn(other, cape), "none")
+        self.assertEqual(worn(other, "night_cat"), "night_cat")
 
     def test_at_most_100_players_per_lookup(self):
         n = network()

@@ -150,18 +150,19 @@ def frost():
     return face, (150, 175, 210)
 
 
-def cape(face, edge):
-    """Places the outer face in the 64 x 32 cape layout, with plain edges, inside and top."""
-    img = Image.new('RGBA', (64 * S, 32 * S))
+def cape(face, edge, s=S, inside=None):
+    """Places the outer face in the 64 x 32 cape layout (s texture pixels to a cape pixel), with plain
+    edges, top and inside (the side against the back, dark unless given)."""
+    img = Image.new('RGBA', (64 * s, 32 * s))
     d = ImageDraw.Draw(img)
     e = edge + (255,)
-    dark = tuple(round(c * 0.35) for c in edge) + (255,)
-    d.rectangle([1 * S, 0, 11 * S - 1, 1 * S - 1], fill=e)  # top
-    d.rectangle([11 * S, 0, 21 * S - 1, 1 * S - 1], fill=e)  # bottom
-    d.rectangle([0, 1 * S, 1 * S - 1, 17 * S - 1], fill=e)  # side
-    d.rectangle([11 * S, 1 * S, 12 * S - 1, 17 * S - 1], fill=e)  # side
-    d.rectangle([12 * S, 1 * S, 22 * S - 1, 17 * S - 1], fill=dark)  # inside, against the back
-    img.paste(face, (1 * S, 1 * S))
+    dark = (inside or tuple(round(c * 0.35) for c in edge)) + (255,)
+    d.rectangle([1 * s, 0, 11 * s - 1, 1 * s - 1], fill=e)  # top
+    d.rectangle([11 * s, 0, 21 * s - 1, 1 * s - 1], fill=e)  # bottom
+    d.rectangle([0, 1 * s, 1 * s - 1, 17 * s - 1], fill=e)  # side
+    d.rectangle([11 * s, 1 * s, 12 * s - 1, 17 * s - 1], fill=e)  # side
+    d.rectangle([12 * s, 1 * s, 22 * s - 1, 17 * s - 1], fill=dark)  # inside, against the back
+    img.paste(face, (1 * s, 1 * s))
     return img
 
 
