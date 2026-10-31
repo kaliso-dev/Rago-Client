@@ -133,6 +133,12 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.gui.GuiPlayerTabOverlay", new Patch("tab list look",
 			"func_175249_a", "renderPlayerlist", "(ILnet/minecraft/scoreboard/Scoreboard;Lnet/minecraft/scoreboard/ScoreObjective;)V",
 			RagoTransformer::tabLook));
+		add("net.minecraft.entity.EntityLivingBase", new Patch("1.15+ backwards walking",
+			"func_70071_h_", "onUpdate", "()V",
+			RagoTransformer::walkYaw));
+		add("net.minecraft.client.gui.GuiPlayerTabOverlay", new Patch("tab list sorted by strength",
+			"func_175249_a", "renderPlayerlist", "(ILnet/minecraft/scoreboard/Scoreboard;Lnet/minecraft/scoreboard/ScoreObjective;)V",
+			RagoTransformer::tabOrder));
 		add("net.minecraft.entity.player.EntityPlayer", new Patch("eating fix",
 			"func_70071_h_", "onUpdate", "()V",
 			m -> {
@@ -205,6 +211,9 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return found;
 			}));
+		add("net.minecraft.client.renderer.entity.layers.LayerHeldItem", new Patch("1.7 block in third person",
+			"func_177141_a", "doRenderLayer", "(Lnet/minecraft/entity/EntityLivingBase;FFFFFFF)V",
+			RagoTransformer::thirdPersonItem));
 		add("net.minecraft.client.model.ModelRenderer", new Patch("bent limbs",
 			"func_78785_a", "render", "(F)V",
 			m -> returnIf(m, "renderBent", "(Lnet/minecraft/client/model/ModelRenderer;F)Z", new int[] {Opcodes.ALOAD, 0, Opcodes.FLOAD, 1},
@@ -252,9 +261,21 @@ public final class RagoTransformer implements IClassTransformer {
 				m.instructions.insert(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "heldItemOffset", "()V", false));
 				return beforeReturns(m, Opcodes.RETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "heldItemScale", "()V", false));
 			}));
+		add("net.minecraft.client.renderer.ItemRenderer", new Patch("block-hit styles",
+			"func_178103_d", "doBlockTransformations", "()V",
+			m -> {
+				m.instructions.insert(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "blockTransform", "()V", false));
+				return true;
+			}));
+		add("net.minecraft.client.renderer.RenderGlobal", new Patch("packs' custom skies without OptiFine",
+			"func_174976_a", "renderSky", "(FI)V",
+			RagoTransformer::packSky));
 		add("net.minecraft.client.renderer.ItemRenderer", new Patch("no re-equip animation when the held item only changes",
 			"func_78441_a", "updateEquippedItem", "()V",
 			RagoTransformer::reequip));
+		add("net.minecraft.client.renderer.ItemRenderer", new Patch("instant item switch",
+			"func_78441_a", "updateEquippedItem", "()V",
+			m -> returnIf(m, "instantSwitch", "(Lnet/minecraft/client/renderer/ItemRenderer;)Z", new int[] {Opcodes.ALOAD, 0}, -1, Opcodes.RETURN)));
 		add("net.minecraft.client.gui.GuiNewChat", new Patch("chat background and text shadow",
 			"func_146230_a", "drawChat", "(I)V",
 			RagoTransformer::chatLook));
@@ -340,6 +361,13 @@ public final class RagoTransformer implements IClassTransformer {
 			"func_177183_a", "renderGlint",
 			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
 			RagoTransformer::armorGlint));
+		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("light glint on armour",
+			"func_177183_a", "renderGlint",
+			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
+			RagoTransformer::armorGlintPasses));
+		add("net.minecraft.client.renderer.entity.RenderItem", new Patch("light glint on items",
+			"func_180451_a", "renderEffect", "(Lnet/minecraft/client/resources/model/IBakedModel;)V",
+			RagoTransformer::itemSecondGlint));
 		add("net.minecraft.client.Minecraft", new Patch("block edit fix",
 			"func_147116_af", "clickMouse", "()V",
 			m -> {
@@ -509,6 +537,40 @@ public final class RagoTransformer implements IClassTransformer {
 		return false;
 	}
 
+	/** The glint loop's {@code i < 2}: the 2 becomes {@code Hooks.glintPasses()}. */
+	private static boolean armorGlintPasses(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			AbstractInsnNode next = insn.getNext();
+			if (insn.getOpcode() == Opcodes.ILOAD && next != null && next.getOpcode() == Opcodes.ICONST_2
+				&& next.getNext() != null && next.getNext().getOpcode() == Opcodes.IF_ICMPGE) {
+				m.instructions.set(next, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "glintPasses", "()I", false));
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** The second of the two RenderItem.renderModel calls goes through {@code Hooks.secondGlintPass}. */
+	private static boolean itemSecondGlint(MethodNode m) {
+		MethodInsnNode second = null;
+		int calls = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			// private in vanilla, public with OptiFine
+			if (insn instanceof MethodInsnNode && (insn.getOpcode() == Opcodes.INVOKESPECIAL || insn.getOpcode() == Opcodes.INVOKEVIRTUAL)
+				&& ((MethodInsnNode) insn).owner.equals("net/minecraft/client/renderer/entity/RenderItem")
+				&& ((MethodInsnNode) insn).desc.equals("(Lnet/minecraft/client/resources/model/IBakedModel;I)V")) {
+				calls++;
+				second = (MethodInsnNode) insn;
+			}
+		}
+		if (calls != 2) {
+			return false;
+		}
+		m.instructions.set(second, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "secondGlintPass",
+			"(Lnet/minecraft/client/renderer/entity/RenderItem;Lnet/minecraft/client/resources/model/IBakedModel;I)V", false));
+		return true;
+	}
+
 	/** Passes every returned value of the given return opcode through {@code hook}. */
 	private static boolean beforeReturns(MethodNode m, int returnOpcode, MethodInsnNode hook) {
 		boolean found = false;
@@ -541,6 +603,21 @@ public final class RagoTransformer implements IClassTransformer {
 		head.add(new FrameNode(Opcodes.F_SAME, 0, null, 0, null));
 		m.instructions.insert(head);
 		return true;
+	}
+
+	/** {@code Hooks.thirdPersonItem(entity)} just before the held item is drawn in the third-person transform. */
+	private static boolean thirdPersonItem(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == Opcodes.INVOKEVIRTUAL && isMethod((MethodInsnNode) insn, "func_178099_a", "renderItem",
+				"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/renderer/block/model/ItemCameraTransforms$TransformType;)V")) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ALOAD, 1));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "thirdPersonItem", "(Lnet/minecraft/entity/EntityLivingBase;)V", false));
+				m.instructions.insertBefore(insn, call);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Every returned copy count goes through {@code Hooks.droppedItem} with the method's arguments. */
@@ -647,6 +724,39 @@ public final class RagoTransformer implements IClassTransformer {
 		return true;
 	}
 
+	/**
+	 * {@code Hooks.packSky(partialTicks)} right after {@code GlStateManager.rotate(-90, 0, 1, 0)}, the
+	 * turn the sun, the moon and OptiFine's custom skies are drawn in.
+	 */
+	private static boolean packSky(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (!(insn instanceof MethodInsnNode) || !isMethod((MethodInsnNode) insn, "func_179114_b", "rotate", "(FFFF)V")) {
+				continue;
+			}
+			AbstractInsnNode z = previousReal(insn);
+			AbstractInsnNode y = z == null ? null : previousReal(z);
+			AbstractInsnNode x = y == null ? null : previousReal(y);
+			AbstractInsnNode angle = x == null ? null : previousReal(x);
+			if (angle instanceof LdcInsnNode && Float.valueOf(-90f).equals(((LdcInsnNode) angle).cst)
+				&& x.getOpcode() == Opcodes.FCONST_0 && y.getOpcode() == Opcodes.FCONST_1 && z.getOpcode() == Opcodes.FCONST_0) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.FLOAD, 1));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "packSky", "(F)V", false));
+				m.instructions.insert(insn, call);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static AbstractInsnNode previousReal(AbstractInsnNode insn) {
+		AbstractInsnNode n = insn.getPrevious();
+		while (n != null && n.getOpcode() < 0) {
+			n = n.getPrevious();
+		}
+		return n;
+	}
+
 	/** The first method call within {@code limit} real instructions after {@code insn}. */
 	private static MethodInsnNode nextCall(AbstractInsnNode insn, int limit) {
 		AbstractInsnNode n = insn;
@@ -750,6 +860,43 @@ public final class RagoTransformer implements IClassTransformer {
 	 * returning, rectangle colours through {@code Hooks.tabRect}, the header and footer fields
 	 * through {@code Hooks.tabHeaderFooter}, and text through {@code Hooks.tabText}.
 	 */
+	/**
+	 * The way the body turns to while moving ({@code atan2(dz, dx) * 180 / PI - 90}, stored right
+	 * after) goes through {@code Hooks.walkYaw} with the entity.
+	 */
+	private static boolean walkYaw(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (!(insn instanceof MethodInsnNode) || !isMethod((MethodInsnNode) insn, "func_181159_b", "atan2", "(DD)D")) {
+				continue;
+			}
+			for (AbstractInsnNode n = insn.getNext(); n != null; n = n.getNext()) {
+				if (n.getOpcode() == Opcodes.FSTORE) {
+					InsnList call = new InsnList();
+					call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+					call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "walkYaw", "(FLnet/minecraft/entity/EntityLivingBase;)F", false));
+					m.instructions.insertBefore(n, call);
+					return true;
+				}
+				if (n instanceof MethodInsnNode || n instanceof JumpInsnNode) {
+					return false; // not the expected arithmetic
+				}
+			}
+		}
+		return false;
+	}
+
+	/** The players vanilla sorted ({@code Ordering.sortedCopy}) go through {@code Hooks.tabOrder}. */
+	private static boolean tabOrder(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof MethodInsnNode && "sortedCopy".equals(((MethodInsnNode) insn).name)
+				&& "com/google/common/collect/Ordering".equals(((MethodInsnNode) insn).owner)) {
+				m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "tabOrder", "(Ljava/util/List;)Ljava/util/List;", false));
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static boolean tabLook(MethodNode m) {
 		int rects = 0;
 		int fields = 0;

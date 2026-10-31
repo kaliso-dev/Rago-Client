@@ -17,6 +17,7 @@ import gg.rago.hud.HudPosition;
 import gg.rago.hypixel.Danger;
 import gg.rago.hypixel.HypixelApi;
 import gg.rago.modules.BedwarsStats;
+import gg.rago.modules.Overlays;
 import gg.rago.optimize.OptiFineFields;
 import gg.rago.profile.ModProfiles;
 import gg.rago.settings.Button;
@@ -88,6 +89,8 @@ public final class RagoMenuScreen extends GuiScreen {
 	private KeyBinding binding;
 	private SliderDrag dragging;
 	private String tooltip;
+	/** The Overlays mod's page, made when first shown; keeps the overlay packs turned on or off there. */
+	private OverlaysPanel overlaysPanel;
 	private long openedNs;
 	private long closingNs;
 	private long contentNs;
@@ -143,6 +146,13 @@ public final class RagoMenuScreen extends GuiScreen {
 
 	public RagoMenuScreen(GuiScreen parent) {
 		this.parent = parent;
+	}
+
+	/** Shows a module's own page (its settings), as from the HUD editor's gear. */
+	public RagoMenuScreen show(Module m) {
+		tab = Tab.MODS;
+		module = m;
+		return this;
 	}
 
 	/** Opens the window on the Settings tab. */
@@ -393,11 +403,29 @@ public final class RagoMenuScreen extends GuiScreen {
 		}
 	}
 
+	/** Room kept right of the chips for the two icon toggles. */
+	private static final float TOGGLES_W = 52;
+	private static final float SEARCH_MIN = 130;
+	private static final float SEARCH_MAX = 170;
+
 	private void chips(float x, float y, float w) {
+		Chip[] all = Chip.values();
+		String[] labels = new String[all.length];
+		float textW = 0;
+		for (int i = 0; i < all.length; i++) {
+			labels[i] = t("rago.menu.chip." + all[i].name().toLowerCase(Locale.ROOT));
+			textW += Ui.textWidth(Ui.MEDIUM, labels[i], 9.5f);
+		}
+		// the chips give up padding before they would run under the toggles and the search field
+		float room = w - TOGGLES_W - SEARCH_MIN - 8;
+		float[] fit = chipFit(textW, all.length, room);
+		float pad = fit[0];
+		float gap = fit[1];
 		float cx = x;
-		for (Chip ch : Chip.values()) {
-			String label = t("rago.menu.chip." + ch.name().toLowerCase(Locale.ROOT));
-			float cw = Ui.textWidth(Ui.MEDIUM, label, 9.5f) + 24;
+		for (int i = 0; i < all.length; i++) {
+			Chip ch = all[i];
+			String label = labels[i];
+			float cw = Ui.textWidth(Ui.MEDIUM, label, 9.5f) + pad;
 			boolean active = chip == ch;
 			float hv = Widgets.hoverAmount("chip:" + ch, cx, y, cw, 22);
 			int fill;
@@ -422,14 +450,29 @@ public final class RagoMenuScreen extends GuiScreen {
 				chip = ch;
 				scrolls.remove("mods");
 			});
-			cx += cw + 6;
+			cx += cw + gap;
 		}
-		float sw = Math.max(110, Math.min(170, x + w - cx - 58));
+		float sw = Math.max(SEARCH_MIN, Math.min(SEARCH_MAX, x + w - cx - TOGGLES_W - 6));
 		float sx = x + w - sw;
 		searchField(sx, y, sw);
-		float ix = sx - 50;
+		float ix = sx - TOGGLES_W + 2;
 		iconToggle("grid-3x3", ix, y, fourColumns, () -> fourColumns = !fourColumns);
 		iconToggle("arrow-up-down", ix + 24, y, sortByName, () -> sortByName = !sortByName);
+	}
+
+	/**
+	 * The padding inside each chip and the gap between them so that {@code n} chips whose labels are
+	 * {@code textW} wide together fit in {@code room}: 24 and 6 when they can, down to 12 and 4.
+	 */
+	static float[] chipFit(float textW, int n, float room) {
+		float pad = 24;
+		float gap = 6;
+		float need = textW + n * pad + (n - 1) * gap;
+		if (need > room) {
+			gap = 4;
+			pad = Math.max(12, (room - textW - (n - 1) * gap) / n);
+		}
+		return new float[] {pad, gap};
 	}
 
 	private void iconToggle(String icon, float x, float y, boolean on, Runnable action) {
@@ -443,6 +486,15 @@ public final class RagoMenuScreen extends GuiScreen {
 		Ui.glassBorder(x, y, w, 22, 11, 0xFF141316, focused ? 0x55F2392C : 0x1FFFFFFF);
 		Ui.icon("search", x + 9, y + 5.5f, 11, 0xFF8A888F);
 		String shown = query.isEmpty() ? t(tab == Tab.MODS ? "rago.menu.search_mods" : "rago.menu.search_settings") : query;
+		float room = w - 26 - (query.isEmpty() ? 10 : 24);
+		if (query.isEmpty()) {
+			shown = Ui.ellipsize(Ui.REGULAR, shown, 9.5f, room);
+		} else {
+			// the end of what is typed stays in view
+			while (shown.length() > 1 && Ui.textWidth(Ui.REGULAR, shown, 9.5f) > room) {
+				shown = shown.substring(1);
+			}
+		}
 		Ui.text(Ui.REGULAR, shown, x + 26, y + (22 - 9.5f * 1.21f) / 2, 9.5f, query.isEmpty() ? 0xFF7C7A82 : Theme.TEXT);
 		if (!query.isEmpty()) {
 			Ui.icon("x", x + w - 18, y + 6, 10, 0xFF9A98A0);
@@ -507,6 +559,17 @@ public final class RagoMenuScreen extends GuiScreen {
 		Ui.icon(ModuleInfo.icon(m), x + (w - is) / 2, y - lift + topH / 2 - is / 2 - 10, is, iconColor);
 		String name = fit(Ui.REGULAR, t(m.nameKey()), fourColumns ? 11.5f : 13, w - 12);
 		Ui.textCentered(Ui.REGULAR, name, x + w / 2, y - lift + topH / 2 + 14, fourColumns ? 11.5f : 13, Ui.mix(0xFFB4B2B9, Theme.TEXT, on));
+		Option<?> riskyOption = ModuleInfo.risky(m) ? null : ModuleInfo.riskyOptionOn(m);
+		if (ModuleInfo.risky(m) || riskyOption != null) {
+			// risky on Hypixel: a warning, never a lock
+			float bx = x + w - 22;
+			float by = y - lift + 6;
+			Ui.icon("triangle-alert", bx + 4, by + 4, 11, Theme.WARNING);
+			if (inside && Ui.hover(bx, by, 19, 19)) {
+				tooltip = riskyOption == null ? t("rago.risk.tooltip", t(ModuleInfo.riskKey(m.id())))
+					: t("rago.risk.tooltip_option", t("rago.option." + riskyOption.key()), t(ModuleInfo.riskKey(riskyOption.key())));
+			}
+		}
 		if (inside) {
 			Ui.click(x, y, w, topH, () -> m.setEnabled(!m.isEnabled()));
 		}
@@ -571,11 +634,20 @@ public final class RagoMenuScreen extends GuiScreen {
 			cy += 14;
 		}
 		cy += 8;
+		if (ModuleInfo.risky(m)) {
+			cy = riskBox(t(ModuleInfo.riskKey(m.id())), x, cy, w - 8) + 10;
+		}
 		if (ModuleInfo.usesHypixelKey(m)) {
 			cy = hypixelKey(x, cy, w - 8, inside) + 10;
 		}
 		if (m instanceof BedwarsStats) {
 			cy = statsLegend((BedwarsStats) m, x, cy, w - 8) + 10;
+		}
+		if (m instanceof Overlays) {
+			if (overlaysPanel == null) {
+				overlaysPanel = new OverlaysPanel();
+			}
+			cy = overlaysPanel.draw((Overlays) m, x, cy, w - 8, inside, s -> tooltip = s) + 14;
 		}
 		if (m instanceof HudElement) {
 			preview((HudElement) m, x, cy, w - 8, 110);
@@ -640,6 +712,22 @@ public final class RagoMenuScreen extends GuiScreen {
 		scrollbar(x + w - 3, top, area, total, sc);
 	}
 
+	/** Why a mod is risky on Hypixel, and that Rago leaves the choice to the player. */
+	private static float riskBox(String reason, float x, float y, float w) {
+		List<String> lines = Ui.wrap(Ui.REGULAR, reason + " " + t("rago.risk.note"), 9, w - 46);
+		float h = 30 + lines.size() * 12;
+		Ui.round(x, y, w, h, 8, Ui.alpha(Theme.WARNING, 0.07f));
+		Ui.outline(x, y, w, h, 8, Ui.alpha(Theme.WARNING, 0.38f));
+		Ui.icon("triangle-alert", x + 12, y + 10, 14, Theme.WARNING);
+		Ui.text(Ui.MEDIUM, t("rago.risk.title"), x + 34, y + 9, 10, Theme.WARNING);
+		float ly = y + 24;
+		for (String line : lines) {
+			Ui.text(Ui.REGULAR, line, x + 34, ly, 9, 0xFFD4D2D9);
+			ly += 12;
+		}
+		return y + h;
+	}
+
 	/** The Hypixel API key: where it stands, a field to paste a new one, and where to get one. */
 	private float hypixelKey(float x, float y, float w, boolean inside) {
 		HypixelApi api = RagoClient.hypixel();
@@ -683,6 +771,9 @@ public final class RagoMenuScreen extends GuiScreen {
 		Ui.roundBorder(x + w - 12 - sw, y + 7, sw, 18, 9, 0xCC141316, 0x1FFFFFFF);
 		Ui.circle(x + w - 12 - sw + 10, y + 16, 3, dot);
 		Ui.text(Ui.REGULAR, state, x + w - 12 - sw + 17, y + 7 + (18 - 9 * 1.21f) / 2, 9, 0xFFD4D2D9);
+		if (st == HypixelApi.Status.OK) {
+			requestsLeft(api, x + 32 + Ui.textWidth(Ui.MEDIUM, t("rago.apikey.title"), 10.5f) + 12, y + 11, x + w - 12 - sw - 10);
+		}
 
 		float fy = y + 32;
 		float bw = 96;
@@ -715,6 +806,29 @@ public final class RagoMenuScreen extends GuiScreen {
 		String note = keyWrong ? t("rago.apikey.format") : t("rago.apikey.note");
 		Ui.text(Ui.REGULAR, note, x + 12, fy + 32, 8.5f, keyWrong ? Theme.ACCENT : 0xFF7C7A82);
 		return y + h;
+	}
+
+	/** "287 / 300 requests left, reset in 3 min" next to the title, as far as {@code right}. */
+	private static void requestsLeft(HypixelApi api, float x, float y, float right) {
+		int[] b = api.budget();
+		String full;
+		String brief;
+		int color = 0xFFA9A7AF;
+		if (b == null) {
+			full = brief = t("rago.apikey.requests_unknown");
+		} else {
+			brief = t("rago.apikey.requests_left", b[0], b[1]);
+			full = b[2] > 0 ? t("rago.apikey.requests", b[0], b[1], HypixelApi.duration(b[2])) : brief;
+			if (b[0] * 10 < b[1]) {
+				color = Theme.YELLOW;
+			}
+		}
+		for (String s : new String[] {full, brief}) {
+			if (x + Ui.textWidth(Ui.REGULAR, s, 9) <= right) {
+				Ui.text(Ui.REGULAR, s, x, y, 9, color);
+				return;
+			}
+		}
 	}
 
 	private void saveKey() {
@@ -786,8 +900,25 @@ public final class RagoMenuScreen extends GuiScreen {
 	private float optionRow(Option<?> option, float x, float y, float w, boolean inside) {
 		boolean editing = option == editingColor;
 		rowFrame(x, y, w, editing ? 30 + COLOR_EDITOR_H : 30);
-		String label = fit(Ui.REGULAR, t("rago.option." + option.key()), 10.5f, w * 0.45f);
+		boolean risky = ModuleInfo.risky(option);
+		String label = fit(Ui.REGULAR, t("rago.option." + option.key()), 10.5f, w * 0.45f - (risky ? 16 : 0));
 		Ui.text(Ui.REGULAR, label, x + 12, y + (30 - 10.5f * 1.21f) / 2, 10.5f, Theme.TEXT);
+		float labelEnd = x + 12 + Ui.textWidth(Ui.REGULAR, label, 10.5f);
+		if (risky) {
+			Ui.icon("triangle-alert", labelEnd + 6, y + 9.5f, 11, Theme.WARNING);
+			labelEnd += 17;
+		}
+		if (inside && dragging == null && editingText == null && Ui.hover(x, y, Math.max(labelEnd - x + 8, w * 0.4f), 30)) {
+			String help = "rago.option." + option.key() + ".help";
+			String text = has(help) ? t(help) : null;
+			if (risky) {
+				String warning = t("rago.risk.tooltip", t(ModuleInfo.riskKey(option.key())));
+				text = text == null ? warning : warning + " " + text;
+			}
+			if (text != null) {
+				tooltip = text;
+			}
+		}
 		float right = x + w - 12;
 		if (option instanceof BooleanOption) {
 			BooleanOption b = (BooleanOption) option;
@@ -950,7 +1081,7 @@ public final class RagoMenuScreen extends GuiScreen {
 	}
 
 	private void choiceControl(ChoiceOption co, float left, float y, float right, boolean inside) {
-		List<String> ids = co.ids();
+		List<String> ids = co.choices();
 		float total = 0;
 		String[] labels = new String[ids.size()];
 		for (int i = 0; i < labels.length; i++) {
@@ -1346,6 +1477,9 @@ public final class RagoMenuScreen extends GuiScreen {
 		float bh = lines.size() * 13 + 10;
 		float x = Math.min(Ui.mouseX() + 12, w - bw - 6);
 		float y = Ui.mouseY() + 14;
+		if (y + bh > Ui.height() - 6) {
+			y = Math.max(6, Ui.mouseY() - bh - 6);
+		}
 		Ui.glassBorder(x, y, bw, bh, 6, 0xF7151417, 0x2EFFFFFF);
 		float ly = y + 5;
 		for (String l : lines) {
@@ -1483,6 +1617,9 @@ public final class RagoMenuScreen extends GuiScreen {
 	@Override
 	public void onGuiClosed() {
 		Keyboard.enableRepeatEvents(false);
+		if (overlaysPanel != null) {
+			overlaysPanel.close();
+		}
 		if (blurOn && mc.entityRenderer.isShaderActive()) {
 			mc.entityRenderer.stopUseShader();
 		}

@@ -4,6 +4,7 @@ import gg.rago.config.BooleanOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import gg.rago.perf.FrameStats;
 import gg.rago.perf.FrameTimer;
@@ -30,15 +31,20 @@ public final class FpsHud extends TextHudElement {
 		return after ? "FPS" : "FPS";
 	}
 
+	private final Shown shown = new Shown();
+
 	@Override
 	protected String value(boolean placeholder) {
-		double avg = placeholder ? 860 : frames.stats().avgFps;
-		double low = placeholder ? 225 : frames.stats().onePercentLowFps;
-		if (!placeholder && frames.stats() == FrameStats.EMPTY) {
+		FrameStats stats = frames.stats();
+		if (!placeholder && stats == FrameStats.EMPTY) {
 			return "--";
 		}
-		return showLow.get()
-			? String.format(Locale.ROOT, "%.0f \u00b7 %.0f low", avg, low)
-			: String.format(Locale.ROOT, "%.0f", avg);
+		double avg = placeholder ? 860 : stats.avgFps;
+		double low = placeholder ? 225 : stats.onePercentLowFps;
+		boolean withLow = showLow.get();
+		if (!shown.same(Shown.key(avg, 0), withLow ? Shown.key(low, 0) : -1, 0)) {
+			shown.set(withLow ? Shown.fixed(avg, 0) + " \u00b7 " + Shown.fixed(low, 0) + " low" : Shown.fixed(avg, 0));
+		}
+		return shown.text();
 	}
 }

@@ -3,14 +3,16 @@ package gg.rago.hud.elements;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import gg.rago.perf.FrameStats;
 import gg.rago.perf.FrameTimer;
 
-import java.util.Locale;
 
 /** Typical (p50) and worst-1% (p99) frame time in milliseconds. */
 public final class FrameTimeHud extends TextHudElement {
+	/** The text shown, made again only when it changes. */
+	private final Shown shown = new Shown();
 	@Override
 	public Category category() {
 		return Category.PERFORMANCE;
@@ -33,6 +35,9 @@ public final class FrameTimeHud extends TextHudElement {
 		FrameStats s = frames.stats();
 		double p50 = placeholder ? 1.16 : s.p50Ms;
 		double p99 = placeholder ? 3.31 : s.p99Ms;
-		return String.format(Locale.ROOT, "%.2f \u00b7 p99 %.2f", p50, p99);
+		if (!shown.same(Shown.key(p50, 2), Shown.key(p99, 2), 0)) {
+			shown.set(Shown.fixed(p50, 2) + " \u00b7 p99 " + Shown.fixed(p99, 2));
+		}
+		return shown.text();
 	}
 }

@@ -9,6 +9,8 @@ import gg.rago.core.Module;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.init.Items;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.ResourceLocation;
@@ -20,15 +22,17 @@ import java.util.Locale;
 
 /**
  * Hypixel Bed Wars trap alerts: a sound and a chat line when one of your team's traps goes off,
- * and a reminder when your team has had no trap for a while. The traps are counted from the chat
+ * and a reminder when your team has no trap while you carry a diamond, the price of the first one
+ * (so none at the start of a game, when nobody can buy one). The traps are counted from the chat
  * (purchases and triggers) and the title Hypixel shows when a trap goes off; nothing is sent.
  */
 public final class TrapNotifier extends Module {
 	private static final int MAX_TRAPS = 3;
+	/** A diamond kept a second (not one spent as soon as it is picked up) before the reminder. */
+	private static final int KEPT_TICKS = 20;
 
 	private final BooleanOption onTrigger = addOption(new BooleanOption("trap_triggered", true));
 	private final BooleanOption onEmpty = addOption(new BooleanOption("trap_empty", true));
-	private final IntOption emptyAfter = addOption(new IntOption("trap_empty_after", 30, 5, 180));
 	private final IntOption repeat = addOption(new IntOption("trap_repeat", 60, 0, 300));
 	private final BooleanOption sound = addOption(new BooleanOption("trap_sound", true));
 
@@ -37,15 +41,14 @@ public final class TrapNotifier extends Module {
 	private boolean inGame;
 	private boolean bedGone;
 	private int traps;
-	/** Tick since which the team has had no trap, and when the last reminder went. */
-	private int emptySince;
+	/** Tick since which the team has had no trap while you carry a diamond (-1: not now), and when the last reminder went. */
+	private int canBuySince = -1;
 	private int remindedAt = -1;
 	private int lastTrigger = -100;
 	private String lastTitle = "";
 
 	public TrapNotifier() {
 		super("trap_notifier", FeatureClass.INFORMATIONAL, false);
-		emptyAfter.showIf(onEmpty::get);
 		repeat.showIf(onEmpty::get);
 	}
 
@@ -69,6 +72,7 @@ public final class TrapNotifier extends Module {
 			bedGone = false;
 			traps = 0;
 			remindedAt = -1;
+			canBuySince = -1;
 		}
 		if (!inGame && mc.thePlayer != null && BedwarsGame.playing()) {
 			// the sidebar shows the teams: a game has started, whatever language Hypixel speaks
@@ -82,16 +86,34 @@ public final class TrapNotifier extends Module {
 			bedGone = true;
 		}
 		readTitle();
-		if (!onEmpty.get() || bedGone || traps > 0 || ticks % 10 != 0) {
+		if (ticks % 10 != 0) {
 			return;
 		}
-		int since = ticks - emptySince;
-		boolean first = remindedAt < 0 && since >= emptyAfter.get() * 20;
-		boolean again = remindedAt >= 0 && repeat.get() > 0 && ticks - remindedAt >= repeat.get() * 20;
-		if (first || again) {
-			remindedAt = ticks;
-			alert(mc, I18n.format("rago.trap.none"), 1.0f);
+		int diamonds = onEmpty.get() && !bedGone && traps == 0 ? diamonds(mc.thePlayer.inventory.mainInventory) : 0;
+		if (diamonds == 0) {
+			canBuySince = -1;
+			return;
 		}
+		if (canBuySince < 0) {
+			canBuySince = ticks;
+		}
+		boolean first = remindedAt < 0;
+		boolean again = remindedAt >= 0 && repeat.get() > 0 && ticks - remindedAt >= repeat.get() * 20;
+		if (ticks - canBuySince >= KEPT_TICKS && (first || again)) {
+			remindedAt = ticks;
+			alert(mc, I18n.format("rago.trap.none", diamonds), 1.0f);
+		}
+	}
+
+	/** The diamonds among these stacks (the inventory). */
+	static int diamonds(ItemStack[] stacks) {
+		int n = 0;
+		for (ItemStack stack : stacks) {
+			if (stack != null && stack.getItem() == Items.diamond) {
+				n += stack.stackSize;
+			}
+		}
+		return n;
 	}
 
 	@SubscribeEvent
@@ -175,9 +197,6 @@ public final class TrapNotifier extends Module {
 	}
 
 	private void setTraps(int n) {
-		if (n == 0 && traps > 0 || n == 0 && remindedAt < 0) {
-			emptySince = ticks;
-		}
 		if (n > 0) {
 			remindedAt = -1;
 		}

@@ -6,6 +6,7 @@ import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
@@ -36,6 +37,8 @@ import java.util.Locale;
  * is read from the "Map:" line of the lobby scoreboard; it can also be set by hand.
  */
 public final class HeightLimitHud extends TextHudElement {
+	/** The text shown, made again only when it changes. */
+	private final Shown shown = new Shown();
 	/** Ticks the server has to take a block back before it counts as kept. */
 	private static final int SETTLE_TICKS = 30;
 
@@ -194,7 +197,14 @@ public final class HeightLimitHud extends TextHudElement {
 			return showY.get() ? "12 (Y 88)" : "12";
 		}
 		int left = Math.max(0, left(p));
-		return showY.get() ? left + " (Y " + limit() + ")" : Integer.toString(left);
+		if (!showY.get()) {
+			return Shown.of(left);
+		}
+		int limit = limit();
+		if (!shown.same(left, limit, 0)) {
+			shown.set(left + " (Y " + limit + ")");
+		}
+		return shown.text();
 	}
 
 	@Override

@@ -83,6 +83,7 @@ public final class Optimizations {
 	private final BooleanOption hideXpOrbs;
 	private final BooleanOption hideFireworks;
 	private final BooleanOption hideFallingBlocks;
+	private final BooleanOption lightGlint;
 
 	private final IntOption tileDistance;
 	private final BooleanOption hideSkulls;
@@ -150,6 +151,7 @@ public final class Optimizations {
 		hideXpOrbs = s.bool(p, ENTITIES, "hide_xp_orbs", false, null);
 		hideFireworks = s.bool(p, ENTITIES, "hide_fireworks", false, null);
 		hideFallingBlocks = s.bool(p, ENTITIES, "hide_falling_blocks", false, null);
+		lightGlint = s.bool(p, ENTITIES, "light_glint", false, null);
 
 		tileDistance = s.slider(p, TILES, "tile_distance", 64, 8, 64, 4, Optimizations::blocks, null);
 		hideSkulls = s.bool(p, TILES, "hide_skulls", false, null);
@@ -173,7 +175,7 @@ public final class Optimizations {
 		hudCache = s.bool(p, ENGINE, "hud_cache", true, null);
 		hudCacheRate = s.slider(p, ENGINE, "hud_cache_rate", 144, 30, 360, 6, v -> v + " FPS", null);
 		visibleWhen(s, "hud_cache_rate", hudCache::get);
-		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get, particleCollisions::get);
+		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get, particleCollisions::get, lightGlint::get);
 	}
 
 	/** Whether Rago's HUD is drawn into an image a fixed number of times per second. */
@@ -251,7 +253,7 @@ public final class Optimizations {
 	@SubscribeEvent
 	public void onRenderTick(TickEvent.RenderTickEvent event) {
 		if (event.phase == TickEvent.Phase.START) {
-			long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
+			long t = gg.rago.debug.FrameProfile.ON ? gg.rago.debug.FrameProfile.start() : 0;
 			culler.update(Minecraft.getMinecraft(), event.renderTickTime);
 			if (gg.rago.debug.FrameProfile.ON) {
 				gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.CULLING, System.nanoTime() - t);
@@ -471,14 +473,19 @@ public final class Optimizations {
 
 	@SubscribeEvent
 	public void onFogDensity(EntityViewRenderEvent.FogDensity event) {
-		if (!disableFog.get()) {
-			return;
-		}
-		Material m = event.block.getMaterial();
-		if (m == Material.water || m == Material.lava) {
+		if (!disableFog.get() || keepsFog(event.block.getMaterial(), event.entity instanceof EntityLivingBase
+			&& ((EntityLivingBase) event.entity).isPotionActive(net.minecraft.potion.Potion.blindness))) {
 			return;
 		}
 		event.density = 0f;
 		event.setCanceled(true);
+	}
+
+	/**
+	 * Water, lava and blindness keep their fog: only the distance haze goes. Blindness is the black
+	 * fog a few blocks around you (a Bed Wars trap gives it), and cancelling the fog would take it away.
+	 */
+	static boolean keepsFog(Material m, boolean blind) {
+		return blind || m == Material.water || m == Material.lava;
 	}
 }

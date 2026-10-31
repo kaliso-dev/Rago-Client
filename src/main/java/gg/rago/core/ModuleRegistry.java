@@ -40,10 +40,12 @@ public final class ModuleRegistry {
 		boolean timed = gg.rago.debug.FrameProfile.ON;
 		for (Module m : modules.values()) {
 			if (m.isEnabled()) {
+				long a = timed ? gg.rago.debug.FrameProfile.bytes() : 0;
 				long t = timed ? System.nanoTime() : 0;
 				m.tick();
 				if (timed) {
-					gg.rago.debug.FrameProfile.element(m.id() + " tick", System.nanoTime() - t);
+					long ns = System.nanoTime() - t;
+					gg.rago.debug.FrameProfile.element(gg.rago.debug.FrameProfile.tickLabel(m.id()), ns, gg.rago.debug.FrameProfile.bytesSince(a));
 				}
 			}
 		}

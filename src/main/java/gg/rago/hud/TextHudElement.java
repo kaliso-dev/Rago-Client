@@ -11,8 +11,8 @@ import gg.rago.render.Paint;
 import net.minecraft.client.gui.FontRenderer;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A HUD element that shows a value with an optional label ("144" + "FPS"), styled the way the
@@ -209,39 +209,59 @@ public abstract class TextHudElement extends HudElement implements Styled {
 	}
 
 	/** The lines and width worked out for this frame: one element asks for them several times a frame. */
-	private List<List<Seg>> frameLines;
+	private Seg[][] frameLines;
 	private int frameWidth = -1;
 	private int frameId = -1;
 	private boolean framePlaceholder;
+	/** What the lines were built from: they are only built again when one of these changes. */
+	private String builtValue;
+	private String builtLabel;
+	private String builtLabelPosition;
+	private String builtSeparator;
+	private String builtBrackets;
 
-	private List<List<Seg>> lines(boolean placeholder) {
+	private Seg[][] lines(boolean placeholder) {
 		int frame = HudManager.frame();
 		if (frameLines == null || frame != frameId || placeholder != framePlaceholder) {
-			frameLines = buildLines(placeholder);
-			frameWidth = -1;
 			frameId = frame;
 			framePlaceholder = placeholder;
+			frameWidth = -1;
+			String value = value(placeholder);
+			String position = labelPosition.get();
+			String label = "none".equals(position) ? null : label("after".equals(position));
+			if (frameLines == null || !value.equals(builtValue) || !Objects.equals(label, builtLabel) || !position.equals(builtLabelPosition)
+				|| !separator.get().equals(builtSeparator) || !brackets.get().equals(builtBrackets)) {
+				// most values read the same from one frame to the next: building the lines allocates
+				frameLines = buildLines(value, label);
+				builtValue = value;
+				builtLabel = label;
+				builtLabelPosition = position;
+				builtSeparator = separator.get();
+				builtBrackets = brackets.get();
+			}
 		}
 		return frameLines;
 	}
 
-	/** Each line as coloured pieces: [ label separator value ] or [ value separator label ]. */
-	private List<List<Seg>> buildLines(boolean placeholder) {
-		String[] raw = value(placeholder).split("\n", -1);
-		List<List<Seg>> out = new ArrayList<>(raw.length);
+	/**
+	 * Each line as coloured pieces: [ label separator value ] or [ value separator label ]. Arrays,
+	 * not lists: going through them every frame then makes no iterator objects.
+	 */
+	private Seg[][] buildLines(String value, String label) {
+		String[] raw = value.split("\n", -1);
 		if (raw.length > 1) {
-			for (String line : raw) {
-				out.add(Collections.singletonList(new Seg(line, VALUE)));
+			Seg[][] out = new Seg[raw.length][];
+			for (int i = 0; i < raw.length; i++) {
+				out[i] = new Seg[] {new Seg(raw[i], VALUE)};
 			}
 			return out;
 		}
 		List<Seg> line = new ArrayList<>(5);
-		String[] br = bracketPair();
-		if (br != null) {
-			line.add(new Seg(br[0], BRACKET));
+		int br = bracketIndex();
+		if (br >= 0) {
+			line.add(new Seg(OPEN[br], BRACKET));
 		}
 		boolean after = labelPosition.is("after");
-		String label = labelPosition.is("none") ? null : label(after);
 		if (label != null && !label.isEmpty() && !after) {
 			line.add(new Seg(label + separatorText(false), LABEL));
 		}
@@ -249,25 +269,28 @@ public abstract class TextHudElement extends HudElement implements Styled {
 		if (label != null && !label.isEmpty() && after) {
 			line.add(new Seg(separatorText(true) + label, LABEL));
 		}
-		if (br != null) {
-			line.add(new Seg(br[1], BRACKET));
+		if (br >= 0) {
+			line.add(new Seg(CLOSE[br], BRACKET));
 		}
-		out.add(line);
-		return out;
+		return new Seg[][] {line.toArray(new Seg[0])};
 	}
 
-	private String[] bracketPair() {
+	private static final String[] OPEN = {"[", "(", "<", "{"};
+	private static final String[] CLOSE = {"]", ")", ">", "}"};
+
+	/** The brackets chosen, as an index into {@link #OPEN} and {@link #CLOSE}, or -1 for none. */
+	private int bracketIndex() {
 		switch (brackets.get()) {
 			case "square":
-				return new String[] {"[", "]"};
+				return 0;
 			case "round":
-				return new String[] {"(", ")"};
+				return 1;
 			case "angle":
-				return new String[] {"<", ">"};
+				return 2;
 			case "curly":
-				return new String[] {"{", "}"};
+				return 3;
 			default:
-				return null;
+				return -1;
 		}
 	}
 
@@ -284,7 +307,7 @@ public abstract class TextHudElement extends HudElement implements Styled {
 		}
 	}
 
-	private int lineWidth(List<Seg> line) {
+	private int lineWidth(Seg[] line) {
 		int w = 0;
 		for (Seg s : line) {
 			w += textWidth(s.text);
@@ -312,10 +335,10 @@ public abstract class TextHudElement extends HudElement implements Styled {
 
 	/** Width of the text and its background, whatever a subclass adds around them. */
 	protected final int boxWidth(boolean placeholder) {
-		List<List<Seg>> lines = lines(placeholder);
+		Seg[][] lines = lines(placeholder);
 		if (frameWidth < 0) {
 			int w = 0;
-			for (List<Seg> line : lines) {
+			for (Seg[] line : lines) {
 				w = Math.max(w, lineWidth(line));
 			}
 			frameWidth = w;
@@ -324,12 +347,12 @@ public abstract class TextHudElement extends HudElement implements Styled {
 	}
 
 	protected final int boxHeight(boolean placeholder) {
-		return lines(placeholder).size() * 10 - 1 + vpad() * 2 - (background.get() ? 1 : 0);
+		return lines(placeholder).length * 10 - 1 + vpad() * 2 - (background.get() ? 1 : 0);
 	}
 
 	@Override
 	public void render(FontRenderer text, boolean placeholder) {
-		List<List<Seg>> lines = lines(placeholder);
+		Seg[][] lines = lines(placeholder);
 		int w = boxWidth(placeholder);
 		int h = boxHeight(placeholder);
 		if (background.get()) {
@@ -338,13 +361,15 @@ public abstract class TextHudElement extends HudElement implements Styled {
 				Paint.outline(0, 0, w, h, radius.get(), 1, borderColor.get());
 			}
 		}
-		int[] colors = {bracketColor.get(), labelColor.get(), valueColor(placeholder)};
+		int bracketArgb = bracketColor.get();
+		int labelArgb = labelColor.get();
+		int valueArgb = valueColor(placeholder);
 		int y = vpad();
-		for (List<Seg> line : lines) {
+		for (Seg[] line : lines) {
 			int lw = lineWidth(line);
 			float x = align.is("center") ? (w - lw) / 2f : align.is("right") ? w - pad() - lw : pad();
 			for (Seg seg : line) {
-				int color = colors[seg.role];
+				int color = seg.role == VALUE ? valueArgb : seg.role == LABEL ? labelArgb : bracketArgb;
 				if (chroma.get() && seg.role != BRACKET) {
 					color = Paint.chroma(x / 160f, color >>> 24);
 				}

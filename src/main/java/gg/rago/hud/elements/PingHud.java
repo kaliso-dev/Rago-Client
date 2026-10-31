@@ -5,7 +5,9 @@ import gg.rago.config.ChoiceOption;
 import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
+import gg.rago.gui.ui.TextColors;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import gg.rago.netdiag.LatencySampler;
 import gg.rago.netdiag.StatusPinger;
@@ -82,13 +84,19 @@ public final class PingHud extends TextHudElement {
 		return after ? "ms" : "Ping";
 	}
 
+	private final Shown shown = new Shown();
+
 	@Override
 	protected String value(boolean placeholder) {
 		int ms = placeholder ? 42 : active().latest();
+		if (!showJitter.get()) {
+			return Shown.of(ms);
+		}
 		double jitter = placeholder ? 3.5 : active().jitterMs();
-		return showJitter.get()
-			? String.format(Locale.ROOT, "%d ±%.1f", ms, jitter)
-			: Integer.toString(ms);
+		if (!shown.same(ms, Shown.key(jitter, 1), 0)) {
+			shown.set(ms + " ±" + Shown.fixed(jitter, 1));
+		}
+		return shown.text();
 	}
 
 	@Override
@@ -98,6 +106,6 @@ public final class PingHud extends TextHudElement {
 		}
 		int ms = placeholder ? 42 : active().latest();
 		int alpha = textColor.get() & 0xFF000000;
-		return alpha | (ms < 80 ? 0x55FF55 : ms < 150 ? 0xFFFF55 : ms < 250 ? 0xFFAA00 : 0xFF5555);
+		return alpha | 0xFFFFFF & (ms < 80 ? TextColors.argb('a') : ms < 150 ? TextColors.argb('e') : ms < 250 ? TextColors.argb('6') : TextColors.argb('c'));
 	}
 }

@@ -24,6 +24,7 @@ import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.function.Consumer;
 
 /**
  * Buttons after the "Saved screenshot" line in chat: copy the picture to the clipboard (to paste it
@@ -122,10 +123,7 @@ public final class Screenshots extends Module {
 				if (read == null) {
 					throw new IOException("not an image");
 				}
-				// without alpha: some programs paste a transparent picture as black
-				BufferedImage rgb = new BufferedImage(read.getWidth(), read.getHeight(), BufferedImage.TYPE_INT_RGB);
-				rgb.getGraphics().drawImage(read, 0, 0, null);
-				Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new ImageTransfer(rgb), null);
+				setClipboard(read);
 				Minecraft.getMinecraft().addScheduledTask(() -> say("rago.shot.copied", EnumChatFormatting.GREEN));
 			} catch (IOException | RuntimeException | LinkageError e) {
 				RagoClient.LOG.warn("Could not copy the screenshot {}", file, e);
@@ -134,6 +132,34 @@ public final class Screenshots extends Module {
 		}, "Rago screenshot copy");
 		t.setDaemon(true);
 		t.start();
+	}
+
+	/**
+	 * Copies a picture to the clipboard, away from the game's thread; {@code done} is then told on the
+	 * game's thread whether it worked.
+	 */
+	public static void copyImage(BufferedImage image, Consumer<Boolean> done) {
+		Thread t = new Thread(() -> {
+			boolean ok;
+			try {
+				setClipboard(image);
+				ok = true;
+			} catch (RuntimeException | LinkageError e) {
+				RagoClient.LOG.warn("Could not copy the picture", e);
+				ok = false;
+			}
+			boolean copied = ok;
+			Minecraft.getMinecraft().addScheduledTask(() -> done.accept(copied));
+		}, "Rago picture copy");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/** The clipboard gets the picture without alpha: some programs paste a transparent picture as black. */
+	private static void setClipboard(BufferedImage image) {
+		BufferedImage rgb = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+		rgb.getGraphics().drawImage(image, 0, 0, null);
+		Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new ImageTransfer(rgb), null);
 	}
 
 	private static void say(String key, EnumChatFormatting color) {

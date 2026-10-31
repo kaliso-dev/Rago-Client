@@ -4,6 +4,7 @@ import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -77,6 +78,6 @@ public final class ComboHud extends TextHudElement {
 	@Override
 	protected String value(boolean placeholder) {
 		int n = placeholder && combo == 0 ? 4 : combo;
-		return Integer.toString(n);
+		return Shown.of(n);
 	}
 }

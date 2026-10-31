@@ -3,6 +3,7 @@ package gg.rago.hud.elements;
 import gg.rago.config.IntOption;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 
 import java.time.LocalTime;
@@ -10,6 +11,8 @@ import java.time.format.DateTimeFormatter;
 
 /** The time on your computer's clock. */
 public final class ClockHud extends TextHudElement {
+	/** The text shown, made again only when it changes. */
+	private final Shown shown = new Shown();
 	private static final DateTimeFormatter H24 = DateTimeFormatter.ofPattern("HH:mm");
 	private static final DateTimeFormatter H12 = DateTimeFormatter.ofPattern("h:mm a");
 
@@ -21,6 +24,10 @@ public final class ClockHud extends TextHudElement {
 
 	@Override
 	protected String value(boolean placeholder) {
-		return LocalTime.now().format(format.get() == 1 ? H12 : H24);
+		// the time is read and written out once a second, not every frame
+		if (!shown.same(System.currentTimeMillis() / 1000, format.get(), 0)) {
+			shown.set(LocalTime.now().format(format.get() == 1 ? H12 : H24));
+		}
+		return shown.text();
 	}
 }

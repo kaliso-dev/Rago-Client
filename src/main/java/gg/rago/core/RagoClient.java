@@ -5,20 +5,25 @@ import gg.rago.accounts.Skins;
 import gg.rago.gui.AccountsButton;
 import gg.rago.config.BooleanOption;
 import gg.rago.config.ConfigStore;
+import gg.rago.config.IntOption;
 import gg.rago.debug.FrameProfile;
 import gg.rago.gui.ui.Anim;
+import gg.rago.gui.ui.TextColors;
 import gg.rago.gui.ui.Ui;
+import gg.rago.gui.ui.UiTheme;
 import gg.rago.optimize.OptiFineFields;
 import gg.rago.optimize.PlayPreset;
 import gg.rago.optimize.Optimizations;
 import gg.rago.optimize.PerformancePreset;
 import gg.rago.optimize.VideoRows;
+import gg.rago.render.Pack3D;
 import gg.rago.profile.ModProfiles;
 import gg.rago.settings.Setting;
 import gg.rago.settings.Settings;
 import gg.rago.gui.HudEditorScreen;
 import gg.rago.gui.RagoMenuScreen;
 import gg.rago.gui.RagoTitleScreen;
+import gg.rago.gui.WelcomeScreen;
 import gg.rago.gui.AccountsScreen;
 import gg.rago.gui.PacksScreen;
 import gg.rago.hud.HudCache;
@@ -74,10 +79,12 @@ import gg.rago.modules.HideAchievements;
 import gg.rago.modules.Hitboxes;
 import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
+import gg.rago.modules.Items3D;
 import gg.rago.modules.ItemScale;
 import gg.rago.modules.TntTimer;
 import gg.rago.modules.LowLatency;
 import gg.rago.modules.TitleMod;
+import gg.rago.modules.GameDebrief;
 import gg.rago.modules.TrapNotifier;
 import gg.rago.modules.LevelHead;
 import gg.rago.modules.LowFire;
@@ -91,6 +98,8 @@ import gg.rago.modules.NoPumpkin;
 import gg.rago.modules.NoWaterOverlay;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.DiscordPresence;
+import gg.rago.modules.RagoNetwork;
 import gg.rago.modules.RawInput;
 import gg.rago.modules.Screenshots;
 import gg.rago.modules.SkinChanger;
@@ -103,6 +112,8 @@ import gg.rago.modules.Nametags;
 import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
 import gg.rago.modules.TimeChanger;
+import gg.rago.modules.Overlays;
+import gg.rago.modules.Vignette;
 import gg.rago.modules.WeatherChanger;
 import gg.rago.modules.Zoom;
 import gg.rago.netdiag.LatencySampler;
@@ -142,6 +153,9 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -187,6 +201,13 @@ public final class RagoClient {
 	private static BooleanOption glassEffect;
 	private static BooleanOption menuVideo;
 	private static BooleanOption hudInDebug;
+	private static BooleanOption chatCopy;
+	private static IntOption uiTheme;
+	private static IntOption teamColors;
+	private static PerformancePreset maxPerformance;
+	private static PlayPreset playPreset;
+	/** The welcome guide opens by itself once, before the first title screen. */
+	private static boolean welcomeShown;
 	private static ConfigStore config;
 	private static Path configDir;
 	private static HypixelApi hypixel;
@@ -207,6 +228,8 @@ public final class RagoClient {
 	private static CompetitiveProfile profile;
 	private static boolean overlayVisible = true;
 	private static boolean openMenu;
+	/** A screen to open on the next tick (asked from a command: the chat screen closes first). */
+	private static GuiScreen openNext;
 	private static int tickCounter;
 	private static Map<String, String> captureMeta;
 
@@ -215,6 +238,7 @@ public final class RagoClient {
 		configDir = event.getModConfigurationDirectory().toPath();
 		// before the first resource load, so recent sounds need no reload
 		ModernSounds.install();
+		Pack3D.install();
 	}
 
 	@Mod.EventHandler
@@ -254,6 +278,7 @@ public final class RagoClient {
 		Hooks.hitParticles = MODULES.register(new HitParticles());
 		Hooks.itemScale = MODULES.register(new ItemScale());
 		Hooks.itemPhysics = MODULES.register(new ItemPhysics());
+		MODULES.register(new Items3D());
 		MODULES.register(new TntTimer());
 		TabPing tabPing = MODULES.register(new TabPing());
 		Hooks.tabList = MODULES.register(new TabList());
@@ -267,6 +292,7 @@ public final class RagoClient {
 		Hooks.bedwarsStats = MODULES.register(new BedwarsStats(hypixel));
 		MODULES.register(new BedwarsQuestsHud());
 		MODULES.register(new TrapNotifier());
+		MODULES.register(new GameDebrief());
 		MODULES.register(new ActionSounds());
 		MODULES.register(new RawInput());
 		Hooks.emotes = MODULES.register(new Emotes());
@@ -290,13 +316,19 @@ public final class RagoClient {
 		MODULES.register(new F5Crosshair());
 		MODULES.register(new WeatherChanger());
 		MODULES.register(new TimeChanger());
+		Hooks.overlays = MODULES.register(new Overlays());
 		MODULES.register(new MotionBlur(zoom));
 		MODULES.register(new ColorGrading());
+		MODULES.register(new Vignette());
 		RagoCape cape = MODULES.register(new RagoCape());
-		MODULES.register(new Cosmetics());
+		Hooks.cosmetics = MODULES.register(new Cosmetics());
+		Hooks.network = MODULES.register(new RagoNetwork());
 		SkinChanger skinChanger = MODULES.register(new SkinChanger());
 		NickHider nickHider = MODULES.register(new NickHider());
 		GlintColor glint = MODULES.register(new GlintColor());
+		if (DiscordPresence.available()) {
+			MODULES.register(new DiscordPresence(version()));
+		}
 		mainMenu = MODULES.register(new MainMenu());
 		profile = MODULES.register(new CompetitiveProfile(configDir));
 		registerGeneralSettings();
@@ -332,6 +364,8 @@ public final class RagoClient {
 		Anim.setEnabled(menuAnimations.get());
 		Ui.setGlass(glassEffect.get());
 		Ui.setMenuVideo(menuVideo.get());
+		UiTheme.set(uiTheme.get());
+		TextColors.set(teamColors.get());
 		optimizations.start();
 		if (OptiFineFields.installed()) {
 			LOG.info("OptiFine settings: {}", OptiFineFields.describe());
@@ -356,12 +390,25 @@ public final class RagoClient {
 			MinecraftForge.EVENT_BUS.register(bench);
 		}
 		MinecraftForge.EVENT_BUS.register(optimizations);
+		MinecraftForge.EVENT_BUS.register(new gg.rago.chat.ChatCopy(chatCopy::get));
 		MinecraftForge.EVENT_BUS.register(new gg.rago.debug.InputTrace());
+		gg.rago.debug.StackSampler.startIfAsked();
+		if (FrameProfile.ON) {
+			MinecraftForge.EVENT_BUS.register(new gg.rago.debug.EntityProfile());
+		}
+		if (gg.rago.debug.LatencyProbe.ON) {
+			MinecraftForge.EVENT_BUS.register(new gg.rago.debug.LatencyProbe());
+		}
 		// modules with @SubscribeEvent methods check isEnabled() themselves
 		for (Module m : MODULES.all()) {
 			MinecraftForge.EVENT_BUS.register(m);
 		}
 		LOG.info("Rago {} loaded with {} modules", version(), MODULES.all().size());
+	}
+
+	/** Opens a screen on the next tick, for a command typed in chat. */
+	public static void openLater(GuiScreen screen) {
+		openNext = screen;
 	}
 
 	public static String version() {
@@ -430,6 +477,7 @@ public final class RagoClient {
 		Setting.Tab p = Setting.Tab.PERFORMANCE;
 		String presets = "rago.section.presets";
 		PerformancePreset preset = new PerformancePreset(SETTINGS, configDir);
+		maxPerformance = preset;
 		SETTINGS.button(p, presets, "max_performance", () -> {
 			int changed = preset.apply();
 			LOG.info("Max performance preset changed {} settings", changed);
@@ -441,6 +489,7 @@ public final class RagoClient {
 			saveConfig();
 		}).visibleWhen(preset::canUndo);
 		PlayPreset play = new PlayPreset(SETTINGS, MODULES, configDir);
+		playPreset = play;
 		SETTINGS.button(p, presets, "preset_ranked_bedwars", () -> {
 			LOG.info("Ranked Bedwars preset changed {} mods and settings", play.apply(PlayPreset.Kind.RANKED_BEDWARS));
 			saveConfig();
@@ -465,8 +514,17 @@ public final class RagoClient {
 		menuVideo = SETTINGS.bool(g, ui, "menu_video", true, Ui::setMenuVideo);
 		SETTINGS.choice(g, ui, "main_menu_style", () -> mainMenu.isEnabled() ? 0 : 1, i -> mainMenu.setEnabled(i == 0),
 			"rago.value.rago", "rago.value.vanilla");
+		SETTINGS.button(g, ui, "welcome_guide", () -> {
+			Minecraft mc = Minecraft.getMinecraft();
+			mc.displayGuiScreen(new WelcomeScreen(mc.currentScreen));
+		});
+		uiTheme = SETTINGS.choice(g, ui, "ui_theme", UiTheme.DARK, UiTheme::set,
+			"rago.value.theme_dark", "rago.value.theme_oled", "rago.value.theme_contrast");
+		teamColors = SETTINGS.choice(g, "rago.section.accessibility", "team_colors", TextColors.NORMAL, TextColors::set,
+			"rago.value.colors_normal", "rago.value.colors_red_green", "rago.value.colors_blue_yellow");
 		hudInDebug = SETTINGS.bool(g, "rago.section.hud", "hud_in_debug", false, null);
 		SETTINGS.toggle(g, "rago.section.hud", "hud_visible", () -> overlayVisible, v -> overlayVisible = v);
+		chatCopy = SETTINGS.bool(g, "rago.section.chat", "chat_copy", true, null);
 		SETTINGS.toggle(g, "rago.section.competitive", "competitive_profile", () -> profile.isEnabled(), v -> profile.setEnabled(v));
 		SETTINGS.button(g, "rago.section.competitive", "edit_hud", () -> {
 			Minecraft mc = Minecraft.getMinecraft();
@@ -476,6 +534,48 @@ public final class RagoClient {
 
 	public static Settings settings() {
 		return SETTINGS;
+	}
+
+	/** Sets the menu theme as the setting does (kept with the settings). */
+	public static void setUiTheme(int theme) {
+		uiTheme.set(theme);
+		UiTheme.set(theme);
+	}
+
+	/** Sets the team colours for colour blindness as the setting does (kept with the settings). */
+	public static void setTeamColors(int palette) {
+		teamColors.set(palette);
+		TextColors.set(palette);
+	}
+
+	private static Path welcomeMarker() {
+		return configDir.resolve("rago-welcome.txt");
+	}
+
+	/** Whether the welcome guide has not been through yet on this installation. */
+	public static boolean welcomeDue() {
+		return configDir != null && !Files.exists(welcomeMarker());
+	}
+
+	/**
+	 * The end of the welcome guide: the mods for what the player plays ({@code game}, null for no
+	 * change) and the video settings (0 max FPS, 1 their own, 2 beautiful), then never again by itself.
+	 */
+	public static void finishWelcome(PlayPreset.Kind game, int performance) {
+		if (game != null && playPreset != null) {
+			LOG.info("Welcome guide: {} turned {} mods on", game, playPreset.apply(game));
+		}
+		if (performance == 0 && maxPerformance != null) {
+			LOG.info("Welcome guide: max FPS changed {} settings", maxPerformance.apply());
+		} else if (performance == 2 && playPreset != null) {
+			LOG.info("Welcome guide: beautiful changed {} mods and settings", playPreset.apply(PlayPreset.Kind.QUALITY));
+		}
+		saveConfig();
+		try {
+			Files.write(welcomeMarker(), ("Welcome guide done " + LocalDateTime.now() + "\n").getBytes(StandardCharsets.UTF_8));
+		} catch (IOException e) {
+			LOG.warn("Could not write {}", welcomeMarker(), e);
+		}
 	}
 
 	public static ModProfiles profiles() {
@@ -562,6 +662,7 @@ public final class RagoClient {
 		long now = System.nanoTime();
 		if (event.phase == TickEvent.Phase.START) {
 			FRAMES.startFrame(now);
+			gg.rago.render.WorldDraw.frameStart(event.renderTickTime);
 		} else {
 			FrameCapture finished = FRAMES.endFrame(now);
 			if (finished != null) {
@@ -587,21 +688,36 @@ public final class RagoClient {
 			return;
 		}
 		boolean ownHud = overlayVisible && !(mc.gameSettings.showDebugInfo && !hudInDebug.get());
-		long t = FrameProfile.ON ? System.nanoTime() : 0;
+		if (BENCH_HUD) {
+			// the card's work too: everything queued before is finished first, and the HUD's own after
+			org.lwjgl.opengl.GL11.glFinish();
+		}
+		long t = FrameProfile.ON ? FrameProfile.start() : 0;
 		if (optimizations.hudCache()) {
 			HUD_CACHE.render(() -> HUD.render(!ownHud), optimizations.hudCacheRate());
 		} else {
 			HUD.render(!ownHud);
+		}
+		if (BENCH_HUD) {
+			org.lwjgl.opengl.GL11.glFinish();
+			FrameProfile.element("hud_gl", System.nanoTime() - t);
 		}
 		if (FrameProfile.ON) {
 			FrameProfile.add(FrameProfile.HUD, System.nanoTime() - t);
 		}
 	}
 
+	/** Developer timing ({@code -Drago.bench.frame=true -Drago.bench.hud=true}): the HUD with the card's work. */
+	private static final boolean BENCH_HUD = FrameProfile.ON && Boolean.getBoolean("rago.bench.hud");
+
 	@SubscribeEvent
 	public void onGuiOpen(GuiOpenEvent event) {
 		if (event.gui instanceof GuiMainMenu && useMainMenu()) {
 			event.gui = new RagoTitleScreen();
+		}
+		if ((event.gui instanceof GuiMainMenu || event.gui instanceof RagoTitleScreen) && !welcomeShown && welcomeDue()) {
+			welcomeShown = true;
+			event.gui = new WelcomeScreen(event.gui);
 		} else if (event.gui != null && event.gui.getClass().getName().startsWith("cc.polyfrost.oneconfig.gui.")
 			&& menuKeyHeld()) {
 			// the bundled Patcher's settings library opens on Right Shift too; that key is Rago's
@@ -651,7 +767,7 @@ public final class RagoClient {
 	@SubscribeEvent
 	public void onClientTick(TickEvent.ClientTickEvent event) {
 		if (event.phase == TickEvent.Phase.END) {
-			long t = FrameProfile.ON ? System.nanoTime() : 0;
+			long t = FrameProfile.ON ? FrameProfile.start() : 0;
 			onTick(Minecraft.getMinecraft());
 			if (FrameProfile.ON) {
 				FrameProfile.add(FrameProfile.TICK, System.nanoTime() - t);
@@ -687,6 +803,7 @@ public final class RagoClient {
 	}
 
 	private static void onTick(Minecraft mc) {
+		TextColors.applyTo(mc.fontRendererObj);
 		while (menuKey.isPressed()) {
 			if (mc.currentScreen == null) {
 				mc.displayGuiScreen(new RagoMenuScreen(null));
@@ -696,6 +813,11 @@ public final class RagoClient {
 			// typed as /rago: the chat screen has closed by now
 			openMenu = false;
 			mc.displayGuiScreen(new RagoMenuScreen(null));
+		}
+		if (openNext != null) {
+			GuiScreen next = openNext;
+			openNext = null;
+			mc.displayGuiScreen(next);
 		}
 		while (toggleOverlayKey.isPressed()) {
 			overlayVisible = !overlayVisible;

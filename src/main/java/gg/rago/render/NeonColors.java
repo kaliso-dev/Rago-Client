@@ -19,7 +19,8 @@ import java.util.Map;
  * shield; the Rago cap and beanie take the {@link #swatch} colour). The red of the texture is turned
  * into the chosen colour with its shading kept, while the black and the other colours stay as they
  * are; {@link #glow} makes the faint light added over them. A texture is recoloured once, the first
- * time it is drawn in a colour; only the colour in use is kept for each texture.
+ * time it is drawn in a colour, and kept: other Rago players can wear the same piece in other colours
+ * at the same time, so each colour seen keeps its own texture.
  */
 public final class NeonColors {
 	private static final Logger LOG = LogManager.getLogger("Rago");
@@ -30,18 +31,11 @@ public final class NeonColors {
 	/** Rago's red, as the swatches show it recoloured. */
 	private static final int RAGO_RED = 0xFFF2392C;
 
-	private static final Map<ResourceLocation, Made> MADE = new HashMap<>();
-	private static final Map<ResourceLocation, Made> GLOWS = new HashMap<>();
-
-	private static final class Made {
-		final String id;
-		final ResourceLocation texture;
-
-		Made(String id, ResourceLocation texture) {
-			this.id = id;
-			this.texture = texture;
-		}
-	}
+	/** The textures made from each base, by colour (index in {@link #IDS}). */
+	private static final Map<ResourceLocation, ResourceLocation[]> MADE = new HashMap<>();
+	private static final Map<ResourceLocation, ResourceLocation[]> GLOWS = new HashMap<>();
+	/** Marks a colour that could not be made, so it is not tried again every frame. */
+	private static final ResourceLocation FAILED = new ResourceLocation("rago", "neon_failed");
 
 	private NeonColors() {
 	}
@@ -67,17 +61,20 @@ public final class NeonColors {
 		return make(GLOWS, base, id, "rago_neon_glow_", img -> glow(img, hue));
 	}
 
-	/** The texture made from {@code base} for {@code id}, once; the one made for another colour is freed. */
-	private static ResourceLocation make(Map<ResourceLocation, Made> made, ResourceLocation base, String id, String name,
-		java.util.function.Consumer<BufferedImage> change) {
-		Made m = made.get(base);
-		if (m != null && m.id.equals(id)) {
-			return m.texture;
+	/** The texture made from {@code base} for {@code id}, made the first time and kept; null if it cannot be. */
+	private static ResourceLocation make(Map<ResourceLocation, ResourceLocation[]> made, ResourceLocation base, String id,
+		String name, java.util.function.Consumer<BufferedImage> change) {
+		ResourceLocation[] byColour = made.get(base);
+		if (byColour == null) {
+			byColour = new ResourceLocation[IDS.length];
+			made.put(base, byColour);
+		}
+		int index = Math.max(0, index(id));
+		ResourceLocation done = byColour[index];
+		if (done != null) {
+			return done == FAILED ? null : done;
 		}
 		Minecraft mc = Minecraft.getMinecraft();
-		if (m != null && m.texture != null) {
-			mc.getTextureManager().deleteTexture(m.texture);
-		}
 		ResourceLocation tex = null;
 		try (InputStream in = mc.getResourceManager().getResource(base).getInputStream()) {
 			BufferedImage img = TextureUtil.readBufferedImage(in);
@@ -86,8 +83,18 @@ public final class NeonColors {
 		} catch (IOException | RuntimeException e) {
 			LOG.warn("Cannot recolour {}: {}", base, e.toString());
 		}
-		made.put(base, new Made(id, tex));
+		byColour[index] = tex == null ? FAILED : tex;
 		return tex;
+	}
+
+	/** The index of a choice in {@link #IDS}, -1 if it is none of them. */
+	static int index(String id) {
+		for (int i = 0; i < IDS.length; i++) {
+			if (IDS[i].equals(id)) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	/** The colour a choice shows as, for its swatch. */

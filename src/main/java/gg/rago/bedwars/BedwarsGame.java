@@ -13,8 +13,10 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.fml.relauncher.ReflectionHelper;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -96,10 +98,17 @@ public final class BedwarsGame {
 		return !teamBeds().isEmpty();
 	}
 
+	/**
+	 * How often the sidebar is read again. Reading it allocates (each line is put together, cleaned
+	 * and matched), many things ask every frame (each name tag, the HUD), and Hypixel changes it a
+	 * few times a second at most: five readings a second is still within a fifth of a second.
+	 */
+	static final long READ_EVERY_NS = 200_000_000L;
+
 	/** Each team's bed in the sidebar now, by the team's letter: true while it stands. */
 	public static Map<Character, Boolean> teamBeds() {
 		long now = System.nanoTime();
-		if (now - readAt < 40_000_000L) {
+		if (now - readAt < READ_EVERY_NS) {
 			return beds;
 		}
 		readAt = now;
@@ -274,6 +283,25 @@ public final class BedwarsGame {
 		// the name taken out first, so a name in capitals is not taken for the ending
 		return space > 0 && !line.startsWith(name + " ") && !CAPITAL_ANNOUNCE.matcher(line).find()
 			&& CAPITAL_ENDING.matcher(line.replace(name, "")).find() && mentions(line.substring(space + 1), name);
+	}
+
+	/** Whether a death line ends with words in capitals ("FINAL KILL!"), your name taken out first. */
+	static boolean finalEnding(String line, String name) {
+		return CAPITAL_ENDING.matcher(line.replace(name, "")).find();
+	}
+
+	/** The sidebar's lines as Rago reads them ({@link #clean}); empty out of Bed Wars. */
+	public static List<String> sidebarLines() {
+		if (!inBedwars()) {
+			return Collections.emptyList();
+		}
+		Scoreboard board = Minecraft.getMinecraft().theWorld.getScoreboard();
+		ScoreObjective o = board.getObjectiveInDisplaySlot(1);
+		List<String> out = new ArrayList<>();
+		for (Score score : board.getSortedScores(o)) {
+			out.add(clean(ScorePlayerTeam.formatPlayerName(board.getPlayersTeam(score.getPlayerName()), score.getPlayerName())));
+		}
+		return out;
 	}
 
 	/** A bed you broke: an announcement in capitals ("BED DESTRUCTION >") that names you. */

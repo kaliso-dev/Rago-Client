@@ -1,6 +1,7 @@
 package gg.rago.hooks;
 
 import gg.rago.modules.Chat;
+import gg.rago.modules.Cosmetics;
 import gg.rago.modules.Emotes;
 import gg.rago.modules.FastShop;
 import gg.rago.modules.GameplayFixes;
@@ -10,6 +11,7 @@ import gg.rago.modules.HitDelayFix;
 import gg.rago.modules.BlockEditFix;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.OldAnimations;
+import gg.rago.modules.Overlays;
 import gg.rago.modules.HitParticles;
 import gg.rago.modules.ItemPhysics;
 import gg.rago.modules.ItemScale;
@@ -20,6 +22,7 @@ import gg.rago.modules.RagoBadge;
 import gg.rago.modules.AntiArmor;
 import gg.rago.modules.ClientFixes;
 import gg.rago.modules.RagoCape;
+import gg.rago.modules.RagoNetwork;
 import gg.rago.modules.Screenshots;
 import gg.rago.modules.SkinChanger;
 import gg.rago.modules.TabList;
@@ -59,6 +62,7 @@ public final class Hooks {
 	public static volatile OcclusionCuller culler;
 	public static volatile NoHurtCam noHurtCam;
 	public static volatile OldAnimations animations;
+	public static volatile Overlays overlays;
 	public static volatile TabPing tabPing;
 	public static volatile TabList tabList;
 	public static volatile HitParticles hitParticles;
@@ -82,6 +86,8 @@ public final class Hooks {
 	public static volatile AntiArmor antiArmor;
 	public static volatile TitleMod titles;
 	public static volatile LowLatency lowLatency;
+	public static volatile RagoNetwork network;
+	public static volatile Cosmetics cosmetics;
 
 	/** Minecraft.runGameLoop, first thing: waits for the graphics card when Low Latency is on. */
 	public static void frameStart() {
@@ -136,8 +142,31 @@ public final class Hooks {
 	 * real one). {@code kind}: 0 eating or drinking, 1 blocking, 2 drawing a bow.
 	 */
 	public static float useSwing(float swing, int kind) {
+		Overlays o = overlays;
+		if (kind == 1 && o != null) {
+			Overlays.BlockStyle style = o.blockStyle();
+			if (style != null) {
+				return o.blockSwing(style, swing);
+			}
+		}
 		OldAnimations a = animations;
 		return a != null && a.isEnabled() && a.swingWhileUsing(kind) ? swing : 0f;
+	}
+
+	/** ItemRenderer.doBlockTransformations, first thing: the block-hit style's turn of the sword. */
+	public static void blockTransform() {
+		Overlays o = overlays;
+		if (o != null) {
+			o.blockTransform();
+		}
+	}
+
+	/** RenderGlobal.renderSky, after it turns for the sun: the packs' custom skies, without OptiFine. */
+	public static void packSky(float partialTicks) {
+		Overlays o = overlays;
+		if (o != null && o.isEnabled()) {
+			o.packSky(partialTicks);
+		}
 	}
 
 	/** EntityRenderer.orientCamera: the eye height the camera is placed at (smooth sneak). */
@@ -146,11 +175,23 @@ public final class Hooks {
 		return a != null && a.isEnabled() ? a.cameraEyeHeight(vanilla) : vanilla;
 	}
 
+	/** LayerHeldItem.doRenderLayer, just before the item is drawn: 1.7's block in third person. */
+	public static void thirdPersonItem(net.minecraft.entity.EntityLivingBase entity) {
+		OldAnimations a = animations;
+		if (a != null && a.isEnabled()) {
+			a.thirdPersonBlock(entity);
+		}
+	}
+
 	/** ItemRenderer.transformFirstPersonItem, first thing: moves the held item. */
 	public static void heldItemOffset() {
 		OldAnimations a = animations;
 		if (a != null && a.isEnabled()) {
 			a.applyItemOffset();
+		}
+		Overlays o = overlays;
+		if (o != null) {
+			o.blockOffset();
 		}
 	}
 
@@ -185,6 +226,26 @@ public final class Hooks {
 			return false;
 		}
 		return item.shouldCauseReequipAnimation(oldStack, newStack, slotChanged);
+	}
+
+	/**
+	 * At the start of ItemRenderer.updateEquippedItem: with Instant item switch, a new hotbar slot
+	 * shows its item at once, fully raised, instead of lowering the old item and raising the new one
+	 * over about a third of a second. True when done, and vanilla's update is skipped this tick.
+	 */
+	public static boolean instantSwitch(net.minecraft.client.renderer.ItemRenderer renderer) {
+		OldAnimations a = animations;
+		net.minecraft.entity.player.EntityPlayer p = Minecraft.getMinecraft().thePlayer;
+		if (a == null || !a.isEnabled() || !a.instantSwitch() || p == null) {
+			return false;
+		}
+		return gg.rago.render.HeldItem.switchAtOnce(renderer, p.inventory.currentItem, p.inventory.getCurrentItem());
+	}
+
+	/** EntityLivingBase.onUpdate: the way a moving body turns to (1.15+ backwards walking, in 1.7 animations). */
+	public static float walkYaw(float moving, net.minecraft.entity.EntityLivingBase entity) {
+		OldAnimations a = animations;
+		return a != null && a.isEnabled() ? a.walkYaw(moving, entity.rotationYaw) : moving;
 	}
 
 	/** The same call in OptiFine's ItemRenderer, made through OptiFine's reflection helper with boxed arguments. */
@@ -311,8 +372,12 @@ public final class Hooks {
 		return h != null && h.isEnabled() && h.hideBlockBreak();
 	}
 
-	/** ModelBiped.setRotationAngles, at its end: the pose of a dance on your own player. */
+	/** ModelBiped.setRotationAngles, at its end: 1.7's blocking arm, then the pose of a dance on your own player. */
 	public static void emotePose(ModelBiped model, Entity entity) {
+		OldAnimations a = animations;
+		if (a != null && a.isEnabled()) {
+			a.blockArm(model);
+		}
 		Emotes e = emotes;
 		if (e != null && (e.playing() != null || e.posed())) {
 			e.pose(model, entity);
@@ -379,13 +444,13 @@ public final class Hooks {
 
 	/** GuiPlayerTabOverlay.renderPlayerlist: draws a name, header or footer line. */
 	public static int tabText(FontRenderer font, String text, float x, float y, int color) {
-		RagoBadge r = ragoBadge;
-		if (r != null && r.tabLogo(text, x, y)) {
-			text = RagoBadge.tabText(text);
-			x += RagoBadge.tabShift();
-		}
 		TabList t = tabList;
-		return t != null && t.isEnabled() ? t.drawText(font, text, x, y, color) : font.drawStringWithShadow(text, x, y, color);
+		boolean custom = t != null && t.isEnabled();
+		RagoBadge r = ragoBadge;
+		if (r != null && r.tabLine(font, text, x, y, color, !custom || t.shadow())) {
+			return 0; // the game does not use what this returns
+		}
+		return custom ? t.drawText(font, text, x, y, color) : font.drawStringWithShadow(text, x, y, color);
 	}
 
 	/** GuiNewChat.setChatLine: how many lines the chat keeps. */
@@ -427,6 +492,17 @@ public final class Hooks {
 	public static String resourcePackUrl(String url) {
 		ClientFixes f = clientFixes;
 		return f != null && f.isEnabled() ? f.resourcePackUrl(url) : url;
+	}
+
+	/**
+	 * GuiPlayerTabOverlay.renderPlayerlist, the players in vanilla's order: without Hypixel's bots
+	 * (Tab List), then strongest first with Bed Wars Stats.
+	 */
+	public static java.util.List<NetworkPlayerInfo> tabOrder(java.util.List<NetworkPlayerInfo> vanilla) {
+		TabList t = tabList;
+		java.util.List<NetworkPlayerInfo> list = t != null && t.isEnabled() ? t.withoutBots(vanilla) : vanilla;
+		BedwarsStats s = bedwarsStats;
+		return s != null && s.isEnabled() ? s.tabOrder(list) : list;
 	}
 
 	/** GuiPlayerTabOverlay.getPlayerName: Bed Wars star and ratio around the name. */
@@ -484,13 +560,64 @@ public final class Hooks {
 	/** AbstractClientPlayer.getLocationCape: the Rago cape for players who wear it. */
 	public static ResourceLocation cape(ResourceLocation vanilla, AbstractClientPlayer player) {
 		RagoCape c = cape;
-		return c != null && c.isEnabled() ? c.capeFor(player, vanilla) : vanilla;
+		return c != null ? c.capeFor(player, vanilla) : vanilla;
 	}
 
 	/** RenderItem.renderEffect: the colour of the glint on items (vanilla -8372020, purple). */
 	public static int glintColor(int vanilla) {
 		GlintColor g = glint;
 		return g != null && g.isEnabled() ? g.argb() : vanilla;
+	}
+
+	/** LayerArmorBase.renderGlint: how many shimmer layers an enchanted armour piece gets (vanilla 2). */
+	public static int glintPasses() {
+		EngineTweaks e = engine;
+		return e != null && e.lightGlint() ? 1 : 2;
+	}
+
+	private static java.lang.invoke.MethodHandle itemGlintModel;
+	private static boolean itemGlintModelMissing;
+
+	/**
+	 * RenderItem.renderEffect, in place of its second RenderItem.renderModel call: the second shimmer
+	 * layer of an enchanted item, skipped with the light glint.
+	 */
+	public static void secondGlintPass(net.minecraft.client.renderer.entity.RenderItem renderer,
+		net.minecraft.client.resources.model.IBakedModel model, int color) throws Throwable {
+		if (glintPasses() < 2) {
+			return;
+		}
+		java.lang.invoke.MethodHandle h = itemGlintModel;
+		if (h == null) {
+			if (itemGlintModelMissing) {
+				return;
+			}
+			h = itemGlintModel = renderModel();
+			if (h == null) {
+				itemGlintModelMissing = true;
+				return;
+			}
+		}
+		h.invokeExact(renderer, model, color);
+	}
+
+	/** RenderItem's private renderModel(IBakedModel, int), which the second layer calls. */
+	private static java.lang.invoke.MethodHandle renderModel() {
+		for (java.lang.reflect.Method m : net.minecraft.client.renderer.entity.RenderItem.class.getDeclaredMethods()) {
+			Class<?>[] p = m.getParameterTypes();
+			if ((m.getName().equals("func_175035_a") || m.getName().equals("renderModel")) && p.length == 2
+				&& p[0] == net.minecraft.client.resources.model.IBakedModel.class && p[1] == int.class) {
+				try {
+					m.setAccessible(true);
+					return java.lang.invoke.MethodHandles.lookup().unreflect(m);
+				} catch (ReflectiveOperationException | RuntimeException e) {
+					gg.rago.core.RagoClient.LOG.warn("Light glint: RenderItem.renderModel unavailable, items keep one layer", e);
+					return null;
+				}
+			}
+		}
+		gg.rago.core.RagoClient.LOG.warn("Light glint: RenderItem.renderModel not found, items keep one layer");
+		return null;
 	}
 
 	/** LayerArmorBase.renderLayer, after the glint colour is set: sets the chosen one instead. */

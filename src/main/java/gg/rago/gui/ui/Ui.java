@@ -239,7 +239,10 @@ public final class Ui {
 		Tessellator t = Tessellator.getInstance();
 		WorldRenderer r = t.getWorldRenderer();
 		r.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+		boolean was = lines;
+		lines = was || x1 - x0 <= 1.5f || y1 - y0 <= 1.5f;
 		quad(r, x0, y0, x1, y1, argb, argb);
+		lines = was;
 		t.draw();
 		GlStateManager.enableTexture2D();
 	}
@@ -286,8 +289,12 @@ public final class Ui {
 		color(r.pos(x0, y0, 0), top).endVertex();
 	}
 
+	/** While set, colours are themed as lines ({@link UiTheme#line}): outlines and one-pixel rectangles. */
+	private static boolean lines;
+
 	private static WorldRenderer color(WorldRenderer r, int argb) {
-		return r.color(argb >> 16 & 0xFF, argb >> 8 & 0xFF, argb & 0xFF, Math.round((argb >>> 24) * opacity));
+		int c = lines ? UiTheme.line(argb) : UiTheme.apply(argb);
+		return r.color(c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF, Math.round((c >>> 24) * opacity));
 	}
 
 	private static void blend() {
@@ -366,7 +373,7 @@ public final class Ui {
 	 * it is exactly {@link #round}.
 	 */
 	public static void glass(float x, float y, float w, float h, float radius, int fill) {
-		if (!Glass.ready()) {
+		if (!Glass.ready() || !UiTheme.glass()) {
 			round(x, y, w, h, radius, fill);
 			return;
 		}
@@ -382,7 +389,7 @@ public final class Ui {
 
 	/** {@link #glass} with a one-pixel border, the glass version of {@link #roundBorder}. */
 	public static void glassBorder(float x, float y, float w, float h, float radius, int fill, int border) {
-		if (!Glass.ready()) {
+		if (!Glass.ready() || !UiTheme.glass()) {
 			roundBorder(x, y, w, h, radius, fill, border);
 			return;
 		}
@@ -392,6 +399,16 @@ public final class Ui {
 
 	/** A one-pixel rounded outline with nothing inside. */
 	public static void outline(float x, float y, float w, float h, float radius, int argb) {
+		boolean was = lines;
+		lines = true;
+		try {
+			outlineLines(x, y, w, h, radius, argb);
+		} finally {
+			lines = was;
+		}
+	}
+
+	private static void outlineLines(float x, float y, float w, float h, float radius, int argb) {
 		float one = 1f / s;
 		float r = Math.max(0, radius);
 		rect(x + r, y, w - 2 * r, one, argb);
@@ -567,7 +584,7 @@ public final class Ui {
 		}
 		Minecraft.getMinecraft().getTextureManager().bindTexture(tex);
 		linear();
-		texturedQuad(-1, x, y, size, size, argb);
+		texturedQuad(-1, x, y, size, size, UiTheme.text(argb));
 	}
 
 	/** Draws part of the currently bound or a given texture; uv in 0..1. */
@@ -638,12 +655,24 @@ public final class Ui {
 
 	/** Draws text with its line box top at y; size in design units. Returns the width drawn. */
 	public static float text(TtfFont font, String s, float x, float y, float size, int argb) {
-		font.draw(s, px(x), px(y), px(size), fade(argb));
+		font.draw(s, px(x), px(y), px(size), fade(UiTheme.text(argb)));
 		return font.width(s, px(size)) / Ui.s;
 	}
 
 	public static float textWidth(TtfFont font, String s, float size) {
 		return font.width(s, px(size)) / Ui.s;
+	}
+
+	/** {@code s}, cut with "…" so that it is at most {@code maxW} wide. */
+	public static String ellipsize(TtfFont font, String s, float size, float maxW) {
+		if (textWidth(font, s, size) <= maxW) {
+			return s;
+		}
+		String e = s;
+		while (e.length() > 1 && textWidth(font, e + "\u2026", size) > maxW) {
+			e = e.substring(0, e.length() - 1);
+		}
+		return e.trim() + "\u2026";
 	}
 
 	public static void textCentered(TtfFont font, String s, float cx, float y, float size, int argb) {
@@ -672,7 +701,7 @@ public final class Ui {
 	public static List<String> wrap(TtfFont font, String text, float size, float maxWidth) {
 		List<String> lines = new ArrayList<>();
 		StringBuilder line = new StringBuilder();
-		for (String word : text.split(" ")) {
+		for (String word : words(text)) {
 			String candidate = line.length() == 0 ? word : line + " " + word;
 			if (line.length() > 0 && textWidth(font, candidate, size) > maxWidth) {
 				lines.add(line.toString());
@@ -685,6 +714,26 @@ public final class Ui {
 			lines.add(line.toString());
 		}
 		return lines;
+	}
+
+	/**
+	 * The words of {@code text}, with French spaced punctuation kept on the word it belongs to, so
+	 * that no line starts with ":" or "»" and none ends with "«".
+	 */
+	static List<String> words(String text) {
+		String[] raw = text.split(" ");
+		List<String> words = new ArrayList<>();
+		for (int i = 0; i < raw.length; i++) {
+			String w = raw[i];
+			if (!words.isEmpty() && !w.isEmpty() && (w.length() == 1 && ":;!?".indexOf(w.charAt(0)) >= 0 || w.charAt(0) == '\u00bb')) {
+				words.set(words.size() - 1, words.get(words.size() - 1) + " " + w);
+			} else if (w.equals("\u00ab") && i + 1 < raw.length) {
+				words.add(w + " " + raw[++i]);
+			} else {
+				words.add(w);
+			}
+		}
+		return words;
 	}
 
 	// ---- clipping -------------------------------------------------------------------------------

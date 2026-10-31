@@ -4,6 +4,7 @@ import gg.rago.config.BooleanOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
+import gg.rago.gui.ui.TextColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.network.NetworkPlayerInfo;
@@ -49,6 +50,6 @@ public final class TabPing extends Module {
 
 	/** Green below 75 ms, yellow below 150, orange below 300, red above. */
 	static int color(int ms) {
-		return ms < 75 ? 0xFF55FF55 : ms < 150 ? 0xFFFFFF55 : ms < 300 ? 0xFFFFAA00 : 0xFFFF5555;
+		return ms < 75 ? TextColors.argb('a') : ms < 150 ? TextColors.argb('e') : ms < 300 ? TextColors.argb('6') : TextColors.argb('c');
 	}
 }

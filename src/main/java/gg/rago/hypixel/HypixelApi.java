@@ -28,9 +28,9 @@ import java.util.regex.Pattern;
 
 /**
  * Reads players' network level and Bedwars star from the public Hypixel API with the player's own
- * API key (from developer.hypixel.net). Requests run one at a time on a background thread, spaced to
- * fit what the key has left, and answers are kept two days, on disk too, so a player met again
- * costs nothing. Nothing is sent to the Minecraft server.
+ * API key (from developer.hypixel.net). Requests run on a few background threads, several at once
+ * while the key has plenty left and spaced to fit what it has left after that, and answers are kept
+ * two days, on disk too, so a player met again costs nothing. Nothing is sent to the Minecraft server.
  */
 public final class HypixelApi {
 	private static final String URL_PLAYER = "https://api.hypixel.net/v2/player?uuid=";
@@ -49,7 +49,14 @@ public final class HypixelApi {
 	/** The gap between requests until Hypixel has said how many the key has left. */
 	private static final long GAP_MS = 1_000L;
 	/** Never closer than this, however many requests the key has left. */
-	private static final long MIN_GAP_MS = 120L;
+	private static final long MIN_GAP_MS = 50L;
+	/**
+	 * Requests a short window keeps back: until then they go as fast as they come; past it, what is
+	 * left is spread over the rest of the window. At least this many, or a quarter of the key's limit.
+	 */
+	private static final int RESERVE = 20;
+	/** Requests in flight at once: an answer takes a few hundred milliseconds, mostly the trip to Hypixel. */
+	private static final int WORKERS = 4;
 	private static final int MAX_QUEUE = 64;
 	/** A new key's first answer comes in a few seconds; past this the check is called failed, never left hanging. */
 	private static final long CHECK_TIMEOUT_MS = 20_000L;
@@ -150,16 +157,24 @@ public final class HypixelApi {
 	private volatile int limit = -1;
 	private volatile int remaining = -1;
 	private volatile int window = -1;
+	/** When the current window ends (System.currentTimeMillis()), or 0 until known. */
+	private volatile long resetAt;
 	private final Path cacheFile;
 	private long savedAt;
 	private boolean dirty;
 	private volatile long checkingSince;
-	private volatile int requests;
+	private final java.util.concurrent.atomic.AtomicInteger requests = new java.util.concurrent.atomic.AtomicInteger();
+	/** Counts the answers kept, so the tab list knows when there is something new to show. */
+	private final java.util.concurrent.atomic.AtomicInteger changes = new java.util.concurrent.atomic.AtomicInteger();
 	private volatile int lastCode;
-	private Thread worker;
+	private final Thread[] workers = new Thread[WORKERS];
+	/** Guards {@link #lastStart}: when the last request started, whichever thread made it. */
+	private final Object turns = new Object();
+	private long lastStart;
 
 	public HypixelApi(Path configDir) {
-		this(configDir, URL_PLAYER);
+		// a local stand-in for Hypixel, only in the developer test game
+		this(configDir, Boolean.getBoolean("rago.test.hypixel") ? System.getProperty("rago.test.hypixelUrl", URL_PLAYER) : URL_PLAYER);
 	}
 
 	/** With another address for Hypixel's player endpoint, for tests. */
@@ -197,27 +212,32 @@ public final class HypixelApi {
 		if (status != Status.CHECKING) {
 			return;
 		}
-		Thread w = worker;
-		String where;
-		if (w == null) {
-			where = "the request thread never started";
-		} else if (!w.isAlive()) {
-			where = "the request thread had stopped";
-		} else {
-			StackTraceElement[] at = w.getStackTrace();
-			where = "the request thread is at " + Arrays.toString(Arrays.copyOf(at, Math.min(6, at.length)));
+		StringBuilder where = new StringBuilder();
+		for (Thread w : workers) {
+			where.append(where.length() == 0 ? "" : "; ");
+			if (w == null) {
+				where.append("a request thread never started");
+			} else if (!w.isAlive()) {
+				where.append("a request thread had stopped");
+			} else {
+				StackTraceElement[] at = w.getStackTrace();
+				where.append("a request thread is at ").append(Arrays.toString(Arrays.copyOf(at, Math.min(6, at.length))));
+			}
 		}
 		RagoClient.LOG.warn("Hypixel API: no answer about the new key after {} s ({}, {} waiting, paused for {} s)",
-			CHECK_TIMEOUT_MS / 1000, where, queue.size(), Math.max(0, pausedUntil - System.currentTimeMillis()) / 1000);
+			CHECK_TIMEOUT_MS / 1000, where, queued.size(), Math.max(0, pausedUntil - System.currentTimeMillis()) / 1000);
 		status = Status.UNREACHABLE;
 		startWorker();
 	}
 
 	/** For {@code /rago debug}: where the requests stand. */
 	public String debugState() {
-		Thread w = worker;
-		return "status=" + status + " key=" + (key != null) + " thread=" + (w == null ? "none" : w.isAlive() ? "running" : "stopped")
-			+ " waiting=" + queue.size() + " known=" + cache.size() + " requests=" + requests + " lastCode=" + lastCode
+		int running = 0;
+		for (Thread w : workers) {
+			running += w != null && w.isAlive() ? 1 : 0;
+		}
+		return "status=" + status + " key=" + (key != null) + " threads=" + running + "/" + WORKERS
+			+ " waiting=" + queued.size() + " known=" + cache.size() + " requests=" + requests + " lastCode=" + lastCode
 			+ " budget=" + remaining + "/" + limit + " window=" + window + "s gap=" + gap + "ms"
 			+ " paused=" + Math.max(0, pausedUntil - System.currentTimeMillis()) / 1000 + "s";
 	}
@@ -267,6 +287,16 @@ public final class HypixelApi {
 		queued.put(player, Boolean.TRUE);
 		queue.offerFirst(player);
 		startWorker();
+	}
+
+	/** Whether a player's stats are asked for and not answered yet. */
+	public boolean waiting(UUID player) {
+		return queued.containsKey(player);
+	}
+
+	/** Goes up each time an answer is kept: what is shown from the stats needs working out again. */
+	public int changes() {
+		return changes.get();
 	}
 
 	/** The cached stats, or null; asks for them in the background when missing or stale. */
@@ -322,6 +352,25 @@ public final class HypixelApi {
 		return window > SHORT_WINDOW_S;
 	}
 
+	/**
+	 * The key's requests left and its requests per window, and the seconds until the window starts
+	 * again ({remaining, limit, seconds}), as Hypixel last told them; null before its first answer
+	 * since the game started. Once the window is over, the full limit is left.
+	 */
+	public int[] budget() {
+		return budget(System.currentTimeMillis(), remaining, limit, resetAt);
+	}
+
+	static int[] budget(long now, int remaining, int limit, long resetAt) {
+		if (remaining < 0 || limit < 0) {
+			return null;
+		}
+		if (resetAt > 0 && now >= resetAt) {
+			return new int[] {limit, limit, 0};
+		}
+		return new int[] {Math.min(remaining, limit), limit, resetAt > 0 ? (int) ((resetAt - now + 999) / 1000) : -1};
+	}
+
 	/** The key's requests per window as Hypixel told it, or -1 before the first answer. */
 	public int limit() {
 		return limit;
@@ -335,17 +384,21 @@ public final class HypixelApi {
 		return seconds >= 60 ? seconds / 60 + " min" : seconds + " s";
 	}
 
-	/** Starts the request thread, or starts it again if it ever stopped. */
+	/** Starts the request threads, or starts one again if it ever stopped. */
 	private synchronized void startWorker() {
-		if (worker != null && worker.isAlive()) {
-			return;
+		for (int i = 0; i < workers.length; i++) {
+			Thread w = workers[i];
+			if (w != null && w.isAlive()) {
+				continue;
+			}
+			if (w != null) {
+				RagoClient.LOG.warn("Hypixel API: request thread {} had stopped, starting it again", i + 1);
+			}
+			w = new Thread(this::run, "Rago Hypixel API " + (i + 1));
+			w.setDaemon(true);
+			w.start();
+			workers[i] = w;
 		}
-		if (worker != null) {
-			RagoClient.LOG.warn("Hypixel API: the request thread had stopped, starting it again");
-		}
-		worker = new Thread(this::run, "Rago Hypixel API");
-		worker.setDaemon(true);
-		worker.start();
 	}
 
 	private void run() {
@@ -353,9 +406,9 @@ public final class HypixelApi {
 			UUID id;
 			try {
 				id = queue.take();
-				waitForPause();
+				awaitTurn();
 			} catch (InterruptedException e) {
-				RagoClient.LOG.warn("Hypixel API: the request thread was interrupted");
+				RagoClient.LOG.warn("Hypixel API: a request thread was interrupted");
 				return;
 			}
 			boolean again = false;
@@ -376,21 +429,38 @@ public final class HypixelApi {
 					queued.remove(id);
 				}
 			}
-			try {
-				Thread.sleep(gap);
-			} catch (InterruptedException e) {
-				RagoClient.LOG.warn("Hypixel API: the request thread was interrupted");
-				return;
-			}
 		}
 	}
 
-	/** Sleeps while Hypixel asked to slow down, in short steps so that a new key ends the pause at once. */
-	private void waitForPause() throws InterruptedException {
-		long wait;
-		while ((wait = pausedUntil - System.currentTimeMillis()) > 0) {
-			Thread.sleep(Math.min(wait, 250));
+	/**
+	 * Waits until this request may start: the gap after the last one started, whichever thread made
+	 * it, and the end of a pause Hypixel asked for. In short steps, so that a new key ends a pause and
+	 * a shorter gap counts at once.
+	 */
+	private void awaitTurn() throws InterruptedException {
+		synchronized (turns) {
+			long wait;
+			while ((wait = Math.max(lastStart + gap, pausedUntil) - System.currentTimeMillis()) > 0) {
+				turns.wait(Math.min(wait, 250));
+			}
+			lastStart = System.currentTimeMillis();
 		}
+	}
+
+	/**
+	 * The time between two requests, from what Hypixel said of the key: as short as allowed while a
+	 * short window has more than its reserve left (a game's players come in a second or two), then
+	 * what is left spread over the rest of the window, so the key never runs dry halfway through a
+	 * lobby. A daily quota is only spent on players that matter (see lowOnRequests), as fast as they come.
+	 */
+	static long gap(int reset, int remaining, int limit) {
+		if (reset < 0 || remaining < 0) {
+			return GAP_MS;
+		}
+		if (reset > SHORT_WINDOW_S || remaining > Math.max(RESERVE, limit / 4)) {
+			return MIN_GAP_MS;
+		}
+		return Math.max(MIN_GAP_MS, 1000L * reset / Math.max(1, remaining));
 	}
 
 	/** Asks Hypixel for one player; false when the player has to be asked again later (too many requests). */
@@ -408,17 +478,19 @@ public final class HypixelApi {
 			c.setRequestProperty("API-Key", k);
 			c.setRequestProperty("User-Agent", "Rago Client");
 			int code = c.getResponseCode();
-			requests++;
+			requests.incrementAndGet();
 			lastCode = code;
 			int reset = header(c, "RateLimit-Reset");
 			limit = header(c, "RateLimit-Limit");
 			remaining = header(c, "RateLimit-Remaining");
 			window = reset;
-			// in a short window, what is left of the key's requests is spread over what is left of it, so
-			// the key never runs dry halfway through a lobby; a daily quota is spent only on players that
-			// matter (see lowOnRequests), as fast as they come
-			gap = reset < 0 || remaining < 0 ? GAP_MS
-				: reset > SHORT_WINDOW_S ? MIN_GAP_MS : Math.max(MIN_GAP_MS, 1000L * reset / Math.max(1, remaining));
+			if (reset >= 0) {
+				resetAt = now + 1000L * reset;
+			}
+			gap = gap(reset, remaining, limit);
+			synchronized (turns) {
+				turns.notifyAll(); // the threads waiting for their turn go by the new gap
+			}
 			if (code == 403) {
 				status = Status.BAD_KEY;
 				RagoClient.LOG.warn("Hypixel API: the key was refused (expired or wrong)");
@@ -445,6 +517,7 @@ public final class HypixelApi {
 			try (InputStream in = c.getInputStream()) {
 				JsonElement json = new JsonParser().parse(new InputStreamReader(in, StandardCharsets.UTF_8));
 				cache.put(id, parse(json, now));
+				changes.incrementAndGet();
 				if (status != Status.OK) {
 					accepted();
 				}

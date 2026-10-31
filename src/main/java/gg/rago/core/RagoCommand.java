@@ -72,8 +72,43 @@ final class RagoCommand extends CommandBase {
 			sender.addChatMessage(message(on ? "rago.command.debug_on" : "rago.command.debug_off", EnumChatFormatting.GOLD));
 			return;
 		}
+		if (args[0].equalsIgnoreCase("debrief")) {
+			// the button after a Bed Wars game, or typed: the debriefs of this session
+			RagoClient.modules().get("game_debrief").ifPresent(m -> RagoClient.openLater(new gg.rago.gui.DebriefScreen((gg.rago.modules.GameDebrief) m)));
+			return;
+		}
+		if (args[0].equalsIgnoreCase("network")) {
+			gg.rago.modules.RagoNetwork n = gg.rago.hooks.Hooks.network;
+			IChatComponent c = new ChatComponentTranslation("rago.command.network", n != null ? n.status() : "off");
+			c.setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GOLD));
+			sender.addChatMessage(c);
+			return;
+		}
 		if (args[0].equalsIgnoreCase("testplayers") && gg.rago.debug.FakeBedwars.ON) {
-			gg.rago.debug.FakeBedwars.players(args.length > 1 ? Integer.parseInt(args[1]) : 16);
+			gg.rago.debug.FakeBedwars.players(args.length > 1 ? Integer.parseInt(args[1]) : 16, args.length > 2 && args[2].equals("armor"));
+			return;
+		}
+		if (args[0].equalsIgnoreCase("testgame") && gg.rago.debug.FakeBedwars.ON) {
+			gg.rago.debug.FakeBedwars.game(args.length > 1 ? Integer.parseInt(args[1]) : 12);
+			return;
+		}
+		if (args[0].equalsIgnoreCase("testmod") && args.length >= 3 && gg.rago.debug.FakeBedwars.ON) {
+			// "testmod <module> on|off" as its switch in the menu; "testmod <module> <option> <value>" sets an option
+			RagoClient.modules().get(args[1]).ifPresent(m -> {
+				if (args.length == 3) {
+					m.setEnabled(args[2].equalsIgnoreCase("on"));
+					return;
+				}
+				m.options().stream().filter(o -> o.key().equals(args[2])).findFirst()
+					.ifPresent(o -> o.fromJson(new com.google.gson.JsonParser().parse(args[3])));
+			});
+			return;
+		}
+		if (args[0].equalsIgnoreCase("testset") && args.length == 3 && gg.rago.debug.FakeBedwars.ON) {
+			// "testset <setting> <value>": a setting of the Settings tabs, as in rago.json
+			com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+			o.add(args[1], new com.google.gson.JsonParser().parse(args[2]));
+			RagoClient.settings().fromJson(o);
 			return;
 		}
 		if (args[0].equalsIgnoreCase("testbw") && gg.rago.debug.FakeBedwars.ON) {
@@ -90,7 +125,7 @@ final class RagoCommand extends CommandBase {
 
 	@Override
 	public List<String> addTabCompletionOptions(ICommandSender sender, String[] args, BlockPos pos) {
-		return args.length == 1 ? getListOfStringsMatchingLastWord(args, "hypixelkey", "debug") : Collections.<String>emptyList();
+		return args.length == 1 ? getListOfStringsMatchingLastWord(args, "hypixelkey", "debug", "network", "debrief") : Collections.<String>emptyList();
 	}
 
 	private static IChatComponent message(String key, EnumChatFormatting color) {

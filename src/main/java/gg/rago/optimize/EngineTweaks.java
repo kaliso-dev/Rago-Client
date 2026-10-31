@@ -7,11 +7,14 @@ public final class EngineTweaks {
 	private final BooleanSupplier fastWorldSwitch;
 	private final BooleanSupplier unstackedItems;
 	private final BooleanSupplier particleCollisions;
+	private final BooleanSupplier lightGlint;
 
-	EngineTweaks(BooleanSupplier fastWorldSwitch, BooleanSupplier unstackedItems, BooleanSupplier particleCollisions) {
+	EngineTweaks(BooleanSupplier fastWorldSwitch, BooleanSupplier unstackedItems, BooleanSupplier particleCollisions,
+		BooleanSupplier lightGlint) {
 		this.fastWorldSwitch = fastWorldSwitch;
 		this.unstackedItems = unstackedItems;
 		this.particleCollisions = particleCollisions;
+		this.lightGlint = lightGlint;
 	}
 
 	/** Skip the full garbage collection vanilla forces on every world change (the freeze when switching servers). */
@@ -30,5 +33,13 @@ public final class EngineTweaks {
 	 */
 	public boolean particleCollisions() {
 		return particleCollisions.getAsBoolean();
+	}
+
+	/**
+	 * The enchantment shimmer is drawn once instead of twice: vanilla draws an enchanted armour piece
+	 * or item three times (the piece, then two shimmer layers at different angles); with this, twice.
+	 */
+	public boolean lightGlint() {
+		return lightGlint.getAsBoolean();
 	}
 }

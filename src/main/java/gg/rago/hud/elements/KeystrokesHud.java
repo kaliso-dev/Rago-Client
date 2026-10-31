@@ -203,8 +203,8 @@ public final class KeystrokesHud extends HudElement implements Styled {
 		y += k + g;
 		if (showMouse.get()) {
 			int half = (w - g) / 2;
-			String left = showCps.get() ? (placeholder ? 9 : input.attackCps(now)) + " CPS" : null;
-			String right = showCps.get() ? (placeholder ? 4 : input.useCps(now)) + " CPS" : null;
+			String left = showCps.get() ? cps(placeholder ? 9 : input.attackCps(now)) : null;
+			String right = showCps.get() ? cps(placeholder ? 4 : input.useCps(now)) : null;
 			keys[n++].set(o.keyBindAttack, 0, y, half, k, left);
 			keys[n++].set(o.keyBindUseItem, half + g, y, w - half - g, k, right);
 			y += k + g;
@@ -228,7 +228,7 @@ public final class KeystrokesHud extends HudElement implements Styled {
 		}
 		Paint.endShapes();
 
-		HudText.Batch labels = new HudText.Batch(font.get());
+		HudText.Batch labels = this.labels.start(font.get());
 		boolean subs = false;
 		for (int i = 0; i < n; i++) {
 			Key key = keys[i];
@@ -248,7 +248,7 @@ public final class KeystrokesHud extends HudElement implements Styled {
 				}
 			}
 			GlScale.push(0, lineY, SUB_SCALE);
-			HudText.Batch small = new HudText.Batch(font.get());
+			HudText.Batch small = this.small.start(font.get());
 			for (int i = 0; i < n; i++) {
 				Key key = keys[i];
 				if (key.sub != null) {
@@ -266,6 +266,23 @@ public final class KeystrokesHud extends HudElement implements Styled {
 
 	private static final float SUB_SCALE = 0.7f;
 	private final Key[] keys = {new Key(), new Key(), new Key(), new Key(), new Key(), new Key()};
+	/** The two text batches, reused every frame. */
+	private final HudText.Batch labels = new HudText.Batch();
+	private final HudText.Batch small = new HudText.Batch();
+	/** "9 CPS" for each count, made once. */
+	private final String[] cpsTexts = new String[64];
+
+	private String cps(int n) {
+		if (n < 0 || n >= cpsTexts.length) {
+			return n + " CPS";
+		}
+		String s = cpsTexts[n];
+		if (s == null) {
+			s = n + " CPS";
+			cpsTexts[n] = s;
+		}
+		return s;
+	}
 
 	/** One key of the current frame, reused from frame to frame. */
 	private static final class Key {

@@ -58,25 +58,67 @@ public final class LabelBatch {
 	private float dy;
 	private float dz;
 
+	/**
+	 * Labels after this lie flat on the screen ("2D"): exactly level and facing it, view bobbing
+	 * and the hurt shake included, instead of turned to the camera's yaw and pitch like vanilla's.
+	 */
+	public void flat(boolean flat) {
+		this.flat = flat;
+	}
+
+	private boolean flat;
+	private final float[] axes = new float[6];
+
 	/** Starts a label at camera-relative (x, y, z) facing the camera, {@code scale} blocks per unit, moved {@code down} units. */
 	public void begin(double x, double y, double z, float scale, float down) {
-		Minecraft mc = Minecraft.getMinecraft();
-		float yaw = (float) Math.toRadians(-mc.getRenderManager().playerViewY);
-		float pitch = (float) Math.toRadians(mc.getRenderManager().playerViewX * (mc.gameSettings.thirdPersonView == 2 ? -1 : 1));
+		java.nio.FloatBuffer camera = flat ? WorldDraw.cameraMatrix() : null;
+		if (camera != null) {
+			screenAxes(camera, scale, axes);
+		} else {
+			viewAxes(Minecraft.getMinecraft().getRenderManager().playerViewY, WorldDraw.viewPitch(), scale, axes);
+		}
+		rx = axes[0];
+		ry = axes[1];
+		rz = axes[2];
+		dx = axes[3];
+		dy = axes[4];
+		dz = axes[5];
+		ox = (float) x + dx * down;
+		oy = (float) y + dy * down;
+		oz = (float) z + dz * down;
+	}
+
+	/**
+	 * One label unit right and one down, in the world, for a label turned to the camera's yaw and
+	 * pitch (degrees): Ry(-yaw) * Rx(pitch) * scale(-s, -s, s) applied to the unit x and y axes, as
+	 * vanilla's GL calls do.
+	 */
+	static void viewAxes(float viewYaw, float viewPitch, float scale, float[] out) {
+		float yaw = (float) Math.toRadians(-viewYaw);
+		float pitch = (float) Math.toRadians(viewPitch);
 		float cy = (float) Math.cos(yaw);
 		float sy = (float) Math.sin(yaw);
 		float cp = (float) Math.cos(pitch);
 		float sp = (float) Math.sin(pitch);
-		// Ry(yaw) * Rx(pitch) * scale(-s, -s, s) applied to the unit x and y axes, as vanilla's GL calls do
-		rx = -scale * cy;
-		ry = 0;
-		rz = scale * sy;
-		dx = -scale * sy * sp;
-		dy = -scale * cp;
-		dz = -scale * cy * sp;
-		ox = (float) x + dx * down;
-		oy = (float) y + dy * down;
-		oz = (float) z + dz * down;
+		out[0] = -scale * cy;
+		out[1] = 0;
+		out[2] = scale * sy;
+		out[3] = -scale * sy * sp;
+		out[4] = -scale * cp;
+		out[5] = -scale * cy * sp;
+	}
+
+	/**
+	 * The same for a label parallel to the screen: the camera's right and down directions in the
+	 * world, the first two rows of its rotation ({@code camera} is column-major, as OpenGL keeps it).
+	 */
+	static void screenAxes(java.nio.FloatBuffer camera, float scale, float[] out) {
+		out[0] = scale * camera.get(0);
+		out[1] = scale * camera.get(4);
+		out[2] = scale * camera.get(8);
+		out[3] = -scale * camera.get(1);
+		out[4] = -scale * camera.get(5);
+		out[5] = -scale * camera.get(9);
 	}
 
 	private float wx(float lx, float ly) {
@@ -164,8 +206,11 @@ public final class LabelBatch {
 			return;
 		}
 		float inner = Math.max(0, r - width);
-		float[] cx = {x + w - r, x + w - r, x + r, x + r};
-		float[] cy = {y + r, y + h - r, y + h - r, y + r};
+		// corner centres in the order of RING_COS/RING_SIN: top right, bottom right, bottom left, top left
+		float right = x + w - r;
+		float left = x + r;
+		float top = y + r;
+		float bottom = y + h - r;
 		float px0 = 0;
 		float py0 = 0;
 		float px1 = 0;
@@ -179,10 +224,12 @@ public final class LabelBatch {
 				}
 				float cos = RING_COS[k * CORNER_SEGMENTS + i];
 				float sin = RING_SIN[k * CORNER_SEGMENTS + i];
-				float ox0 = cx[k] + cos * r;
-				float oy0 = cy[k] + sin * r;
-				float ix0 = cx[k] + cos * inner;
-				float iy0 = cy[k] + sin * inner;
+				float ccx = k < 2 ? right : left;
+				float ccy = k == 1 || k == 2 ? bottom : top;
+				float ox0 = ccx + cos * r;
+				float oy0 = ccy + sin * r;
+				float ix0 = ccx + cos * inner;
+				float iy0 = ccy + sin * inner;
 				if (!first) {
 					tri(l, px0, py0, px1, py1, ox0, oy0, argb);
 					tri(l, ox0, oy0, px1, py1, ix0, iy0, argb);
@@ -206,14 +253,24 @@ public final class LabelBatch {
 	 */
 	public boolean text(int layer, TtfFont font, float em, float pixelsPerUnit, String s, float x, float y, int argb, boolean shadow) {
 		Layer l = layers[layer];
+		// the shadow of solid text goes in the layer drawn before it, which writes no depth: in the same
+		// plane as the text, it would otherwise hide the text where the two overlap
+		Layer under = layer == SOLID ? layers[DEPTH] : l;
 		if (font == null) {
-			return vanillaText(l, Hooks.nick(s), x, y, argb, shadow);
+			return vanillaText(l, under, Hooks.nick(s), x, y, argb, shadow);
 		}
 		float px = Math.max(6, Math.round(em * pixelsPerUnit * 2) / 2f);
 		float k = px / em;
-		FloatList f = l.textured(font.textureId(px));
+		int texture = font.textureId(px);
+		FloatList f = l.textured(texture);
 		float top = (y + 7) * k - font.ascent(px);
-		font.emitFormatted(s, x * k, top, px, argb, shadow, Math.max(1, k * 0.75f),
+		float offset = Math.max(1, k * 0.75f);
+		if (shadow) {
+			FloatList sf = under.textured(texture);
+			font.emitShadow(s, x * k, top, px, argb, offset,
+				(x0, y0, x1, y1, u0, v0, u1, v1, c) -> quad(sf, x0 / k, y0 / k, x1 / k, y1 / k, u0, v0, u1, v1, c));
+		}
+		font.emitFormatted(s, x * k, top, px, argb, false, offset,
 			(x0, y0, x1, y1, u0, v0, u1, v1, c) -> quad(f, x0 / k, y0 / k, x1 / k, y1 / k, u0, v0, u1, v1, c));
 		return true;
 	}
@@ -227,10 +284,12 @@ public final class LabelBatch {
 		return font.widthFormatted(s, px) / (px / em);
 	}
 
-	/** The Minecraft font's ASCII page, glyph by glyph as {@code FontRenderer.renderDefaultChar} lays it out. */
-	private boolean vanillaText(Layer l, String s, float x, float y, int argb, boolean shadow) {
-		FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
-		if (fr.getUnicodeFlag()) {
+	/** Whether {@link #text} can draw {@code s} in {@code font} (null: the Minecraft font). */
+	public static boolean canDraw(TtfFont font, String s) {
+		if (font != null) {
+			return true;
+		}
+		if (Minecraft.getMinecraft().fontRendererObj.getUnicodeFlag()) {
 			return false;
 		}
 		for (int i = 0; i < s.length(); i++) {
@@ -241,13 +300,22 @@ public final class LabelBatch {
 				return false;
 			}
 		}
+		return true;
+	}
+
+	/** The Minecraft font's ASCII page, glyph by glyph as {@code FontRenderer.renderDefaultChar} lays it out. */
+	private boolean vanillaText(Layer l, Layer under, String s, float x, float y, int argb, boolean shadow) {
+		FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
+		if (!canDraw(null, s)) {
+			return false;
+		}
 		ITextureObject tex = Minecraft.getMinecraft().getTextureManager().getTexture(ASCII);
 		if (tex == null) {
 			return false;
 		}
 		FloatList f = l.textured(tex.getGlTextureId());
 		if (shadow) {
-			vanillaRuns(f, fr, s, x + 1, y + 1, argb, true);
+			vanillaRuns(under.textured(tex.getGlTextureId()), fr, s, x + 1, y + 1, argb, true);
 		}
 		vanillaRuns(f, fr, s, x, y, argb, false);
 		return true;
@@ -408,39 +476,44 @@ public final class LabelBatch {
 			size += STRIDE;
 		}
 
-		/** The vertices in the layout the renderer keeps them, reused while their number stays the same. */
-		private int[] packed = new int[0];
+		/**
+		 * Vertices in the layout the renderer keeps them, {@link #CHUNK} at a time: the renderer takes
+		 * a whole array, and the number of vertices changes from frame to frame, so a fixed-size array
+		 * is filled again and again rather than a new one made for each count.
+		 */
+		private int[] chunk = new int[0];
+		/** One vertex, for the last few that do not fill a chunk. */
+		private int[] single = new int[0];
+		static final int CHUNK = 96;
 
 		/**
-		 * Hands the vertices to the renderer in one copy when its format is the usual one (position,
-		 * texture, colour), else one call per value as before.
+		 * Hands the vertices to the renderer in copies of {@link #CHUNK} vertices when its format is
+		 * the usual one (position, texture, colour), else one call per value as before.
 		 */
 		void upload(WorldRenderer w, boolean textured) {
 			int per = textured ? 6 : 4;
 			if (w.getVertexFormat().getIntegerSize() == per) {
-				int n = size / STRIDE * per;
-				if (packed.length != n) {
-					packed = new int[n];
+				if (chunk.length != CHUNK * per) {
+					chunk = new int[CHUNK * per];
+					single = new int[per];
 				}
 				boolean little = java.nio.ByteOrder.nativeOrder() == java.nio.ByteOrder.LITTLE_ENDIAN;
+				int vertices = size / STRIDE;
+				int full = vertices / CHUNK * CHUNK;
 				int o = 0;
-				for (int i = 0; i < size; i += STRIDE) {
-					packed[o++] = Float.floatToRawIntBits(data[i]);
-					packed[o++] = Float.floatToRawIntBits(data[i + 1]);
-					packed[o++] = Float.floatToRawIntBits(data[i + 2]);
-					if (textured) {
-						packed[o++] = Float.floatToRawIntBits(data[i + 3]);
-						packed[o++] = Float.floatToRawIntBits(data[i + 4]);
+				for (int v = 0; v < vertices; v++) {
+					int[] into = v < full ? chunk : single;
+					if (v >= full) {
+						o = 0;
 					}
-					int c = Float.floatToRawIntBits(data[i + 5]);
-					int r = c >> 16 & 0xFF;
-					int g = c >> 8 & 0xFF;
-					int b = c & 0xFF;
-					int a = c >>> 24;
-					// as WorldRenderer.color writes it: the bytes red, green, blue, alpha in memory
-					packed[o++] = little ? a << 24 | b << 16 | g << 8 | r : r << 24 | g << 16 | b << 8 | a;
+					o = pack(into, o, v * STRIDE, textured, little);
+					if (v < full && o == chunk.length) {
+						w.addVertexData(chunk);
+						o = 0;
+					} else if (v >= full) {
+						w.addVertexData(single);
+					}
 				}
-				w.addVertexData(packed);
 				return;
 			}
 			for (int i = 0; i < size; i += STRIDE) {
@@ -451,6 +524,25 @@ public final class LabelBatch {
 				}
 				w.color(c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF, c >>> 24).endVertex();
 			}
+		}
+
+		/** Writes the vertex at {@code i} into {@code into} from {@code o}; returns where it ended. */
+		private int pack(int[] into, int o, int i, boolean textured, boolean little) {
+			into[o++] = Float.floatToRawIntBits(data[i]);
+			into[o++] = Float.floatToRawIntBits(data[i + 1]);
+			into[o++] = Float.floatToRawIntBits(data[i + 2]);
+			if (textured) {
+				into[o++] = Float.floatToRawIntBits(data[i + 3]);
+				into[o++] = Float.floatToRawIntBits(data[i + 4]);
+			}
+			int c = Float.floatToRawIntBits(data[i + 5]);
+			int r = c >> 16 & 0xFF;
+			int g = c >> 8 & 0xFF;
+			int b = c & 0xFF;
+			int a = c >>> 24;
+			// as WorldRenderer.color writes it: the bytes red, green, blue, alpha in memory
+			into[o++] = little ? a << 24 | b << 16 | g << 8 | r : r << 24 | g << 16 | b << 8 | a;
+			return o;
 		}
 	}
 }
