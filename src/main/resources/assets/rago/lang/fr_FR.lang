@@ -637,13 +637,21 @@ rago.module.pack_display.desc=Le pack de ressources que tu utilises : son logo e
 
 # 1.2: tab list
 rago.module.tab_list=Tab
-rago.module.tab_list.desc=Transparence du tab, en-tête et pied du serveur, ombre du texte, taille et bots Hypixel masqués.
+rago.module.tab_list.desc=Transparence du tab, en-tête et pied du serveur (en entier, sans les pubs ou masqués), ombre du texte, taille et bots Hypixel masqués.
 rago.option.tab_background=Opacité du fond
 rago.option.tab_background.format=%d%%
 rago.option.tab_rows=Opacité des lignes
 rago.option.tab_rows.format=%d%%
-rago.option.tab_header=En-tête du serveur
-rago.option.tab_footer=Pied du serveur
+rago.option.tab_header_mode=En-tête du serveur
+rago.option.tab_header_mode.all=Tout afficher
+rago.option.tab_header_mode.no_ads=Sans les pubs
+rago.option.tab_header_mode.hidden=Masqué
+rago.option.tab_header_mode.help=Les lignes du serveur en haut du tab. Sans les pubs retire seulement les lignes avec une adresse (MC.HYPIXEL.NET, STORE.HYPIXEL.NET, un lien Discord) et garde le reste.
+rago.option.tab_footer_mode=Pied du serveur
+rago.option.tab_footer_mode.all=Tout afficher
+rago.option.tab_footer_mode.no_ads=Sans les pubs
+rago.option.tab_footer_mode.hidden=Masqué
+rago.option.tab_footer_mode.help=Les lignes du serveur en bas du tab. Sans les pubs retire seulement les lignes avec une adresse (comme STORE.HYPIXEL.NET) et garde le reste, comme les kills, final kills et lits cassés de la partie.
 rago.option.tab_scale=Taille
 rago.option.tab_scale.format=%d%%
 rago.option.tab_hide_bots=Masquer les bots Hypixel

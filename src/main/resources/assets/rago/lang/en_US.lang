@@ -637,13 +637,21 @@ rago.module.pack_display.desc=The resource pack you use: its logo and its name, 
 
 # 1.2: tab list
 rago.module.tab_list=Tab List
-rago.module.tab_list.desc=How see-through the tab list is, its header and footer, text shadow and size, and Hypixel's bots hidden.
+rago.module.tab_list.desc=How see-through the tab list is, the server's header and footer (whole, without ads or hidden), text shadow and size, and Hypixel's bots hidden.
 rago.option.tab_background=Background opacity
 rago.option.tab_background.format=%d%%
 rago.option.tab_rows=Row opacity
 rago.option.tab_rows.format=%d%%
-rago.option.tab_header=Server header
-rago.option.tab_footer=Server footer
+rago.option.tab_header_mode=Server header
+rago.option.tab_header_mode.all=Everything
+rago.option.tab_header_mode.no_ads=Without ads
+rago.option.tab_header_mode.hidden=Hidden
+rago.option.tab_header_mode.help=The server's lines at the top of the tab list. Without ads leaves out only the lines with an address (MC.HYPIXEL.NET, STORE.HYPIXEL.NET, a Discord link) and keeps the rest.
+rago.option.tab_footer_mode=Server footer
+rago.option.tab_footer_mode.all=Everything
+rago.option.tab_footer_mode.no_ads=Without ads
+rago.option.tab_footer_mode.hidden=Hidden
+rago.option.tab_footer_mode.help=The server's lines at the bottom of the tab list. Without ads leaves out only the lines with an address (like STORE.HYPIXEL.NET) and keeps the rest, like the game's kills, final kills and beds broken.
 rago.option.tab_scale=Size
 rago.option.tab_scale.format=%d%%
 rago.option.tab_hide_bots=Hide Hypixel bots
