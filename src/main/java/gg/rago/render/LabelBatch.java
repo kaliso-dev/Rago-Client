@@ -253,14 +253,24 @@ public final class LabelBatch {
 	 */
 	public boolean text(int layer, TtfFont font, float em, float pixelsPerUnit, String s, float x, float y, int argb, boolean shadow) {
 		Layer l = layers[layer];
+		// the shadow of solid text goes in the layer drawn before it, which writes no depth: in the same
+		// plane as the text, it would otherwise hide the text where the two overlap
+		Layer under = layer == SOLID ? layers[DEPTH] : l;
 		if (font == null) {
-			return vanillaText(l, Hooks.nick(s), x, y, argb, shadow);
+			return vanillaText(l, under, Hooks.nick(s), x, y, argb, shadow);
 		}
 		float px = Math.max(6, Math.round(em * pixelsPerUnit * 2) / 2f);
 		float k = px / em;
-		FloatList f = l.textured(font.textureId(px));
+		int texture = font.textureId(px);
+		FloatList f = l.textured(texture);
 		float top = (y + 7) * k - font.ascent(px);
-		font.emitFormatted(s, x * k, top, px, argb, shadow, Math.max(1, k * 0.75f),
+		float offset = Math.max(1, k * 0.75f);
+		if (shadow) {
+			FloatList sf = under.textured(texture);
+			font.emitShadow(s, x * k, top, px, argb, offset,
+				(x0, y0, x1, y1, u0, v0, u1, v1, c) -> quad(sf, x0 / k, y0 / k, x1 / k, y1 / k, u0, v0, u1, v1, c));
+		}
+		font.emitFormatted(s, x * k, top, px, argb, false, offset,
 			(x0, y0, x1, y1, u0, v0, u1, v1, c) -> quad(f, x0 / k, y0 / k, x1 / k, y1 / k, u0, v0, u1, v1, c));
 		return true;
 	}
@@ -274,10 +284,12 @@ public final class LabelBatch {
 		return font.widthFormatted(s, px) / (px / em);
 	}
 
-	/** The Minecraft font's ASCII page, glyph by glyph as {@code FontRenderer.renderDefaultChar} lays it out. */
-	private boolean vanillaText(Layer l, String s, float x, float y, int argb, boolean shadow) {
-		FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
-		if (fr.getUnicodeFlag()) {
+	/** Whether {@link #text} can draw {@code s} in {@code font} (null: the Minecraft font). */
+	public static boolean canDraw(TtfFont font, String s) {
+		if (font != null) {
+			return true;
+		}
+		if (Minecraft.getMinecraft().fontRendererObj.getUnicodeFlag()) {
 			return false;
 		}
 		for (int i = 0; i < s.length(); i++) {
@@ -288,13 +300,22 @@ public final class LabelBatch {
 				return false;
 			}
 		}
+		return true;
+	}
+
+	/** The Minecraft font's ASCII page, glyph by glyph as {@code FontRenderer.renderDefaultChar} lays it out. */
+	private boolean vanillaText(Layer l, Layer under, String s, float x, float y, int argb, boolean shadow) {
+		FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
+		if (!canDraw(null, s)) {
+			return false;
+		}
 		ITextureObject tex = Minecraft.getMinecraft().getTextureManager().getTexture(ASCII);
 		if (tex == null) {
 			return false;
 		}
 		FloatList f = l.textured(tex.getGlTextureId());
 		if (shadow) {
-			vanillaRuns(f, fr, s, x + 1, y + 1, argb, true);
+			vanillaRuns(under.textured(tex.getGlTextureId()), fr, s, x + 1, y + 1, argb, true);
 		}
 		vanillaRuns(f, fr, s, x, y, argb, false);
 		return true;

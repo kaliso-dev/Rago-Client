@@ -240,7 +240,12 @@ public final class Nametags extends Module implements Styled {
 		}
 		RagoBadge badge = gg.rago.hooks.Hooks.ragoBadge;
 		int logo = badge != null && badge.onNametag() ? badge.logoColor(p.getUniqueID()) : 0;
-		label(name, x, top, z, 0, throughWalls.get(), 0xFF, logo);
+		if (logo == 0) {
+			label(name, x, top, z, 0, throughWalls.get(), 0xFF);
+			return;
+		}
+		boolean creator = badge.creator(p.getUniqueID());
+		label(name, x, top, z, 0, throughWalls.get(), 0xFF, badge.texture(p.getUniqueID()), logo, creator ? p.getName() : null);
 	}
 
 	/** A player's name as the game shows it, what it was made from, and the tick it was made. */
@@ -301,21 +306,45 @@ public final class Nametags extends Module implements Styled {
 	 * all together after the world (see {@link LabelBatch}).
 	 */
 	public void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha) {
-		label(text, x, anchorY, z, drop, seeThrough, alpha, 0);
+		label(text, x, anchorY, z, drop, seeThrough, alpha, 0, 0, null);
 	}
 
-	/** {@link #label}, with the Rago logo before the text in colour {@code logo} (none for 0). */
-	private void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha, int logo) {
+	/**
+	 * {@link #label}, with the Rago logo (GL texture {@code logoTexture}, none for 0) before the text in
+	 * colour {@code logo}; for the creator ({@code creator}: their name), the name in pink and the
+	 * crown and sparkle after it.
+	 */
+	private void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha,
+		int logoTexture, int logo, String creator) {
 		String shown = colorMode.is("custom") ? stripped(text) : text;
 		int color = colorMode.is("custom") ? nameColor.get() : 0xFFFFFFFF;
 		float s = WorldDraw.LABEL_SCALE * scale.get() / 100f;
 		int pad = background.get() ? PADDING : 0;
 		TtfFont ttf = HudText.ttf(font.get());
 		float em = HudText.em(font.get());
-		RagoBadge badge = logo != 0 ? gg.rago.hooks.Hooks.ragoBadge : null;
-		int logoTexture = badge != null ? badge.texture() : 0;
 		float logoW = logoTexture != 0 ? RagoBadge.LOGO_SIZE + 2 : 0;
-		float w = LabelBatch.width(ttf, em, WORLD_SHARPNESS, shown) + logoW;
+		RagoBadge badge = creator != null ? gg.rago.hooks.Hooks.ragoBadge : null;
+		String nicked = badge != null ? gg.rago.hooks.Hooks.nick(shown) : shown;
+		// the crown and sparkle, unless the vanilla font draws the label (characters outside its ASCII page)
+		int icons = badge != null && LabelBatch.canDraw(ttf, nicked) ? badge.iconsTexture() : 0;
+		// the creator's name split from the text before and after it, the icons in between
+		String before = shown;
+		String name = "";
+		String after = "";
+		if (icons != 0) {
+			int at = RagoBadge.nameAt(nicked, creator) >= 0 ? RagoBadge.nameAt(shown, creator) : -1;
+			if (at >= 0) {
+				before = shown.substring(0, at);
+				name = shown.substring(at, at + creator.length());
+				after = RagoBadge.codesAt(shown.substring(0, at)) + shown.substring(at + creator.length());
+			}
+		}
+		String style = RagoBadge.stylesAt(before);
+		float beforeW = LabelBatch.width(ttf, em, WORLD_SHARPNESS, before);
+		float nameW = name.isEmpty() ? 0 : LabelBatch.width(ttf, em, WORLD_SHARPNESS, style + name);
+		float iconsW = icons != 0 ? RagoBadge.ICONS_SPACE : 0;
+		float afterW = after.isEmpty() ? 0 : LabelBatch.width(ttf, em, WORLD_SHARPNESS, after);
+		float w = logoW + beforeW + nameW + iconsW + afterW;
 		float half = w / 2f;
 		// keep the bottom of the text where vanilla's is, so a bigger tag grows upwards, away from the head
 		batch.flat(mode.is("2d"));
@@ -337,16 +366,37 @@ public final class Nametags extends Module implements Styled {
 		boolean ok = true;
 		int faint = Math.round(0x40 * wall * a / 255f);
 		float tx = -half + logoW;
+		float afterX = tx + beforeW + nameW + iconsW;
+		int layer = seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH;
 		if (faint > 0) {
-			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, shown, tx, 0, faint << 24 | color & 0xFFFFFF, false);
+			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, before + name, tx, 0, faint << 24 | color & 0xFFFFFF, false);
+			if (ok && !after.isEmpty()) {
+				ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, after, afterX, 0, faint << 24 | color & 0xFFFFFF, false);
+			}
 		}
-		if (ok) {
-			ok = batch.text(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, ttf, em, WORLD_SHARPNESS, shown, tx, 0,
-				a << 24 | color & 0xFFFFFF, shadow.get());
+		if (ok && !name.isEmpty() && RagoBadge.pinkName()) {
+			// the creator's name, letter by letter in its shades of pink
+			if (!before.isEmpty()) {
+				ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, before, tx, 0, a << 24 | color & 0xFFFFFF, shadow.get());
+			}
+			float cx = tx + beforeW;
+			long now = Minecraft.getSystemTime();
+			for (int i = 0; ok && i < name.length(); i++) {
+				String ch = style + name.charAt(i);
+				ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, ch, cx, 0, a << 24 | RagoBadge.creatorShade(i, name.length(), now), shadow.get());
+				cx += LabelBatch.width(ttf, em, WORLD_SHARPNESS, ch);
+			}
+		} else if (ok) {
+			ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, before + name, tx, 0, a << 24 | color & 0xFFFFFF, shadow.get());
+		}
+		if (ok && !after.isEmpty()) {
+			ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, after, afterX, 0, a << 24 | color & 0xFFFFFF, shadow.get());
 		}
 		if (ok && logoTexture != 0) {
-			batch.image(seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH, logoTexture, -half, -0.5f, RagoBadge.LOGO_SIZE, RagoBadge.LOGO_SIZE,
-				logo);
+			batch.image(layer, logoTexture, -half, -0.5f, RagoBadge.LOGO_SIZE, RagoBadge.LOGO_SIZE, logo);
+		}
+		if (ok && icons != 0) {
+			batch.image(layer, icons, tx + beforeW + nameW + 1.5f, -0.5f, RagoBadge.ICONS_W, RagoBadge.ICONS_H, a << 24 | 0xFFFFFF);
 		}
 		if (!ok) {
 			// characters outside the Minecraft font's ASCII page (or the Unicode font): vanilla draws it

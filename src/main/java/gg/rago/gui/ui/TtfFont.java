@@ -235,6 +235,11 @@ public final class TtfFont {
 		emitRuns(s, x, y, px, argb, false, sink);
 	}
 
+	/** Only the shadow {@link #emitFormatted} would draw under the text. */
+	public void emitShadow(String s, float x, float y, float px, int argb, float shadowOffset, QuadSink sink) {
+		emitRuns(Hooks.nick(s), x + shadowOffset, y + shadowOffset, px, argb, true, sink);
+	}
+
 	private void emitRuns(String s, float x, float y, float px, int argb, boolean shadow, QuadSink sink) {
 		if (s.indexOf('\u00a7') < 0) {
 			emit(s, x, y, px, shadow ? shade(argb) : argb, sink);

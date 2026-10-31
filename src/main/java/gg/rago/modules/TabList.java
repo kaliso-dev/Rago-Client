@@ -70,6 +70,11 @@ public final class TabList extends Module {
 		return font.drawString(text, x, y, color, shadow.get());
 	}
 
+	/** Whether the tab list's text has a shadow. */
+	public boolean shadow() {
+		return shadow.get();
+	}
+
 	/**
 	 * The list without Hypixel's bots: the NPCs it lists with made-up names (shopkeepers with a
 	 * skin, for one), when the option is on. Nothing is asked of Hypixel for them.

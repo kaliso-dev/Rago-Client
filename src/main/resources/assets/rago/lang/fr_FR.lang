@@ -1127,7 +1127,7 @@ rago.option.auto_tip_every.format=%d min
 rago.conflict.oneconfig_key=Le menu OneConfig (Patcher) s'ouvrait avec la même touche que Rago. Il s'ouvre maintenant avec %s ; %s reste la touche du menu Rago. Tu peux la changer dans les Préférences de OneConfig.
 # 1.4.5: Rago logo
 rago.module.rago_badge=Logo Rago
-rago.module.rago_badge.desc=Le logo Rago à côté de ton pseudo, dans le tab et au-dessus de ta tête en F5 (avec l'option des Nametags qui affiche ton propre nom). Avec Rago Network relié à un serveur, les autres joueurs Rago l'ont aussi, en rouge Rago ou dans la couleur de leur rôle (or pour le créateur de Rago), et ils voient le tien.
+rago.module.rago_badge.desc=Le logo Rago à côté de ton pseudo, dans le tab et au-dessus de ta tête en F5 (avec l'option des Nametags qui affiche ton propre nom). Avec Rago Network relié à un serveur, les autres joueurs Rago l'ont aussi, en rouge Rago ou dans la couleur de leur rôle, et ils voient le tien. Le créateur de Rago a le sien en dégradé rose, son pseudo en rose et une couronne à côté (en partie de Bed Wars, son pseudo garde la couleur de son équipe).
 rago.option.badge_tab=Dans le tab
 rago.option.badge_nametag=Sur ton nametag
 rago.option.badge_color=Couleur du logo

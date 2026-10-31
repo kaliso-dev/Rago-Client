@@ -444,13 +444,13 @@ public final class Hooks {
 
 	/** GuiPlayerTabOverlay.renderPlayerlist: draws a name, header or footer line. */
 	public static int tabText(FontRenderer font, String text, float x, float y, int color) {
-		RagoBadge r = ragoBadge;
-		if (r != null && r.tabLogo(text, x, y)) {
-			text = RagoBadge.tabText(text);
-			x += RagoBadge.tabShift();
-		}
 		TabList t = tabList;
-		return t != null && t.isEnabled() ? t.drawText(font, text, x, y, color) : font.drawStringWithShadow(text, x, y, color);
+		boolean custom = t != null && t.isEnabled();
+		RagoBadge r = ragoBadge;
+		if (r != null && r.tabLine(font, text, x, y, color, !custom || t.shadow())) {
+			return 0; // the game does not use what this returns
+		}
+		return custom ? t.drawText(font, text, x, y, color) : font.drawStringWithShadow(text, x, y, color);
 	}
 
 	/** GuiNewChat.setChatLine: how many lines the chat keeps. */
