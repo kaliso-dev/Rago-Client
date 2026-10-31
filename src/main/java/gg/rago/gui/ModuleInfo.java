@@ -64,6 +64,7 @@ final class ModuleInfo {
 		ICONS.put("pack_display", "layers");
 		ICONS.put("tab_list", "table-properties");
 		ICONS.put("color_grading", "contrast");
+		ICONS.put("vignette", "aperture");
 		ICONS.put("hit_delay_fix", "swords");
 		ICONS.put("block_edit_fix", "box");
 		ICONS.put("fast_shop", "shopping-cart");

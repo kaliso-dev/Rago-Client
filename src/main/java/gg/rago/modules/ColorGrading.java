@@ -59,7 +59,11 @@ public final class ColorGrading extends Module {
 	private final IntOption tint = addOption(new IntOption("grading_tint", 0, -100, 100));
 	private final IntOption sharpen = addOption(new IntOption("grading_sharpen", 0, 0, 100));
 
+	private static final String[] UNIFORMS = {"tex", "texel", "saturation", "vibrance", "contrast", "brightness", "gammaInv", "sharpen", "balance"};
+
 	private int program = -1;
+	/** Where each of {@link #UNIFORMS} is, looked up once: asking the driver every frame can make it wait. */
+	private final int[] uniforms = new int[UNIFORMS.length];
 	private boolean failed;
 	private int texture = -1;
 	private int width;
@@ -122,17 +126,17 @@ public final class ColorGrading extends Module {
 			GlStateManager.bindTexture(texture);
 			GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
 			GL20.glUseProgram(program);
-			GL20.glUniform1i(GL20.glGetUniformLocation(program, "tex"), 0);
-			GL20.glUniform2f(GL20.glGetUniformLocation(program, "texel"), 1f / width, 1f / height);
-			GL20.glUniform1f(GL20.glGetUniformLocation(program, "saturation"), saturation.get() / 100f);
-			GL20.glUniform1f(GL20.glGetUniformLocation(program, "vibrance"), vibrance.get() / 100f);
-			GL20.glUniform1f(GL20.glGetUniformLocation(program, "contrast"), contrast.get() / 100f);
-			GL20.glUniform1f(GL20.glGetUniformLocation(program, "brightness"), brightness.get() / 200f);
-			GL20.glUniform1f(GL20.glGetUniformLocation(program, "gammaInv"), 100f / gamma.get());
-			GL20.glUniform1f(GL20.glGetUniformLocation(program, "sharpen"), sharpen.get() / 50f);
+			GL20.glUniform1i(uniforms[0], 0);
+			GL20.glUniform2f(uniforms[1], 1f / width, 1f / height);
+			GL20.glUniform1f(uniforms[2], saturation.get() / 100f);
+			GL20.glUniform1f(uniforms[3], vibrance.get() / 100f);
+			GL20.glUniform1f(uniforms[4], contrast.get() / 100f);
+			GL20.glUniform1f(uniforms[5], brightness.get() / 200f);
+			GL20.glUniform1f(uniforms[6], 100f / gamma.get());
+			GL20.glUniform1f(uniforms[7], sharpen.get() / 50f);
 			float t = temperature.get() / 100f * 0.15f;
 			float g = tint.get() / 100f * 0.1f;
-			GL20.glUniform3f(GL20.glGetUniformLocation(program, "balance"), 1 + t, 1 + g, 1 - t);
+			GL20.glUniform3f(uniforms[8], 1 + t, 1 + g, 1 - t);
 			Tessellator tess = Tessellator.getInstance();
 			WorldRenderer w = tess.getWorldRenderer();
 			w.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
@@ -162,6 +166,9 @@ public final class ColorGrading extends Module {
 			program = link();
 			if (program < 0) {
 				return false;
+			}
+			for (int i = 0; i < UNIFORMS.length; i++) {
+				uniforms[i] = GL20.glGetUniformLocation(program, UNIFORMS[i]);
 			}
 		}
 		if (texture < 0 || w != width || h != height) {

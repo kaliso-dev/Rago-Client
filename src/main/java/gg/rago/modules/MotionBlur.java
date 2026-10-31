@@ -7,6 +7,8 @@ import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import gg.rago.core.RagoClient;
+import gg.rago.debug.FrameProfile;
+import gg.rago.render.GameFramebuffer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
@@ -22,7 +24,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.ContextCapabilities;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GLContext;
 
 import java.nio.ByteBuffer;
@@ -36,10 +38,18 @@ import java.nio.ByteBuffer;
  * frame, too little for the image's precision to ever fade small differences out: those stay on
  * screen as pixel trails, most visibly in the sky. It can apply all the time, only while the camera turns, or only while moving,
  * with a sensitivity for how fast a turn reaches full strength.
+ *
+ * <p>The clean blur is updated every frame by a fixed share, enough for an 8-bit image: half the
+ * memory traffic of the finer one the adjustable blur needs. The blending weights are constants
+ * given to the graphics card, not the images' alpha, and the framebuffer the game draws into is
+ * known rather than asked of the driver each frame ({@link GameFramebuffer}).
  */
 public final class MotionBlur extends Module {
 	/** GL_RGBA16F, the same value in OpenGL 3.0 and ARB_texture_float. */
 	private static final int RGBA16F = 0x881A;
+	/** Blending by a constant (OpenGL 1.4): GL_CONSTANT_ALPHA and GL_ONE_MINUS_CONSTANT_ALPHA. */
+	private static final int CONSTANT_ALPHA = 0x8003;
+	private static final int ONE_MINUS_CONSTANT_ALPHA = 0x8004;
 	/** At 60 FPS the trail keeps at most this much of the previous frame. */
 	private static final float MAX_KEEP = 0.72f;
 	/** Without a floating-point image, a long trail would leave a ghost: keep less per frame. */
@@ -49,7 +59,7 @@ public final class MotionBlur extends Module {
 
 	/** Clean: the trail keeps this much of itself each frame... */
 	private static final float CLEAN_TRAIL = 0.7f;
-	/** ...and is laid over the sharp frame at this opacity. */
+	/** ...and is laid over the sharp frame at this opacity (times the share of the newest frame in it, as before). */
 	private static final float CLEAN_MIX = 0.8f;
 
 	/** A ready-made blur: every frame, always on, fixed amounts; the other settings are hidden. */
@@ -66,7 +76,11 @@ public final class MotionBlur extends Module {
 	private int frameTexture = -1;
 	private int historyTexture = -1;
 	private int historyFbo = -1;
+	/** Whether the trail is a floating-point image, and whether this card can draw into one. */
 	private boolean floatHistory;
+	private boolean floatOk = true;
+	/** How much the trail is laid over the frame for each unit of opacity: the share of the newest frame in it. */
+	private float shown = 1;
 	private boolean fresh = true;
 	private boolean doneThisFrame;
 	private long lastFrame;
@@ -104,7 +118,7 @@ public final class MotionBlur extends Module {
 			doneThisFrame = false;
 		} else if (isEnabled() && !doneThisFrame && mc.gameSettings.hideGUI && mc.currentScreen == null && mc.theWorld != null) {
 			// F1: no HUD pass this frame, so blend at the end of it (the screen is only the world)
-			apply(mc);
+			timedApply(mc);
 		}
 	}
 
@@ -112,8 +126,23 @@ public final class MotionBlur extends Module {
 	@SubscribeEvent(priority = EventPriority.HIGHEST)
 	public void onOverlay(RenderGameOverlayEvent.Pre event) {
 		if (event.type == RenderGameOverlayEvent.ElementType.ALL && isEnabled() && !doneThisFrame) {
-			apply(Minecraft.getMinecraft());
+			timedApply(Minecraft.getMinecraft());
 		}
+	}
+
+	/** Developer timing ({@code -Drago.bench.frame=true -Drago.bench.blur=true}): the blur's own work, the card waited for before and after. */
+	private static final boolean BENCH = FrameProfile.ON && Boolean.getBoolean("rago.bench.blur");
+
+	private void timedApply(Minecraft mc) {
+		if (!BENCH) {
+			apply(mc);
+			return;
+		}
+		GL11.glFinish();
+		long t = System.nanoTime();
+		apply(mc);
+		GL11.glFinish();
+		FrameProfile.element("blur", System.nanoTime() - t);
 	}
 
 	private void apply(Minecraft mc) {
@@ -141,13 +170,11 @@ public final class MotionBlur extends Module {
 			sinceStep = 0;
 			return;
 		}
-		if (!ensureTargets(mc.displayWidth, mc.displayHeight)) {
+		if (!ensureTargets(mc.displayWidth, mc.displayHeight, !cleanBlur && floatOk)) {
 			return;
 		}
 		sinceStep += dt;
 		boolean step = cleanBlur || !frameIndependent.get() || sinceStep >= STEP || fresh;
-		int previousFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-		int[] viewport = viewport();
 		GlStateManager.pushMatrix();
 		GlStateManager.matrixMode(GL11.GL_PROJECTION);
 		GlStateManager.pushMatrix();
@@ -161,15 +188,21 @@ public final class MotionBlur extends Module {
 		GlStateManager.disableFog();
 		GlStateManager.disableCull();
 		GlStateManager.enableTexture2D();
+		GlStateManager.color(1, 1, 1, 1);
+		int target = -1;
 		try {
 			if (step) {
+				target = GameFramebuffer.bound();
 				// 1. the frame just drawn, as a texture: the game's own framebuffer when it draws into
 				// one (read straight from it), otherwise a copy of the screen
 				Framebuffer main = mc.getFramebuffer();
-				if (OpenGlHelper.isFramebufferEnabled() && main != null && main.framebufferObject == previousFbo
+				if (OpenGlHelper.isFramebufferEnabled() && main != null && main.framebufferObject == target
 					&& main.framebufferTextureWidth == width && main.framebufferTextureHeight == height) {
 					GlStateManager.bindTexture(main.framebufferTexture);
 				} else {
+					if (frameTexture < 0) {
+						frameTexture = texture(GL11.GL_RGBA8, width, height);
+					}
 					GlStateManager.bindTexture(frameTexture);
 					GL11.glCopyTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
 				}
@@ -181,24 +214,27 @@ public final class MotionBlur extends Module {
 				sinceStep = 0;
 				if (fresh) {
 					GlStateManager.disableBlend();
-					quad(1);
+					quad();
+					shown = 1;
 					fresh = false;
 				} else {
-					GlStateManager.enableBlend();
-					GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
-					quad(1 - stepKeep);
+					blend(1 - stepKeep);
+					quad();
+					shown = 1 - stepKeep;
 				}
-				OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFbo);
-				GlStateManager.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+				OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, target);
+				GlStateManager.viewport(0, 0, mc.displayWidth, mc.displayHeight);
 			}
-			// 3. the trail over the sharp current frame
-			GlStateManager.enableBlend();
-			GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ZERO, GL11.GL_ONE);
+			// 3. the trail over the sharp current frame; the screen's alpha is left as it is
+			blend(shown * (cleanBlur ? CLEAN_MIX : keep));
 			GlStateManager.bindTexture(historyTexture);
-			quad(cleanBlur ? CLEAN_MIX : keep);
+			quad();
 		} finally {
-			OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previousFbo);
-			GlStateManager.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+			if (target >= 0) {
+				OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, target);
+				GlStateManager.viewport(0, 0, mc.displayWidth, mc.displayHeight);
+			}
+			GL14.glBlendColor(0, 0, 0, 0);
 			GlStateManager.matrixMode(GL11.GL_PROJECTION);
 			GlStateManager.popMatrix();
 			GlStateManager.matrixMode(GL11.GL_MODELVIEW);
@@ -212,9 +248,16 @@ public final class MotionBlur extends Module {
 		}
 	}
 
+	/** Blends what is drawn next over the colours under it at {@code alpha}, leaving their alpha. */
+	private static void blend(float alpha) {
+		GlStateManager.enableBlend();
+		GL14.glBlendColor(0, 0, 0, alpha);
+		GlStateManager.tryBlendFuncSeparate(CONSTANT_ALPHA, ONE_MINUS_CONSTANT_ALPHA, GL11.GL_ZERO, GL11.GL_ONE);
+	}
+
 	/** How much of the trail stays this frame (0 none, close to 1 a long trail). */
 	private float keep(float motion) {
-		float max = floatHistory ? MAX_KEEP : MAX_KEEP_8BIT;
+		float max = floatOk ? MAX_KEEP : MAX_KEEP_8BIT;
 		// a curve, so the lower half of the slider gives the light trails most players want
 		float s = strength.get() / 100f;
 		return Math.max(0, max * s * (float) Math.sqrt(s) * motion);
@@ -246,22 +289,8 @@ public final class MotionBlur extends Module {
 		}
 	}
 
-	/** Reused every frame: a direct buffer is slow to make. */
-	private static final java.nio.IntBuffer VIEWPORT = org.lwjgl.BufferUtils.createIntBuffer(16);
-	private static final int[] VIEWPORT_OUT = new int[4];
-
-	private static int[] viewport() {
-		VIEWPORT.clear();
-		GL11.glGetInteger(GL11.GL_VIEWPORT, VIEWPORT);
-		for (int i = 0; i < 4; i++) {
-			VIEWPORT_OUT[i] = VIEWPORT.get(i);
-		}
-		return VIEWPORT_OUT;
-	}
-
-	/** A screen-filling quad with the bound texture at {@code alpha}. */
-	private static void quad(float alpha) {
-		GlStateManager.color(1, 1, 1, alpha);
+	/** A screen-filling quad with the bound texture. */
+	private static void quad() {
 		Tessellator t = Tessellator.getInstance();
 		WorldRenderer w = t.getWorldRenderer();
 		w.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
@@ -272,19 +301,19 @@ public final class MotionBlur extends Module {
 		t.draw();
 	}
 
-	private boolean ensureTargets(int w, int h) {
+	/** The trail's image and framebuffer at this size, floating-point or 8-bit; false when it cannot be made. */
+	private boolean ensureTargets(int w, int h, boolean wantFloat) {
 		if (!OpenGlHelper.isFramebufferEnabled() && !OpenGlHelper.framebufferSupported) {
 			return false;
 		}
-		if (historyFbo >= 0 && w == width && h == height) {
+		if (historyFbo >= 0 && w == width && h == height && wantFloat == floatHistory) {
 			return true;
 		}
 		release();
 		width = w;
 		height = h;
-		frameTexture = texture(GL11.GL_RGBA8, w, h);
 		ContextCapabilities caps = GLContext.getCapabilities();
-		floatHistory = caps.OpenGL30 || caps.GL_ARB_texture_float;
+		floatHistory = wantFloat && (caps.OpenGL30 || caps.GL_ARB_texture_float);
 		historyTexture = texture(floatHistory ? RGBA16F : GL11.GL_RGBA8, w, h);
 		historyFbo = OpenGlHelper.glGenFramebuffers();
 		OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, historyFbo);
@@ -297,6 +326,9 @@ public final class MotionBlur extends Module {
 			historyTexture = texture(GL11.GL_RGBA8, w, h);
 			OpenGlHelper.glFramebufferTexture2D(OpenGlHelper.GL_FRAMEBUFFER, OpenGlHelper.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, historyTexture, 0);
 			status = OpenGlHelper.glCheckFramebufferStatus(OpenGlHelper.GL_FRAMEBUFFER);
+		}
+		if (wantFloat && !floatHistory) {
+			floatOk = false;
 		}
 		Minecraft mc = Minecraft.getMinecraft();
 		if (OpenGlHelper.isFramebufferEnabled()) {

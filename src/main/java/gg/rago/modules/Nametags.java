@@ -37,7 +37,9 @@ import java.util.WeakHashMap;
  * Players' name tags drawn Rago's way: a style preset (Vanilla, Rago, Minimal, Outline) and then
  * every detail on its own: font (Minecraft, Poppins, Inter), server colours or a custom colour,
  * shadow, background colour, round corners, border, and whether the name shows faintly through
- * walls. Size and opacity stay vanilla's: only colours change, never how visible a name is. Who gets a name tag, and when, follows vanilla's rules (distance,
+ * walls. The size can go from half of vanilla's to a quarter more, in the world like vanilla's (a
+ * far name still shrinks with distance, never a fixed size on screen): bigger would make players
+ * easier to spot from afar and through walls. Opacity stays vanilla's. Who gets a name tag, and when, follows vanilla's rules (distance,
  * sneaking, team visibility, invisibility); the below-name score line is kept. Your own name can be
  * shown in third person.
  */
@@ -58,6 +60,8 @@ public final class Nametags extends Module implements Styled {
 	private static final float WALL_OPACITY = 0.5f;
 	/** Names show up to this many blocks away, as vanilla's 64 (32 when sneaking). */
 	private final IntOption maxDistance = addOption(new IntOption("nametag_distance", 64, 8, 64));
+	/** Percent of vanilla's size, in the world: at most a quarter bigger (see the class comment). */
+	private final IntOption scale = addOption(new IntOption("nametag_scale", 100, 50, 125));
 	private final ChoiceOption style;
 	private final ChoiceOption font;
 	private final BooleanOption shadow;
@@ -164,7 +168,7 @@ public final class Nametags extends Module implements Styled {
 			return NameTags.LINE;
 		}
 		float units = Math.max(9 * 1.15f, 8 + PADDING * 2 + 2.35f);
-		return units * WorldDraw.LABEL_SCALE;
+		return units * WorldDraw.LABEL_SCALE * scale.get() / 100f;
 	}
 
 	@SubscribeEvent(priority = EventPriority.HIGH)
@@ -287,7 +291,7 @@ public final class Nametags extends Module implements Styled {
 	private void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha, RagoBadge logo) {
 		String shown = colorMode.is("custom") ? TtfFont.strip(text) : text;
 		int color = colorMode.is("custom") ? nameColor.get() : 0xFFFFFFFF;
-		float s = WorldDraw.LABEL_SCALE;
+		float s = WorldDraw.LABEL_SCALE * scale.get() / 100f;
 		int pad = background.get() ? PADDING : 0;
 		TtfFont ttf = HudText.ttf(font.get());
 		float em = HudText.em(font.get());

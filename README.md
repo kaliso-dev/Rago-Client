@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.5.8.** What it contains:
+**Current version: 1.6.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -128,8 +128,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - FKDR colours: grey under 1, green from 1, dark green from 5, red from 10, dark red from 20;
     danger 1 to 5: grey, green, dark green, red, dark red
   - small dragon wings in Rago's red and black
-  - Clean Motion Blur: a ready-made blur on every frame (the trail keeps 70 % of itself, laid over
-    the image at 80 %), as an option of Motion Blur
+  - Clean Motion Blur: a ready-made blur on every frame (a light trail that keeps 70 % of itself
+    each frame), as an option of Motion Blur
   - dances rewritten: eased moves, the body sinking on the beat, turning and leaning from the hips,
     easing in from your pose; a dance no longer leaves its pose on other players
   - `/rago debug`: writes what happens to your clicks, slow frames and the Auto Messages state to
@@ -287,8 +287,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - the shield lies flat against the outside of the left forearm, face outward, and is bigger;
     the wings start higher on the back
   - dragon wings with scales and bones, and smaller dragon wings like Lunar Client's
-  - Emotes: dances and gestures on a wheel (B): floss, dab, wave, disco, zombie, helicopter,
-    clap, macarena, groove; the camera turns to face you, and only you see them
+  - Emotes: dances and gestures on a wheel (B): twerk, dab, wave, disco, zombie, griddy, clap,
+    macarena, groove; the camera turns to face you (from behind for the twerk), and only you see them
   - Message Hotkeys (input class, off by default): up to four keys that each type one of your
     messages in the chat, at most once every two seconds
   - Auto Messages (auto-chat class, off by default, Hypixel only): GG and a message of yours when a
@@ -394,6 +394,27 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     and the frame profile has a line for drawing the other players; `/rago testgame [n]` fills the
     test game's tab list with players in four teams and two bots; `/rago testmod <mod> on|off` or
     `/rago testmod <mod> <option> <value>` (test game only) switches mods and options
+- new in 1.6:
+  - Vignette (off by default): the edges of the screen darkened a little, black by default, with
+    colour, intensity, size, softness and shape (follows the screen or round); it can flash when
+    you are hurt and beat slowly at low health, in an alert colour. Drawn after motion blur and
+    colour grading, under the HUD; only the ring where it shows is drawn, from a mesh kept on the
+    graphics card
+  - two new dances, Twerk (seen from behind) and Griddy (heel taps, swinging arms, hands up like
+    glasses every fourth bar); Floss and Helicopter removed. The cape now lies along the back when
+    a dance bows the chest
+  - Nametags: a size from 50 to 125 % of vanilla's, in the world like vanilla's (far names still get
+    smaller); never a fixed size on screen, and no bigger, so players are not easier to spot from
+    afar or through walls
+  - Clean Motion Blur keeps its look and costs less: an 8-bit trail (it fades by 30 % every frame,
+    so 8 bits are enough) instead of a 16-bit one, half the memory traffic for the trail; the
+    blending weights are constants given to the graphics card instead of the images' alpha. On a
+    software renderer at 1280x720, the blur's own time per frame went from 8.2 to 7.3 ms (clean)
+    and 8.6 to 7.5 ms (adjustable)
+  - Motion Blur and the HUD cache no longer ask the driver which framebuffer is bound (a query that
+    can make a threaded driver wait): it is known, checked every 600 calls, and asked every time if
+    it ever differs (a shader pack)
+  - Saturation & Colours looks up its shader's settings once instead of nine times a frame
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -453,7 +474,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.5.8+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.6.0+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

@@ -37,7 +37,7 @@ class FixAndPvpModulesTest {
 			new BlockOverlay(), new TabPing(), new Chat(), nametags, new LevelHead(new HypixelApi(dir), nametags),
 			new ClockHud(), new MemoryHud(), new ScoreboardHud(), new GameplayFixes(), new HitColor(),
 			new MotionBlur(new Zoom(null)), new GlintColor(), new HeightLimitHud(dir), new BlockCounterHud(), new DirectionHud(),
-			new PackDisplayHud());
+			new PackDisplayHud(), new Vignette());
 	}
 
 	/** Modules that are on from the start and change nothing anyone else sees. */

@@ -1,6 +1,7 @@
 package gg.rago.hud;
 
 import gg.rago.core.RagoClient;
+import gg.rago.render.GameFramebuffer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
@@ -9,7 +10,6 @@ import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
-import org.lwjgl.opengl.GL30;
 
 import java.nio.ByteBuffer;
 
@@ -47,8 +47,7 @@ public final class HudCache {
 		}
 		if (!valid || now - drawnAt >= interval) {
 			drawnAt = now;
-			// asked only when the image is redrawn: asking the driver can make it wait
-			int previous = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+			int previous = GameFramebuffer.bound();
 			draw(black, 0, drawHud);
 			draw(white, 1, drawHud);
 			// white minus black: how much of the world shows through each pixel, in the white image
@@ -81,7 +80,7 @@ public final class HudCache {
 		if (black != null && black.width == w && black.height == h) {
 			return true;
 		}
-		int previous = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
+		int previous = GameFramebuffer.bound();
 		if (black != null) {
 			black.delete();
 			white.delete();

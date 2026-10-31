@@ -105,6 +105,7 @@ import gg.rago.modules.Nametags;
 import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
 import gg.rago.modules.TimeChanger;
+import gg.rago.modules.Vignette;
 import gg.rago.modules.WeatherChanger;
 import gg.rago.modules.Zoom;
 import gg.rago.netdiag.LatencySampler;
@@ -296,6 +297,7 @@ public final class RagoClient {
 		MODULES.register(new TimeChanger());
 		MODULES.register(new MotionBlur(zoom));
 		MODULES.register(new ColorGrading());
+		MODULES.register(new Vignette());
 		RagoCape cape = MODULES.register(new RagoCape());
 		MODULES.register(new Cosmetics());
 		SkinChanger skinChanger = MODULES.register(new SkinChanger());

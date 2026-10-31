@@ -25,7 +25,7 @@ import org.lwjgl.input.Keyboard;
  * other players see you standing.
  */
 public final class Emotes extends Module {
-	public static final String[] DANCES = {"floss", "dab", "wave", "disco", "zombie", "helicopter", "clap", "macarena", "groove"};
+	public static final String[] DANCES = {"twerk", "dab", "wave", "disco", "zombie", "griddy", "clap", "macarena", "groove"};
 	private static final float PI = (float) Math.PI;
 
 	private final BooleanOption faceCamera = addOption(new BooleanOption("emote_camera", true));
@@ -96,9 +96,12 @@ public final class Emotes extends Module {
 		Minecraft mc = Minecraft.getMinecraft();
 		playing = dance;
 		startedNs = System.nanoTime();
-		if (faceCamera.get() && viewBefore < 0) {
-			viewBefore = mc.gameSettings.thirdPersonView;
-			mc.gameSettings.thirdPersonView = 2;
+		if (faceCamera.get()) {
+			if (viewBefore < 0) {
+				viewBefore = mc.gameSettings.thirdPersonView;
+			}
+			// the twerk is seen from behind, the others from the front
+			mc.gameSettings.thirdPersonView = "twerk".equals(dance) ? 1 : 2;
 		}
 	}
 
@@ -148,8 +151,8 @@ public final class Emotes extends Module {
 		}
 		Rig rig = new Rig();
 		switch (playing) {
-			case "floss":
-				floss(m, rig, t);
+			case "twerk":
+				twerk(m, rig, t);
 				break;
 			case "dab":
 				dab(m, rig, t);
@@ -163,8 +166,8 @@ public final class Emotes extends Module {
 			case "zombie":
 				zombie(m, rig, t);
 				break;
-			case "helicopter":
-				helicopter(m, rig, t);
+			case "griddy":
+				griddy(m, rig, t);
 				break;
 			case "clap":
 				clap(m, rig, t);
@@ -253,6 +256,7 @@ public final class Emotes extends Module {
 			cape.offsetX = 0;
 			cape.offsetY = 0;
 			cape.offsetZ = 0;
+			cape.rotateAngleX = 0;
 		}
 		// angles vanilla never sets: back to its rest
 		m.bipedBody.rotateAngleZ = 0;
@@ -317,8 +321,13 @@ public final class Emotes extends Module {
 			cape.offsetX = -(m.bipedHead.rotationPointX - base[3]) / 16;
 			cape.offsetY = m.bipedHead.rotationPointY / 16;
 			cape.offsetZ = -(m.bipedHead.rotationPointZ - base[4]) / 16;
+			// and lies along the back as the chest bows
+			cape.rotateAngleX = CAPE_BOW * bow;
 		}
 	}
+
+	/** Which way the cape turns to follow the chest bowing (its layer draws it turned half a turn). */
+	private static final float CAPE_BOW = -1;
 
 	private static java.lang.reflect.Field capeField;
 	private static boolean capeBroken;
@@ -377,19 +386,34 @@ public final class Emotes extends Module {
 
 	// ---- dances ------------------------------------------------------------------------------------
 
-	/** Arms swinging together side to side, in front of and behind the body; hips the other way. */
-	private static void floss(ModelBiped m, Rig rig, float t) {
-		float hz = 1.4f;
-		float side = wave(t, hz);
-		float through = MathHelper.cos(t * hz * 2 * PI);
-		set(m.bipedRightArm, -0.45f * through, 0, 0.15f + side * 0.6f);
-		set(m.bipedLeftArm, 0.45f * through, 0, -0.15f + side * 0.6f);
-		rig.rightElbow = 0.2f;
-		rig.leftElbow = 0.2f;
-		rig.lean = -side * 0.16f;
-		rig.drop = 0.4f + pulse(t, hz * 2) * 1.2f;
-		m.bipedHead.rotateAngleZ = side * 0.08f;
-		m.bipedHead.rotateAngleX = 0.05f;
+	/**
+	 * Twerk, seen from behind: a wide, low squat, the chest bowed forward with the hands near the
+	 * knees, the hips popping up quickly on each beat and settling back, swaying from side to side
+	 * every few beats.
+	 */
+	private static void twerk(ModelBiped m, Rig rig, float t) {
+		float hz = 3.2f;
+		// the beat's wave, sharpened: a quick pop and a slower settle
+		float beat = pulse(t, hz);
+		float pop = beat * beat;
+		float sway = wave(t, hz / 8);
+		rig.drop = 3.8f - pop * 1.5f;
+		rig.bow = 0.8f + pop * 0.14f;
+		rig.lean = sway * 0.1f;
+		rig.twist = sway * 0.07f;
+		// the arms hang from the bowed chest toward the knees, elbows soft
+		set(m.bipedRightArm, 0.62f, 0.12f, 0.22f);
+		set(m.bipedLeftArm, 0.62f, -0.12f, -0.22f);
+		rig.rightElbow = 0.35f;
+		rig.leftElbow = 0.35f;
+		// knees wide apart
+		m.bipedRightLeg.rotateAngleZ = 0.28f;
+		m.bipedLeftLeg.rotateAngleZ = -0.28f;
+		m.bipedRightLeg.rotateAngleY = 0.45f;
+		m.bipedLeftLeg.rotateAngleY = -0.45f;
+		// the head up, looking ahead over the bow, nodding with the pop
+		m.bipedHead.rotateAngleX = -0.45f + pop * 0.08f;
+		m.bipedHead.rotateAngleY = sway * 0.2f;
 	}
 
 	/** Head down into the bent left elbow, the right arm thrown up and out; again every two seconds. */
@@ -464,16 +488,35 @@ public final class Emotes extends Module {
 		rig.drop = 0.6f + pulse(t, 1.4f) * 0.6f;
 	}
 
-	/** Both arms straight up and spinning, the body turning with them and bouncing. */
-	private static void helicopter(ModelBiped m, Rig rig, float t) {
-		float a = t * PI * 3;
-		set(m.bipedRightArm, -PI + 0.15f, a, 0);
-		set(m.bipedLeftArm, -PI + 0.15f, a + PI, 0);
-		m.bipedHead.rotateAngleX = -0.2f;
-		rig.twist = wave(t, 0.75f) * 0.35f;
-		rig.drop = 0.3f + pulse(t, 3) * 1.0f;
-		m.bipedRightLeg.rotateAngleZ = 0.06f;
-		m.bipedLeftLeg.rotateAngleZ = -0.06f;
+	/**
+	 * The Griddy: on the balls of the feet, a heel tapped forward with one foot then the other, with
+	 * a little hop on each step, the arms swinging hard against the legs; on the last of every four
+	 * steps pairs the hands come up around the eyes like glasses.
+	 */
+	private static void griddy(ModelBiped m, Rig rig, float t) {
+		float hz = 1.25f;
+		// which leg is forward: 1 the right, -1 the left
+		float s = wave(t, hz);
+		float hop = pulse(t, hz * 2);
+		float bar = (t * hz) % 4f;
+		float glasses = bar < 3f ? 0 : smooth((bar - 3f) / 0.2f) * smooth((4f - bar) / 0.2f);
+		// the leg in front straight, heel down; the one behind bending
+		m.bipedRightLeg.rotateAngleX = -0.6f * Math.max(0, s);
+		m.bipedLeftLeg.rotateAngleX = -0.6f * Math.max(0, -s);
+		rig.rightKnee = 0.55f * Math.max(0, -s);
+		rig.leftKnee = 0.55f * Math.max(0, s);
+		rig.drop = 1.3f - hop * 0.9f;
+		rig.bow = 0.16f + hop * 0.05f;
+		rig.twist = -s * 0.2f * (1 - glasses);
+		// arms against the legs, elbows bent, swinging hard
+		float rx = lerp(-0.25f + 0.8f * s, -1.5f, glasses);
+		float lx = lerp(-0.25f - 0.8f * s, -1.5f, glasses);
+		set(m.bipedRightArm, rx, lerp(0, 0.62f, glasses), lerp(0.18f, 0, glasses));
+		set(m.bipedLeftArm, lx, lerp(0, -0.62f, glasses), lerp(-0.18f, 0, glasses));
+		rig.rightElbow = lerp(1.15f, 2.1f, glasses);
+		rig.leftElbow = lerp(1.15f, 2.1f, glasses);
+		m.bipedHead.rotateAngleX = 0.05f + hop * 0.07f - glasses * 0.1f;
+		m.bipedHead.rotateAngleY = s * 0.08f * (1 - glasses);
 	}
 
 	/** Clapping in front of the chest, forearms up from the elbows, nodding and bouncing on each clap. */
