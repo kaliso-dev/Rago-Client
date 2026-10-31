@@ -46,6 +46,17 @@ public final class GameDebrief extends Module {
 	private static final long STATS_GIVE_UP_MS = 3 * 60_000;
 	/** A game shorter than this where nothing happened (joined, then left) gets no debrief. */
 	private static final int MIN_SECONDS = 45;
+	/**
+	 * The line after a game waits for Hypixel's own end-of-game lines (rewards, experience, the
+	 * reward summary): a second at least, then a second without a new line, eight at most.
+	 */
+	static final long SAY_AFTER_MS = 1_000;
+	static final long QUIET_MS = 1_000;
+	static final long SAY_BY_MS = 8_000;
+	/** Lines that still come this long after the game put it back at the bottom (one copy only). */
+	static final long KEEP_LAST_MS = 12_000;
+	/** The line's chat ID, outside the range Rago's chat stacking uses. */
+	private static final int LINE_ID = 0x52A70001;
 
 	private final BooleanOption chatLine = addOption(new BooleanOption("debrief_chat", true));
 	private final BooleanOption signature = addOption(new BooleanOption("debrief_signature", true));
@@ -59,6 +70,11 @@ public final class GameDebrief extends Module {
 	private int ticks;
 	private Debrief awaitingStats;
 	private boolean statsAsked;
+	/** The game whose line waits to be said, the line once said, and when the last chat line came. */
+	private Debrief toSay;
+	private Debrief said;
+	private long lastLineAt;
+	private boolean bump;
 
 	public GameDebrief() {
 		super("game_debrief", FeatureClass.INFORMATIONAL, true);
@@ -82,6 +98,8 @@ public final class GameDebrief extends Module {
 	protected void onDisable() {
 		tracker.end(Debrief.Result.LEFT, System.currentTimeMillis());
 		awaitingStats = null;
+		toSay = null;
+		said = null;
 	}
 
 	@Override
@@ -120,6 +138,47 @@ public final class GameDebrief extends Module {
 			}
 		}
 		statsAfterGame(mc, now);
+		lineAfterGame(mc, now);
+	}
+
+	/**
+	 * Says the line once Hypixel's end-of-game lines are in, then keeps it the last line of the chat
+	 * for a few seconds: a line that comes after it moves it back down (the old copy goes, by its ID).
+	 */
+	private void lineAfterGame(Minecraft mc, long now) {
+		if (toSay != null) {
+			if (readyToSay(now - toSay.endedAt(), now - lastLineAt)) {
+				said = toSay;
+				toSay = null;
+				bump = false;
+				print(mc, said);
+			}
+			return;
+		}
+		if (said == null) {
+			return;
+		}
+		if (now - said.endedAt() > KEEP_LAST_MS) {
+			said = null;
+		} else if (bump) {
+			bump = false;
+			print(mc, said);
+		}
+	}
+
+	/**
+	 * The line, at the bottom of the chat. The copy above goes first, so that a chat that stacks
+	 * repeated lines (Patcher's adds "(2)") does not take it for a repeat; a new line every time,
+	 * since such a chat may add to the one it was given.
+	 */
+	private static void print(Minecraft mc, Debrief d) {
+		mc.ingameGUI.getChatGUI().deleteChatLine(LINE_ID);
+		mc.ingameGUI.getChatGUI().printChatMessageWithOptionalDeletion(line(d), LINE_ID);
+	}
+
+	/** Whether the line is due, {@code sinceEnd} ms after the game and {@code sinceLine} after the last chat line. */
+	static boolean readyToSay(long sinceEnd, long sinceLine) {
+		return sinceEnd >= SAY_BY_MS || sinceEnd >= SAY_AFTER_MS && sinceLine >= QUIET_MS;
 	}
 
 	private void start(Minecraft mc, long now) {
@@ -157,7 +216,9 @@ public final class GameDebrief extends Module {
 			games.remove(0);
 		}
 		if (chatLine.get()) {
-			say(d);
+			toSay = d;
+			said = null;
+			lastLineAt = now;
 		}
 		awaitingStats = !Double.isNaN(d.fkdrBefore()) && RagoClient.hypixel().hasKey() ? d : null;
 		statsAsked = false;
@@ -195,6 +256,9 @@ public final class GameDebrief extends Module {
 		}
 		String line = EnumChatFormatting.getTextWithoutFormattingCodes(event.message.getUnformattedText()).trim();
 		long now = System.currentTimeMillis();
+		// the end-of-game line waits for this one, or goes back below it on the next tick
+		lastLineAt = now;
+		bump = said != null;
 		if (!tracker.inGame()) {
 			if (line.contains(BedwarsGame.START) && mc.theWorld != endedIn && BedwarsGame.inBedwars()) {
 				start(mc, now);
@@ -209,8 +273,7 @@ public final class GameDebrief extends Module {
 	}
 
 	/** The line in chat after a game: the result, the four counts and a button that opens the debrief. */
-	private void say(Debrief d) {
-		Minecraft mc = Minecraft.getMinecraft();
+	private static IChatComponent line(Debrief d) {
 		Debrief.Result r = d.result();
 		EnumChatFormatting color = r == Debrief.Result.WIN ? EnumChatFormatting.GREEN : r == Debrief.Result.LEFT ? EnumChatFormatting.GRAY : EnumChatFormatting.RED;
 		String text = "§c§lRago §8» " + color + I18n.format("rago.debrief.result." + r.name().toLowerCase(Locale.ROOT))
@@ -224,6 +287,6 @@ public final class GameDebrief extends Module {
 			.setChatClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/rago debrief"))
 			.setChatHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ChatComponentText(I18n.format("rago.debrief.chat_open_tip")))));
 		line.appendSibling(open);
-		mc.ingameGUI.getChatGUI().printChatMessage(line);
+		return line;
 	}
 }

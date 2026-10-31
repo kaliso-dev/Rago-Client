@@ -25,8 +25,8 @@ import java.util.concurrent.Executors;
 
 /**
  * Rago Network: other Rago players see the Rago logo next to your name and the cosmetics you wear,
- * and you see theirs. Talks only to the Rago Network server set here (nothing when it is empty),
- * never to the Minecraft server: you sign in the way Minecraft servers check a player, so your
+ * and you see theirs. Talks only to the Rago Network server set here (Rago's own by default, nothing
+ * when it is empty), never to the Minecraft server: you sign in the way Minecraft servers check a player, so your
  * Minecraft token goes to Mojang only. It sends your name, your cosmetics and Rago's version, and,
  * to know who uses Rago, the Minecraft IDs of the players in your tab list; the server keeps none
  * of the IDs asked about. "Show that I use Rago" off hides you from the others; "See other Rago
@@ -39,7 +39,9 @@ public final class RagoNetwork extends Module {
 	public static final int STAFF = 0xFF4DD0E1;
 	private static final Logger LOG = LogManager.getLogger("Rago");
 
-	private final StringOption url = addOption(new StringOption("network_url", "", 120));
+	/** Rago's own server. A new key: configs saved with the old, empty "network_url" take it too. */
+	public static final String DEFAULT_SERVER = "https://rago-network.onrender.com";
+	private final StringOption url = addOption(new StringOption("network_server", DEFAULT_SERVER, 120));
 	private final BooleanOption visible = addOption(new BooleanOption("network_visible", true));
 	private final BooleanOption others = addOption(new BooleanOption("network_others", true));
 	private final NetworkClient client = new NetworkClient(this::execute, System::currentTimeMillis,
