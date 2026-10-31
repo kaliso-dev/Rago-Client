@@ -92,7 +92,7 @@ public final class HudText {
 	private static int scale = 1;
 
 	/** The GUI scale factor, as ScaledResolution works it out, without making one for every string. */
-	private static int guiScale() {
+	public static int guiScale() {
 		Minecraft mc = Minecraft.getMinecraft();
 		if (mc.displayWidth != scaleW || mc.displayHeight != scaleH || mc.gameSettings.guiScale != scaleSetting || mc.isUnicode() != scaleUnicode) {
 			scaleW = mc.displayWidth;

@@ -146,6 +146,14 @@ public final class Hooks {
 		return a != null && a.isEnabled() ? a.cameraEyeHeight(vanilla) : vanilla;
 	}
 
+	/** LayerHeldItem.doRenderLayer, just before the item is drawn: 1.7's block in third person. */
+	public static void thirdPersonItem(net.minecraft.entity.EntityLivingBase entity) {
+		OldAnimations a = animations;
+		if (a != null && a.isEnabled()) {
+			a.thirdPersonBlock(entity);
+		}
+	}
+
 	/** ItemRenderer.transformFirstPersonItem, first thing: moves the held item. */
 	public static void heldItemOffset() {
 		OldAnimations a = animations;
@@ -331,8 +339,12 @@ public final class Hooks {
 		return h != null && h.isEnabled() && h.hideBlockBreak();
 	}
 
-	/** ModelBiped.setRotationAngles, at its end: the pose of a dance on your own player. */
+	/** ModelBiped.setRotationAngles, at its end: 1.7's blocking arm, then the pose of a dance on your own player. */
 	public static void emotePose(ModelBiped model, Entity entity) {
+		OldAnimations a = animations;
+		if (a != null && a.isEnabled()) {
+			a.blockArm(model);
+		}
 		Emotes e = emotes;
 		if (e != null && (e.playing() != null || e.posed())) {
 			e.pose(model, entity);

@@ -92,6 +92,13 @@ final class RagoCommand extends CommandBase {
 			});
 			return;
 		}
+		if (args[0].equalsIgnoreCase("testset") && args.length == 3 && gg.rago.debug.FakeBedwars.ON) {
+			// "testset <setting> <value>": a setting of the Settings tabs, as in rago.json
+			com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+			o.add(args[1], new com.google.gson.JsonParser().parse(args[2]));
+			RagoClient.settings().fromJson(o);
+			return;
+		}
 		if (args[0].equalsIgnoreCase("testbw") && gg.rago.debug.FakeBedwars.ON) {
 			gg.rago.debug.FakeBedwars.start(args.length > 1 ? Integer.parseInt(args[1]) : 337);
 			return;

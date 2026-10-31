@@ -532,6 +532,8 @@ rago.option.instant_item_switch.help=Quand tu changes de case dans la barre, le 
 rago.option.backwards_walk=Marche arrière 1.15+
 rago.option.backwards_walk.help=Quand on marche en arrière, le corps reste tourné vers où l'on regarde et les jambes reculent, comme à partir de la 1.15, au lieu de pivoter sur le côté comme en 1.8. Pour tous les joueurs et les mobs, seulement sur ton écran.
 rago.option.smooth_sneak=Accroupissement fluide
+rago.option.block_third_person=Blocage 1.7 en F5
+rago.option.block_third_person.help=Quand un joueur bloque avec une épée, vu en F5 ou chez les autres joueurs : l'épée tenue en travers, collée au corps, comme en 1.7, au lieu d'être tendue devant comme en 1.8. Ça ne change que l'affichage de ton jeu.
 rago.option.swing_speed=Durée du coup
 rago.option.swing_speed.format=%d%%
 rago.option.item_x=Position horizontale
@@ -1205,6 +1207,8 @@ rago.option.latency_mode=Mode
 rago.option.latency_mode.balanced=Équilibré (1 image max en attente)
 rago.option.latency_mode.strict=Strict (aucune image en attente)
 rago.option.latency_mode.help=Strict donne le moins de délai, mais le processeur et la carte graphique travaillent chacun leur tour, donc les FPS peuvent baisser. Équilibré garde presque tous tes FPS.
+rago.option.latency_fresh_input=Entrées fraîches
+rago.option.latency_fresh_input.help=Relit la souris et le clavier juste avant chaque image, après la pause de la limite de FPS et l'attente de la carte, au lieu d'utiliser ce qui avait été lu avant. Un mouvement fait pendant ce temps s'affiche une image plus tôt. Rien de ce qui est envoyé au serveur ne change.
 
 # 1.4.14 : quota du jour
 rago.apikey.daily=Quota du jour atteint (%s par jour), reprise dans %s
@@ -1360,3 +1364,7 @@ rago.option.vignette_alert_color=Couleur d'alerte
 rago.option.nametag_scale=Taille
 rago.option.nametag_scale.format=%d%%
 rago.option.nametag_scale.help=Taille des nametags dans le monde, de la moitié de celle du jeu à un quart de plus. Les noms lointains rapetissent toujours avec la distance, comme dans le jeu : jamais une taille fixe à l'écran, qui montrerait les joueurs de loin.
+rago.option.nametag_mode=Orientation
+rago.option.nametag_mode.3d=3D (tourné vers ta vue)
+rago.option.nametag_mode.2d=2D (à plat sur l'écran)
+rago.option.nametag_mode.help=3D : comme dans le jeu, le nametag se tourne vers ta vue. 2D : il est posé à plat sur ton écran et reste droit, même quand la caméra bouge (marche, coups reçus). Les deux se lisent sous tous les angles, en F5 aussi, gardent la même taille et sont cachés par les murs de la même façon.

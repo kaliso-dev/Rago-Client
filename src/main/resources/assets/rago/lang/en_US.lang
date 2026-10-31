@@ -532,6 +532,8 @@ rago.option.instant_item_switch.help=Changing hotbar slot shows the new item in 
 rago.option.backwards_walk=1.15+ backwards walking
 rago.option.backwards_walk.help=Walking backwards, bodies face where they look and the legs walk backwards, as from 1.15, instead of twisting sideways as in 1.8. For every player and mob, only on your screen.
 rago.option.smooth_sneak=Smooth sneak
+rago.option.block_third_person=1.7 block in third person
+rago.option.block_third_person.help=When a player blocks with a sword, seen in F5 or another player: the sword held across the body, close to it, as in 1.7, instead of held out in front as in 1.8. Only how your game draws it.
 rago.option.swing_speed=Swing duration
 rago.option.swing_speed.format=%d%%
 rago.option.item_x=Horizontal position
@@ -1205,6 +1207,8 @@ rago.option.latency_mode=Mode
 rago.option.latency_mode.balanced=Balanced (at most 1 frame waiting)
 rago.option.latency_mode.strict=Strict (no frame waiting)
 rago.option.latency_mode.help=Strict gives the lowest delay but the processor and the graphics card take turns, so FPS can drop. Balanced keeps almost all your FPS.
+rago.option.latency_fresh_input=Fresh input
+rago.option.latency_fresh_input.help=Reads the mouse and keyboard again right before each frame, after the FPS cap's pause and the wait for the card, instead of using what was read before them. Movement made during that time shows a frame sooner. Nothing sent to the server changes.
 
 # 1.4.14 : quota du jour
 rago.apikey.daily=Daily quota used (%s a day), back in %s
@@ -1360,3 +1364,7 @@ rago.option.vignette_alert_color=Alert colour
 rago.option.nametag_scale=Size
 rago.option.nametag_scale.format=%d%%
 rago.option.nametag_scale.help=Size of the name tags in the world, from half of vanilla's to a quarter more. Far names still get smaller with distance, as vanilla's: never a fixed size on screen, which would show players from afar.
+rago.option.nametag_mode=Orientation
+rago.option.nametag_mode.3d=3D (turned to your view)
+rago.option.nametag_mode.2d=2D (flat on the screen)
+rago.option.nametag_mode.help=3D: like vanilla, the tag turns to face your view. 2D: the tag lies flat on your screen and stays level, even when the camera sways (walking, taking hits). Both read from any angle, in F5 too, keep the same size and are hidden by walls the same way.

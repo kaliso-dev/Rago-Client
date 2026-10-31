@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.6.0.** What it contains:
+**Current version: 1.6.1.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -415,6 +415,29 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     can make a threaded driver wait): it is known, checked every 600 calls, and asked every time if
     it ever differs (a shader pack)
   - Saturation & Colours looks up its shader's settings once instead of nine times a frame
+- new in 1.6.1:
+  - name tags can be read from any angle: in the front view (F5 twice) seen from above, Rago's name
+    tags and the TNT timer showed edge-on, because PolyPatcher already turns them the right way in
+    that view and Rago turned them a second time. They now follow the camera itself. New Nametags
+    option, Orientation: 3D (turns with the camera's direction, like vanilla) or 2D (always flat
+    against the screen, even while the view bobs or shakes when you are hit)
+  - 1.7 block in F5 (1.7 animations, on by default): in third person the sword is held across the
+    body like in 1.7 and the arm points forward instead of turning inward. Turn it off to get 1.8's
+    block back
+  - the HUD cache keeps and lays back only the areas where HUD elements are drawn, instead of the
+    whole screen. On a software renderer (no graphics card) at 854x480, the HUD with the cache on
+    went from 3.6 to 1.6 ms per frame (1.2 and 1.0 ms with the cache off), timed with `glFinish`
+  - Low Latency: Fresh input (on when Low Latency is on): the mouse and keyboard are read again
+    right before each frame, after the FPS cap's pause and the wait for the graphics card, so a
+    movement made meanwhile is used by that frame. Nothing sent to the server changes. Its effect
+    is not measured yet
+  - Rago Network, in [`server/`](server/README.md): the small server that will let Rago players see
+    each other's Rago logo and cosmetics. Players sign in the way Minecraft servers check them
+    (Mojang's `hasJoined`), so their Minecraft token never reaches it. It is not hosted yet and the
+    client does not use it yet
+  - developer tools: `-Drago.bench.hud=true` times the HUD on the graphics card (with `glFinish`),
+    `-Drago.bench.latency=true` logs when each frame that turned the camera was finished, and
+    `/rago testset <setting> <value>` (test game only) changes a client setting
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -474,7 +497,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.6.0+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.6.1+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

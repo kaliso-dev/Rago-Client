@@ -367,6 +367,9 @@ public final class RagoClient {
 		if (FrameProfile.ON) {
 			MinecraftForge.EVENT_BUS.register(new gg.rago.debug.EntityProfile());
 		}
+		if (gg.rago.debug.LatencyProbe.ON) {
+			MinecraftForge.EVENT_BUS.register(new gg.rago.debug.LatencyProbe());
+		}
 		// modules with @SubscribeEvent methods check isEnabled() themselves
 		for (Module m : MODULES.all()) {
 			MinecraftForge.EVENT_BUS.register(m);
@@ -572,6 +575,7 @@ public final class RagoClient {
 		long now = System.nanoTime();
 		if (event.phase == TickEvent.Phase.START) {
 			FRAMES.startFrame(now);
+			gg.rago.render.WorldDraw.frameStart(event.renderTickTime);
 		} else {
 			FrameCapture finished = FRAMES.endFrame(now);
 			if (finished != null) {
@@ -597,16 +601,27 @@ public final class RagoClient {
 			return;
 		}
 		boolean ownHud = overlayVisible && !(mc.gameSettings.showDebugInfo && !hudInDebug.get());
+		if (BENCH_HUD) {
+			// the card's work too: everything queued before is finished first, and the HUD's own after
+			org.lwjgl.opengl.GL11.glFinish();
+		}
 		long t = FrameProfile.ON ? System.nanoTime() : 0;
 		if (optimizations.hudCache()) {
 			HUD_CACHE.render(() -> HUD.render(!ownHud), optimizations.hudCacheRate());
 		} else {
 			HUD.render(!ownHud);
 		}
+		if (BENCH_HUD) {
+			org.lwjgl.opengl.GL11.glFinish();
+			FrameProfile.element("hud_gl", System.nanoTime() - t);
+		}
 		if (FrameProfile.ON) {
 			FrameProfile.add(FrameProfile.HUD, System.nanoTime() - t);
 		}
 	}
+
+	/** Developer timing ({@code -Drago.bench.frame=true -Drago.bench.hud=true}): the HUD with the card's work. */
+	private static final boolean BENCH_HUD = FrameProfile.ON && Boolean.getBoolean("rago.bench.hud");
 
 	@SubscribeEvent
 	public void onGuiOpen(GuiOpenEvent event) {

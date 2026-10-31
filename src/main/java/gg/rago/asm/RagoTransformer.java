@@ -211,6 +211,9 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return found;
 			}));
+		add("net.minecraft.client.renderer.entity.layers.LayerHeldItem", new Patch("1.7 block in third person",
+			"func_177141_a", "doRenderLayer", "(Lnet/minecraft/entity/EntityLivingBase;FFFFFFF)V",
+			RagoTransformer::thirdPersonItem));
 		add("net.minecraft.client.model.ModelRenderer", new Patch("bent limbs",
 			"func_78785_a", "render", "(F)V",
 			m -> returnIf(m, "renderBent", "(Lnet/minecraft/client/model/ModelRenderer;F)Z", new int[] {Opcodes.ALOAD, 0, Opcodes.FLOAD, 1},
@@ -591,6 +594,21 @@ public final class RagoTransformer implements IClassTransformer {
 		head.add(new FrameNode(Opcodes.F_SAME, 0, null, 0, null));
 		m.instructions.insert(head);
 		return true;
+	}
+
+	/** {@code Hooks.thirdPersonItem(entity)} just before the held item is drawn in the third-person transform. */
+	private static boolean thirdPersonItem(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == Opcodes.INVOKEVIRTUAL && isMethod((MethodInsnNode) insn, "func_178099_a", "renderItem",
+				"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/renderer/block/model/ItemCameraTransforms$TransformType;)V")) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ALOAD, 1));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "thirdPersonItem", "(Lnet/minecraft/entity/EntityLivingBase;)V", false));
+				m.instructions.insertBefore(insn, call);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Every returned copy count goes through {@code Hooks.droppedItem} with the method's arguments. */

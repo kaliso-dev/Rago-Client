@@ -41,7 +41,8 @@ import java.util.WeakHashMap;
  * far name still shrinks with distance, never a fixed size on screen): bigger would make players
  * easier to spot from afar and through walls. Opacity stays vanilla's. Who gets a name tag, and when, follows vanilla's rules (distance,
  * sneaking, team visibility, invisibility); the below-name score line is kept. Your own name can be
- * shown in third person.
+ * shown in third person. A tag faces the camera from any angle: in 3D turned to its yaw and pitch
+ * like vanilla's (with the front view, F5 twice, done right), in 2D flat and level on the screen.
  */
 public final class Nametags extends Module implements Styled {
 	public static final String[] STYLES = {"vanilla", "rago", "minimal", "outline"};
@@ -62,6 +63,8 @@ public final class Nametags extends Module implements Styled {
 	private final IntOption maxDistance = addOption(new IntOption("nametag_distance", 64, 8, 64));
 	/** Percent of vanilla's size, in the world: at most a quarter bigger (see the class comment). */
 	private final IntOption scale = addOption(new IntOption("nametag_scale", 100, 50, 125));
+	/** 3D: turned to the camera's yaw and pitch, as vanilla's; 2D: flat on the screen, always level. */
+	private final ChoiceOption mode = addOption(new ChoiceOption("nametag_mode", "3d", "3d", "2d"));
 	private final ChoiceOption style;
 	private final ChoiceOption font;
 	private final BooleanOption shadow;
@@ -299,6 +302,7 @@ public final class Nametags extends Module implements Styled {
 		float w = LabelBatch.width(ttf, em, WORLD_SHARPNESS, shown) + logoW;
 		float half = w / 2f;
 		// keep the bottom of the text where vanilla's is, so a bigger tag grows upwards, away from the head
+		batch.flat(mode.is("2d"));
 		batch.begin(x, anchorY, z, s, (drop + 8) * WorldDraw.LABEL_SCALE / s - 8 - pad);
 		// as vanilla: the tag is drawn normally where the player can be seen, and only a faint copy
 		// (background, border and text at vanilla's faintness) shows through walls, whatever the colours

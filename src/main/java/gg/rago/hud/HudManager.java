@@ -54,7 +54,13 @@ public final class HudManager {
 		stack(shown, mc.fontRendererObj, window.getScaledHeight(), NO_PLACEHOLDER);
 		for (HudElement element : shown) {
 			long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
-			draw(element, mc.fontRendererObj, window.getScaledWidth(), window.getScaledHeight(), false);
+			int[] b = draw(element, mc.fontRendererObj, window.getScaledWidth(), window.getScaledHeight(), false);
+			if (collect != null) {
+				if (collected * 4 + 4 <= collect.length) {
+					System.arraycopy(b, 0, collect, collected * 4, 4);
+				}
+				collected++;
+			}
 			if (gg.rago.debug.FrameProfile.ON) {
 				gg.rago.debug.FrameProfile.element(element.id(), System.nanoTime() - t);
 			}
@@ -62,6 +68,26 @@ public final class HudManager {
 	}
 
 	private static int frame;
+	private static int[] collect;
+	private static int collected;
+
+	/**
+	 * Until {@link #collected()}, the bounds of every element drawn go into {@code into}, four
+	 * numbers each (x, y, width, height in GUI pixels), for the HUD cache to lay over the frame only
+	 * where the HUD is.
+	 */
+	public static void collectBounds(int[] into) {
+		collect = into;
+		collected = 0;
+	}
+
+	/** How many elements were drawn since {@link #collectBounds} (more than fit when it overflowed); stops collecting. */
+	public static int collected() {
+		int n = collected;
+		collect = null;
+		collected = 0;
+		return n;
+	}
 
 	/** Counts HUD frames, so elements can work out their text once per frame. */
 	public static int frame() {

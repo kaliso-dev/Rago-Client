@@ -58,25 +58,67 @@ public final class LabelBatch {
 	private float dy;
 	private float dz;
 
+	/**
+	 * Labels after this lie flat on the screen ("2D"): exactly level and facing it, view bobbing
+	 * and the hurt shake included, instead of turned to the camera's yaw and pitch like vanilla's.
+	 */
+	public void flat(boolean flat) {
+		this.flat = flat;
+	}
+
+	private boolean flat;
+	private final float[] axes = new float[6];
+
 	/** Starts a label at camera-relative (x, y, z) facing the camera, {@code scale} blocks per unit, moved {@code down} units. */
 	public void begin(double x, double y, double z, float scale, float down) {
-		Minecraft mc = Minecraft.getMinecraft();
-		float yaw = (float) Math.toRadians(-mc.getRenderManager().playerViewY);
-		float pitch = (float) Math.toRadians(mc.getRenderManager().playerViewX * (mc.gameSettings.thirdPersonView == 2 ? -1 : 1));
+		java.nio.FloatBuffer camera = flat ? WorldDraw.cameraMatrix() : null;
+		if (camera != null) {
+			screenAxes(camera, scale, axes);
+		} else {
+			viewAxes(Minecraft.getMinecraft().getRenderManager().playerViewY, WorldDraw.viewPitch(), scale, axes);
+		}
+		rx = axes[0];
+		ry = axes[1];
+		rz = axes[2];
+		dx = axes[3];
+		dy = axes[4];
+		dz = axes[5];
+		ox = (float) x + dx * down;
+		oy = (float) y + dy * down;
+		oz = (float) z + dz * down;
+	}
+
+	/**
+	 * One label unit right and one down, in the world, for a label turned to the camera's yaw and
+	 * pitch (degrees): Ry(-yaw) * Rx(pitch) * scale(-s, -s, s) applied to the unit x and y axes, as
+	 * vanilla's GL calls do.
+	 */
+	static void viewAxes(float viewYaw, float viewPitch, float scale, float[] out) {
+		float yaw = (float) Math.toRadians(-viewYaw);
+		float pitch = (float) Math.toRadians(viewPitch);
 		float cy = (float) Math.cos(yaw);
 		float sy = (float) Math.sin(yaw);
 		float cp = (float) Math.cos(pitch);
 		float sp = (float) Math.sin(pitch);
-		// Ry(yaw) * Rx(pitch) * scale(-s, -s, s) applied to the unit x and y axes, as vanilla's GL calls do
-		rx = -scale * cy;
-		ry = 0;
-		rz = scale * sy;
-		dx = -scale * sy * sp;
-		dy = -scale * cp;
-		dz = -scale * cy * sp;
-		ox = (float) x + dx * down;
-		oy = (float) y + dy * down;
-		oz = (float) z + dz * down;
+		out[0] = -scale * cy;
+		out[1] = 0;
+		out[2] = scale * sy;
+		out[3] = -scale * sy * sp;
+		out[4] = -scale * cp;
+		out[5] = -scale * cy * sp;
+	}
+
+	/**
+	 * The same for a label parallel to the screen: the camera's right and down directions in the
+	 * world, the first two rows of its rotation ({@code camera} is column-major, as OpenGL keeps it).
+	 */
+	static void screenAxes(java.nio.FloatBuffer camera, float scale, float[] out) {
+		out[0] = scale * camera.get(0);
+		out[1] = scale * camera.get(4);
+		out[2] = scale * camera.get(8);
+		out[3] = -scale * camera.get(1);
+		out[4] = -scale * camera.get(5);
+		out[5] = -scale * camera.get(9);
 	}
 
 	private float wx(float lx, float ly) {

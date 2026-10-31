@@ -15,7 +15,58 @@ public final class WorldDraw {
 	/** Vanilla's name tag scale: 1.6 / 60 blocks per text pixel. */
 	public static final float LABEL_SCALE = 0.02666667f;
 
+	private static float partialTicks;
+	private static java.lang.reflect.Field cameraMatrix;
+	private static boolean cameraMatrixMissing;
+
 	private WorldDraw() {
+	}
+
+	/** RenderTickEvent START: the frame's partial tick, for {@link #viewPitch}. */
+	public static void frameStart(float partial) {
+		partialTicks = partial;
+	}
+
+	/**
+	 * How far to tip a label (degrees, like vanilla's playerViewX) so it faces the camera: the
+	 * camera entity's pitch, turned round in the front view (F5 twice), which vanilla 1.8 forgets.
+	 * Worked out here instead of turning RenderManager.playerViewX round, because some mods
+	 * (PolyPatcher) already turn that round in the front view: turning it again tipped labels the
+	 * wrong way, flat and out of sight when looking down on a player.
+	 */
+	public static float viewPitch() {
+		Minecraft mc = Minecraft.getMinecraft();
+		net.minecraft.entity.Entity e = mc.getRenderViewEntity();
+		if (e == null || e instanceof net.minecraft.entity.EntityLivingBase && ((net.minecraft.entity.EntityLivingBase) e).isPlayerSleeping()) {
+			return 0; // as vanilla in bed
+		}
+		return labelPitch(e.prevRotationPitch + (e.rotationPitch - e.prevRotationPitch) * partialTicks, mc.gameSettings.thirdPersonView);
+	}
+
+	/** {@link #viewPitch} for a camera entity's pitch and the perspective (0 first person, 1 behind, 2 in front). */
+	static float labelPitch(float entityPitch, int thirdPersonView) {
+		return thirdPersonView == 2 ? -entityPitch : entityPitch;
+	}
+
+	/**
+	 * The camera's rotation this frame, as the game read it before drawing the world (the matrix
+	 * ActiveRenderInfo keeps, view bobbing and hurt shake included), or null if it cannot be read.
+	 * No extra read from the graphics card: the game already made it.
+	 */
+	public static java.nio.FloatBuffer cameraMatrix() {
+		if (cameraMatrixMissing) {
+			return null;
+		}
+		try {
+			if (cameraMatrix == null) {
+				cameraMatrix = net.minecraftforge.fml.relauncher.ReflectionHelper.findField(
+					net.minecraft.client.renderer.ActiveRenderInfo.class, "MODELVIEW", "field_178812_b");
+			}
+			return (java.nio.FloatBuffer) cameraMatrix.get(null);
+		} catch (RuntimeException | IllegalAccessException e) {
+			cameraMatrixMissing = true;
+			return null;
+		}
 	}
 
 	/** Lines along the twelve edges of {@code box} (camera-relative), {@code width} pixels wide. */
@@ -128,7 +179,7 @@ public final class WorldDraw {
 		GlStateManager.translate((float) x, (float) y, (float) z);
 		GL11.glNormal3f(0, 1, 0);
 		GlStateManager.rotate(-rm.playerViewY, 0, 1, 0);
-		GlStateManager.rotate(rm.playerViewX * (mc.gameSettings.thirdPersonView == 2 ? -1 : 1), 1, 0, 0);
+		GlStateManager.rotate(viewPitch(), 1, 0, 0);
 		GlStateManager.scale(-LABEL_SCALE, -LABEL_SCALE, LABEL_SCALE);
 		GlStateManager.disableLighting();
 		GlStateManager.depthMask(false);

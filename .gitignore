@@ -11,3 +11,5 @@ __pycache__/
 libs/optifine/*.jar
 logs/
 rago-dump/
+server/config.json
+server/*.db

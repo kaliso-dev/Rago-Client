@@ -115,7 +115,7 @@ public final class TntTimer extends Module {
 		GlStateManager.translate((float) x, (float) y, (float) z);
 		GL11.glNormal3f(0, 1, 0);
 		GlStateManager.rotate(-rm.playerViewY, 0, 1, 0);
-		GlStateManager.rotate(rm.playerViewX * (mc.gameSettings.thirdPersonView == 2 ? -1 : 1), 1, 0, 0);
+		GlStateManager.rotate(WorldDraw.viewPitch(), 1, 0, 0);
 		GlStateManager.scale(-s, -s, s);
 		GlStateManager.disableLighting();
 		mc.entityRenderer.disableLightmap();
