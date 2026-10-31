@@ -901,7 +901,7 @@ rago.locker.more=Colours and sizes
 
 # 1.4: Bed Wars stats, trap notifier
 rago.module.bedwars_stats=Bed Wars Stats
-rago.module.bedwars_stats.desc=Each player's star and final kill/death ratio (FKDR) in the tab list, the FKDR coloured by steps (grey, green, dark green, red, dark red), a danger tier from S to D, nicked and strong players marked, the tab list grouped by team with the strongest first, and a chat message when a game starts naming the enemies to target (300 stars or 5 FKDR and more), with their star and their name in their team's colour. Needs your Hypixel API key (below).
+rago.module.bedwars_stats.desc=Each player's star and final kill/death ratio (FKDR) in the tab list, the FKDR coloured by steps (grey, green, dark green, red, dark red), a danger tier from S to D, nicked and strong players marked, the tab list grouped by team with the strongest first, and a chat message when a game starts naming every enemy to target (300 stars or 5 FKDR and more, nicks and possible snipers) with their team mates, grouped by team, with their star and their name in their team's colour. Needs your Hypixel API key (below).
 rago.option.stats_tab_star=Star before names
 rago.option.stats_tab_fkdr=FKDR after names
 rago.option.stats_tab_danger=Danger tier after names (S to D)
@@ -913,7 +913,7 @@ rago.option.stats_alert_share=Also send it in the chat
 rago.option.stats_alert_share.off=No
 rago.option.stats_alert_share.party=Party (/pc)
 rago.option.stats_alert_share.team=Game's general chat
-rago.option.stats_alert_share.help=Once a game, the game-start line also goes in the chat: the players to target, or with none the team of the strongest player. Party: to your party with /pc. General chat: the game's normal chat, which everyone sees in solo and Hypixel only sends to your team in team modes. No colours or accents, 100 characters at most.
+rago.option.stats_alert_share.help=Once a game, the game-start line also goes in the chat: the players to target and their team mates, grouped by team, or with none the team of the strongest player. Party: to your party with /pc. General chat: the game's normal chat, which everyone sees in solo and Hypixel only sends to your team in team modes. No colours or accents, 100 characters at most.
 rago.stats.no_key=[Rago] Bed Wars Stats needs your Hypixel API key: get one at developer.hypixel.net, then paste it in the mod's settings (Right Shift) or type /rago hypixelkey <key>
 rago.stats.alert_targets=Target:
 rago.stats.alert_strongest_team=Nobody to target, strongest team (%s):

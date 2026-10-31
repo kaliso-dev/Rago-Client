@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.8.8.** What it contains:
+**Current version: 1.8.9.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,10 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.8.9: Bed Wars Stats' **game-start line** lists **every** enemy to target: 300 stars or
+  5 FKDR and more (your settings), and also nicks and possible snipers, which were left out. In
+  team modes each target comes with their team mates, whatever their stats, grouped by team (the
+  strongest team first, `|` between teams); the line sent in the chat names each team once
 - new in 1.8.8: **share a profile with a friend**. Hover a profile in the Rago menu and click the
   arrow: its code (`RAGO1:…`) is copied, short enough for a Discord message, and also saved in
   `config/rago-profiles`. Your friend copies the code and clicks the import button next to "New
@@ -651,7 +655,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.8.8+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.8.9+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

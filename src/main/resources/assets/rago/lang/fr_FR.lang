@@ -901,7 +901,7 @@ rago.locker.more=Couleurs et tailles
 
 # 1.4: Bed Wars stats, trap notifier
 rago.module.bedwars_stats=Stats Bed Wars
-rago.module.bedwars_stats.desc=L'étoile et le ratio finals/morts finales (FKDR) de chaque joueur dans le tab, le FKDR coloré par paliers (gris, vert, vert foncé, rouge, rouge foncé), un tier de danger de S à D, les joueurs nick et forts signalés, le tab regroupé par équipe du plus fort au plus faible, et un message au début de la partie avec les ennemis à cibler (300 étoiles ou 5 FKDR et plus), avec leur étoile et leur pseudo à la couleur de leur équipe. Il faut ta clé API Hypixel (ci-dessous).
+rago.module.bedwars_stats.desc=L'étoile et le ratio finals/morts finales (FKDR) de chaque joueur dans le tab, le FKDR coloré par paliers (gris, vert, vert foncé, rouge, rouge foncé), un tier de danger de S à D, les joueurs nick et forts signalés, le tab regroupé par équipe du plus fort au plus faible, et un message au début de la partie avec tous les ennemis à cibler (300 étoiles ou 5 FKDR et plus, les nicks et les snipers possibles) et leurs mates, regroupés par équipe, avec leur étoile et leur pseudo à la couleur de leur équipe. Il faut ta clé API Hypixel (ci-dessous).
 rago.option.stats_tab_star=Étoile avant les pseudos
 rago.option.stats_tab_fkdr=FKDR après les pseudos
 rago.option.stats_tab_danger=Tier de danger après les pseudos (S à D)
@@ -913,7 +913,7 @@ rago.option.stats_alert_share=Envoyer aussi dans le chat
 rago.option.stats_alert_share.off=Non
 rago.option.stats_alert_share.party=Party (/pc)
 rago.option.stats_alert_share.team=Chat général de la game
-rago.option.stats_alert_share.help=Une fois par game, la ligne de début de partie part aussi dans le chat : les joueurs à cibler, ou s'il n'y en a pas l'équipe du joueur le plus fort. Party : à ta party avec /pc. Chat général : le chat normal de la game, que tout le monde voit en solo et qu'Hypixel n'envoie qu'à ton équipe dans les modes en équipe. Sans couleurs ni accents, 100 caractères au plus.
+rago.option.stats_alert_share.help=Une fois par game, la ligne de début de partie part aussi dans le chat : les joueurs à cibler et leurs mates, regroupés par équipe, ou s'il n'y en a pas l'équipe du joueur le plus fort. Party : à ta party avec /pc. Chat général : le chat normal de la game, que tout le monde voit en solo et qu'Hypixel n'envoie qu'à ton équipe dans les modes en équipe. Sans couleurs ni accents, 100 caractères au plus.
 rago.stats.no_key=[Rago] Stats Bed Wars a besoin de ta clé API Hypixel : crée-la sur developer.hypixel.net, puis colle-la dans les réglages du mod (Shift droit) ou tape /rago hypixelkey <clé>
 rago.stats.alert_targets=À cibler :
 rago.stats.alert_strongest_team=Personne à cibler, équipe la plus forte (%s) :

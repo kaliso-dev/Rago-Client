@@ -81,6 +81,44 @@ class BedwarsStatsTest {
 		assertTrue(BedwarsStats.strongestTeam(Collections.singletonList(unknown)).isEmpty(), "no stats: no team to name");
 	}
 
+	private static BedwarsStats.Enemy target(String name, char team, double strength, boolean nick) {
+		return new BedwarsStats.Enemy(name, team, 'c', null, null, true, strength, nick);
+	}
+
+	@Test
+	void everyTargetIsListedWithTheirMatesGroupedByTeam() {
+		// solo: a 5 FKDR player and a nick, both listed, the nick first (ranked above), weak players left out
+		BedwarsStats.Enemy sweat = target("Sweat", 'R', 6e5 + 3e5, false);
+		BedwarsStats.Enemy nick = target("Nicked", 'B', 1e6, true);
+		BedwarsStats.Enemy weak = enemy("Weak", 'G', 1e5);
+		java.util.List<java.util.List<BedwarsStats.Enemy>> solo = BedwarsStats.targetTeams(Arrays.asList(weak, sweat, nick));
+		assertEquals(Arrays.asList(Collections.singletonList(nick), Collections.singletonList(sweat)), solo);
+
+		// doubles: each target's whole team, the mate after them whatever their stats
+		BedwarsStats.Enemy mate = enemy("Mate", 'R', 2e4);
+		BedwarsStats.Enemy nickMate = enemy("Who", 'B', -1);
+		BedwarsStats.Enemy weak2 = enemy("Weak2", 'G', 2e5);
+		java.util.List<java.util.List<BedwarsStats.Enemy>> doubles =
+			BedwarsStats.targetTeams(Arrays.asList(mate, weak, nickMate, sweat, weak2, nick));
+		assertEquals(Arrays.asList(Arrays.asList(nick, nickMate), Arrays.asList(sweat, mate)), doubles);
+
+		assertTrue(BedwarsStats.targetTeams(Arrays.asList(weak, weak2)).isEmpty(), "no target: the strongest team instead");
+		// a target whose team is not known stands alone
+		BedwarsStats.Enemy loose = target("Loose", (char) 0, 7e5, false);
+		BedwarsStats.Enemy other = enemy("Other", (char) 0, 1e5);
+		assertEquals(Collections.singletonList(Collections.singletonList(loose)), BedwarsStats.targetTeams(Arrays.asList(loose, other)));
+	}
+
+	@Test
+	void theSharedLineNamesEachTeamOnce() {
+		assertEquals("Nicked (NICK)", target("Nicked", 'B', 1e6, true).shared());
+		assertEquals("Mate (?)", enemy("Mate", 'R', -1).shared());
+		String line = BedwarsStats.shareGroups("/pc Target: ", Arrays.asList(
+			Arrays.asList("Blue: Nicked (NICK)", "Who (?)"), Arrays.asList("Red: Sweat (312* 5.4)", "Mate (20* 0.4)")));
+		assertEquals("/pc Target: Blue: Nicked (NICK), Who (?) | Red: Sweat (312* 5.4), Mate (20* 0.4)", line);
+		assertTrue(line.length() <= BedwarsStats.CHAT_MAX);
+	}
+
 	@Test
 	void theLineSentInTheChatIsPlainAscii() {
 		assertEquals("/pc A cibler : Equipe Rouge", BedwarsStats.ascii("/pc À cibler : Équipe Rouge"));

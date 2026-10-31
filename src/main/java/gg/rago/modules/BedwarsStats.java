@@ -39,8 +39,9 @@ import java.util.UUID;
  * kill/death ratio after it, coloured by how dangerous they are (Rago's own 1 to 5 level, see
  * {@link Danger}), nicked players marked, and the list grouped by team, the strongest team first and
  * each team strongest first. When a game starts, a chat message names the enemies to target (300
- * stars or 5 FKDR and more by default), strongest first, with their star and their name in their
- * team's colour; with none, the team of the strongest enemy. It can go to your party or the game's
+ * stars or 5 FKDR and more by default, nicks and possible snipers) with their team mates, grouped by
+ * team, the strongest first, with their star and their name in their team's colour; with none, the
+ * team of the strongest enemy. It can go to your party or the game's
  * chat too. The stats come from the Hypixel API with your own key
  * ({@code /rago hypixelkey <key>}); nothing is sent to the Minecraft server.
  */
@@ -507,27 +508,29 @@ public final class BedwarsStats extends Module {
 			}
 			boolean nick = !Hypixel.realPlayer(id) || s != null && !s.found;
 			ScorePlayerTeam team = info.getPlayerTeam();
-			boolean target = s != null && strong(s);
+			// to target: a strong player (the star or FKDR settings), a nick (hidden on purpose, often
+			// strong) or a possible sniper
+			boolean target = s != null && strong(s) || nick && nicks.get() || why != null;
 			all.add(new Enemy(name, BedwarsGame.teamLetter(team), team == null ? 0 : BedwarsGame.teamColor(team), s, why, target,
-				strength(s, nick && nicks.get(), why != null, target)));
+				strength(s, nick && nicks.get(), why != null, s != null && strong(s)), nick));
 		}
-		// the enemies to target (the star or FKDR settings, 300 or 5 by default), strongest first; with
+		// every enemy to target with their team mates, grouped by team, the strongest team first; with
 		// none, the whole team of the strongest enemy
-		List<Enemy> targets = new ArrayList<>();
-		for (Enemy e : all) {
-			if (e.target) {
-				targets.add(e);
+		List<List<Enemy>> groups = targetTeams(all);
+		boolean targets = !groups.isEmpty();
+		if (!targets) {
+			List<Enemy> strongest = strongestTeam(all);
+			if (!strongest.isEmpty()) {
+				groups.add(strongest);
 			}
 		}
-		targets.sort((a, b) -> Double.compare(b.strength, a.strength));
-		List<Enemy> listed = targets.isEmpty() ? strongestTeam(all) : targets;
 		String heading;
 		String shareHeading;
-		if (!targets.isEmpty()) {
+		if (targets) {
 			heading = I18n.format("rago.stats.alert_targets");
 			shareHeading = heading;
-		} else if (!listed.isEmpty()) {
-			char color = listed.get(0).color;
+		} else if (!groups.isEmpty()) {
+			char color = groups.get(0).get(0).color;
 			String teamWord = color == 0 ? I18n.format("rago.team.unknown") : I18n.format("rago.team." + color);
 			heading = I18n.format("rago.stats.alert_strongest_team", (color == 0 ? "§7" : "§" + color) + teamWord + "§f");
 			shareHeading = I18n.format("rago.stats.share_strongest_team", teamWord);
@@ -536,22 +539,31 @@ public final class BedwarsStats extends Module {
 			shareHeading = null;
 		}
 		StringBuilder line = new StringBuilder("§c§lRago §8» §f").append(heading).append(' ');
-		if (listed.isEmpty()) {
+		if (groups.isEmpty()) {
 			line.append("§7").append(I18n.format("rago.stats.alert_no_stats"));
 		}
-		for (int i = 0; i < listed.size(); i++) {
-			line.append(i == 0 ? "" : "§8, ").append(listed.get(i).entry());
+		for (int g = 0; g < groups.size(); g++) {
+			List<Enemy> group = groups.get(g);
+			for (int i = 0; i < group.size(); i++) {
+				line.append(g == 0 && i == 0 ? "" : i == 0 ? " §8| " : "§8, ").append(group.get(i).entry());
+			}
 		}
 		send(mc, line.toString());
-		if (!targets.isEmpty()) {
+		if (targets) {
 			ping(mc);
 		}
 		if (shareHeading != null && !alertShare.is("off")) {
-			List<String> entries = new ArrayList<>();
-			for (Enemy e : listed) {
-				entries.add(e.shared(!targets.isEmpty()));
+			List<List<String>> entries = new ArrayList<>();
+			for (List<Enemy> group : groups) {
+				List<String> shared = new ArrayList<>();
+				for (Enemy e : group) {
+					// each team named once, before its first player
+					String teamWord = targets && shared.isEmpty() && e.color != 0 ? I18n.format("rago.team." + e.color) + ": " : "";
+					shared.add(teamWord + e.shared());
+				}
+				entries.add(shared);
 			}
-			String message = ascii(shareLine((alertShare.is("party") ? "/pc " : "") + shareHeading + " ", entries));
+			String message = ascii(shareGroups((alertShare.is("party") ? "/pc " : "") + shareHeading + " ", entries));
 			RagoClient.LOG.info("Bed Wars Stats: game-start line sent to the {}: \"{}\"", alertShare.get(), message);
 			mc.thePlayer.sendChatMessage(message);
 		}
@@ -566,10 +578,16 @@ public final class BedwarsStats extends Module {
 		final HypixelApi.Stats stats;
 		/** Why they may be a sniper, or null. */
 		final String sniper;
+		/** To target: strong, nicked or a possible sniper. */
 		final boolean target;
 		final double strength;
+		final boolean nick;
 
 		Enemy(String name, char team, char color, HypixelApi.Stats stats, String sniper, boolean target, double strength) {
+			this(name, team, color, stats, sniper, target, strength, false);
+		}
+
+		Enemy(String name, char team, char color, HypixelApi.Stats stats, String sniper, boolean target, double strength, boolean nick) {
 			this.name = name;
 			this.team = team;
 			this.color = color;
@@ -577,25 +595,58 @@ public final class BedwarsStats extends Module {
 			this.sniper = sniper;
 			this.target = target;
 			this.strength = strength;
+			this.nick = nick;
 		}
 
 		/** How they show in the game-start line. */
 		String entry() {
 			String teamColor = color == 0 ? "§f" : "§" + color;
+			String sniperTag = sniper != null ? "§d[S] " : "";
+			if (nick) {
+				return (target ? MARK + " " : "") + sniperTag + "§c[NICK] " + teamColor + name;
+			}
 			if (stats == null || !stats.found) {
-				return (sniper != null ? "§d[S] " : "") + teamColor + name + " §5" + I18n.format("rago.stats.alert_unknown");
+				return sniperTag + teamColor + name + " §5" + I18n.format("rago.stats.alert_unknown");
 			}
 			return targetEntry(name, teamColor, stats, sniper, target);
 		}
 
-		/** How they show in the line sent in the chat: name, then team (for targets), star and FKDR. */
-		String shared(boolean withTeam) {
-			String teamWord = withTeam && color != 0 ? I18n.format("rago.team." + color) + " " : "";
-			if (stats == null || !stats.found) {
-				return name + (teamWord.isEmpty() ? " (?)" : " (" + teamWord.trim() + " ?)");
+		/** How they show in the line sent in the chat: name, then star and FKDR. */
+		String shared() {
+			if (nick) {
+				return name + " (NICK)";
 			}
-			return name + " (" + teamWord + Math.max(stats.star, 0) + "* " + Danger.ratio(stats.fkdr()) + ")";
+			if (stats == null || !stats.found) {
+				return name + " (?)";
+			}
+			return name + " (" + Math.max(stats.star, 0) + "* " + Danger.ratio(stats.fkdr()) + ")";
 		}
+	}
+
+	/**
+	 * The teams with an enemy to target ({@link Enemy#target}), each whole, its mates included
+	 * whatever their stats: the team with the strongest player first, each strongest first. A
+	 * player whose team is not known makes a team of their own.
+	 */
+	static List<List<Enemy>> targetTeams(List<Enemy> enemies) {
+		java.util.Map<Object, List<Enemy>> teams = new java.util.LinkedHashMap<>();
+		for (Enemy e : enemies) {
+			if (e.target) {
+				teams.computeIfAbsent(e.team != 0 ? (Object) e.team : e, k -> new ArrayList<>());
+			}
+		}
+		for (Enemy e : enemies) {
+			List<Enemy> team = teams.get(e.team != 0 ? (Object) e.team : e);
+			if (team != null) {
+				team.add(e);
+			}
+		}
+		List<List<Enemy>> out = new ArrayList<>(teams.values());
+		for (List<Enemy> team : out) {
+			team.sort((a, b) -> Double.compare(b.strength, a.strength));
+		}
+		out.sort((a, b) -> Double.compare(b.get(0).strength, a.get(0).strength));
+		return out;
 	}
 
 	/**
@@ -643,16 +694,27 @@ public final class BedwarsStats extends Module {
 	 * server refuses them): as many entries as fit, then "+2" for those left out.
 	 */
 	static String shareLine(String start, List<String> entries) {
+		return shareGroups(start, java.util.Collections.singletonList(entries));
+	}
+
+	/** The same with players grouped by team: ", " between team mates, " | " between teams. */
+	static String shareGroups(String start, List<List<String>> groups) {
+		List<String> parts = new ArrayList<>();
+		for (List<String> group : groups) {
+			for (int i = 0; i < group.size(); i++) {
+				parts.add((parts.isEmpty() ? "" : i == 0 ? " | " : ", ") + group.get(i));
+			}
+		}
 		StringBuilder b = new StringBuilder(start);
-		for (int i = 0; i < entries.size(); i++) {
-			String entry = (i == 0 ? "" : ", ") + entries.get(i);
-			int left = entries.size() - i - 1;
+		for (int i = 0; i < parts.size(); i++) {
+			String entry = parts.get(i);
+			int left = parts.size() - i - 1;
 			String more = left > 0 ? " +" + left : "";
 			if (b.length() + entry.length() + more.length() > CHAT_MAX) {
 				if (i == 0) {
 					return b.append(entry, 0, Math.max(0, CHAT_MAX - b.length())).toString();
 				}
-				return b.append(" +").append(entries.size() - i).toString();
+				return b.append(" +").append(parts.size() - i).toString();
 			}
 			b.append(entry);
 		}
