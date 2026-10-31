@@ -29,6 +29,7 @@ Minecraft server's login and so join that server as the player.
 
 | Call | Sign-in | What it does |
 | --- | --- | --- |
+| `GET /` | no | `{"service": "Rago Network", "ok": true, ...}`: what a browser shows at the server's address |
 | `GET /v1/health` | no | `{"ok": true}` |
 | `GET /v1/stats` | no | `{"online": 12, "players": 340}`, cached 15 s |
 | `POST /v1/auth/start` | no | `{"name"}` → `{"serverId", "expiresIn"}` |

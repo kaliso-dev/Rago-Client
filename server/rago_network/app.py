@@ -184,6 +184,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/v1/health":
             self._send(200, {"ok": True})
+        elif self.path == "/":
+            # someone opening the server's address in a browser: say what it is rather than "not found"
+            self._send(200, {"service": "Rago Network", "ok": True, "health": "/v1/health", "stats": "/v1/stats"})
         elif self.path == "/v1/stats":
             self._send(*self.network.stats(self._ip()))
         else:

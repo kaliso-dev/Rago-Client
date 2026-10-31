@@ -211,6 +211,9 @@ class HttpTest(unittest.TestCase):
 
         try:
             self.assertEqual(call("GET", "/v1/health"), (200, {"ok": True}))
+            status, root = call("GET", "/")
+            self.assertEqual((status, root["service"], root["ok"]), (200, "Rago Network", True))
+            self.assertEqual(call("GET", "/nothing-here"), (404, {"error": "not_found"}))
             status, start = call("POST", "/v1/auth/start", {"name": "qRago"})
             n.mojang.join("qRago", join_id(start["serverId"]))
             status, done = call("POST", "/v1/auth/finish", {"name": "qRago", "serverId": start["serverId"]})
