@@ -3,10 +3,12 @@ package gg.rago.config;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * One of a fixed list of named values, stored by name so that reordering the list keeps saved
@@ -16,6 +18,7 @@ import java.util.function.Consumer;
 public final class ChoiceOption extends Option<String> {
 	private final List<String> ids;
 	private Consumer<String> onSelect;
+	private Predicate<String> allowed = id -> true;
 
 	public ChoiceOption(String key, String defaultId, String... ids) {
 		super(key, defaultId);
@@ -27,6 +30,26 @@ public final class ChoiceOption extends Option<String> {
 
 	public List<String> ids() {
 		return ids;
+	}
+
+	/**
+	 * Offers a value in the menu only while {@code allowed} says so (a cape only its owner wears). A
+	 * value saved earlier is kept even when it is not offered.
+	 */
+	public ChoiceOption allowIf(Predicate<String> allowed) {
+		this.allowed = allowed;
+		return this;
+	}
+
+	/** The values the menu offers now: all of them, but those {@link #allowIf} holds back. */
+	public List<String> choices() {
+		List<String> out = new ArrayList<>(ids.size());
+		for (String id : ids) {
+			if (allowed.test(id)) {
+				out.add(id);
+			}
+		}
+		return out;
 	}
 
 	public int index() {
@@ -51,8 +74,15 @@ public final class ChoiceOption extends Option<String> {
 		}
 	}
 
+	/** The next value offered ({@code step} 1) or the one before (-1). */
 	public void cycle(int step) {
-		select(ids.get(Math.floorMod(index() + step, ids.size())));
+		List<String> offered = choices();
+		if (offered.isEmpty()) {
+			return;
+		}
+		int at = offered.indexOf(get());
+		// a value that is not offered (saved before) goes to the first or the last one offered
+		select(at < 0 ? offered.get(step > 0 ? 0 : offered.size() - 1) : offered.get(Math.floorMod(at + step, offered.size())));
 	}
 
 	@Override

@@ -31,6 +31,9 @@ public final class PackDisplayHud extends TextHudElement {
 
 	private ResourcePackRepository.Entry shown;
 	private String raw;
+	private String cleanedFrom;
+	private boolean cleanedColors;
+	private String cleaned;
 	private ResourceLocation defaultIcon;
 	private boolean defaultIconFailed;
 
@@ -127,7 +130,14 @@ public final class PackDisplayHud extends TextHudElement {
 		if (placeholder || raw == null) {
 			return colors.get() ? "§cRago §f16x" : "Rago 16x";
 		}
-		return clean(raw, colors.get());
+		// cleaned once per pack and colour setting, not every frame (the cleaning allocates)
+		boolean keep = colors.get();
+		if (!raw.equals(cleanedFrom) || keep != cleanedColors) {
+			cleanedFrom = raw;
+			cleanedColors = keep;
+			cleaned = clean(raw, keep);
+		}
+		return cleaned;
 	}
 
 	private int iconSize() {

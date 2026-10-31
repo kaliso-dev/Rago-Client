@@ -1,12 +1,15 @@
 package gg.rago.modules;
 
+import gg.rago.config.BooleanOption;
 import gg.rago.config.ChoiceOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import gg.rago.core.RagoClient;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.ARBSync;
 import org.lwjgl.opengl.ContextCapabilities;
+import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL32;
 import org.lwjgl.opengl.GLContext;
 import org.lwjgl.opengl.GLSync;
@@ -19,13 +22,20 @@ import java.util.ArrayDeque;
  * so the frame you see was built from mouse input that is that many frames old. Here, at the start
  * of every frame (before the mouse and keyboard are read), the game waits until the card has
  * finished the earlier frames: none of them in the strict mode, at most one in the balanced mode.
- * The waiting uses a GL fence (OpenGL 3.2 or ARB_sync); without one the module does nothing.
+ * The waiting uses a GL fence (OpenGL 3.2 or ARB_sync); without one there is no waiting.
+ *
+ * <p>Fresh input: the game reads the mouse and keyboard when it hands a frame to the driver, then
+ * the frame-rate cap sleeps and this module waits, so the next frame used input that had been
+ * waiting all that time; movement that came during the sleep only showed a frame later. With this
+ * option the mouse and keyboard are read once more just before the frame starts. Nothing about
+ * what is sent to the server changes: the same input, read sooner.
  */
 public final class LowLatency extends Module {
 	/** Never waits longer than this for the card, whatever happens. */
 	private static final long TIMEOUT_NS = 100_000_000L;
 
 	private final ChoiceOption mode = addOption(new ChoiceOption("latency_mode", "balanced", "balanced", "strict"));
+	private final BooleanOption freshInput = addOption(new BooleanOption("latency_fresh_input", true));
 
 	/** Fences put after each frame, oldest first. */
 	private final ArrayDeque<GLSync> fences = new ArrayDeque<>();
@@ -48,10 +58,20 @@ public final class LowLatency extends Module {
 
 	/** Start of Minecraft.runGameLoop: the frame before has been handed to the driver. */
 	public void frameStart() {
-		if (!isEnabled() || !supported()) {
+		if (!isEnabled()) {
 			release();
 			return;
 		}
+		if (supported()) {
+			waitForCard();
+		}
+		// in a world with the mouse captured: in menus the cursor's position is read, not its movement
+		if (freshInput.get() && Mouse.isCreated() && Mouse.isGrabbed()) {
+			Display.processMessages();
+		}
+	}
+
+	private void waitForCard() {
 		fences.addLast(arb ? ARBSync.glFenceSync(ARBSync.GL_SYNC_GPU_COMMANDS_COMPLETE, 0)
 			: GL32.glFenceSync(GL32.GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
 		int ahead = mode.is("strict") ? 0 : 1;

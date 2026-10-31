@@ -3,6 +3,7 @@ package gg.rago.hud.elements;
 import gg.rago.config.BooleanOption;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
@@ -32,10 +33,19 @@ public final class DirectionHud extends TextHudElement {
 		return Math.floorMod(Math.round(yaw) + 180, 360);
 	}
 
+	private final Shown shown = new Shown();
+
 	@Override
 	protected String value(boolean placeholder) {
 		Entity p = Minecraft.getMinecraft().thePlayer;
 		float yaw = placeholder || p == null ? 225 : p.rotationYaw;
-		return degrees.get() ? point(yaw) + " " + bearing(yaw) + "°" : point(yaw);
+		if (!degrees.get()) {
+			return point(yaw);
+		}
+		int bearing = bearing(yaw);
+		if (!shown.same(bearing, Math.floorMod(Math.round(yaw / 45f), 8), 0)) {
+			shown.set(point(yaw) + " " + bearing + "°");
+		}
+		return shown.text();
 	}
 }

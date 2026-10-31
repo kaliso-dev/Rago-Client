@@ -1,0 +1,12 @@
+{
+  "host": "0.0.0.0",
+  "port": 8080,
+  "trust_proxy": true,
+  "database": "/data/rago-network.db",
+  "cosmetics": "/app/cosmetics.json",
+  "session_ttl": 86400,
+  "online_window": 150,
+  "forget_after": 15552000,
+  "roles": {},
+  "role_names": {"qRago": "creator"}
+}

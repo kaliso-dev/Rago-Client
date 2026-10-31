@@ -286,7 +286,8 @@ def wings():
     """Rago's pixel-art wings: the bones two and a half cells thick, the membrane one (a cell is WING_SCALE pixels)."""
     import cosmetics
     k = cosmetics.WING_SCALE
-    for name, parts, root in (('dragon', cosmetics.dragon_parts, (3, 12)), ('dragon_small', cosmetics.dragon_small_parts, (3, 22))):
+    # the big Dragon wings are drawn in code (gg.rago.render.BatWing)
+    for name, parts, root in (('dragon_small', cosmetics.dragon_small_parts, (3, 22)),):
         _, bones = parts()
 
         def depth(x, y, bones=bones):

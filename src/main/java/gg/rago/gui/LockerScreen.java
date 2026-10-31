@@ -658,7 +658,7 @@ public final class LockerScreen extends GuiScreen {
 		y += 22;
 		float cx = x;
 		float chipH = 26;
-		List<String> ids = noneDisables ? withNone(option.ids()) : option.ids();
+		List<String> ids = noneDisables ? withNone(option.choices()) : option.choices();
 		for (String id : ids) {
 			boolean selected = noneDisables
 				? "none".equals(id) ? !module.isEnabled() : module.isEnabled() && option.is(id)

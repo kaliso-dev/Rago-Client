@@ -3,8 +3,10 @@ package gg.rago.hud.elements;
 import gg.rago.config.BooleanOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
+import gg.rago.gui.ui.TextColors;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
+import gg.rago.hud.Shown;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
@@ -46,11 +48,15 @@ public final class ArmorHud extends HudElement {
 		return sample;
 	}
 
+	private final List<ItemStack> worn = new ArrayList<>(5);
+
 	private List<ItemStack> items(boolean placeholder) {
 		if (placeholder) {
 			return showHeld.get() ? sample() : sample().subList(0, 4);
 		}
-		List<ItemStack> list = new ArrayList<>(5);
+		// asked for several times a frame: the same list is filled again rather than a new one made
+		List<ItemStack> list = worn;
+		list.clear();
 		EntityPlayer player = Minecraft.getMinecraft().thePlayer;
 		if (player == null) {
 			return list;
@@ -125,9 +131,9 @@ public final class ArmorHud extends HudElement {
 	/** Remaining uses for damageable items, the stack size for stacks, nothing otherwise. */
 	private static String label(ItemStack stack) {
 		if (stack.isItemStackDamageable()) {
-			return Integer.toString(stack.getMaxDamage() - stack.getItemDamage());
+			return Shown.of(stack.getMaxDamage() - stack.getItemDamage());
 		}
-		return stack.stackSize > 1 ? Integer.toString(stack.stackSize) : "";
+		return stack.stackSize > 1 ? Shown.of(stack.stackSize) : "";
 	}
 
 	private int durabilityColor(ItemStack stack) {
@@ -143,6 +149,6 @@ public final class ArmorHud extends HudElement {
 			return normal;
 		}
 		float f = (float) remaining / max;
-		return f > 0.5f ? 0xFF55FF55 : f > 0.25f ? 0xFFFFFF55 : 0xFFFF5555;
+		return f > 0.5f ? TextColors.argb('a') : f > 0.25f ? TextColors.argb('e') : TextColors.argb('c');
 	}
 }

@@ -95,6 +95,11 @@ public final class HudPosition {
 		return o;
 	}
 
+	/** Where the element starts out, as {@link #toJson} stores it. */
+	public JsonObject defaultJson() {
+		return new HudPosition(defaultAnchor, defaultX, defaultY).toJson();
+	}
+
 	/** Reads stored values; any missing or invalid field keeps the default. */
 	public void fromJson(JsonObject o) {
 		reset();

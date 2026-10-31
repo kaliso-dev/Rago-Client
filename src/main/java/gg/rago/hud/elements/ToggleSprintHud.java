@@ -4,6 +4,7 @@ import gg.rago.config.BooleanOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.GameSettings;
@@ -17,6 +18,8 @@ import org.lwjgl.input.Keyboard;
  * so the game and the server see nothing a held key would not produce. Input class: off by default.
  */
 public final class ToggleSprintHud extends TextHudElement {
+	/** The text shown, made again only when it changes. */
+	private final Shown shown = new Shown();
 	@Override
 	public Category category() {
 		return Category.PVP;
@@ -95,9 +98,11 @@ public final class ToggleSprintHud extends TextHudElement {
 
 	@Override
 	protected String value(boolean placeholder) {
-		if (!placeholder && sneakToggled) {
-			return I18n.format(sprintToggled ? "rago.status.sprinting_sneaking" : "rago.status.sneaking");
+		int state = !placeholder && sneakToggled ? sprintToggled ? 2 : 1 : 0;
+		// the text is made again when the state or the language changes, not every frame
+		if (!shown.same(state, Minecraft.getMinecraft().gameSettings.language.hashCode(), 0)) {
+			shown.set(I18n.format(state == 2 ? "rago.status.sprinting_sneaking" : state == 1 ? "rago.status.sneaking" : "rago.status.sprinting"));
 		}
-		return I18n.format("rago.status.sprinting");
+		return shown.text();
 	}
 }

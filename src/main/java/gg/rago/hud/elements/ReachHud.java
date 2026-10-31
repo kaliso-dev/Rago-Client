@@ -4,6 +4,7 @@ import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -11,10 +12,11 @@ import net.minecraft.util.MovingObjectPosition;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
-import java.util.Locale;
 
 /** The distance of your last hit, from your eyes to where your crosshair met the target. */
 public final class ReachHud extends TextHudElement {
+	/** The text shown, made again only when it changes. */
+	private final Shown shown = new Shown();
 	private final IntOption decimals = addOption(new IntOption("decimals", 2, 1, 3));
 	private final IntOption showFor = addOption(new IntOption("show_seconds", 3, 1, 15));
 	private double reach;
@@ -54,6 +56,11 @@ public final class ReachHud extends TextHudElement {
 
 	@Override
 	protected String value(boolean placeholder) {
-		return String.format(Locale.ROOT, "%." + decimals.get() + "f", placeholder && !hasContent() ? 2.94 : reach);
+		double v = placeholder && !hasContent() ? 2.94 : reach;
+		int d = decimals.get();
+		if (!shown.same(Shown.key(v, d), d, 0)) {
+			shown.set(Shown.fixed(v, d));
+		}
+		return shown.text();
 	}
 }

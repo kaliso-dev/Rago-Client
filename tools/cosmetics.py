@@ -117,11 +117,6 @@ def bat_wing(joint, tips, top, root_low, bone=46, membrane_seed=3):
     return img, bone_set
 
 
-def dragon_parts():
-    """Ender-dragon-like wing: long bones, scaled membrane, scalloped trailing edge. Root at (3, 12)."""
-    return bat_wing((40, 5), [(63, 14), (60, 40), (46, 54), (28, 58), (10, 48)], [(2, 10), (20, 5)], (3, 30))
-
-
 def dragon_small_parts():
     """
     A short dragon wing, as compact as Lunar Client's: the arm bone rising from the root, three
@@ -300,7 +295,6 @@ def shield(style):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    dragon_parts()[0].save(os.path.join(OUT, 'dragon.png'))
     dragon_small_parts()[0].save(os.path.join(OUT, 'dragon_small.png'))
     cap().save(os.path.join(OUT, 'cap.png'))
     beanie().save(os.path.join(OUT, 'beanie.png'))

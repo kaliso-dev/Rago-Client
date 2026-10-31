@@ -650,14 +650,7 @@ public final class PacksScreen extends GuiScreen {
 	}
 
 	private static String ellipsize(gg.rago.gui.ui.TtfFont font, String s, float size, float maxW) {
-		if (Ui.textWidth(font, s, size) <= maxW) {
-			return s;
-		}
-		String e = s;
-		while (e.length() > 1 && Ui.textWidth(font, e + "…", size) > maxW) {
-			e = e.substring(0, e.length() - 1);
-		}
-		return e.trim() + "…";
+		return Ui.ellipsize(font, s, size, maxW);
 	}
 
 	// ---- input ----------------------------------------------------------------------------------

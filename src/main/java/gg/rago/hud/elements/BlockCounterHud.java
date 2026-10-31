@@ -4,6 +4,7 @@ import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.Shown;
 import gg.rago.hud.TextHudElement;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
@@ -64,7 +65,7 @@ public final class BlockCounterHud extends TextHudElement {
 
 	@Override
 	protected String value(boolean placeholder) {
-		return Integer.toString(placeholder ? 64 : count);
+		return Shown.of(placeholder ? 64 : count);
 	}
 
 	@Override

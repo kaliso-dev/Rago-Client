@@ -2,6 +2,7 @@ package gg.rago.modules;
 
 import gg.rago.bedwars.BedwarsGame;
 import gg.rago.config.BooleanOption;
+import gg.rago.config.ChoiceOption;
 import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
@@ -26,9 +27,9 @@ import net.minecraft.world.WorldSettings;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -36,30 +37,41 @@ import java.util.UUID;
 /**
  * Hypixel Bed Wars stats in the tab list: each player's star before their name and their final
  * kill/death ratio after it, coloured by how dangerous they are (Rago's own 1 to 5 level, see
- * {@link Danger}), and nicked players marked. When a game starts, a chat message lists the most
- * dangerous players against you. The stats come from the Hypixel API with your own key
+ * {@link Danger}), nicked players marked, and the list grouped by team, the strongest team first and
+ * each team strongest first. When a game starts, a chat message names the enemies to target (300
+ * stars or 5 FKDR and more by default, nicks and possible snipers) with their team mates, grouped by
+ * team, the strongest first, with their star and their name in their team's colour; with none, the
+ * team of the strongest enemy. It can go to your party or the game's
+ * chat too. The stats come from the Hypixel API with your own key
  * ({@code /rago hypixelkey <key>}); nothing is sent to the Minecraft server.
  */
 public final class BedwarsStats extends Module {
 	/** How long the game-start alert waits for stats still on their way. */
-	private static final int ALERT_WAIT_TICKS = 15 * 20;
-	/** The alert waits this long after the start, while Hypixel puts every player in a team. */
-	private static final int ALERT_DELAY_TICKS = 3 * 20;
+	private static final int ALERT_WAIT_TICKS = 10 * 20;
+	/** The alert waits this long after the start, while Hypixel puts every player in a team... */
+	private static final int ALERT_DELAY_TICKS = 20;
+	/** ...and until the number of enemies has held still this long. */
+	private static final int ALERT_SETTLE_TICKS = 10;
 	/** Gear seen in this long after the start counts for the sniper check. */
 	private static final int GEAR_WINDOW_TICKS = 60 * 20;
-	private static final int ALERT_MAX = 5;
 
 	private final BooleanOption tabStar = addOption(new BooleanOption("stats_tab_star", true));
 	private final BooleanOption tabFkdr = addOption(new BooleanOption("stats_tab_fkdr", true));
 	private final BooleanOption tabDanger = addOption(new BooleanOption("stats_tab_danger", true));
 	private final BooleanOption nicks = addOption(new BooleanOption("stats_nicks", true));
 	private final BooleanOption mark = addOption(new BooleanOption("stats_tab_mark", true));
-	/** A strong player: this final kill/death ratio or more... */
-	private final IntOption strongFkdr = addOption(new IntOption("stats_strong_fkdr", 10, 1, 50));
+	private final BooleanOption tabSort = addOption(new BooleanOption("stats_tab_sort", true));
+	/** A player to target: this final kill/death ratio or more (a new key, so the old default of 10 does not stay)... */
+	private final IntOption strongFkdr = addOption(new IntOption("stats_target_fkdr", 5, 1, 50));
 	/** ...or this Bed Wars star or more. */
 	private final IntOption strongStar = addOption(new IntOption("stats_strong_star", 300, 50, 2000));
 	private final BooleanOption alert = addOption(new BooleanOption("stats_alert", true));
 	private final BooleanOption alertSound = addOption(new BooleanOption("stats_alert_sound", true));
+	/**
+	 * The game-start line also sent in the chat, to your party (/pc) or the game's own chat (only your
+	 * team's in a team game, everyone's in solo); off by default, as it is a message sent.
+	 */
+	private final ChoiceOption alertShare = addOption(new ChoiceOption("stats_alert_share", "off", "off", "party", "team"));
 	private final BooleanOption sniper;
 	private final BooleanOption sniperName;
 	private final BooleanOption sniperStats;
@@ -70,8 +82,16 @@ public final class BedwarsStats extends Module {
 	private final Map<UUID, String> snipers = new HashMap<>();
 
 	private final HypixelApi api;
-	/** Before and after the name in the tab, by player; worked out each second, not each frame. */
+	/** Before and after the name in the tab, by player; worked out when stats come in, not each frame. */
 	private final Map<UUID, String[]> tab = new HashMap<>();
+	/** How strong each player looks, to sort the tab list by (see {@link #strength}). */
+	private final Map<UUID, Double> rank = new HashMap<>();
+	/** The API's answers and the tab list's size when the tab was last worked out. */
+	private int seenChanges = -1;
+	private int seenPlayers = -1;
+	/** The number of enemies the alert saw last, and the tick it changed at. */
+	private int enemyCount = -1;
+	private int enemiesSince;
 	private World world;
 	private boolean bedwars;
 	private int ticks;
@@ -107,6 +127,7 @@ public final class BedwarsStats extends Module {
 		section(null);
 		this.api = api;
 		alertSound.showIf(alert::get);
+		alertShare.showIf(alert::get);
 	}
 
 	@Override
@@ -122,6 +143,7 @@ public final class BedwarsStats extends Module {
 	@Override
 	protected void onDisable() {
 		tab.clear();
+		rank.clear();
 	}
 
 	@Override
@@ -132,6 +154,7 @@ public final class BedwarsStats extends Module {
 			world = mc.theWorld;
 			wasPlaying = false;
 			tab.clear();
+			rank.clear();
 			snipers.clear();
 			// Hypixel may move you to a new world as the game starts: keep a start just seen
 			if (startedAt >= 0 && ticks - startedAt > 5 * 20) {
@@ -145,15 +168,23 @@ public final class BedwarsStats extends Module {
 			if (playing && !wasPlaying && startedAt < 0) {
 				startedAt = ticks;
 				alerted = false;
+				enemyCount = -1;
 			}
 			wasPlaying = playing;
 		}
-		if (mc.thePlayer == null || ticks % 20 != 0) {
+		// the tab is worked out again each second, and as soon as new stats or new players come in,
+		// or Bed Wars starts or ends
+		NetHandlerPlayClient handler = mc.getNetHandler();
+		boolean news = ticks % 4 == 0 && (api.changes() != seenChanges
+			|| handler != null && handler.getPlayerInfoMap().size() != seenPlayers || BedwarsGame.inBedwars() != bedwars);
+		if (mc.thePlayer == null || ticks % 20 != 0 && !news) {
 			if (startedAt >= 0 && !alerted && mc.thePlayer != null && ticks % 5 == 0) {
 				maybeAlert(mc);
 			}
 			return;
 		}
+		seenChanges = api.changes();
+		seenPlayers = handler == null ? -1 : handler.getPlayerInfoMap().size();
 		bedwars = BedwarsGame.inBedwars();
 		if (gg.rago.debug.InputTrace.on() && ticks % 100 == 0) {
 			net.minecraft.scoreboard.ScoreObjective side = mc.theWorld == null ? null : mc.theWorld.getScoreboard().getObjectiveInDisplaySlot(1);
@@ -164,6 +195,7 @@ public final class BedwarsStats extends Module {
 		}
 		if (!bedwars) {
 			tab.clear();
+			rank.clear();
 			return;
 		}
 		HypixelApi.Status s = api.status();
@@ -189,6 +221,7 @@ public final class BedwarsStats extends Module {
 			return;
 		}
 		tab.clear();
+		rank.clear();
 		boolean playing = BedwarsGame.playing();
 		// a big lobby (not a game, not its waiting room): those players only get the key's spare requests
 		bigLobby = !playing && !BedwarsGame.waitingRoom() && net.getPlayerInfoMap().size() > BIG_LOBBY;
@@ -252,7 +285,7 @@ public final class BedwarsStats extends Module {
 		return gg.rago.bedwars.SniperCheck.reason(name, s, sniperName.get(), sniperStats.get(), sniperFinals.get(), sniperFkdr.get());
 	}
 
-	/** The text before and after a player's name, or null to leave it as it is. */
+	/** The text before and after a player's name, or null to leave it as it is; notes how strong the player looks. */
 	private String[] parts(NetworkPlayerInfo info, boolean playing) {
 		UUID id = info.getGameProfile().getId();
 		// NPCs and Hypixel's bots are no players; in a game, every player is in a team
@@ -260,16 +293,16 @@ public final class BedwarsStats extends Module {
 			return null;
 		}
 		String warn = mark.get() ? MARK + " " : "";
-		String sniperTag = sniperReason(id, info.getGameProfile().getName(), Hypixel.realPlayer(id) ? api.get(id, bigLobby) : null) != null ? "§d[S] " : "";
-		if (!Hypixel.realPlayer(id)) {
+		HypixelApi.Stats s = Hypixel.realPlayer(id) ? api.get(id, bigLobby) : null;
+		boolean nick = !Hypixel.realPlayer(id) || s != null && !s.found;
+		boolean sniped = sniperReason(id, info.getGameProfile().getName(), s) != null;
+		rank.put(id, strength(s, nick && nicks.get(), sniped, s != null && strong(s)));
+		String sniperTag = sniped ? "§d[S] " : "";
+		if (nick) {
 			return nicks.get() ? new String[] {warn + "§c[NICK] ", ""} : null;
 		}
-		HypixelApi.Stats s = api.get(id, bigLobby);
 		if (s == null) {
 			return null;
-		}
-		if (!s.found) {
-			return nicks.get() ? new String[] {warn + "§c[NICK] ", ""} : null;
 		}
 		String before = (strong(s) || !sniperTag.isEmpty() ? warn : "") + sniperTag
 			+ (tabStar.get() && s.star >= 0 ? Hypixel.bedwarsStar(s.star) + " " : "");
@@ -285,13 +318,88 @@ public final class BedwarsStats extends Module {
 		return new String[] {before, after.toString()};
 	}
 
+	/**
+	 * How strong a player looks, higher first: possible snipers, then nicks (hidden on purpose, often
+	 * strong), then players to target ({@code target}: the star or FKDR settings), then the others;
+	 * within each, by danger level, final kill/death ratio and star. -1 while the stats are unknown.
+	 */
+	static double strength(HypixelApi.Stats s, boolean nick, boolean sniper, boolean target) {
+		double known = s == null || !s.found ? 0 : Danger.level(s) * 1e5 + Math.min(s.fkdr(), 999) * 100 + Math.min(Math.max(s.star, 0), 9999) / 100.0;
+		if (sniper) {
+			return 2e6 + known;
+		}
+		if (nick) {
+			return 1e6;
+		}
+		if (s == null || !s.found) {
+			return -1;
+		}
+		// below 6e5 whatever the level: a player to target comes before any other
+		return target ? 6e5 + known : known;
+	}
+
+	/**
+	 * The tab list's players in Bed Wars when the option is on: grouped by team, the team with the
+	 * strongest player first, then the team with the next strongest, and so on, each with all its
+	 * players, strongest first, weak ones included. Your own team comes after the enemies, and
+	 * spectators (players out of the game) last; players alike keep the game's order.
+	 */
+	public List<NetworkPlayerInfo> tabOrder(List<NetworkPlayerInfo> vanilla) {
+		if (!bedwars || !tabSort.get() || rank.isEmpty()) {
+			return vanilla;
+		}
+		Map<String, Double> teams = new HashMap<>();
+		for (NetworkPlayerInfo info : vanilla) {
+			teams.merge(teamKey(info), rankOf(info), Math::max);
+		}
+		char own = BedwarsGame.ownTeam();
+		String ownKey = own == 0 ? null : String.valueOf(own);
+		List<NetworkPlayerInfo> out = new ArrayList<>(vanilla);
+		out.sort((a, b) -> {
+			boolean outA = a.getGameType() == WorldSettings.GameType.SPECTATOR;
+			boolean outB = b.getGameType() == WorldSettings.GameType.SPECTATOR;
+			if (outA != outB) {
+				return outA ? 1 : -1;
+			}
+			String ta = teamKey(a);
+			String tb = teamKey(b);
+			if (!ta.equals(tb)) {
+				boolean ownA = ta.equals(ownKey);
+				boolean ownB = tb.equals(ownKey);
+				if (ownA != ownB) {
+					return ownA ? 1 : -1;
+				}
+				int c = Double.compare(teams.get(tb), teams.get(ta));
+				return c != 0 ? c : ta.compareTo(tb);
+			}
+			return Double.compare(rankOf(b), rankOf(a));
+		});
+		return out;
+	}
+
+	/**
+	 * The team a player is listed with: the letter of their team's prefix ("R" for Red). Hypixel
+	 * gives each player a scoreboard team of their own, so the team's name cannot group them.
+	 * Players with no team letter (a lobby) are listed together.
+	 */
+	private static String teamKey(NetworkPlayerInfo info) {
+		ScorePlayerTeam team = info.getPlayerTeam();
+		char letter = team == null ? 0 : BedwarsGame.teamLetter(team);
+		return letter == 0 ? "" : String.valueOf(letter);
+	}
+
+	private double rankOf(NetworkPlayerInfo info) {
+		Double r = rank.get(info.getGameProfile().getId());
+		return r == null ? -1 : r;
+	}
+
 	/** A player of the game: in a team whose prefix is its letter ("R " for Red). */
 	private static boolean inTeam(NetworkPlayerInfo info) {
 		ScorePlayerTeam team = info.getPlayerTeam();
 		return team != null && BedwarsGame.teamLetter(team) != 0;
 	}
 
-	/** A player the options call strong: a high final kill/death ratio or a high star. */
+	/** A player to target, as the options say: a high final kill/death ratio or a high star (5 FKDR or 300 stars by default). */
 	private boolean strong(HypixelApi.Stats s) {
 		return s.found && (s.fkdr() >= strongFkdr.get() || s.star >= strongStar.get());
 	}
@@ -336,6 +444,7 @@ public final class BedwarsStats extends Module {
 		if (text.contains(BedwarsGame.START)) {
 			startedAt = ticks;
 			alerted = false;
+			enemyCount = -1;
 		}
 	}
 
@@ -347,7 +456,7 @@ public final class BedwarsStats extends Module {
 			return;
 		}
 		NetHandlerPlayClient net = mc.getNetHandler();
-		if (net == null || ticks - startedAt < ALERT_DELAY_TICKS) {
+		if (net == null) {
 			return;
 		}
 		char own = BedwarsGame.ownTeam();
@@ -355,72 +464,282 @@ public final class BedwarsStats extends Module {
 		boolean waiting = false;
 		for (NetworkPlayerInfo info : net.getPlayerInfoMap()) {
 			UUID id = info.getGameProfile().getId();
-			if (id == null || id.equals(mc.thePlayer.getUniqueID()) || Hypixel.npc(id) || !inTeam(info)
-				|| info.getGameType() == WorldSettings.GameType.SPECTATOR) {
+			if (id == null || Hypixel.npc(id) || !inTeam(info) || info.getGameType() == WorldSettings.GameType.SPECTATOR) {
 				continue;
 			}
-			ScorePlayerTeam team = info.getPlayerTeam();
-			if (own != 0 && team != null && BedwarsGame.teamLetter(team) == own) {
+			char letter = BedwarsGame.teamLetter(info.getPlayerTeam());
+			if (id.equals(mc.thePlayer.getUniqueID()) || own != 0 && letter == own) {
 				continue;
 			}
 			enemies.add(info);
-			if (Hypixel.realPlayer(id) && api.get(id) == null && (api.status() == HypixelApi.Status.OK || api.status() == HypixelApi.Status.CHECKING)) {
+			// stats asked for and on their way (a failed answer, or Hypixel out of reach, is not waited for)
+			HypixelApi.Status status = api.status();
+			if (Hypixel.realPlayer(id) && api.get(id) == null && api.waiting(id)
+				&& (status == HypixelApi.Status.OK || status == HypixelApi.Status.CHECKING)) {
 				waiting = true;
 			}
 		}
-		// no enemy in a team yet, or stats still on their way: wait a little
-		if ((enemies.isEmpty() || waiting) && ticks - startedAt < ALERT_WAIT_TICKS) {
+		if (enemies.size() != enemyCount) {
+			enemyCount = enemies.size();
+			enemiesSince = ticks;
+		}
+		// Hypixel gives out the teams within a moment of the start: go once every enemy is in one
+		// (their number holds still) and their stats are in, or after a while with what is known;
+		// the stats are asked for from the start, while the teams settle
+		boolean settled = !enemies.isEmpty() && own != 0 && ticks - enemiesSince >= ALERT_SETTLE_TICKS
+			&& ticks - startedAt >= ALERT_DELAY_TICKS;
+		if ((!settled || waiting) && ticks - startedAt < ALERT_WAIT_TICKS) {
 			return;
 		}
 		alerted = true;
-		// enemies to watch, by team: strong players first, then nicks
-		Map<String, List<String>> byTeam = new LinkedHashMap<>();
-		Map<String, Double> teamThreat = new HashMap<>();
-		Map<String, String> teamLabel = new HashMap<>();
+		if (enemies.isEmpty()) {
+			return;
+		}
+		RagoClient.LOG.info("Bed Wars Stats: game-start message {} ms after the start, {} enemies{}",
+			(ticks - startedAt) * 50, enemies.size(), waiting ? ", some stats still on their way" : "");
+		List<Enemy> all = new ArrayList<>();
 		for (NetworkPlayerInfo info : enemies) {
 			UUID id = info.getGameProfile().getId();
 			String name = info.getGameProfile().getName();
 			HypixelApi.Stats s = Hypixel.realPlayer(id) ? api.get(id) : null;
-			String entry;
-			double threat;
 			String why = sniperReason(id, name, s);
 			if (why != null) {
 				snipers.put(id, why);
 			}
-			if (!Hypixel.realPlayer(id) || s != null && !s.found) {
-				if (!nicks.get()) {
-					continue;
-				}
-				entry = MARK + " §c" + name + " §7(" + I18n.format("rago.stats.nick") + ")";
-				threat = 5;
-			} else if (why != null) {
-				entry = MARK + " §d[S] " + (s != null && s.star >= 0 ? Hypixel.bedwarsStar(s.star) + " " : "") + "§f" + name
-					+ " §d(" + I18n.format("rago.stats.sniper_warn", I18n.format("rago.stats.sniper_" + why)) + "§d)";
-				threat = 6;
-			} else if (s != null && strong(s)) {
-				entry = MARK + " " + (s.star >= 0 ? Hypixel.bedwarsStar(s.star) + " " : "") + "§f" + name
-					+ " §7(FKDR " + Danger.fkdrColor(s.fkdr()) + Danger.ratio(s.fkdr()) + "§7)";
-				threat = s.fkdr();
-			} else {
-				continue;
-			}
+			boolean nick = !Hypixel.realPlayer(id) || s != null && !s.found;
 			ScorePlayerTeam team = info.getPlayerTeam();
-			String key = team == null ? "?" : team.getRegisteredName();
-			if (!teamLabel.containsKey(key)) {
-				teamLabel.put(key, teamName(team));
+			// to target: a strong player (the star or FKDR settings), a nick (hidden on purpose, often
+			// strong) or a possible sniper
+			boolean target = s != null && strong(s) || nick && nicks.get() || why != null;
+			all.add(new Enemy(name, BedwarsGame.teamLetter(team), team == null ? 0 : BedwarsGame.teamColor(team), s, why, target,
+				strength(s, nick && nicks.get(), why != null, s != null && strong(s)), nick));
+		}
+		// every enemy to target with their team mates, grouped by team, the strongest team first; with
+		// none, the whole team of the strongest enemy
+		List<List<Enemy>> groups = targetTeams(all);
+		boolean targets = !groups.isEmpty();
+		if (!targets) {
+			List<Enemy> strongest = strongestTeam(all);
+			if (!strongest.isEmpty()) {
+				groups.add(strongest);
 			}
-			byTeam.computeIfAbsent(key, k -> new ArrayList<>()).add(entry);
-			teamThreat.merge(key, threat, Math::max);
 		}
-		List<String> order = new ArrayList<>(byTeam.keySet());
-		order.sort((a, b) -> Double.compare(teamThreat.get(b), teamThreat.get(a)));
-		send(mc, "§c§lRago §8» " + (order.isEmpty() ? "§a" + I18n.format("rago.stats.alert_none") : "§f" + I18n.format("rago.stats.alert_title")));
-		for (String key : order) {
-			send(mc, "  " + teamLabel.get(key) + " §8» " + String.join("§8, ", byTeam.get(key)));
+		String heading;
+		String shareHeading;
+		if (targets) {
+			heading = I18n.format("rago.stats.alert_targets");
+			shareHeading = heading;
+		} else if (!groups.isEmpty()) {
+			char color = groups.get(0).get(0).color;
+			String teamWord = color == 0 ? I18n.format("rago.team.unknown") : I18n.format("rago.team." + color);
+			heading = I18n.format("rago.stats.alert_strongest_team", (color == 0 ? "§7" : "§" + color) + teamWord + "§f");
+			shareHeading = I18n.format("rago.stats.share_strongest_team", teamWord);
+		} else {
+			heading = I18n.format("rago.stats.alert_targets");
+			shareHeading = null;
 		}
-		if (!order.isEmpty()) {
+		StringBuilder line = new StringBuilder("§c§lRago §8» §f").append(heading).append(' ');
+		if (groups.isEmpty()) {
+			line.append("§7").append(I18n.format("rago.stats.alert_no_stats"));
+		}
+		for (int g = 0; g < groups.size(); g++) {
+			List<Enemy> group = groups.get(g);
+			for (int i = 0; i < group.size(); i++) {
+				line.append(g == 0 && i == 0 ? "" : i == 0 ? " §8| " : "§8, ").append(group.get(i).entry());
+			}
+		}
+		send(mc, line.toString());
+		if (targets) {
 			ping(mc);
 		}
+		if (shareHeading != null && !alertShare.is("off")) {
+			List<List<String>> entries = new ArrayList<>();
+			for (List<Enemy> group : groups) {
+				List<String> shared = new ArrayList<>();
+				for (Enemy e : group) {
+					// each team named once, before its first player
+					String teamWord = targets && shared.isEmpty() && e.color != 0 ? I18n.format("rago.team." + e.color) + ": " : "";
+					shared.add(teamWord + e.shared());
+				}
+				entries.add(shared);
+			}
+			String message = ascii(shareGroups((alertShare.is("party") ? "/pc " : "") + shareHeading + " ", entries));
+			RagoClient.LOG.info("Bed Wars Stats: game-start line sent to the {}: \"{}\"", alertShare.get(), message);
+			mc.thePlayer.sendChatMessage(message);
+		}
+	}
+
+	/** An enemy at the start of a game, for the game-start line. */
+	static final class Enemy {
+		final String name;
+		final char team;
+		/** The team's colour code, 0 if not known. */
+		final char color;
+		final HypixelApi.Stats stats;
+		/** Why they may be a sniper, or null. */
+		final String sniper;
+		/** To target: strong, nicked or a possible sniper. */
+		final boolean target;
+		final double strength;
+		final boolean nick;
+
+		Enemy(String name, char team, char color, HypixelApi.Stats stats, String sniper, boolean target, double strength) {
+			this(name, team, color, stats, sniper, target, strength, false);
+		}
+
+		Enemy(String name, char team, char color, HypixelApi.Stats stats, String sniper, boolean target, double strength, boolean nick) {
+			this.name = name;
+			this.team = team;
+			this.color = color;
+			this.stats = stats;
+			this.sniper = sniper;
+			this.target = target;
+			this.strength = strength;
+			this.nick = nick;
+		}
+
+		/** How they show in the game-start line. */
+		String entry() {
+			String teamColor = color == 0 ? "§f" : "§" + color;
+			String sniperTag = sniper != null ? "§d[S] " : "";
+			if (nick) {
+				return (target ? MARK + " " : "") + sniperTag + "§c[NICK] " + teamColor + name;
+			}
+			if (stats == null || !stats.found) {
+				return sniperTag + teamColor + name + " §5" + I18n.format("rago.stats.alert_unknown");
+			}
+			return targetEntry(name, teamColor, stats, sniper, target);
+		}
+
+		/** How they show in the line sent in the chat: name, then star and FKDR. */
+		String shared() {
+			if (nick) {
+				return name + " (NICK)";
+			}
+			if (stats == null || !stats.found) {
+				return name + " (?)";
+			}
+			return name + " (" + Math.max(stats.star, 0) + "* " + Danger.ratio(stats.fkdr()) + ")";
+		}
+	}
+
+	/**
+	 * The teams with an enemy to target ({@link Enemy#target}), each whole, its mates included
+	 * whatever their stats: the team with the strongest player first, each strongest first. A
+	 * player whose team is not known makes a team of their own.
+	 */
+	static List<List<Enemy>> targetTeams(List<Enemy> enemies) {
+		java.util.Map<Object, List<Enemy>> teams = new java.util.LinkedHashMap<>();
+		for (Enemy e : enemies) {
+			if (e.target) {
+				teams.computeIfAbsent(e.team != 0 ? (Object) e.team : e, k -> new ArrayList<>());
+			}
+		}
+		for (Enemy e : enemies) {
+			List<Enemy> team = teams.get(e.team != 0 ? (Object) e.team : e);
+			if (team != null) {
+				team.add(e);
+			}
+		}
+		List<List<Enemy>> out = new ArrayList<>(teams.values());
+		for (List<Enemy> team : out) {
+			team.sort((a, b) -> Double.compare(b.strength, a.strength));
+		}
+		out.sort((a, b) -> Double.compare(b.get(0).strength, a.get(0).strength));
+		return out;
+	}
+
+	/**
+	 * The team of the strongest enemy whose strength is known (see {@link #strength}; a nick counts
+	 * when the option ranks them), all of it, strongest first; empty when no one's is known.
+	 */
+	static List<Enemy> strongestTeam(List<Enemy> enemies) {
+		Enemy best = null;
+		for (Enemy e : enemies) {
+			if (e.strength >= 0 && (best == null || e.strength > best.strength)) {
+				best = e;
+			}
+		}
+		List<Enemy> team = new ArrayList<>();
+		if (best == null) {
+			return team;
+		}
+		for (Enemy e : enemies) {
+			if (e == best || best.team != 0 && e.team == best.team) {
+				team.add(e);
+			}
+		}
+		team.sort((a, b) -> Double.compare(b.strength, a.strength));
+		return team;
+	}
+
+	/** {@code s} with its accents taken off and only printable ASCII kept, as every server takes it. */
+	static String ascii(String s) {
+		String plain = Normalizer.normalize(s, Normalizer.Form.NFD);
+		StringBuilder b = new StringBuilder(plain.length());
+		for (int i = 0; i < plain.length(); i++) {
+			char c = plain.charAt(i);
+			if (c >= 32 && c < 127) {
+				b.append(c);
+			}
+		}
+		return b.toString();
+	}
+
+	/** Longest chat message the server takes. */
+	static final int CHAT_MAX = 100;
+
+	/**
+	 * The targets as one chat message of {@value #CHAT_MAX} characters at most, without colours (a
+	 * server refuses them): as many entries as fit, then "+2" for those left out.
+	 */
+	static String shareLine(String start, List<String> entries) {
+		return shareGroups(start, java.util.Collections.singletonList(entries));
+	}
+
+	/** The same with players grouped by team: ", " between team mates, " | " between teams. */
+	static String shareGroups(String start, List<List<String>> groups) {
+		List<String> parts = new ArrayList<>();
+		for (List<String> group : groups) {
+			for (int i = 0; i < group.size(); i++) {
+				parts.add((parts.isEmpty() ? "" : i == 0 ? " | " : ", ") + group.get(i));
+			}
+		}
+		StringBuilder b = new StringBuilder(start);
+		for (int i = 0; i < parts.size(); i++) {
+			String entry = parts.get(i);
+			int left = parts.size() - i - 1;
+			String more = left > 0 ? " +" + left : "";
+			if (b.length() + entry.length() + more.length() > CHAT_MAX) {
+				if (i == 0) {
+					return b.append(entry, 0, Math.max(0, CHAT_MAX - b.length())).toString();
+				}
+				return b.append(" +").append(parts.size() - i).toString();
+			}
+			b.append(entry);
+		}
+		return b.toString();
+	}
+
+	/**
+	 * One enemy to target in the game-start message: the danger sign, the star, the name in the
+	 * team's colour, then the final kill/death ratio and the tier (and why they may be a sniper).
+	 */
+	private static String targetEntry(String name, String teamColor, HypixelApi.Stats s, String sniper, boolean mark) {
+		StringBuilder b = new StringBuilder(mark ? MARK + " " : "");
+		if (sniper != null) {
+			b.append("§d[S] ");
+		}
+		if (s.star >= 0) {
+			b.append(Hypixel.bedwarsStar(s.star)).append(' ');
+		}
+		b.append(teamColor).append(name).append(' ').append(Danger.fkdrColor(s.fkdr())).append(Danger.ratio(s.fkdr()));
+		int d = Danger.level(s);
+		b.append("§8/").append(Danger.color(d)).append(Danger.tier(d));
+		if (sniper != null) {
+			b.append(" §d(").append(I18n.format("rago.stats.sniper_warn", I18n.format("rago.stats.sniper_" + sniper))).append("§d)");
+		}
+		return b.toString();
 	}
 
 	/** "§cRed": the team's name in its colour, from the colour of its prefix. */

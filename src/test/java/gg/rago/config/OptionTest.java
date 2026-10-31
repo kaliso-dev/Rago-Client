@@ -61,6 +61,26 @@ class OptionTest {
 		assertEquals("ca", picked.toString());
 	}
 
+	/** A value held back (a cape only its owner wears) is not offered, but a saved one is kept. */
+	@Test
+	void choiceHoldsBackValuesFromTheMenu() {
+		boolean[] owner = {false};
+		ChoiceOption c = new ChoiceOption("cape", "a", "a", "mine", "b").allowIf(id -> !id.equals("mine") || owner[0]);
+		assertEquals(java.util.Arrays.asList("a", "b"), c.choices());
+		c.cycle(1);
+		assertEquals("b", c.get());
+		c.cycle(1);
+		assertEquals("a", c.get());
+		c.fromJson(new JsonPrimitive("mine"));
+		assertEquals("mine", c.get());
+		c.cycle(1);
+		assertEquals("a", c.get());
+		owner[0] = true;
+		assertEquals(java.util.Arrays.asList("a", "mine", "b"), c.choices());
+		c.cycle(1);
+		assertEquals("mine", c.get());
+	}
+
 	@Test
 	void makeCurrentDefaultChangesReset() {
 		IntOption o = new IntOption("n", 5, 1, 10);

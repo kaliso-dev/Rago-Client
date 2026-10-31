@@ -153,19 +153,27 @@ public final class Paint {
 			return;
 		}
 		float inner = Math.max(0, r - width);
-		float[] cxs = {x + w - r, x + w - r, x + r, x + r};
-		float[] cys = {y + r, y + h - r, y + h - r, y + r};
+		// corner centres, in the order of COS/SIN: top right, bottom right, bottom left, top left
+		// (worked out per point rather than kept in arrays: this runs for every outline, every frame)
+		float right = x + w - r;
+		float left = x + r;
+		float top = y + r;
+		float bottom = y + h - r;
 		int n = COS.length;
 		for (int i = 0; i < n; i++) {
 			int j = (i + 1) % n;
 			int ci = i / (SEG + 1);
 			int cj = j / (SEG + 1);
+			float cxi = ci < 2 ? right : left;
+			float cyi = ci == 1 || ci == 2 ? bottom : top;
+			float cxj = cj < 2 ? right : left;
+			float cyj = cj == 1 || cj == 2 ? bottom : top;
 			// a ring quad from point i to point j (the step between corners is a straight edge)
 			// same winding as vanilla's GUI quads, so face culling never drops it
-			color(b.pos(cxs[ci] + COS[i] * inner, cys[ci] + SIN[i] * inner, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
-			color(b.pos(cxs[cj] + COS[j] * inner, cys[cj] + SIN[j] * inner, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
-			color(b.pos(cxs[cj] + COS[j] * r, cys[cj] + SIN[j] * r, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
-			color(b.pos(cxs[ci] + COS[i] * r, cys[ci] + SIN[i] * r, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+			color(b.pos(cxi + COS[i] * inner, cyi + SIN[i] * inner, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+			color(b.pos(cxj + COS[j] * inner, cyj + SIN[j] * inner, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+			color(b.pos(cxj + COS[j] * r, cyj + SIN[j] * r, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+			color(b.pos(cxi + COS[i] * r, cyi + SIN[i] * r, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
 		}
 	}
 

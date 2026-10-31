@@ -44,7 +44,7 @@ public final class HudManager {
 	public void render(boolean onlyVanilla) {
 		nextFrame();
 		Minecraft mc = Minecraft.getMinecraft();
-		ScaledResolution window = new ScaledResolution(mc);
+		ScaledResolution window = HudText.resolution();
 		shown.clear();
 		for (HudElement element : elements()) {
 			if (element.isEnabled() && (!onlyVanilla || element.replacesVanilla()) && element.hasContent()) {
@@ -52,16 +52,48 @@ public final class HudManager {
 			}
 		}
 		stack(shown, mc.fontRendererObj, window.getScaledHeight(), NO_PLACEHOLDER);
+		boolean timed = gg.rago.debug.FrameProfile.ON;
 		for (HudElement element : shown) {
-			long t = gg.rago.debug.FrameProfile.ON ? System.nanoTime() : 0;
-			draw(element, mc.fontRendererObj, window.getScaledWidth(), window.getScaledHeight(), false);
-			if (gg.rago.debug.FrameProfile.ON) {
-				gg.rago.debug.FrameProfile.element(element.id(), System.nanoTime() - t);
+			long a = timed ? gg.rago.debug.FrameProfile.bytes() : 0;
+			long t = timed ? System.nanoTime() : 0;
+			int[] b = drawInto(element, mc.fontRendererObj, window.getScaledWidth(), window.getScaledHeight(), false, drawn);
+			if (collect != null) {
+				if (collected * 4 + 4 <= collect.length) {
+					System.arraycopy(b, 0, collect, collected * 4, 4);
+				}
+				collected++;
+			}
+			if (timed) {
+				long ns = System.nanoTime() - t;
+				gg.rago.debug.FrameProfile.element(element.id(), ns, gg.rago.debug.FrameProfile.bytesSince(a));
 			}
 		}
 	}
 
+	/** The bounds of the element just drawn, reused every frame. */
+	private final int[] drawn = new int[4];
+
 	private static int frame;
+	private static int[] collect;
+	private static int collected;
+
+	/**
+	 * Until {@link #collected()}, the bounds of every element drawn go into {@code into}, four
+	 * numbers each (x, y, width, height in GUI pixels), for the HUD cache to lay over the frame only
+	 * where the HUD is.
+	 */
+	public static void collectBounds(int[] into) {
+		collect = into;
+		collected = 0;
+	}
+
+	/** How many elements were drawn since {@link #collectBounds} (more than fit when it overflowed); stops collecting. */
+	public static int collected() {
+		int n = collected;
+		collect = null;
+		collected = 0;
+		return n;
+	}
 
 	/** Counts HUD frames, so elements can work out their text once per frame. */
 	public static int frame() {
@@ -116,7 +148,12 @@ public final class HudManager {
 
 	/** Draws one element and returns its on-screen bounds as {x, y, w, h}. */
 	public static int[] draw(HudElement element, FontRenderer text, int screenW, int screenH, boolean placeholder) {
-		int[] b = bounds(element, text, screenW, screenH, placeholder);
+		return drawInto(element, text, screenW, screenH, placeholder, new int[4]);
+	}
+
+	/** Draws one element and puts its on-screen bounds {x, y, w, h} into {@code out}, which it returns. */
+	public static int[] drawInto(HudElement element, FontRenderer text, int screenW, int screenH, boolean placeholder, int[] out) {
+		int[] b = boundsInto(element, text, screenW, screenH, placeholder, out);
 		float scale = element.position().scale();
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(b[0], b[1], 0);
@@ -133,10 +170,19 @@ public final class HudManager {
 	}
 
 	public static int[] bounds(HudElement element, FontRenderer text, int screenW, int screenH, boolean placeholder) {
+		return boundsInto(element, text, screenW, screenH, placeholder, new int[4]);
+	}
+
+	/** The on-screen bounds {x, y, w, h} of one element, put into {@code out}, which it returns. */
+	public static int[] boundsInto(HudElement element, FontRenderer text, int screenW, int screenH, boolean placeholder, int[] out) {
 		float scale = element.position().scale();
 		int w = Math.round(element.width(text, placeholder) * scale);
 		int h = Math.round(element.height(text, placeholder) * scale);
 		HudPosition p = element.position();
-		return new int[]{p.screenX(w, screenW), Math.min(p.screenY(h, screenH) + element.stackShift, Math.max(0, screenH - h)), w, h};
+		out[0] = p.screenX(w, screenW);
+		out[1] = Math.min(p.screenY(h, screenH) + element.stackShift, Math.max(0, screenH - h));
+		out[2] = w;
+		out[3] = h;
+		return out;
 	}
 }
