@@ -2,7 +2,7 @@
 an outer face of 320 x 512. The game shows them smooth (filtered, with mipmaps: gg.rago.render.HdTexture).
 
   black_cat  the Discord picture of Rago's creator, a black cat, in a fine silver frame
-  pixel_cat  a black cat drawn in Minecraft's pixel style (Rago's own drawing)
+  pixel_cat  a black cat's face in Minecraft's pixel style, at a cape's own 10 x 16 (Rago's own drawing)
   night_cat  a black cat on the roofs under the moon (a picture from Rago's creator)
   qrago      a photo of Rago's creator
 
@@ -90,76 +90,50 @@ def frame(face, inset, colour, width):
 
 # ---- pixel_cat: Rago's own pixel drawing -------------------------------------------------------
 
-# 20 x 32 squares (16 texture pixels each): a black cat sitting, seen from the front, filling the cape.
-# . night sky  * star  K fur  P inner ear  E eye  e dark of the eye  B pupil  W eye light
-# m muzzle  N nose  n its shadow  M mouth  w whisker  R collar  r collar shadow  O bell  o bell shadow  L bell light
-# h paw edge  j paw
+# 10 x 16 squares, a Minecraft cape's own size (32 texture pixels each): the cape is a black cat's
+# face. K fur  E ear edge  P inner ear  Y eye  y lower eye  B pupil  W eye light  N nose  n its shadow
+# w whisker
 PIXEL_CAT = [
-    '....................',
-    '.KK...........*..KK.',
-    '.KKK............KKK.',
-    '.KPKK..........KKPK.',
-    '.KPPKK..*.....KKPPK.',
-    'KKPPPKK......KKPPPKK',
-    'KKPPPKKKKKKKKKKPPPKK',
-    'KKKPKKKKKKKKKKKKPKKK',
-    'KKKKKKKKKKKKKKKKKKKK',
-    'KKKKKKKKKKKKKKKKKKKK',
-    'KKKEEEKKKKKKKKEEEKKK',
-    'KKEWEEEKKKKKKEWEEEKK',
-    'KKEEBEEKKKKKKEEBEEKK',
-    'KKEEBEEKKKKKKEEBEEKK',
-    'KKeEBEeKKKKKKeEBEeKK',
-    'KKKeeeKKKKKKKKeeeKKK',
-    'KKKKKKKmmNNmmKKKKKKK',
-    'KwwwwKmmmnnmmmKwwwwK',
-    'KKKKKKmmmMMmmmKKKKKK',
-    'KwwwwKmmMmmMmmKwwwwK',
-    'KKKKKKKmmmmmmKKKKKKK',
-    'RRRRRRRRRRRRRRRRRRRR',
-    'rrrrrrrrrOOrrrrrrrrr',
-    'KKKKKKKKOLOoKKKKKKKK',
-    'KKKKKKKKOMMoKKKKKKKK',
-    'KKKKKKKKKooKKKKKKKKK',
-    'KKKKKKKKKKKKKKKKKKKK',
-    'KKKKKKKKKKKKKKKKKKKK',
-    'KKKhhhhhKKKKhhhhhKKK',
-    'KKhjjjjjhKKhjjjjjhKK',
-    'KKhjjjjjhKKhjjjjjhKK',
-    'KKhjhjhjhKKhjhjhjhKK',
+    'KEKKKKKKEK',
+    'EPEKKKKEPE',
+    'EPPEKKEPPE',
+    'KKKKKKKKKK',
+    'KKKKKKKKKK',
+    'KWYYKKWYYK',
+    'KYBYKKYBYK',
+    'KyByKKyByK',
+    'KKKKNNKKKK',
+    'wwKKnnKKww',
+    'KKKKKKKKKK',
+    'KKKKKKKKKK',
+    'KKKKKKKKKK',
+    'KKKKKKKKKK',
+    'KKKKKKKKKK',
+    'KKKKKKKKKK',
 ]
 
 PIXEL_COLOURS = {
-    '.': (36, 30, 58), '*': (246, 232, 170),
-    'P': (232, 143, 166), 'E': (128, 214, 92), 'e': (78, 160, 60), 'B': (8, 8, 10), 'W': (255, 255, 255),
-    'N': (242, 155, 177), 'n': (196, 108, 134), 'M': (10, 10, 13), 'w': (196, 196, 206),
-    'R': (210, 58, 58), 'r': (150, 36, 38), 'O': (244, 197, 66), 'o': (184, 137, 42), 'L': (255, 241, 168),
-    'h': (62, 61, 73), 'j': (44, 43, 52), 'm': (50, 48, 60),
+    'E': (52, 50, 60), 'P': (236, 150, 172),
+    'Y': (247, 205, 74), 'y': (222, 150, 44), 'B': (10, 9, 12), 'W': (255, 247, 214),
+    'N': (240, 146, 170), 'n': (184, 98, 124), 'w': (64, 62, 72),
 }
-FUR = ((23, 22, 27), (31, 30, 37), (40, 39, 48))
+FUR = ((20, 19, 24), (27, 26, 32), (35, 34, 42))
 
 
 def pixel_cat():
     rows = PIXEL_CAT
-    assert len(rows) == 32 and all(len(r) == 20 for r in rows), 'the drawing is 20 x 32 squares'
-    rnd = random.Random(11)
-    small = Image.new('RGBA', (20, 32))
+    assert len(rows) == 16 and all(len(r) == 10 for r in rows), 'the drawing is 10 x 16 squares'
+    rnd = random.Random(7)
+    small = Image.new('RGBA', (10, 16))
     for y, row in enumerate(rows):
         for x, c in enumerate(row):
             if c == 'K':
-                # Minecraft-style fur: a few shades at random, a little lighter on the top of the head
-                k = rnd.random()
-                shade = 2 if k < 0.07 + (0.08 if 6 <= y <= 9 else 0) else 1 if k < 0.35 else 0
-                colour = FUR[shade]
+                # Minecraft-style fur: a few shades at random, darker towards the hem
+                k = rnd.random() + y * 0.012
+                colour = FUR[2] if k < 0.12 else FUR[1] if k < 0.45 else FUR[0]
             else:
                 colour = PIXEL_COLOURS[c]
             small.putpixel((x, y), colour + (255,))
-    # the sky behind the ears a little lighter at the top
-    for y in range(7):
-        for x in range(20):
-            if rows[y][x] == '.':
-                t = y / 6
-                small.putpixel((x, y), tuple(round(a + (b - a) * t) for a, b in zip((52, 42, 84), (30, 25, 48))) + (255,))
     return small.resize((W, H), Image.NEAREST), FUR[0]
 
 

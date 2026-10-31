@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.8.1.** What it contains:
+**Current version: 1.8.2.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,8 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.8.2: the Pixel Cat cape drawn again, simpler and at a Minecraft cape's own size (10 x 16):
+  a black cat's face with pink ears, yellow eyes and a pink nose
 - new in 1.8.1: **3D beds** in 3D Items (option "3D beds", on with the mod): Rago's own bed model
   with four real legs, the wooden frame, the mattress set in from it, a raised pillow, the blanket
   folded below it and over the foot's end, drawn with the bed textures in use so a pack's colours
@@ -518,8 +520,7 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     membrane whose edge curves between the fingers, drawn as smooth shapes (`gg.rago.render.BatWing`,
     Rago's own). A colour chosen for them is the membrane's
   - **four HD capes**, 2048 x 1024 (32 times Minecraft's cape): Black Cat (the creator's Discord
-    picture in a fine silver frame), Pixel Cat (a black cat in Minecraft's pixel style, green eyes,
-    red collar and gold bell), Night Cat (a cat on the roofs under the moon) and qRago (a photo of
+    picture in a fine silver frame), Pixel Cat (a black cat's face in Minecraft's pixel style), Night Cat (a cat on the roofs under the moon) and qRago (a photo of
     the creator). Black Cat and qRago are the creator's own: only their account is offered them,
     and Rago Network shows them on no one else. Drawn by `tools/hd_capes.py`
   - the capes but the red Rago design are shown smooth, filtered with mipmaps (no shimmer when
@@ -613,7 +614,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.8.1+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.8.2+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
