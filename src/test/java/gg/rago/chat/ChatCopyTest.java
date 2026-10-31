@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.function.ToIntFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChatCopyTest {
 	/** Lines are split on "|" here, as the game splits a long message on the chat's width. */
@@ -87,5 +89,14 @@ class ChatCopyTest {
 		assertEquals("GG", ChatCopy.message(full, drawn, 0, LINES));
 		assertEquals("gl hf", ChatCopy.clean("[1:05 PM] gl hf"));
 		assertEquals("[VIP] Steve: hi (x2) there", ChatCopy.clean("[VIP] Steve: hi (x2) there"));
+	}
+
+	@Test
+	void aPastedMessageIsCutOnlyWhenTheFieldIsFull() {
+		assertTrue(ChatCopy.fits(57, 0, 100));
+		assertTrue(ChatCopy.fits(100, 0, 100));
+		assertFalse(ChatCopy.fits(126, 0, 100), "longer than the game's field");
+		assertTrue(ChatCopy.fits(126, 0, 256), "a field made longer by another mod");
+		assertFalse(ChatCopy.fits(60, 50, 100), "after what was already typed");
 	}
 }

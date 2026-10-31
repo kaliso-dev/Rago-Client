@@ -13,8 +13,10 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.fml.relauncher.ReflectionHelper;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -274,6 +276,25 @@ public final class BedwarsGame {
 		// the name taken out first, so a name in capitals is not taken for the ending
 		return space > 0 && !line.startsWith(name + " ") && !CAPITAL_ANNOUNCE.matcher(line).find()
 			&& CAPITAL_ENDING.matcher(line.replace(name, "")).find() && mentions(line.substring(space + 1), name);
+	}
+
+	/** Whether a death line ends with words in capitals ("FINAL KILL!"), your name taken out first. */
+	static boolean finalEnding(String line, String name) {
+		return CAPITAL_ENDING.matcher(line.replace(name, "")).find();
+	}
+
+	/** The sidebar's lines as Rago reads them ({@link #clean}); empty out of Bed Wars. */
+	public static List<String> sidebarLines() {
+		if (!inBedwars()) {
+			return Collections.emptyList();
+		}
+		Scoreboard board = Minecraft.getMinecraft().theWorld.getScoreboard();
+		ScoreObjective o = board.getObjectiveInDisplaySlot(1);
+		List<String> out = new ArrayList<>();
+		for (Score score : board.getSortedScores(o)) {
+			out.add(clean(ScorePlayerTeam.formatPlayerName(board.getPlayersTeam(score.getPlayerName()), score.getPlayerName())));
+		}
+		return out;
 	}
 
 	/** A bed you broke: an announcement in capitals ("BED DESTRUCTION >") that names you. */

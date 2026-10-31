@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.6.2.** What it contains:
+**Current version: 1.6.3.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -467,6 +467,30 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - hovering an option in a mod's page shows its explanation (written for many options, but never
     shown until now), and tooltips stay on screen near the bottom
   - French text no longer wraps with a line starting with ":" or "»"
+- new in 1.6.3:
+  - **Game Debrief** (Hypixel, on by default): after each Bed Wars game, a line in chat that only you
+    see gives the result and your final kills, kills, beds and deaths, with a button (or
+    `/rago debrief`) that opens the debrief: a timeline of the game (your kills, final kills, beds
+    and deaths, your bed's fall, your team's upgrades), your team's first upgrade, when your bed
+    fell, who eliminated you, your kills per death and, with your own Hypixel API key, your FKDR
+    before and after the game. The debrief is a 1280x720 picture: **Copy the picture** puts it in
+    the clipboard to paste into Discord, **Save** writes it in `screenshots`, and the arrows go back
+    through the games of the session. Kills, final kills and beds are Hypixel's own counts when its
+    sidebar shows them (four-team modes), else the lines of the chat that name you after the victim.
+    Everything comes from your own game's chat, sidebar and titles: nothing is sent, and the
+    debriefs are forgotten when the game closes
+  - **Shift + click** on a chat message now also pastes it in the chat field, where the cursor is
+    (as Ctrl + V would), besides copying it. Nothing is sent until you press Enter. A message longer
+    than the field (100 characters in the base game, more with mods that lengthen it) is cut, and a
+    note above the field says so
+  - Low Latency's Fresh input, measured: from a mouse movement to the end of the frame that turned
+    the camera, 150 movements per case, on a software renderer (no graphics card) at 1280x720 with
+    a render distance of 4. With the frame rate capped at 30 FPS (each frame then pauses about 8 ms
+    for the cap): 42.8 ms on average without Low Latency (95% interval 40.5 to 45.2), 40.9 ms with
+    Low Latency without Fresh input (38.7 to 43.1) and 34.2 ms with Fresh input (32.2 to 36.2), so
+    Fresh input took 8.6 ms off. Without a cap (about 40 FPS there, so no pause), the three cases
+    stayed within 2 ms of each other in two runs: Fresh input helps when the FPS cap pauses. The wait
+    for the graphics card cannot be measured on a software renderer, which keeps no queue of frames
 - Hypixel mods: Level Head (network level or Bed Wars star above names, from the Hypixel API with
   your own key: `/rago hypixelkey <key>`, kept in `config/rago-hypixel-key.txt` only) and a Bed Wars
   resources counter (iron, gold, diamonds, emeralds)
@@ -530,7 +554,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.6.2+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.6.3+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

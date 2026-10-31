@@ -40,9 +40,12 @@ class FixAndPvpModulesTest {
 			new PackDisplayHud(), new Vignette(), new Cosmetics());
 	}
 
-	/** Modules that are on from the start and change nothing in the game (Rago Network sends nothing without a server set). */
+	/**
+	 * Modules that are on from the start and change nothing in the game (Rago Network sends nothing
+	 * without a server set; the debrief only reads your Bed Wars games and writes a line only you see).
+	 */
 	private List<Module> onByDefault() {
-		return Arrays.asList(new RagoCape(), new RagoNetwork());
+		return Arrays.asList(new RagoCape(), new RagoNetwork(), new GameDebrief());
 	}
 
 	/** Every new module has a name, a description and a label for each option, in both languages. */

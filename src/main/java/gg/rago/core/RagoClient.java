@@ -80,6 +80,7 @@ import gg.rago.modules.ItemScale;
 import gg.rago.modules.TntTimer;
 import gg.rago.modules.LowLatency;
 import gg.rago.modules.TitleMod;
+import gg.rago.modules.GameDebrief;
 import gg.rago.modules.TrapNotifier;
 import gg.rago.modules.LevelHead;
 import gg.rago.modules.LowFire;
@@ -212,6 +213,8 @@ public final class RagoClient {
 	private static CompetitiveProfile profile;
 	private static boolean overlayVisible = true;
 	private static boolean openMenu;
+	/** A screen to open on the next tick (asked from a command: the chat screen closes first). */
+	private static GuiScreen openNext;
 	private static int tickCounter;
 	private static Map<String, String> captureMeta;
 
@@ -274,6 +277,7 @@ public final class RagoClient {
 		Hooks.bedwarsStats = MODULES.register(new BedwarsStats(hypixel));
 		MODULES.register(new BedwarsQuestsHud());
 		MODULES.register(new TrapNotifier());
+		MODULES.register(new GameDebrief());
 		MODULES.register(new ActionSounds());
 		MODULES.register(new RawInput());
 		Hooks.emotes = MODULES.register(new Emotes());
@@ -379,6 +383,11 @@ public final class RagoClient {
 			MinecraftForge.EVENT_BUS.register(m);
 		}
 		LOG.info("Rago {} loaded with {} modules", version(), MODULES.all().size());
+	}
+
+	/** Opens a screen on the next tick, for a command typed in chat. */
+	public static void openLater(GuiScreen screen) {
+		openNext = screen;
 	}
 
 	public static String version() {
@@ -726,6 +735,11 @@ public final class RagoClient {
 			// typed as /rago: the chat screen has closed by now
 			openMenu = false;
 			mc.displayGuiScreen(new RagoMenuScreen(null));
+		}
+		if (openNext != null) {
+			GuiScreen next = openNext;
+			openNext = null;
+			mc.displayGuiScreen(next);
 		}
 		while (toggleOverlayKey.isPressed()) {
 			overlayVisible = !overlayVisible;

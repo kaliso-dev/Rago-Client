@@ -105,6 +105,7 @@ final class ModuleInfo {
 		ICONS.put("low_latency", "zap");
 		ICONS.put("nick_hider", "venetian-mask");
 		ICONS.put("rago_network", "globe");
+		ICONS.put("game_debrief", "image");
 	}
 
 	private ModuleInfo() {

@@ -72,6 +72,11 @@ final class RagoCommand extends CommandBase {
 			sender.addChatMessage(message(on ? "rago.command.debug_on" : "rago.command.debug_off", EnumChatFormatting.GOLD));
 			return;
 		}
+		if (args[0].equalsIgnoreCase("debrief")) {
+			// the button after a Bed Wars game, or typed: the debriefs of this session
+			RagoClient.modules().get("game_debrief").ifPresent(m -> RagoClient.openLater(new gg.rago.gui.DebriefScreen((gg.rago.modules.GameDebrief) m)));
+			return;
+		}
 		if (args[0].equalsIgnoreCase("network")) {
 			gg.rago.modules.RagoNetwork n = gg.rago.hooks.Hooks.network;
 			IChatComponent c = new ChatComponentTranslation("rago.command.network", n != null ? n.status() : "off");
@@ -120,7 +125,7 @@ final class RagoCommand extends CommandBase {
 
 	@Override
 	public List<String> addTabCompletionOptions(ICommandSender sender, String[] args, BlockPos pos) {
-		return args.length == 1 ? getListOfStringsMatchingLastWord(args, "hypixelkey", "debug", "network") : Collections.<String>emptyList();
+		return args.length == 1 ? getListOfStringsMatchingLastWord(args, "hypixelkey", "debug", "network", "debrief") : Collections.<String>emptyList();
 	}
 
 	private static IChatComponent message(String key, EnumChatFormatting color) {

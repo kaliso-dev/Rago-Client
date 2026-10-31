@@ -8,9 +8,11 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiChat;
 import net.minecraft.client.gui.GuiNewChat;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.gui.GuiUtilRenderComponents;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.util.ChatAllowedCharacters;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
@@ -29,9 +31,10 @@ import java.util.regex.Pattern;
 
 /**
  * Shift + click on a chat message, with the chat open, copies the whole message (all the lines it
- * wraps to) as plain text: no colour codes, no time stamp and no (x2) counter from Rago's chat. Only
- * the clipboard changes; nothing is sent. The line under the mouse is found as the game itself finds
- * it for clicks on links.
+ * wraps to) as plain text: no colour codes, no time stamp and no (x2) counter from Rago's chat. The
+ * message also goes in the chat field where the cursor is, as Ctrl + V would put it; nothing is sent
+ * until you press Enter. The line under the mouse is found as the game itself finds it for clicks on
+ * links.
  */
 public final class ChatCopy {
 	private static final Logger LOG = LogManager.getLogger("Rago");
@@ -45,8 +48,11 @@ public final class ChatCopy {
 	private Field chatLines;
 	private Field drawnChatLines;
 	private Field scrollPos;
+	private Field inputField;
 	private boolean unavailable;
 	private long copiedAt;
+	private boolean cut;
+	private int fieldLength;
 
 	public ChatCopy(BooleanSupplier on) {
 		this.on = on;
@@ -75,12 +81,43 @@ public final class ChatCopy {
 			return; // not on a message: the click goes on as usual
 		}
 		GuiScreen.setClipboardString(text);
+		cut = !paste((GuiChat) event.gui, text);
 		mc.getSoundHandler().playSound(PositionedSoundRecord.create(new ResourceLocation("gui.button.press"), 1.0F));
 		copiedAt = System.currentTimeMillis();
 		event.setCanceled(true);
 	}
 
-	/** "Message copied" at the right end of the chat field for a moment. */
+	/**
+	 * Puts the message in the chat field at the cursor (over the selected text, if any), as Ctrl + V
+	 * does. The field takes 100 characters in the base game (some mods allow more); false when the
+	 * message did not fit whole.
+	 */
+	private boolean paste(GuiChat gui, String text) {
+		try {
+			if (inputField == null) {
+				inputField = ReflectionHelper.findField(GuiChat.class, "field_146415_a", "inputField");
+			}
+			GuiTextField field = (GuiTextField) inputField.get(gui);
+			String typed = ChatAllowedCharacters.filterAllowedCharacters(text);
+			fieldLength = field.getMaxStringLength();
+			boolean whole = fits(typed.length(), field.getText().length() - field.getSelectedText().length(), fieldLength);
+			field.writeText(typed);
+			return whole;
+		} catch (ReflectiveOperationException | RuntimeException e) {
+			LOG.warn("The copied message could not be put in the chat field", e);
+			return true;
+		}
+	}
+
+	/** Whether {@code pasted} characters fit a field of {@code max} that keeps {@code kept} of its text. */
+	static boolean fits(int pasted, int kept, int max) {
+		return pasted <= max - kept;
+	}
+
+	/**
+	 * "Copied and pasted", or that the message was cut, for a moment at the right just above the chat
+	 * field, so the end of the pasted text stays in sight.
+	 */
 	@SubscribeEvent
 	public void onDrawn(GuiScreenEvent.DrawScreenEvent.Post event) {
 		if (copiedAt == 0 || !(event.gui instanceof GuiChat)) {
@@ -91,12 +128,12 @@ public final class ChatCopy {
 			return;
 		}
 		FontRenderer font = Minecraft.getMinecraft().fontRendererObj;
-		String label = I18n.format("rago.chat.copied");
+		String label = cut ? I18n.format("rago.chat.copied_cut", fieldLength) : I18n.format("rago.chat.copied");
 		int w = font.getStringWidth(label);
 		int x = event.gui.width - w - 6;
-		int y = event.gui.height - 12;
+		int y = event.gui.height - 27;
 		Gui.drawRect(x - 4, y - 2, x + w + 3, y + 10, 0xE0101010);
-		font.drawStringWithShadow(label, x, y, 0xFF55FF55);
+		font.drawStringWithShadow(label, x, y, cut ? 0xFFFFAA00 : 0xFF55FF55);
 	}
 
 	private boolean fields() {
