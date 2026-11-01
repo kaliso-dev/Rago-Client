@@ -12,6 +12,7 @@ from rago_network.store import Store
 COSMETICS = os.path.join(os.path.dirname(__file__), "..", "cosmetics.json")
 QRAGO = "0123456789abcdef0123456789abcdef"
 OTHER = "fedcba9876543210fedcba9876543210"
+QABEL = "642543c54ee741118102aa0bca1e552f"
 
 
 class FakeMojang:
@@ -19,7 +20,7 @@ class FakeMojang:
 
     def __init__(self):
         self.joined = {}
-        self.players = {"qRago": QRAGO, "Steve": OTHER}
+        self.players = {"qRago": QRAGO, "Steve": OTHER, "qAbel": QABEL}
 
     def join(self, name, server_id):
         self.joined[(name, server_id)] = True
@@ -182,19 +183,29 @@ class PresenceTest(unittest.TestCase):
         self.assertEqual(n.presence(other["uuid"], {"cosmetics": {"cape": "creator"}})[1]["cosmetics"]["cape"], "none")
 
     def test_the_creators_own_capes_are_theirs_alone(self):
-        # their Discord picture and their photo (server/cosmetics.json, "exclusive"); three calls each at
-        # most, under the presence limit
-        n = network()
+        # their Discord picture, their photo and the pink R (server/cosmetics.json, "exclusive"); three calls each,
+        # the presence limit's burst
+        clock = Clock()
+        n = network(clock)
+        n.limits = Limiter(clock=clock)  # on the test's clock, to wait for a call back
         me = sign_in(n)
         other = sign_in(n, "Steve")
 
         def worn(player, cape):
             return n.presence(player["uuid"], {"cosmetics": {"cape": cape}})[1]["cosmetics"]["cape"]
 
-        for cape in ("black_cat", "qrago"):
+        for cape in ("black_cat", "qrago", "pink_r"):
             self.assertEqual(worn(me, cape), cape)
             self.assertEqual(worn(other, cape), "none")
+        clock.now += 10  # one presence call back (six a minute)
         self.assertEqual(worn(other, "night_cat"), "night_cat")
+
+    def test_the_creators_other_account_wears_their_capes_but_is_no_creator(self):
+        n = network()
+        alt = sign_in(n, "qAbel")
+        self.assertEqual(alt["role"], "user")
+        for cape in ("black_cat", "qrago", "pink_r"):
+            self.assertEqual(n.presence(alt["uuid"], {"cosmetics": {"cape": cape}})[1]["cosmetics"]["cape"], cape)
 
     def test_at_most_100_players_per_lookup(self):
         n = network()

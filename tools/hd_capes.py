@@ -3,7 +3,9 @@ an outer face of 320 x 512, or 64 times (4096 x 2048, a face of 640 x 1024) for 
 mfga. The game shows them smooth (filtered, with mipmaps: gg.rago.render.HdTexture).
 
   black_cat  the Discord picture of Rago's creator, a black cat, on an all black cape under a small logo
-  pixel_cat  a plain black cat's face in Minecraft's pixel style, at a cape's own 10 x 16 (Rago's own)
+  pixel_cat  a black cat's face in Minecraft's pixel style, at a cape's own 10 x 16, shaded in the
+             blacks of the creator's skin (Rago's own)
+  pink_r     Rago's R in the pink gradient of the creator's name (creator only, Rago's own)
   night_cat  a black cat on the roofs under the moon (a picture from Rago's creator)
   qrago      a photo of Rago's creator
   primal     a photo of a meal by Rago's creator (beef tartare)
@@ -11,13 +13,14 @@ mfga. The game shows them smooth (filtered, with mipmaps: gg.rago.render.HdTextu
 
 The ones made from pictures need them (they are not kept in the repository):
   python3 tools/hd_capes.py --discord cat.png --night night.png --photo me.jpg --meal meal.jpg
-Any left out keeps the cape already drawn; pixel_cat and mfga are always drawn.
+Any left out keeps the cape already drawn; pixel_cat, pink_r and mfga are always drawn.
 """
 import argparse
 import os
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
+import badges
 import capes
 
 S = 32
@@ -64,28 +67,36 @@ def black_cat(src):
 
 # ---- pixel_cat: Rago's own pixel drawing -------------------------------------------------------
 
-# 10 x 16 squares, a Minecraft cape's own size (32 texture pixels each): a black cat's face, kept
-# plain. K fur  P inside of the ears and nose  Y eye  B pupil
+# 10 x 16 squares, a Minecraft cape's own size (32 texture pixels each): a black cat's face over its
+# chest, shaded like the creator's black cat skin (its own greys, lighter in the middle of a part,
+# darker at its edges) so the cape matches it.
+#   k K L M  fur, darkest to lightest   N  muzzle and whiskers   P p  inside of the ears and nose
+#   Y y  eye, its lower part darker     H  the light in the eye  B  pupil (a slit)
 PIXEL_CAT = [
-    'KKKKKKKKKK',
-    'KPKKKKKKPK',
-    'KPPKKKKPPK',
-    'KKKKKKKKKK',
-    'KYYYKKYYYK',
-    'KYBYKKYBYK',
-    'KYYYKKYYYK',
-    'KKKKKKKKKK',
-    'KKKKPPKKKK',
-    'KKKKKKKKKK',
-    'KKKKKKKKKK',
-    'KKKKKKKKKK',
-    'KKKKKKKKKK',
-    'KKKKKKKKKK',
-    'KKKKKKKKKK',
-    'KKKKKKKKKK',
+    'kLkkkkkkLk',
+    'kPLKKKKLPk',
+    'KpPKLLKPpK',
+    'KKKLMMLKKK',
+    'KYYHLLHYYK',
+    'KYBYLLYBYK',
+    'KyByLLyByK',
+    'KKKLMMLKKK',
+    'NNKMPPMKNN',
+    'KKKNkkNKKK',
+    'NNKLNNLKNN',
+    'kKLLMMLLKk',
+    'kKLMMMMLKk',
+    'kKLMMMMLKk',
+    'kKKLLLLKKk',
+    'kkKKKKKKkk',
 ]
 
-PIXEL_COLOURS = {'K': (14, 14, 17), 'P': (184, 100, 126), 'Y': (240, 194, 58), 'B': (5, 5, 7)}
+# the greys and the eyes' colours of the creator's skin; the pinks are the cape's own
+PIXEL_COLOURS = {
+    'k': (12, 12, 12), 'K': (20, 20, 20), 'L': (29, 29, 29), 'M': (37, 37, 37), 'N': (45, 45, 45),
+    'P': (184, 100, 126), 'p': (130, 66, 88),
+    'Y': (206, 174, 45), 'y': (163, 119, 6), 'H': (235, 226, 201), 'B': (10, 7, 0),
+}
 
 
 def pixel_cat():
@@ -96,6 +107,38 @@ def pixel_cat():
         for x, c in enumerate(row):
             small.putpixel((x, y), PIXEL_COLOURS[c] + (255,))
     return small.resize((W, H), Image.NEAREST), PIXEL_COLOURS['K'], S
+
+
+# ---- pink_r: the R logo in the creator's pink ---------------------------------------------------
+
+def pink_r():
+    """Rago's R logo in the pink gradient of the creator's name (light at the top left, deep at the
+    bottom right, as badges.py draws it before the name), with a soft glow, on the black of the
+    creator's skin, a little darker towards the edges."""
+    face = Image.new('RGBA', (W, H))
+    px = face.load()
+    for y in range(H):
+        for x in range(W):
+            dx = (x + 0.5) / W * 2 - 1
+            dy = ((y + 0.5) / H * 2 - 1) * 0.85
+            d = min(1.0, (dx * dx + dy * dy) ** 0.5)
+            v = round(22 - 9 * d * d)
+            px[x, y] = (v, v, v, 255)
+    size = round(W * 0.66)
+    mask = Image.open(os.path.join(capes.RES, 'textures', 'logo.png')).convert('RGBA').split()[3]
+    mask = mask.resize((size, size), Image.LANCZOS)
+    cx, cy = W // 2, round(H * 0.4)
+    pad = size // 2
+    halo = Image.new('L', (size + 2 * pad, size + 2 * pad))
+    halo.paste(mask, (pad, pad))
+    halo = halo.filter(ImageFilter.GaussianBlur(size / 9))
+    glow = Image.new('RGBA', halo.size, badges.DEEP + (0,))
+    glow.putalpha(halo.point(lambda v: round(v * 0.55)))
+    face.alpha_composite(glow, (cx - glow.width // 2, cy - glow.height // 2))
+    logo = badges.gradient(size, size, badges.LIGHT, badges.DEEP, True)
+    logo.putalpha(mask)
+    face.alpha_composite(logo, (cx - size // 2, cy - size // 2))
+    return face, (14, 14, 14), S
 
 
 # ---- night_cat and qrago: pictures -------------------------------------------------------------
@@ -248,7 +291,7 @@ def main():
     p.add_argument('--preview', help='also save the faces drawn side by side to this file')
     a = p.parse_args()
     faces = []
-    for name, fn in (('pixel_cat', pixel_cat), ('mfga', mfga)):
+    for name, fn in (('pixel_cat', pixel_cat), ('pink_r', pink_r), ('mfga', mfga)):
         face, edge, s = fn()
         save(name, face, edge, s)
         faces.append(face.resize((W, H), Image.LANCZOS))

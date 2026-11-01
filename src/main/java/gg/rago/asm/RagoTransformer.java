@@ -393,6 +393,17 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.Minecraft", new Patch("borderless fullscreen",
 			"func_71352_k", "toggleFullscreen", "()V",
 			m -> returnIf(m, "toggleFullscreen", "()Z", new int[0], -1, Opcodes.RETURN)));
+		// Minecraft's own HUD in fewer draw calls (gg.rago.optimize.GuiBatch); same image
+		for (String bar : new String[] {"renderHealth", "renderArmor", "renderFood", "renderAir", "renderHealthMount"}) {
+			add("net.minecraftforge.client.GuiIngameForge", new Patch("grouped status icons: " + bar,
+				bar, bar, "(II)V", RagoTransformer::statusIcons));
+		}
+		add("net.minecraft.client.renderer.RenderGlobal", new Patch("floating texts drawn as the entity pass ends",
+			"func_180446_a", "renderEntities", "(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/renderer/culling/ICamera;F)V",
+			RagoTransformer::entitiesDrawn));
+		add("net.minecraft.client.gui.GuiIngame", new Patch("grouped sidebar",
+			"func_180475_a", "renderScoreboard", "(Lnet/minecraft/scoreboard/ScoreObjective;Lnet/minecraft/client/gui/ScaledResolution;)V",
+			RagoTransformer::sidebar));
 	}
 
 	/** Passes each value a player method returns through a hook that also gets the player. */
@@ -569,6 +580,91 @@ public final class RagoTransformer implements IClassTransformer {
 		m.instructions.set(second, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "secondGlintPass",
 			"(Lnet/minecraft/client/renderer/entity/RenderItem;Lnet/minecraft/client/resources/model/IBakedModel;I)V", false));
 		return true;
+	}
+
+	private static final String GUI_BATCH = "gg/rago/optimize/GuiBatch";
+
+	/** renderEntities: {@code Hooks.entitiesDrawn()} right after the profiler moves to "blockentities". */
+	private static boolean entitiesDrawn(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof LdcInsnNode && "blockentities".equals(((LdcInsnNode) insn).cst)) {
+				AbstractInsnNode next = nextReal(insn);
+				if (next instanceof MethodInsnNode && isMethod((MethodInsnNode) next, "func_76318_c", "endStartSection", "(Ljava/lang/String;)V")) {
+					m.instructions.insert(next, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "entitiesDrawn", "()V", false));
+					return true;
+				}
+				return false;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * A GuiIngameForge status bar: each {@code drawTexturedModalRect} goes to {@code GuiBatch.icon},
+	 * and the queued icons are drawn before the method turns blending off (and before any return).
+	 */
+	private static boolean statusIcons(MethodNode m) {
+		int icons = 0;
+		int flushes = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == Opcodes.RETURN) {
+				m.instructions.insertBefore(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, GUI_BATCH, "flushIcons", "()V", false));
+				continue;
+			}
+			if (!(insn instanceof MethodInsnNode)) {
+				continue;
+			}
+			MethodInsnNode call = (MethodInsnNode) insn;
+			if (call.getOpcode() == Opcodes.INVOKEVIRTUAL && isMethod(call, "func_73729_b", "drawTexturedModalRect", "(IIIIII)V")) {
+				MethodInsnNode icon = new MethodInsnNode(Opcodes.INVOKESTATIC, GUI_BATCH, "icon", "(Lnet/minecraft/client/gui/Gui;IIIIII)V", false);
+				m.instructions.set(call, icon);
+				insn = icon;
+				icons++;
+			} else if (call.getOpcode() == Opcodes.INVOKESTATIC && isMethod(call, "func_179084_k", "disableBlend", "()V")) {
+				m.instructions.insertBefore(call, new MethodInsnNode(Opcodes.INVOKESTATIC, GUI_BATCH, "flushIcons", "()V", false));
+				flushes++;
+			}
+		}
+		return icons > 0 && flushes > 0;
+	}
+
+	/**
+	 * renderScoreboard: {@code drawRect} goes to {@code GuiBatch.sidebarRect} and
+	 * {@code FontRenderer.drawString} (whose result is dropped) to {@code GuiBatch.sidebarText};
+	 * {@code GuiBatch.flushSidebar} draws them before returning. The text colour constant stays.
+	 */
+	private static boolean sidebar(MethodNode m) {
+		int rects = 0;
+		int texts = 0;
+		int returns = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == Opcodes.RETURN) {
+				m.instructions.insertBefore(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, GUI_BATCH, "flushSidebar", "()V", false));
+				returns++;
+				continue;
+			}
+			if (!(insn instanceof MethodInsnNode)) {
+				continue;
+			}
+			MethodInsnNode call = (MethodInsnNode) insn;
+			if (call.getOpcode() == Opcodes.INVOKESTATIC && isMethod(call, "func_73734_a", "drawRect", "(IIIII)V")) {
+				MethodInsnNode rect = new MethodInsnNode(Opcodes.INVOKESTATIC, GUI_BATCH, "sidebarRect", "(IIIII)V", false);
+				m.instructions.set(call, rect);
+				insn = rect;
+				rects++;
+			} else if (call.getOpcode() == Opcodes.INVOKEVIRTUAL && isMethod(call, "func_78276_b", "drawString", "(Ljava/lang/String;III)I")) {
+				AbstractInsnNode next = nextReal(call);
+				if (next == null || next.getOpcode() != Opcodes.POP) {
+					return false; // the drawn width is used: not the code this was written for
+				}
+				MethodInsnNode text = new MethodInsnNode(Opcodes.INVOKESTATIC, GUI_BATCH, "sidebarText",
+					"(Lnet/minecraft/client/gui/FontRenderer;Ljava/lang/String;III)I", false);
+				m.instructions.set(call, text);
+				insn = text;
+				texts++;
+			}
+		}
+		return rects > 0 && texts > 0 && returns > 0;
 	}
 
 	/** Passes every returned value of the given return opcode through {@code hook}. */

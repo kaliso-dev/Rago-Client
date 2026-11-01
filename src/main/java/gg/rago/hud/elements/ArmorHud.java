@@ -7,6 +7,7 @@ import gg.rago.gui.ui.TextColors;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
 import gg.rago.hud.Shown;
+import gg.rago.render.HudText;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
@@ -117,16 +118,23 @@ public final class ArmorHud extends HudElement {
 		GlStateManager.disableRescaleNormal();
 		RenderHelper.disableStandardItemLighting();
 		if (showDurability.get()) {
+			// every number in one draw call
+			HudText.Batch batch = labels.start(font.get());
+			boolean shade = shadow.get();
 			for (int i = 0; i < items.size(); i++) {
 				ItemStack stack = items.get(i);
 				String label = label(stack);
 				if (!label.isEmpty()) {
-					drawText(text, label, ICON + 3, i * ROW + 4, durabilityColor(stack));
+					batch.add(label, ICON + 3, i * ROW + 4, durabilityColor(stack), shade);
 				}
 			}
+			batch.end();
 		}
 		GlStateManager.color(1, 1, 1, 1);
 	}
+
+	/** The durability numbers, reused every frame. */
+	private final HudText.Batch labels = new HudText.Batch();
 
 	/** Remaining uses for damageable items, the stack size for stacks, nothing otherwise. */
 	private static String label(ItemStack stack) {

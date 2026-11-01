@@ -37,13 +37,16 @@ import java.util.WeakHashMap;
 /**
  * Players' name tags drawn Rago's way: a style preset (Vanilla, Rago, Minimal, Outline) and then
  * every detail on its own: font (Minecraft, Poppins, Inter), server colours or a custom colour,
- * shadow, background colour, round corners, border, and whether the name shows faintly through
- * walls. The size can go from half of vanilla's to a quarter more, in the world like vanilla's (a
- * far name still shrinks with distance, never a fixed size on screen): bigger would make players
- * easier to spot from afar and through walls. Opacity stays vanilla's. Who gets a name tag, and when, follows vanilla's rules (distance,
- * sneaking, team visibility, invisibility); the below-name score line is kept. Your own name can be
- * shown in third person. A tag faces the camera from any angle: in 3D turned to its yaw and pitch
- * like vanilla's (with the front view, F5 twice, done right), in 2D flat and level on the screen.
+ * shadow, background colour and opacity, round corners, border, and whether the name shows faintly
+ * through walls. The size can go from half of vanilla's to a quarter more, in the world like
+ * vanilla's (a far name still shrinks with distance, never a fixed size on screen): bigger would
+ * make players easier to spot from afar and through walls. For the same reason the background can
+ * go from clear to solid only where the player is in sight: through walls it never shows more than
+ * vanilla's, and the tag can be moved down (by a fifth of a block at most), never up above cover.
+ * Who gets a name tag, and when, follows vanilla's rules (distance, sneaking, team visibility,
+ * invisibility); the below-name score line is kept. Your own name can be shown in third person. A
+ * tag faces the camera from any angle: in 3D turned to its yaw and pitch like vanilla's (with the
+ * front view, F5 twice, done right), in 2D flat and level on the screen.
  */
 public final class Nametags extends Module implements Styled {
 	public static final String[] STYLES = {"vanilla", "rago", "minimal", "outline"};
@@ -64,6 +67,8 @@ public final class Nametags extends Module implements Styled {
 	private final IntOption maxDistance = addOption(new IntOption("nametag_distance", 64, 8, 64));
 	/** Percent of vanilla's size, in the world: at most a quarter bigger (see the class comment). */
 	private final IntOption scale = addOption(new IntOption("nametag_scale", 100, 50, 125));
+	/** How far below vanilla's place the tag sits, in hundredths of a block: down only, a fifth at most. */
+	private final IntOption lower = addOption(new IntOption("nametag_lower", 0, 0, 20).decimals(2));
 	/** 3D: turned to the camera's yaw and pitch, as vanilla's; 2D: flat on the screen, always level. */
 	private final ChoiceOption mode = addOption(new ChoiceOption("nametag_mode", "3d", "3d", "2d"));
 	private final ChoiceOption style;
@@ -73,11 +78,18 @@ public final class Nametags extends Module implements Styled {
 	private final ColorOption nameColor;
 	private final BooleanOption background;
 	private final ColorOption backgroundColor;
+	/** Opacity of the background in percent, where the player is in sight; vanilla's is 25. */
+	private final IntOption backgroundOpacity;
 	private final IntOption radius;
 	/** Vanilla's space around the name; not a setting, as the tag keeps vanilla's size. */
 	private static final int PADDING = 1;
-	/** Vanilla's name tag background: black at a quarter opacity; only its colour can change. */
+	/**
+	 * Vanilla's name tag background: black at a quarter opacity. The colour's own opacity is fixed at
+	 * it (the opacity is its own setting), and the copy seen through walls never goes beyond it.
+	 */
 	private static final int BACKGROUND_ALPHA = 0x40;
+	/** {@link #BACKGROUND_ALPHA} in percent, the background opacity's default and the styles' value. */
+	private static final int VANILLA_OPACITY = 25;
 	private final BooleanOption border;
 	private final ColorOption borderColor;
 
@@ -96,6 +108,8 @@ public final class Nametags extends Module implements Styled {
 		background = addOption(new BooleanOption("background", true));
 		backgroundColor = addOption(new ColorOption("background_color", 0x40000000).fixedAlpha(BACKGROUND_ALPHA));
 		backgroundColor.showIf(background::get);
+		backgroundOpacity = addOption(new IntOption("tag_background_opacity", VANILLA_OPACITY, 0, 100));
+		backgroundOpacity.showIf(background::get);
 		radius = addOption(new IntOption("corner_radius", 0, 0, 6));
 		radius.showIf(background::get);
 		border = addOption(new BooleanOption("border", false));
@@ -121,6 +135,8 @@ public final class Nametags extends Module implements Styled {
 	@Override
 	public void applyStyle(String preset) {
 		style.set(preset);
+		// every style has vanilla's background opacity, as they had before it could be set
+		backgroundOpacity.set(VANILLA_OPACITY);
 		switch (preset) {
 			case "rago":
 				font.set(HudText.POPPINS);
@@ -164,6 +180,11 @@ public final class Nametags extends Module implements Styled {
 
 	public boolean throughWalls() {
 		return throughWalls.get();
+	}
+
+	/** How far below vanilla's place the name tags are drawn, in blocks, for labels stacked above them. */
+	public double lowerBy() {
+		return isEnabled() ? lower.get() / 100.0 : 0;
 	}
 
 	/** Height of one name tag in blocks, for labels stacked above it (Level Head). */
@@ -213,7 +234,7 @@ public final class Nametags extends Module implements Styled {
 
 	private void drawName(EntityPlayer p, double x, double y, double z) {
 		Minecraft mc = Minecraft.getMinecraft();
-		double base = y + p.height + 0.5 - (p.isChild() ? p.height / 2 : 0);
+		double base = y + p.height + 0.5 - (p.isChild() ? p.height / 2 : 0) - lower.get() / 100.0;
 		Name n = name(p);
 		String name = n.text;
 		if (p.isSneaking()) {
@@ -339,7 +360,10 @@ public final class Nametags extends Module implements Styled {
 				after = RagoBadge.codesAt(shown.substring(0, at)) + shown.substring(at + creator.length());
 			}
 		}
-		String style = RagoBadge.stylesAt(before);
+		// the styles in force before the creator's name; worked out only when there is one (this runs
+		// for every name tag, every frame)
+		String style = name.isEmpty() ? "" : RagoBadge.stylesAt(before);
+		String whole = name.isEmpty() ? before : before + name;
 		float beforeW = LabelBatch.width(ttf, em, WORLD_SHARPNESS, before);
 		float nameW = name.isEmpty() ? 0 : LabelBatch.width(ttf, em, WORLD_SHARPNESS, style + name);
 		float iconsW = icons != 0 ? RagoBadge.ICONS_SPACE : 0;
@@ -357,10 +381,13 @@ public final class Nametags extends Module implements Styled {
 		float bw = w + 2 + pad * 2;
 		float bh = 9 + pad * 2;
 		if (background.get()) {
-			layered(bx, by, bw, bh, wall, backgroundColor.get(), false);
+			// any opacity where the player is in sight, never more than vanilla's through walls
+			int bg = backgroundAlpha(backgroundOpacity.get());
+			layered(bx, by, bw, bh, wallAlpha(bg / 255f, wall), bg << 24 | backgroundColor.get() & 0xFFFFFF, false);
 		}
 		if (border.get()) {
-			layered(bx, by, bw, bh, wall, borderColor.get(), true);
+			int line = borderColor.get();
+			layered(bx, by, bw, bh, (line >>> 24) / 255f * wall, line, true);
 		}
 		int a = Math.min(alpha, color >>> 24);
 		boolean ok = true;
@@ -369,7 +396,7 @@ public final class Nametags extends Module implements Styled {
 		float afterX = tx + beforeW + nameW + iconsW;
 		int layer = seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH;
 		if (faint > 0) {
-			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, before + name, tx, 0, faint << 24 | color & 0xFFFFFF, false);
+			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, whole, tx, 0, faint << 24 | color & 0xFFFFFF, false);
 			if (ok && !after.isEmpty()) {
 				ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, after, afterX, 0, faint << 24 | color & 0xFFFFFF, false);
 			}
@@ -387,7 +414,7 @@ public final class Nametags extends Module implements Styled {
 				cx += LabelBatch.width(ttf, em, WORLD_SHARPNESS, ch);
 			}
 		} else if (ok) {
-			ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, before + name, tx, 0, a << 24 | color & 0xFFFFFF, shadow.get());
+			ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, whole, tx, 0, a << 24 | color & 0xFFFFFF, shadow.get());
 		}
 		if (ok && !after.isEmpty()) {
 			ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, after, afterX, 0, a << 24 | color & 0xFFFFFF, shadow.get());
@@ -419,14 +446,36 @@ public final class Nametags extends Module implements Styled {
 		return s;
 	}
 
+	/** The background's opacity setting (percent) as an alpha from 0 to 255; vanilla's 25 % gives its 0x40. */
+	static int backgroundAlpha(int percent) {
+		return Math.round(Math.max(0, Math.min(100, percent)) * 255 / 100f);
+	}
+
 	/**
-	 * A background or border: a faint copy at {@code wall} of its opacity that ignores depth, and the
-	 * depth-tested part with the rest, so where the player is visible the two add up to the set colour.
+	 * Opacity (0 to 1) of the copy of a background seen through walls, for a background of opacity
+	 * {@code alpha} (0 to 1) and a see-through share {@code wall}: never more than vanilla's background
+	 * would give, so a darker background cannot show players hiding behind blocks better.
 	 */
-	private void layered(float x, float y, float w, float h, float wall, int argb, boolean outline) {
+	static float wallAlpha(float alpha, float wall) {
+		return Math.min(alpha, BACKGROUND_ALPHA / 255f) * wall;
+	}
+
+	/**
+	 * Opacity of the depth-tested part drawn over a see-through copy of opacity {@code faint}, so
+	 * that where the player is in sight the two together have opacity {@code alpha}.
+	 */
+	static float restAlpha(float alpha, float faint) {
+		return faint >= 1 ? 0 : Math.max(0, (alpha - faint) / (1 - faint));
+	}
+
+	/**
+	 * A background or border: a copy at opacity {@code faint} that ignores depth (seen through
+	 * walls), and the depth-tested part with the rest, so where the player is visible the two add up
+	 * to the set colour.
+	 */
+	private void layered(float x, float y, float w, float h, float faint, int argb, boolean outline) {
 		float a = (argb >>> 24) / 255f;
-		float faint = a * wall;
-		float rest = faint >= 1 ? 0 : (a - faint) / (1 - faint);
+		float rest = restAlpha(a, faint);
 		int rgb = argb & 0xFFFFFF;
 		if (faint > 0.004f) {
 			shape(LabelBatch.SEE_THROUGH, x, y, w, h, Math.round(faint * 255) << 24 | rgb, outline);

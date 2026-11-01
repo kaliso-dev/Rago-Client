@@ -147,7 +147,8 @@ public final class TtfFont {
 	 */
 	public void draw(String s, float x, float y, float px, int argb) {
 		begin(px);
-		emit(Hooks.nickPlain(s), x, y, px, argb, TESSELLATOR_SINK);
+		String plain = Hooks.nickPlain(s);
+		emit(plain, 0, plain.length(), x, y, px, argb, TESSELLATOR_SINK);
 		Tessellator.getInstance().draw();
 	}
 
@@ -173,13 +174,17 @@ public final class TtfFont {
 		w.pos(x0, y0, 0).tex(u0, v0).color(r, g, b, a).endVertex();
 	};
 
-	/** Sends the glyph quads of {@code s} (no § codes) to {@code sink}; returns the advance in pixels. */
-	private float emit(CharSequence s, float x, float y, float px, int argb, QuadSink sink) {
+	/**
+	 * Sends the glyph quads of {@code s} from {@code from} to {@code to} (no § codes in between) to
+	 * {@code sink}; returns the advance in pixels. A range rather than a substring: a coloured line
+	 * drawn every frame then makes no new strings.
+	 */
+	private float emit(String s, int from, int to, float x, float y, float px, int argb, QuadSink sink) {
 		Atlas a = atlas(Math.max(1, Math.round(px)));
 		float cx = Math.round(x);
 		float gy = Math.round(y) - PAD;
 		float inv = 1f / a.size;
-		for (int i = 0; i < s.length(); i++) {
+		for (int i = from; i < to; i++) {
 			char c = s.charAt(i);
 			Glyph gl = a.glyph(c);
 			if (gl == null) {
@@ -242,7 +247,7 @@ public final class TtfFont {
 
 	private void emitRuns(String s, float x, float y, float px, int argb, boolean shadow, QuadSink sink) {
 		if (s.indexOf('\u00a7') < 0) {
-			emit(s, x, y, px, shadow ? shade(argb) : argb, sink);
+			emit(s, 0, s.length(), x, y, px, shadow ? shade(argb) : argb, sink);
 			return;
 		}
 		int alpha = argb & 0xFF000000;
@@ -252,7 +257,7 @@ public final class TtfFont {
 		for (int i = 0; i < s.length(); i++) {
 			if (s.charAt(i) == '\u00a7' && i + 1 < s.length()) {
 				if (i > start) {
-					cx += emit(s.subSequence(start, i), cx, y, px, shadow ? shade(color) : color, sink);
+					cx += emit(s, start, i, cx, y, px, shadow ? shade(color) : color, sink);
 				}
 				char code = Character.toLowerCase(s.charAt(++i));
 				int index = "0123456789abcdef".indexOf(code);
@@ -265,7 +270,7 @@ public final class TtfFont {
 			}
 		}
 		if (start < s.length()) {
-			emit(s.subSequence(start, s.length()), cx, y, px, shadow ? shade(color) : color, sink);
+			emit(s, start, s.length(), cx, y, px, shadow ? shade(color) : color, sink);
 		}
 	}
 

@@ -173,6 +173,14 @@ public final class ConfigStore {
 	}
 
 	public void save(ModuleRegistry registry, Settings settings, ModProfiles profiles) throws IOException {
+		write(toJson(registry, settings, profiles));
+	}
+
+	/**
+	 * Everything {@link #save} writes, as it is now. Made on the game thread; the objects in it are
+	 * never changed afterwards, so {@link #write} can run on another thread.
+	 */
+	public JsonObject toJson(ModuleRegistry registry, Settings settings, ModProfiles profiles) {
 		JsonObject root = new JsonObject();
 		root.addProperty("schema", SCHEMA);
 		root.add("modules", modulesToJson(registry));
@@ -182,7 +190,11 @@ public final class ConfigStore {
 		if (profiles != null) {
 			root.add("profiles", profiles.toJson());
 		}
+		return root;
+	}
 
+	/** Writes {@code root} to the file, through a temporary file so a crash never leaves half a config. One at a time. */
+	public synchronized void write(JsonObject root) throws IOException {
 		Path dir = file.toAbsolutePath().getParent();
 		Files.createDirectories(dir);
 		Path tmp = dir.resolve(file.getFileName() + ".tmp");

@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.8.9.** What it contains:
+**Current version: 1.9.6.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,127 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.9.6: the home screen, third version
+  - Singleplayer, Multiplayer, then the server you play the most drawn as the multiplayer list
+    draws it (its icon, name, message of the day, players and ping bars, in Minecraft's font); a
+    click joins it. Hypixel until another server has more time. The "News" card is gone
+  - fixed: the server showed "Can't connect to server." until the multiplayer list had been opened
+    once (Forge only sets up its server list data there; Rago now does it before asking)
+  - **Background** button at the top of the home screen: Night desert (the video), Neon grid,
+    Starry night and Dark (drawn and moved by Rago as the menu is drawn: no video to decode,
+    nothing to load), or your own image (rago-background.png or .jpg in the config folder, found
+    without restarting). Each is shown live in the menu; the new one fades in. Also in Settings >
+    General > Home background
+  - the creator's capes (Black Cat, qRago, Pink R) are also offered to the creator's other account,
+    qAbel, without the creator's role; Rago Network accepts them from it (server/cosmetics.json
+    lists players by uuid next to roles)
+  - lighter home screen: translations, wrapped texts, the server's message of the day, the dock's
+    buttons and the player model's layers are worked out once instead of every frame (15 KB
+    allocated a frame instead of 36 KB), and the menu video is darkened as it is drawn instead of
+    under a dark layer over the whole screen (one full-screen layer less a frame)
+- new in 1.9.5: the home screen, second version
+  - two layouts (Settings > General > Home screen layout): Centred, the buttons in the middle and
+    the player on the left; Left, the buttons on the left and the player in the middle; Classic
+    is still there
+  - the red **Fast Play** button joins the server you play the most (time spent in a world on
+    each server, kept in config/rago-servers.json), Hypixel until another one has more; it shows
+    the server's icon, players online and ping. Singleplayer and multiplayer below it
+  - the menu video fades each frame into the next, so it moves smoothly at the menu's frame rate
+    (setting "Smooth menu video"; one more picture drawn per frame, no more decoding)
+  - "Home screen blur": off, light (default) or strong, from the glass effect's blurred copy
+  - the screen fades out in 0.17 s before the next one opens; Fast Play breathes and a light
+    crosses it every five seconds; all of it follows "Menu animations"
+- new in 1.9.4: a new home screen
+  - top left, the logo, the name and the version; a greeting with the player's name; Hypixel and
+    Minemen to join in one click, each with its own icon, players online and ping (the same status
+    request as the multiplayer list, at most once a minute); singleplayer and multiplayer below
+  - the player in 3D, with their skin, cape and cosmetics, the head following the mouse; a click
+    opens the locker
+  - what is new in this version, bottom left; the background follows the mouse a little, lighter
+    than before and darker behind the text; a light crosses the buttons when pointed at
+  - the old layout stays: Settings > General > Home screen layout > Classic
+- new in 1.9.3: the Rago Optimizer card
+  - bottom right of the home screen: the Rago Optimizer banner, a "Free cosmetic" tag and a Join
+    now button to the Discord (the whole card opens it); its cross hides it until the next start,
+    and it stays out of the way when the window is too narrow
+- new in 1.9.2: capes
+  - Pixel Cat is shaded like the creator's black cat skin, in its own greys (a lighter black than
+    before): the light in the eyes and their slit pupils, a muzzle, whiskers and a lighter chest
+  - Pink R, for the creator only (like Black Cat and qRago, on Rago Network too): Rago's R in the
+    pink gradient of the creator's name, with a soft glow, on the black of their skin
+- new in 1.9.1: **Nametags** gets the two settings players add a separate name tag mod for.
+  - Background opacity, from clear to solid (vanilla's is 25 %), where the player is in sight.
+    Through walls the background never shows more than vanilla's, whatever the setting: an opaque
+    background would otherwise make players hiding behind blocks easy to spot
+  - Lower by: the name tag moves down towards the head, by a fifth of a block at most, and never
+    up (a raised name could stick out above cover). Level Head's line follows it
+  - two help texts of the menu (Clean Motion Blur, low health vignette) showed "Format error"
+    because of a % sign; a test now checks every help text
+- new in 1.9.0: a **performance pass** over the whole client. Everything below was measured in the
+  real game (Forge, OptiFine HD U M5, PolyPatcher and Rago) on a software renderer (no graphics
+  card) at 640x360, in a single player world dressed as a Bed Wars game: survival, full armour, a
+  14-line sidebar, the chat moving, 20 players in enchanted diamond armour and 24 floating texts.
+  Nothing here changes what is sent to the server
+  - **Group Minecraft's HUD** (Performance > Engine, on): the hearts, armour points, food icons and
+    air bubbles, which Minecraft draws with a draw call each, go out in one draw call per bar, and
+    the dark boxes of the sidebar in one (its text is still drawn by the game, line by line).
+    Compared pixel for pixel with the game's own drawing: identical
+  - **Group floating texts** (Performance > Engine, on): the floating texts over generators and
+    shop keepers (invisible armour stands with a name) are drawn together as the game finishes
+    drawing entities, so before chests, particles, water and stained glass as when the game draws
+    them, and the invisible stands that carry them skip setting up a body nobody can see. Compared
+    pixel for pixel: the same, but for a few pixels on the edges of bold letters
+  - with both, in that scene (two runs each): 81 draw calls a frame instead of 148, 601 OpenGL state
+    changes instead of 708, the 24 floating texts in 188 and 219 µs instead of 479 and 483, and
+    the hearts, armour and food in 29 and 31 µs instead of 65 and 76. The frame time on the
+    software renderer did not move beyond its noise (35.9 to 38.1 ms): there, filling pixels is what
+    limits it
+  - against **1.8.9** in the same scene, without the test chat (1.8.9 cannot make it) and with the
+    same 24 floating texts made by vanilla commands (two runs each): 64.8 and 64.6 draw calls a
+    frame instead of 142.2 and 141.3, and 517.7 and 517.5 OpenGL state changes instead of 627.2
+    and 625.6. Frame time 38.6 and 36.4 ms against 37.9 and 36.1: the same, within its noise
+  - the **HUD cache** draws the HUD once per update instead of twice: the two images it needs (over
+    black and over white) come out of one drawing, with two colour targets at once. A driver that
+    cannot do that gets the old way, by itself
+  - Rago's HUD elements send their background and border in one draw call and all their text in
+    one (keystrokes, armour, generator timers, item counters and the other text elements), and
+    make far fewer objects a frame: in an earlier scene with a typical profile, the HUD went from
+    about 2,040 to 340 bytes made a frame, the name tags from about 1,910 to 1,070, and the whole
+    frame from 62 to 44 draw calls
+  - name tags: bold letters are really bold, the see-through edge of a letter no longer hides a
+    name tag behind it, and after the world they leave the light map off, as the game does
+  - the config is written on a thread of its own: closing the menu or changing profile no longer
+    waits for the disk
+  - Rago Network server: a presence no longer waits for a disk flush, and the players online are
+    counted at most every 15 seconds instead of on every request
+  - smaller savings: Rago Network's address is no longer read again on every tick, name tags
+    without the creator's name skip working out its styles, and the generator timers clean up
+    the colour codes only of the floating texts that say "Spawns", not of every one each tick
+  - the **Ranked Bedwars** and **Max performance** presets turn on the HUD cache and both grouping
+    options, and Ranked Bedwars also turns on **Light enchantment glint** (already in Max
+    performance): with the 20 players in enchanted armour, drawing them took 1509 and 1517 µs a
+    frame with it instead of 1812 and 1827 µs without (two runs each), and 69 fewer display lists
+    called a frame. The shimmer is a little fainter, in one direction
+  - PolyPatcher's entity culling (on by default) asks the graphics card every frame whether each
+    entity is hidden: 8 draw calls and 16 state changes a frame in that scene, and no frame time
+    measured against it (36.8 ms in both runs with it, 37.6 and 38.5 without). It stays on: it
+    skips the players hidden behind blocks and still shows their names, where Rago's "Also cull
+    players" (off) would hide the names too
+  - **Shop Anti-Misclick** (Hypixel, Input, off by default): in the Bed Wars shop, a stone, iron
+    or diamond sword is not bought again right after you bought it, so spam-clicking it buys it
+    once. Buying another item in between lets you buy it again (sword, blocks, sword is two
+    swords), and so does a pause: the block holds while the clicks keep coming and stops after
+    1 second without one (0.3 to 5 seconds), so you can buy your sword back after a death. A
+    stopped click plays a low note and says why above the shop. Shift-clicks (Hypixel's quick buy
+    editing) are left alone; it only ignores your extra clicks and sends nothing
+  - Trap Notifier: **"Say it in the party chat"** (off by default, marked risky on Hypixel since it
+    sends a message for you): when one of your traps goes off, a line also goes to your party with
+    `/pc`
+  - developer tools (test game only): `/rago testholo [n]` puts floating texts like Hypixel's
+    around you, `/rago testchat [seconds]` writes Bed Wars-like chat lines, one a second, and
+    `/rago testpatcher <option> true|false` sets one of PolyPatcher's options (OneConfig keeps it
+    in its profile); `-Drago.bench.frame=true` now also times Minecraft's status icons, its sidebar
+    and the floating texts
 - new in 1.8.9: Bed Wars Stats' **game-start line** lists **every** enemy to target: 300 stars or
   5 FKDR and more (your settings), and also nicks and possible snipers, which were left out. In
   team modes each target comes with their team mates, whatever their stats, grouped by team (the
@@ -655,7 +776,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.8.9+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.9.6+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

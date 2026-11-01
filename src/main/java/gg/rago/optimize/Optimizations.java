@@ -103,6 +103,9 @@ public final class Optimizations {
 	private final BooleanOption skipGlErrors;
 	private final BooleanOption hudCache;
 	private final IntOption hudCacheRate;
+	private final BooleanOption batchHolograms;
+	private final HologramBatch holograms;
+	private final BooleanOption batchVanillaHud;
 	private final EngineTweaks engine;
 	private final BooleanOption disableFog;
 
@@ -175,6 +178,10 @@ public final class Optimizations {
 		hudCache = s.bool(p, ENGINE, "hud_cache", true, null);
 		hudCacheRate = s.slider(p, ENGINE, "hud_cache_rate", 144, 30, 360, 6, v -> v + " FPS", null);
 		visibleWhen(s, "hud_cache_rate", hudCache::get);
+		batchHolograms = s.bool(p, ENGINE, "batch_holograms", true, null);
+		holograms = new HologramBatch(batchHolograms::get);
+		batchVanillaHud = s.bool(p, ENGINE, "batch_vanilla_hud", true, null);
+		GuiBatch.setSwitch(batchVanillaHud::get);
 		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get, particleCollisions::get, lightGlint::get);
 	}
 
@@ -186,6 +193,11 @@ public final class Optimizations {
 	/** How many times per second the cached HUD is drawn again. */
 	public int hudCacheRate() {
 		return hudCacheRate.get();
+	}
+
+	/** Hypixel's floating texts drawn together, to register on the event bus. */
+	public HologramBatch holograms() {
+		return holograms;
 	}
 
 	/** Settings read by the game hooks. */

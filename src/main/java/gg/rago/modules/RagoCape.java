@@ -20,7 +20,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * The Rago cape on your own player, on by default, in one of ten designs; the Rago design comes in the
+ * The Rago cape on your own player, on by default, in one of eight designs; the Rago design comes in the
  * {@link NeonColors}. The other designs are big pictures shown smooth ({@link HdTexture}), read the
  * first time they are worn. A cape you already own (Minecraft or OptiFine) is kept unless you choose to show
  * Rago's instead. Minecraft servers do not send cosmetics: other Rago players see your cape through
@@ -30,12 +30,18 @@ import java.util.Set;
 public final class RagoCape extends Module {
 	public static final ResourceLocation TEXTURE = new ResourceLocation("rago", "textures/cape.png");
 	/** The designs (Rago Network's capes but "none"); the others than Rago's are drawn by tools/hd_capes.py. */
-	static final String[] DESIGNS = {"rago", "black_cat", "pixel_cat", "night_cat", "qrago", "primal", "mfga"};
+	static final String[] DESIGNS = {"rago", "black_cat", "pixel_cat", "night_cat", "qrago", "pink_r", "primal", "mfga"};
 	/**
-	 * The designs only the creator of Rago wears: their Discord picture and their photo. Rago Network
-	 * shows them only on the creator (server/cosmetics.json, "exclusive"); the menu offers them to no one else.
+	 * The designs only the creator of Rago wears: their Discord picture, their photo and the R in the
+	 * pink of their name. Rago Network shows them only on the creator (server/cosmetics.json,
+	 * "exclusive"); the menu offers them to no one else.
 	 */
-	static final Set<String> CREATOR_ONLY = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("black_cat", "qrago")));
+	static final Set<String> CREATOR_ONLY = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("black_cat", "qrago", "pink_r")));
+	/**
+	 * The creator's other accounts (uuids without dashes), offered the creator's capes too, but not the
+	 * creator's role: qAbel. The same as the uuids in server/cosmetics.json, "exclusive".
+	 */
+	static final Set<String> CREATOR_ACCOUNTS = Collections.singleton("642543c54ee741118102aa0bca1e552f");
 	private static final ResourceLocation[] TEXTURES = new ResourceLocation[DESIGNS.length];
 
 	static {
@@ -46,7 +52,7 @@ public final class RagoCape extends Module {
 	}
 
 	private final ChoiceOption design = addOption(new ChoiceOption("cape_design", "rago", DESIGNS)
-		.allowIf(id -> !CREATOR_ONLY.contains(id) || "creator".equals(role())));
+		.allowIf(id -> !CREATOR_ONLY.contains(id) || "creator".equals(role()) || CREATOR_ACCOUNTS.contains(ownId())));
 	private final ChoiceOption neon = addOption(new ChoiceOption("cape_neon", "red", NeonColors.IDS));
 	private final BooleanOption overOwnCape = addOption(new BooleanOption("cape_over_own", false));
 
@@ -100,6 +106,16 @@ public final class RagoCape extends Module {
 	private static String role() {
 		RagoNetwork network = Hooks.network;
 		return network == null ? null : network.ownRole();
+	}
+
+	/** Your account's uuid without dashes, lower case, or "" when unknown. */
+	private static String ownId() {
+		try {
+			String id = net.minecraft.client.Minecraft.getMinecraft().getSession().getPlayerID();
+			return id == null ? "" : id.replace("-", "").toLowerCase(java.util.Locale.ROOT);
+		} catch (RuntimeException | LinkageError e) {
+			return "";
+		}
 	}
 
 	/** Whether your Rago cape is shown over your Minecraft or OptiFine cape, for you and other Rago players. */

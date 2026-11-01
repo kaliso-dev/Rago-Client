@@ -10,6 +10,7 @@ import gg.rago.modules.BlockEditFix;
 import gg.rago.modules.FastShop;
 import gg.rago.modules.HitDelayFix;
 import gg.rago.modules.TntTimer;
+import gg.rago.modules.TrapNotifier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -36,7 +37,7 @@ class HypixelRiskTest {
 
 	private List<Module> modules() {
 		return Arrays.asList(new HitDelayFix(), new BlockEditFix(), new FastShop(), new AutoMessages(), new AutoText(),
-			new TntTimer(), new BedwarsStats(new HypixelApi(dir)));
+			new TntTimer(), new BedwarsStats(new HypixelApi(dir)), new TrapNotifier());
 	}
 
 	@Test

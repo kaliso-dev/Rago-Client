@@ -13,7 +13,9 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
  * for Hypixel, {@code /rago testbw [seconds]} draws a Bed Wars sidebar on your screen (two teams
  * and "Diamond II in m:ss", counting down) so the Bed Wars HUDs can be tried without a server, and
  * {@code /rago testplayers [n]} puts other players around you to measure name tags and hitboxes,
- * and {@code /rago testgame [n]} fills the tab list with players in four teams and two bots.
+ * {@code /rago testholo [n]} floating texts like the ones over Hypixel's generators, and
+ * {@code /rago testgame [n]} fills the tab list with players in four teams and two bots, and
+ * {@code /rago testchat [seconds]} adds a Bed Wars chat line every second.
  */
 public final class FakeBedwars {
 	public static final boolean ON = Boolean.getBoolean("rago.test.hypixel");
@@ -61,6 +63,39 @@ public final class FakeBedwars {
 				}
 			}
 			mc.theWorld.addEntityToWorld(-1000 - i, e);
+		}
+	}
+
+	/**
+	 * Puts {@code n} floating texts (client side only) around you as Hypixel shows them over its
+	 * generators and shop keepers: invisible armour stands with a name always shown, three lines a
+	 * generator, to measure what they cost to draw.
+	 */
+	public static void holograms(int n) {
+		Minecraft mc = Minecraft.getMinecraft();
+		if (mc.theWorld == null || mc.thePlayer == null) {
+			return;
+		}
+		String[][] groups = {
+			{"\u00a7eTier \u00a7cII", "\u00a7b\u00a7lDiamond", "\u00a7eSpawns in \u00a7c23 \u00a7eseconds"},
+			{"\u00a7eTier \u00a7cIII", "\u00a72\u00a7lEmerald", "\u00a7eSpawns in \u00a7c41 \u00a7eseconds"},
+			{"\u00a7bITEM SHOP", "\u00a7e\u00a7lRIGHT CLICK", "\u00a7bSOLO UPGRADES"},
+		};
+		int sets = (n + 2) / 3;
+		for (int i = 0; i < n; i++) {
+			int set = i / 3;
+			int line = i % 3;
+			double a = Math.PI * 2 * set / sets;
+			double r = 7 + set % 3 * 3;
+			net.minecraft.entity.item.EntityArmorStand stand = new net.minecraft.entity.item.EntityArmorStand(mc.theWorld,
+				mc.thePlayer.posX + Math.cos(a) * r, mc.thePlayer.posY + 0.6 - line * 0.3, mc.thePlayer.posZ + Math.sin(a) * r);
+			net.minecraft.nbt.NBTTagCompound tag = new net.minecraft.nbt.NBTTagCompound();
+			tag.setBoolean("Invisible", true);
+			tag.setBoolean("NoGravity", true);
+			stand.readEntityFromNBT(tag);
+			stand.setCustomNameTag(groups[set % groups.length][line]);
+			stand.setAlwaysRenderNameTag(true);
+			mc.theWorld.addEntityToWorld(-2000 - i, stand);
 		}
 	}
 
@@ -127,6 +162,36 @@ public final class FakeBedwars {
 			left--;
 			draw();
 		}
+		if (event.phase == TickEvent.Phase.END && chatLeft > 0 && ticks % 20 == 0) {
+			chatLeft--;
+			chatLine();
+		}
+	}
+
+	private int chatLeft;
+	private int chatCount;
+
+	/** {@code /rago testchat [seconds]}: a Bed Wars chat line every second, so the chat stays full. */
+	public static void chat(int seconds) {
+		start(running == null ? 337 : running.left);
+		running.chatLeft = seconds;
+	}
+
+	private void chatLine() {
+		Minecraft mc = Minecraft.getMinecraft();
+		if (mc.ingameGUI == null) {
+			return;
+		}
+		int n = chatCount++;
+		String[] lines = {
+			"§9Enemy" + n % 7 + " §7was knocked into the void by §cRagoTest§7. §b§lFINAL KILL!",
+			"§7[§6" + (100 + n % 400) + "✫§7] §cRagoTest§f: gg",
+			"§a+" + (n % 3 + 1) + " Emeralds",
+			"§eEnemy" + n % 5 + " §7fell into the void.",
+			"§7[§b" + (300 + n % 200) + "✫§7] §9Enemy" + n % 4 + "§f: where is the diamond gen",
+			"§c§lBED DESTRUCTION > §fGreen Bed §7was destroyed by §9Enemy" + n % 4 + "§7!",
+		};
+		mc.ingameGUI.getChatGUI().printChatMessage(new net.minecraft.util.ChatComponentText(lines[n % lines.length]));
 	}
 
 	private void draw() {
@@ -141,11 +206,22 @@ public final class FakeBedwars {
 			o.setDisplayName("§e§lBED WARS");
 			board.setObjectiveInDisplaySlot(1, o);
 		}
+		// as Hypixel's eight-team sidebar: 14 lines
 		String[] lines = {
-			"Diamond II in " + left / 60 + ":" + (left % 60 < 10 ? "0" : "") + left % 60,
+			"§711/01/26 §8m42B",
 			"",
-			"§cR §fRed: §a✓",
-			"§9B §fBlue: §a✓",
+			"Diamond II in §a" + left / 60 + ":" + (left % 60 < 10 ? "0" : "") + left % 60,
+			" ",
+			"§cR §fRed: §a✔ §7YOU",
+			"§9B §fBlue: §a✔",
+			"§aG §fGreen: §c✘",
+			"§eY §fYellow: §a2",
+			"§bA §fAqua: §a✔",
+			"§fW §fWhite: §c✘",
+			"§dP §fPink: §a1",
+			"§8S §fGray: §a✔",
+			"  ",
+			"§ewww.hypixel.net",
 		};
 		for (int i = 0; i < lines.length; i++) {
 			String entry = "§" + Integer.toHexString(i);

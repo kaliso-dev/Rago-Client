@@ -85,7 +85,8 @@ public final class LevelHead extends Module {
 		String text = stats == null ? null : cachedText(stats);
 		if (text != null) {
 			double line = nametags.lineHeight();
-			double top = NameTags.nameTop(p, event.y, line) + line;
+			// above the name tag, which Nametags may draw a little lower than vanilla
+			double top = NameTags.nameTop(p, event.y, line) + line - nametags.lowerBy();
 			if (nametags.isEnabled()) {
 				nametags.label(text, event.x, top, event.z, 0, nametags.throughWalls(), 0xFF);
 			} else {

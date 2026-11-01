@@ -17,11 +17,13 @@ import java.nio.ByteBuffer;
  * HUD cache: at high frame rates Rago's HUD is drawn a fixed number of times per second into an
  * image, and that image is laid over every frame in between, one quad instead of every element.
  *
- * <p>The HUD is drawn twice per update, over black and over white: the black image is each pixel's
- * colour already multiplied by its opacity, and the difference between the two is how much of the
- * world shows through. Each frame the world is dimmed by the second and the first is added, so
- * translucent backgrounds look exactly as when drawn directly, whatever blending the elements use. When the game runs slower than the update rate the HUD is drawn
- * directly, as before.
+ * <p>Each update makes two images of the HUD, over black and over white: the black image is each
+ * pixel's colour already multiplied by its opacity, and the difference between the two is how much
+ * of the world shows through. Each frame the world is dimmed by the second and the first is added,
+ * so translucent backgrounds look exactly as when drawn directly, whatever blending the elements
+ * use. Both images come out of a single drawing of the HUD (two colour targets at once, which
+ * every card with framebuffers can do); a driver that cannot gets the HUD drawn twice instead.
+ * When the game runs slower than the update rate the HUD is drawn directly, as before.
  */
 public final class HudCache {
 	private static final int MAX_AREAS = 32;
@@ -31,6 +33,16 @@ public final class HudCache {
 	/** Our own targets: the game's Framebuffer class does nothing when OptiFine's Fast Render is on. */
 	private Target black;
 	private Target white;
+	/**
+	 * A framebuffer with the black image on its first colour target and the white one on its second,
+	 * so one drawing of the HUD fills both; 0 when the driver cannot (then the HUD is drawn twice).
+	 */
+	private int both;
+	/**
+	 * Two colour targets at once did not work once: not tried again until the game restarts. Set
+	 * from the start by {@code -Drago.hud.twoPass=true}, to compare with the old way.
+	 */
+	private boolean bothFailed = Boolean.getBoolean("rago.hud.twoPass");
 	private boolean failed;
 	/** Element bounds from the last redraw, in GUI pixels (x, y, w, h). */
 	private final int[] bounds = new int[MAX_AREAS * 4];
@@ -62,9 +74,19 @@ public final class HudCache {
 			drawnAt = now;
 			int previous = GameFramebuffer.bound();
 			HudManager.collectBounds(bounds);
-			draw(black, 0, drawHud);
-			areas(HudManager.collected(), mc);
-			draw(white, 1, drawHud);
+			if (both != 0) {
+				// both images from one drawing: what the HUD costs, once
+				clear(black, 0, true);
+				clear(white, 1, false);
+				OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, both);
+				GlStateManager.viewport(0, 0, black.width, black.height);
+				drawHud.run();
+				areas(HudManager.collected(), mc);
+			} else {
+				draw(black, 0, drawHud);
+				areas(HudManager.collected(), mc);
+				draw(white, 1, drawHud);
+			}
 			// white minus black: how much of the world shows through each pixel, in the white image
 			white.bind();
 			GL14.glBlendEquation(GL14.GL_FUNC_REVERSE_SUBTRACT);
@@ -83,10 +105,15 @@ public final class HudCache {
 	}
 
 	private void draw(Target target, float clear, Runnable drawHud) {
+		clear(target, clear, true);
+		drawHud.run();
+	}
+
+	/** Binds {@code target} and fills it with {@code clear} (0 black, 1 white), and its depth with {@code depth}. */
+	private static void clear(Target target, float clear, boolean depth) {
 		target.bind();
 		GlStateManager.clearColor(clear, clear, clear, 1);
-		GlStateManager.clear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-		drawHud.run();
+		GlStateManager.clear(depth ? GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT : GL11.GL_COLOR_BUFFER_BIT);
 	}
 
 	private boolean ready(Minecraft mc) {
@@ -97,16 +124,25 @@ public final class HudCache {
 		}
 		int previous = GameFramebuffer.bound();
 		if (black != null) {
+			deleteBoth();
 			black.delete();
 			white.delete();
 		}
 		black = new Target(w, h);
 		white = new Target(w, h);
 		valid = false;
+		if (black.complete && white.complete && !bothFailed) {
+			both = both(black, white);
+			if (both == 0) {
+				bothFailed = true;
+				RagoClient.LOG.info("HUD cache: two colour targets at once unavailable, the HUD is drawn twice per update");
+			}
+		}
 		OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previous);
 		GlStateManager.viewport(0, 0, w, h);
 		if (!black.complete || !white.complete) {
 			RagoClient.LOG.warn("HUD cache unavailable: framebuffer incomplete");
+			deleteBoth();
 			black.delete();
 			white.delete();
 			black = null;
@@ -115,6 +151,59 @@ public final class HudCache {
 			return false;
 		}
 		return true;
+	}
+
+	/**
+	 * A framebuffer drawing into {@code black}'s colour on its first target and {@code white}'s on its
+	 * second (sharing black's depth), or 0 if the driver cannot draw into two at once. Without a
+	 * shader, everything drawn goes to both targets, each blended with its own content.
+	 */
+	private static int both(Target black, Target white) {
+		try {
+			org.lwjgl.opengl.ContextCapabilities caps = org.lwjgl.opengl.GLContext.getCapabilities();
+			if (!caps.OpenGL20 || GL11.glGetInteger(org.lwjgl.opengl.GL20.GL_MAX_DRAW_BUFFERS) < 2
+				|| GL11.glGetInteger(org.lwjgl.opengl.GL30.GL_MAX_COLOR_ATTACHMENTS) < 2) {
+				clearErrors();
+				return 0;
+			}
+			int fbo = OpenGlHelper.glGenFramebuffers();
+			OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, fbo);
+			OpenGlHelper.glFramebufferTexture2D(OpenGlHelper.GL_FRAMEBUFFER, OpenGlHelper.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, black.texture, 0);
+			OpenGlHelper.glFramebufferTexture2D(OpenGlHelper.GL_FRAMEBUFFER, COLOR_ATTACHMENT1, GL11.GL_TEXTURE_2D, white.texture, 0);
+			OpenGlHelper.glFramebufferRenderbuffer(OpenGlHelper.GL_FRAMEBUFFER, OpenGlHelper.GL_DEPTH_ATTACHMENT, OpenGlHelper.GL_RENDERBUFFER, black.depth);
+			java.nio.IntBuffer targets = org.lwjgl.BufferUtils.createIntBuffer(2);
+			targets.put(OpenGlHelper.GL_COLOR_ATTACHMENT0).put(COLOR_ATTACHMENT1).flip();
+			// the draw buffers belong to this framebuffer: set once, kept
+			org.lwjgl.opengl.GL20.glDrawBuffers(targets);
+			boolean ok = OpenGlHelper.glCheckFramebufferStatus(OpenGlHelper.GL_FRAMEBUFFER) == OpenGlHelper.GL_FRAMEBUFFER_COMPLETE
+				&& GL11.glGetError() == GL11.GL_NO_ERROR;
+			if (!ok) {
+				OpenGlHelper.glDeleteFramebuffers(fbo);
+				clearErrors();
+				return 0;
+			}
+			return fbo;
+		} catch (RuntimeException | LinkageError e) {
+			RagoClient.LOG.debug("HUD cache: no two colour targets", e);
+			clearErrors();
+			return 0;
+		}
+	}
+
+	/** The second colour target; the same number for core, ARB and EXT framebuffers. */
+	private static final int COLOR_ATTACHMENT1 = 0x8CE1;
+
+	private static void clearErrors() {
+		for (int i = 0; i < 8 && GL11.glGetError() != GL11.GL_NO_ERROR; i++) {
+			// errors from the checks above are ours, not the game's
+		}
+	}
+
+	private void deleteBoth() {
+		if (both != 0) {
+			OpenGlHelper.glDeleteFramebuffers(both);
+			both = 0;
+		}
 	}
 
 	/** A colour texture with a depth buffer to draw into. */

@@ -45,7 +45,9 @@ Signed-in calls send `Authorization: Bearer <token>`.
   Rago" off in the client hides you).
 - Cosmetics are checked against [`cosmetics.json`](cosmetics.json): unknown fields are dropped and
   invalid values put back to their default. A value listed under `exclusive` is only accepted from
-  the roles given, e.g. `{"cape": {"creator": ["creator"]}}`.
+  the roles and the players (uuid, 32 hex digits) given, e.g.
+  `{"cape": {"creator": ["creator", "<uuid of another account>"]}}`: a player listed wears it
+  without getting the role.
 - Rate limits (per address for sign-in and stats, per player otherwise): sign-in 10 a minute,
   presence 6, lookup 30, stats 60. Over the limit: `429`.
 - Nothing is logged per request, addresses are never stored, and players not seen for 180 days are

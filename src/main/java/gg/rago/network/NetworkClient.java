@@ -112,6 +112,9 @@ public final class NetworkClient {
 	private final AtomicBoolean busy = new AtomicBoolean();
 
 	private volatile String base = "";
+	/** The address setting as last given to {@link #tick}, and what {@link #normalize} made of it (game thread only). */
+	private String normalizedFrom;
+	private String normalized = "";
 	private volatile String token;
 	private volatile UUID signedIn;
 	private volatile String role;
@@ -138,7 +141,12 @@ public final class NetworkClient {
 	 */
 	public void tick(String url, Account account, boolean visible, boolean others, int signature, Supplier<Loadout> own,
 		Supplier<Collection<UUID>> around) {
-		String b = normalize(url);
+		// the address is checked again only when the setting changes, not on every tick (it parses a URL)
+		if (url != normalizedFrom) {
+			normalizedFrom = url;
+			normalized = normalize(url);
+		}
+		String b = normalized;
 		if (!b.equals(base)) {
 			forget();
 			base = b;

@@ -8,6 +8,7 @@ import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
+import gg.rago.render.HudText;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
@@ -112,7 +113,11 @@ public final class GeneratorTimersHud extends HudElement {
 		int bestDiamond = Integer.MAX_VALUE;
 		int bestEmerald = Integer.MAX_VALUE;
 		for (EntityArmorStand timer : stands) {
-			String text = EnumChatFormatting.getTextWithoutFormattingCodes(timer.getCustomNameTag());
+			String raw = timer.getCustomNameTag();
+			if (raw.indexOf("Spawns") < 0) {
+				continue; // most named stands are not timers: no need to strip their colours (4 times a second)
+			}
+			String text = EnumChatFormatting.getTextWithoutFormattingCodes(raw);
 			int at = text.indexOf("Spawns in ");
 			if (at < 0) {
 				continue;
@@ -245,12 +250,19 @@ public final class GeneratorTimersHud extends HudElement {
 			GlStateManager.disableRescaleNormal();
 			RenderHelper.disableStandardItemLighting();
 		}
+		// every timer in one draw call
+		HudText.Batch batch = labels.start(font.get());
+		boolean shade = shadow.get();
 		for (int k = 0; k < rows.size(); k++) {
 			Gen g = rows.get(k);
 			int left = placeholder ? 23 : g.left(ticks);
 			int color = soonAt.get() > 0 && left <= soonAt.get() ? soonColor.get() : textColor.get();
-			drawText(text, text(g, placeholder), icons ? ICON + 2 : 0, k * row + (icons ? 4 : 0), color);
+			batch.add(text(g, placeholder), icons ? ICON + 2 : 0, k * row + (icons ? 4 : 0), color, shade);
 		}
+		batch.end();
 		GlStateManager.color(1, 1, 1, 1);
 	}
+
+	/** The timers' text, reused every frame. */
+	private final HudText.Batch labels = new HudText.Batch();
 }

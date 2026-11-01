@@ -8,6 +8,7 @@ import gg.rago.config.ConfigStore;
 import gg.rago.config.IntOption;
 import gg.rago.debug.FrameProfile;
 import gg.rago.gui.ui.Anim;
+import gg.rago.gui.ui.Background;
 import gg.rago.gui.ui.TextColors;
 import gg.rago.gui.ui.Ui;
 import gg.rago.gui.ui.UiTheme;
@@ -104,6 +105,7 @@ import gg.rago.modules.RawInput;
 import gg.rago.modules.Screenshots;
 import gg.rago.modules.SkinChanger;
 import gg.rago.modules.FastShop;
+import gg.rago.modules.ShopAntiMisclick;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.HitColor;
 import gg.rago.modules.HitDelayFix;
@@ -203,6 +205,14 @@ public final class RagoClient {
 	private static BooleanOption hudInDebug;
 	private static BooleanOption chatCopy;
 	private static IntOption uiTheme;
+	private static IntOption homeLayout;
+	private static IntOption homeBlur;
+	private static BooleanOption smoothVideo;
+	private static IntOption homeBackground;
+	/** The home screen's layouts: buttons in the middle, buttons on the left, the classic emblem. */
+	public static final int HOME_CENTRED = 0;
+	public static final int HOME_LEFT = 1;
+	public static final int HOME_CLASSIC = 2;
 	private static IntOption teamColors;
 	private static PerformancePreset maxPerformance;
 	private static PlayPreset playPreset;
@@ -285,6 +295,7 @@ public final class RagoClient {
 		Hooks.hitDelay = MODULES.register(new HitDelayFix());
 		Hooks.blockEdit = MODULES.register(new BlockEditFix());
 		Hooks.fastShop = MODULES.register(new FastShop());
+		Hooks.antiMisclick = MODULES.register(new ShopAntiMisclick());
 		Chat chat = MODULES.register(new Chat());
 		Nametags nametags = MODULES.register(new Nametags());
 		hypixel = new HypixelApi(configDir);
@@ -341,12 +352,14 @@ public final class RagoClient {
 		Hooks.tabPing = tabPing;
 		Hooks.chat = chat;
 		Hooks.engine = optimizations.engine();
+		Hooks.holograms = optimizations.holograms();
 		Hooks.fixes = fixes;
 		Hooks.hitColor = hitColor;
 		Hooks.cape = cape;
 		Hooks.skins = skinChanger;
 		Hooks.nickHider = nickHider;
 		Skins.load(configDir);
+		ServerPlaytime.load(configDir);
 		Hooks.glint = glint;
 		ClientCommandHandler.instance.registerCommand(new RagoCommand(hypixel, () -> openMenu = true));
 
@@ -364,6 +377,9 @@ public final class RagoClient {
 		Anim.setEnabled(menuAnimations.get());
 		Ui.setGlass(glassEffect.get());
 		Ui.setMenuVideo(menuVideo.get());
+		Ui.setSmoothVideo(smoothVideo.get());
+		Background.setConfigDir(configDir);
+		Background.init(homeBackground.get());
 		UiTheme.set(uiTheme.get());
 		TextColors.set(teamColors.get());
 		optimizations.start();
@@ -390,6 +406,7 @@ public final class RagoClient {
 			MinecraftForge.EVENT_BUS.register(bench);
 		}
 		MinecraftForge.EVENT_BUS.register(optimizations);
+		MinecraftForge.EVENT_BUS.register(optimizations.holograms());
 		MinecraftForge.EVENT_BUS.register(new gg.rago.chat.ChatCopy(chatCopy::get));
 		MinecraftForge.EVENT_BUS.register(new gg.rago.debug.InputTrace());
 		gg.rago.debug.StackSampler.startIfAsked();
@@ -409,6 +426,31 @@ public final class RagoClient {
 	/** Opens a screen on the next tick, for a command typed in chat. */
 	public static void openLater(GuiScreen screen) {
 		openNext = screen;
+	}
+
+	/** The home screen's layout: {@link #HOME_CENTRED}, {@link #HOME_LEFT} or {@link #HOME_CLASSIC}. */
+	public static int homeLayout() {
+		return homeLayout == null ? HOME_CENTRED : homeLayout.get();
+	}
+
+	/** Whether the home screen uses its classic layout (the emblem over three buttons). */
+	public static boolean classicHome() {
+		return homeLayout() == HOME_CLASSIC;
+	}
+
+	/** Shows and saves the menus' background chosen on the home screen ({@link Background}). */
+	public static void setHomeBackground(int id) {
+		if (homeBackground != null) {
+			homeBackground.set(id);
+			saveConfig();
+		}
+		Background.set(id);
+	}
+
+	/** How much the home screen blurs its background: 0 (off), a little, or fully. */
+	public static float homeBlur() {
+		int v = homeBlur == null ? 1 : homeBlur.get();
+		return v == 0 ? 0 : v == 1 ? 0.5f : 1;
 	}
 
 	public static String version() {
@@ -514,6 +556,11 @@ public final class RagoClient {
 		menuVideo = SETTINGS.bool(g, ui, "menu_video", true, Ui::setMenuVideo);
 		SETTINGS.choice(g, ui, "main_menu_style", () -> mainMenu.isEnabled() ? 0 : 1, i -> mainMenu.setEnabled(i == 0),
 			"rago.value.rago", "rago.value.vanilla");
+		homeLayout = SETTINGS.choice(g, ui, "home_layout", HOME_CENTRED, null,
+			"rago.value.home_centred", "rago.value.home_left", "rago.value.home_classic");
+		homeBlur = SETTINGS.choice(g, ui, "home_blur", 1, null, "rago.value.blur_off", "rago.value.blur_light", "rago.value.blur_strong");
+		smoothVideo = SETTINGS.bool(g, ui, "smooth_video", true, Ui::setSmoothVideo);
+		homeBackground = SETTINGS.choice(g, ui, "home_background", Background.NIGHT_DESERT, Background::set, Background.KEYS);
 		SETTINGS.button(g, ui, "welcome_guide", () -> {
 			Minecraft mc = Minecraft.getMinecraft();
 			mc.displayGuiScreen(new WelcomeScreen(mc.currentScreen));
@@ -587,10 +634,60 @@ public final class RagoClient {
 		return menuBlur.get();
 	}
 
+	/**
+	 * Saves the config: what to save is taken now, on the game thread, and the file is written on a
+	 * thread of its own, so closing the menu or joining a game never waits for the disk (the file is
+	 * a few hundred kilobytes with every profile). Saves asked for faster than they are written
+	 * become one; a save still waiting when the game quits is written before it exits.
+	 */
 	public static void saveConfig() {
+		com.google.gson.JsonObject json;
 		try {
 			PROFILES.capture(MODULES);
-			config.save(MODULES, SETTINGS, PROFILES);
+			json = config.toJson(MODULES, SETTINGS, PROFILES);
+		} catch (Exception e) {
+			LOG.error("Could not save {}", config.file(), e);
+			return;
+		}
+		if (PENDING_SAVE.getAndSet(json) == null) {
+			try {
+				SAVER.execute(RagoClient::writePendingSave);
+			} catch (java.util.concurrent.RejectedExecutionException e) {
+				writePendingSave(); // the game is quitting: the writer thread is closed, write it here
+			}
+		}
+	}
+
+	private static final java.util.concurrent.atomic.AtomicReference<com.google.gson.JsonObject> PENDING_SAVE =
+		new java.util.concurrent.atomic.AtomicReference<>();
+	private static final java.util.concurrent.ExecutorService SAVER = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+		Thread t = new Thread(r, "Rago config");
+		t.setDaemon(true);
+		return t;
+	});
+
+	static {
+		Runtime.getRuntime().addShutdownHook(new Thread(RagoClient::saveOnExit, "Rago config on exit"));
+	}
+
+	/** When the game quits: lets a save the writer thread has begun finish, then writes any left. */
+	private static void saveOnExit() {
+		SAVER.shutdown();
+		try {
+			SAVER.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+		writePendingSave();
+	}
+
+	private static void writePendingSave() {
+		com.google.gson.JsonObject latest = PENDING_SAVE.getAndSet(null);
+		if (latest == null) {
+			return;
+		}
+		try {
+			config.write(latest);
 		} catch (Exception e) {
 			LOG.error("Could not save {}", config.file(), e);
 		}
@@ -694,7 +791,7 @@ public final class RagoClient {
 		}
 		long t = FrameProfile.ON ? FrameProfile.start() : 0;
 		if (optimizations.hudCache()) {
-			HUD_CACHE.render(() -> HUD.render(!ownHud), optimizations.hudCacheRate());
+			HUD_CACHE.render(ownHud ? DRAW_HUD : DRAW_HUD_REPLACING_VANILLA, optimizations.hudCacheRate());
 		} else {
 			HUD.render(!ownHud);
 		}
@@ -706,6 +803,10 @@ public final class RagoClient {
 			FrameProfile.add(FrameProfile.HUD, System.nanoTime() - t);
 		}
 	}
+
+	/** Rago's HUD, and only the elements standing in for vanilla ones: made once, not a new lambda every frame. */
+	private static final Runnable DRAW_HUD = () -> HUD.render(false);
+	private static final Runnable DRAW_HUD_REPLACING_VANILLA = () -> HUD.render(true);
 
 	/** Developer timing ({@code -Drago.bench.frame=true -Drago.bench.hud=true}): the HUD with the card's work. */
 	private static final boolean BENCH_HUD = FrameProfile.ON && Boolean.getBoolean("rago.bench.hud");
@@ -830,6 +931,7 @@ public final class RagoClient {
 			}
 		}
 		QuickJoin.tick(mc);
+		ServerPlaytime.tick(mc);
 		if (gg.rago.debug.InputTrace.on() && mc.theWorld != null && mc.theWorld.getTotalWorldTime() % 100 == 0) {
 			gg.rago.bedwars.BedwarsGame.logSidebar();
 		}

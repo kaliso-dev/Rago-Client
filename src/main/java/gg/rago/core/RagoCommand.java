@@ -88,6 +88,10 @@ final class RagoCommand extends CommandBase {
 			gg.rago.debug.FakeBedwars.players(args.length > 1 ? Integer.parseInt(args[1]) : 16, args.length > 2 && args[2].equals("armor"));
 			return;
 		}
+		if (args[0].equalsIgnoreCase("testholo") && gg.rago.debug.FakeBedwars.ON) {
+			gg.rago.debug.FakeBedwars.holograms(args.length > 1 ? Integer.parseInt(args[1]) : 24);
+			return;
+		}
 		if (args[0].equalsIgnoreCase("testgame") && gg.rago.debug.FakeBedwars.ON) {
 			gg.rago.debug.FakeBedwars.game(args.length > 1 ? Integer.parseInt(args[1]) : 12);
 			return;
@@ -109,6 +113,19 @@ final class RagoCommand extends CommandBase {
 			com.google.gson.JsonObject o = new com.google.gson.JsonObject();
 			o.add(args[1], new com.google.gson.JsonParser().parse(args[2]));
 			RagoClient.settings().fromJson(o);
+			return;
+		}
+		if (args[0].equalsIgnoreCase("testpatcher") && args.length == 3 && gg.rago.debug.FakeBedwars.ON) {
+			// "testpatcher <option> true|false": one of the bundled Patcher's switches, to measure it
+			try {
+				Class.forName("club.sk1er.patcher.config.PatcherConfig").getField(args[1]).setBoolean(null, Boolean.parseBoolean(args[2]));
+			} catch (ReflectiveOperationException | RuntimeException e) {
+				RagoClient.LOG.warn("testpatcher: {}", e.toString());
+			}
+			return;
+		}
+		if (args[0].equalsIgnoreCase("testchat") && gg.rago.debug.FakeBedwars.ON) {
+			gg.rago.debug.FakeBedwars.chat(args.length > 1 ? Integer.parseInt(args[1]) : 900);
 			return;
 		}
 		if (args[0].equalsIgnoreCase("testbw") && gg.rago.debug.FakeBedwars.ON) {

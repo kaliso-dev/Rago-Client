@@ -22,7 +22,7 @@ final class ModuleInfo {
 	 */
 	static final Set<String> RISKY_MODULES = new HashSet<>(Arrays.asList("hit_delay_fix", "block_edit_fix", "fast_shop",
 		"auto_messages", "auto_text"));
-	static final Set<String> RISKY_OPTIONS = new HashSet<>(Arrays.asList("tnt_see_through_walls", "stats_alert_share", "sniper_gear"));
+	static final Set<String> RISKY_OPTIONS = new HashSet<>(Arrays.asList("tnt_see_through_walls", "stats_alert_share", "sniper_gear", "trap_party"));
 
 	static {
 		ICONS.put("fps", "gauge");
@@ -79,6 +79,7 @@ final class ModuleInfo {
 		ICONS.put("hit_delay_fix", "swords");
 		ICONS.put("block_edit_fix", "box");
 		ICONS.put("fast_shop", "shopping-cart");
+		ICONS.put("shop_anti_misclick", "mouse-pointer-ban");
 		ICONS.put("cosmetics", "crown");
 		ICONS.put("item_scale", "scaling");
 		ICONS.put("tnt_timer", "bomb");

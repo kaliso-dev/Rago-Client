@@ -27,6 +27,11 @@ public final class WorldDraw {
 		partialTicks = partial;
 	}
 
+	/** The frame's partial tick (how far between two game ticks this frame is drawn). */
+	public static float partialTicks() {
+		return partialTicks;
+	}
+
 	/**
 	 * How far to tip a label (degrees, like vanilla's playerViewX) so it faces the camera: the
 	 * camera entity's pitch, turned round in the front view (F5 twice), which vanilla 1.8 forgets.

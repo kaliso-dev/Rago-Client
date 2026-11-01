@@ -4,6 +4,7 @@ import gg.rago.modules.Chat;
 import gg.rago.modules.Cosmetics;
 import gg.rago.modules.Emotes;
 import gg.rago.modules.FastShop;
+import gg.rago.modules.ShopAntiMisclick;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.GlintColor;
 import gg.rago.modules.HitColor;
@@ -60,6 +61,7 @@ public final class Hooks {
 	public static final int VANILLA_CHAT_LINES = 100;
 
 	public static volatile OcclusionCuller culler;
+	public static volatile gg.rago.optimize.HologramBatch holograms;
 	public static volatile NoHurtCam noHurtCam;
 	public static volatile OldAnimations animations;
 	public static volatile Overlays overlays;
@@ -71,6 +73,7 @@ public final class Hooks {
 	public static volatile HitDelayFix hitDelay;
 	public static volatile BlockEditFix blockEdit;
 	public static volatile FastShop fastShop;
+	public static volatile ShopAntiMisclick antiMisclick;
 	public static volatile Chat chat;
 	public static volatile GameplayFixes fixes;
 	public static volatile HitColor hitColor;
@@ -338,8 +341,12 @@ public final class Hooks {
 		return f != null && f.isEnabled() && f.keepUsing(current, inUse, player);
 	}
 
-	/** GuiContainer.handleMouseClick: true when the fast shop sent (or dropped) the click itself. */
+	/** GuiContainer.handleMouseClick: true when the click is not to be handled as usual (dropped or sent here). */
 	public static boolean containerClick(GuiContainer gui, Slot slot, int slotId, int button, int type) {
+		ShopAntiMisclick a = antiMisclick;
+		if (a != null && a.isEnabled() && a.blocks(gui, slot, button, type)) {
+			return true;
+		}
 		FastShop f = fastShop;
 		return f != null && f.isEnabled() && f.onClick(gui, slot, slotId, button, type);
 	}
@@ -451,6 +458,14 @@ public final class Hooks {
 			return 0; // the game does not use what this returns
 		}
 		return custom ? t.drawText(font, text, x, y, color) : font.drawStringWithShadow(text, x, y, color);
+	}
+
+	/** RenderGlobal.renderEntities, as the block entities start: floating texts queued among the entities. */
+	public static void entitiesDrawn() {
+		gg.rago.optimize.HologramBatch h = holograms;
+		if (h != null) {
+			h.entitiesDrawn();
+		}
 	}
 
 	/** GuiNewChat.setChatLine: how many lines the chat keeps. */

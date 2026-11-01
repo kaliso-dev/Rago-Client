@@ -13,12 +13,10 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
- * Collects every name tag of a frame and draws them together after the world, in a handful of
- * draw calls instead of several per tag. Each tag is a flat label facing the camera; its corners
+ * Collects every name tag of a frame and draws them together, after the world (Rago's name tags)
+ * or as the entity pass ends (floating texts), in a handful of draw calls instead of several per tag. Each tag is a flat label facing the camera; its corners
  * are worked out here, so no matrix changes are needed per tag.
  *
  * <p>Layers follow vanilla's name tags: {@link #SEE_THROUGH} ignores depth (the faint copy seen
@@ -266,13 +264,29 @@ public final class LabelBatch {
 		float top = (y + 7) * k - font.ascent(px);
 		float offset = Math.max(1, k * 0.75f);
 		if (shadow) {
-			FloatList sf = under.textured(texture);
-			font.emitShadow(s, x * k, top, px, argb, offset,
-				(x0, y0, x1, y1, u0, v0, u1, v1, c) -> quad(sf, x0 / k, y0 / k, x1 / k, y1 / k, u0, v0, u1, v1, c));
+			font.emitShadow(s, x * k, top, px, argb, offset, sink.to(under.textured(texture), k));
 		}
-		font.emitFormatted(s, x * k, top, px, argb, false, offset,
-			(x0, y0, x1, y1, u0, v0, u1, v1, c) -> quad(f, x0 / k, y0 / k, x1 / k, y1 / k, u0, v0, u1, v1, c));
+		font.emitFormatted(s, x * k, top, px, argb, false, offset, sink.to(f, k));
 		return true;
+	}
+
+	/** Glyph quads into a layer's list, scaled back to label units; one reused for every string. */
+	private final GlyphSink sink = new GlyphSink();
+
+	private final class GlyphSink implements TtfFont.QuadSink {
+		private FloatList list;
+		private float k;
+
+		GlyphSink to(FloatList list, float k) {
+			this.list = list;
+			this.k = k;
+			return this;
+		}
+
+		@Override
+		public void quad(float x0, float y0, float x1, float y1, float u0, float v0, float u1, float v1, int argb) {
+			LabelBatch.this.quad(list, x0 / k, y0 / k, x1 / k, y1 / k, u0, v0, u1, v1, argb);
+		}
 	}
 
 	/** Width of {@code s} in label units, as {@link #text} draws it. */
@@ -315,24 +329,34 @@ public final class LabelBatch {
 		}
 		FloatList f = l.textured(tex.getGlTextureId());
 		if (shadow) {
-			vanillaRuns(under.textured(tex.getGlTextureId()), fr, s, x + 1, y + 1, argb, true);
+			vanillaRuns(under.textured(tex.getGlTextureId()), fr, s, x + 1, y + 1, argb, true, -1);
 		}
-		vanillaRuns(f, fr, s, x, y, argb, false);
+		vanillaRuns(f, fr, s, x, y, argb, false, -1);
 		return true;
 	}
 
-	private void vanillaRuns(FloatList f, FontRenderer fr, String s, float x, float y, int argb, boolean shadow) {
+	/**
+	 * Glyph quads of {@code s} as FontRenderer.renderStringAtPos lays them out: a colour code (or a
+	 * code it does not know, drawn white) ends bold, bold draws each glyph again one unit right and
+	 * moves on one unit more, and {@code §r} goes back to {@code argb}. Colours are multiplied by
+	 * {@code tint} (opaque white: unchanged).
+	 */
+	private void vanillaRuns(FloatList f, FontRenderer fr, String s, float x, float y, int argb, boolean shadow, int tint) {
 		int alpha = argb & 0xFF000000;
 		int color = argb;
+		boolean bold = false;
 		float cx = x;
 		for (int i = 0; i < s.length(); i++) {
 			char c = s.charAt(i);
-			if (c == '§' && i + 1 < s.length()) {
-				char code = Character.toLowerCase(s.charAt(++i));
-				int index = "0123456789abcdef".indexOf(code);
-				if (index >= 0) {
-					color = alpha | fr.getColorCode(code) & 0xFFFFFF;
-				} else if (code == 'r') {
+			if (c == '\u00a7' && i + 1 < s.length()) {
+				int code = STYLE_CODES.indexOf(Character.toLowerCase(s.charAt(++i)));
+				if (code < 16) {
+					bold = false;
+					color = alpha | fr.getColorCode(STYLE_CODES.charAt(code < 0 ? 15 : code)) & 0xFFFFFF;
+				} else if (code == 17) {
+					bold = true;
+				} else if (code == 21) {
+					bold = false;
 					color = argb;
 				}
 				continue;
@@ -343,10 +367,77 @@ public final class LabelBatch {
 				float v = (c / 16) * 8;
 				float gw = width - 1.01f;
 				int shown = shadow ? color & 0xFF000000 | (color & 0xFCFCFC) >> 2 : color;
+				if (tint != -1) {
+					shown = tinted(shown, tint);
+				}
 				quad(f, cx, y, cx + gw, y + 7.99f, u / 128f, v / 128f, (u + gw) / 128f, (v + 7.99f) / 128f, shown);
+				if (bold) {
+					quad(f, cx + 1, y, cx + 1 + gw, y + 7.99f, u / 128f, v / 128f, (u + gw) / 128f, (v + 7.99f) / 128f, shown);
+				}
 			}
-			cx += width;
+			cx += bold ? width + 1 : width;
 		}
+	}
+
+	/** FontRenderer's codes, in its order: 16 colours, then k (random), l (bold), m, n, o, r (reset). */
+	private static final String STYLE_CODES = "0123456789abcdefklmnor";
+
+	/** {@code argb} with its red, green and blue multiplied by {@code tint}'s, as a light map shades it. */
+	static int tinted(int argb, int tint) {
+		int r = (argb >> 16 & 0xFF) * (tint >> 16 & 0xFF) + 127;
+		int g = (argb >> 8 & 0xFF) * (tint >> 8 & 0xFF) + 127;
+		int b = (argb & 0xFF) * (tint & 0xFF) + 127;
+		return argb & 0xFF000000 | r / 255 << 16 | g / 255 << 8 | b / 255;
+	}
+
+	/**
+	 * Whether {@link #vanillaLabel} draws {@code s} exactly as the game would: the Minecraft font's
+	 * ASCII page only (no Unicode font, no right-to-left reordering), bold but none of the styles
+	 * drawn with extra lines or a slant or changing every frame (random, strikethrough, underline,
+	 * italic).
+	 */
+	public static boolean canDrawExact(String s) {
+		FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
+		if (fr.getUnicodeFlag() || fr.getBidiFlag()) {
+			return false;
+		}
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			if (c == '\u00a7') {
+				if (++i >= s.length()) {
+					return false;
+				}
+				int code = STYLE_CODES.indexOf(Character.toLowerCase(s.charAt(i)));
+				if (code == 16 || code >= 18 && code <= 20) {
+					return false;
+				}
+			} else if (c < 32 || c > 126) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * A name label as Render.renderLivingLabel draws it, at the label begun with {@link #begin}: the
+	 * dark box and a faint copy of the text through walls, then the text itself, depth tested. Its
+	 * colours are multiplied by {@code tint}, the light map's colour where the entity stands, as the
+	 * game shades it. {@code width} is FontRenderer.getStringWidth of {@code s}. Only for text
+	 * {@link #canDrawExact} accepts.
+	 */
+	public void vanillaLabel(String s, int width, int tint) {
+		ITextureObject tex = Minecraft.getMinecraft().getTextureManager().getTexture(ASCII);
+		if (tex == null) {
+			return;
+		}
+		FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
+		int half = width / 2;
+		// vanilla's box: black at 0.25, which the renderer stores as 63
+		rect(layers[SEE_THROUGH], -half - 1, -1, half * 2 + 2, 9, 0x3F000000);
+		int texture = tex.getGlTextureId();
+		float x = -width / 2;
+		vanillaRuns(layers[SEE_THROUGH].textured(texture), fr, s, x, 0, 0x20FFFFFF, false, tint);
+		vanillaRuns(layers[SOLID].textured(texture), fr, s, x, 0, 0xFFFFFFFF, false, tint);
 	}
 
 	// ---- drawing --------------------------------------------------------------------------------
@@ -368,6 +459,27 @@ public final class LabelBatch {
 
 	/** Draws everything collected, then empties the batch. Call with the world's camera matrix. */
 	public void flush() {
+		flush(false);
+	}
+
+	/**
+	 * {@link #flush} after the world (RenderWorldLastEvent), with the world's fog when {@code fog}
+	 * (the labels the game draws among the entities are fogged; after the world, fog is off). The
+	 * light map is off there, and stays off: what comes next (the hand, the HUD) expects it so.
+	 */
+	public void flush(boolean fog) {
+		draw(fog, false);
+	}
+
+	/**
+	 * Draws everything collected among the entities (before the block entities): the world's fog is
+	 * on or off as the game set it and stays so, and the light map is turned back on for what follows.
+	 */
+	public void flushAmongEntities() {
+		draw(false, true);
+	}
+
+	private void draw(boolean fog, boolean lightmapAfter) {
 		if (isEmpty()) {
 			return;
 		}
@@ -379,6 +491,9 @@ public final class LabelBatch {
 		GlStateManager.enableBlend();
 		GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
 		GlStateManager.color(1, 1, 1, 1);
+		if (fog) {
+			GlStateManager.enableFog();
+		}
 		for (int i = 0; i < layers.length; i++) {
 			if (layers[i].isEmpty()) {
 				continue;
@@ -389,7 +504,16 @@ public final class LabelBatch {
 				GlStateManager.enableDepth();
 			}
 			GlStateManager.depthMask(i == SOLID);
+			if (i == SOLID) {
+				// as the game's text: the clear parts of each glyph's square are dropped, so they write
+				// no depth and hide no label drawn after this one
+				GlStateManager.enableAlpha();
+				GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1f);
+			}
 			layers[i].draw();
+		}
+		if (fog) {
+			GlStateManager.disableFog();
 		}
 		GlStateManager.enableDepth();
 		GlStateManager.depthMask(true);
@@ -397,22 +521,37 @@ public final class LabelBatch {
 		GlStateManager.enableAlpha();
 		GlStateManager.enableCull();
 		GlStateManager.disableBlend();
-		mc.entityRenderer.enableLightmap();
+		if (lightmapAfter) {
+			mc.entityRenderer.enableLightmap();
+		}
 		GlStateManager.color(1, 1, 1, 1);
 		clear();
 	}
 
 	private static final class Layer {
 		final FloatList shapes = new FloatList();
-		/** Textured quads by GL texture id, in the order the textures were first used. */
-		final Map<Integer, FloatList> textured = new LinkedHashMap<>();
+		/**
+		 * Textured quads by GL texture id, in the order the textures were first used: a handful of
+		 * textures, looked up in a plain array (a map keyed by the id would box it for every glyph run).
+		 */
+		int[] textures = new int[4];
+		FloatList[] lists = new FloatList[4];
+		int count;
 
 		FloatList textured(int texture) {
-			FloatList f = textured.get(texture);
-			if (f == null) {
-				f = new FloatList();
-				textured.put(texture, f);
+			for (int i = 0; i < count; i++) {
+				if (textures[i] == texture) {
+					return lists[i];
+				}
 			}
+			if (count == textures.length) {
+				textures = java.util.Arrays.copyOf(textures, count * 2);
+				lists = java.util.Arrays.copyOf(lists, count * 2);
+			}
+			FloatList f = new FloatList();
+			textures[count] = texture;
+			lists[count] = f;
+			count++;
 			return f;
 		}
 
@@ -420,8 +559,8 @@ public final class LabelBatch {
 			if (shapes.size > 0) {
 				return false;
 			}
-			for (FloatList f : textured.values()) {
-				if (f.size > 0) {
+			for (int i = 0; i < count; i++) {
+				if (lists[i].size > 0) {
 					return false;
 				}
 			}
@@ -430,9 +569,21 @@ public final class LabelBatch {
 
 		void clear() {
 			shapes.size = 0;
-			for (FloatList f : textured.values()) {
-				f.size = 0;
+			int kept = 0;
+			for (int i = 0; i < count; i++) {
+				// textures not used since the last clear are forgotten once there are many (fonts
+				// remade at other sizes leave old ids behind)
+				if (count <= 8 || lists[i].size > 0) {
+					lists[i].size = 0;
+					textures[kept] = textures[i];
+					lists[kept] = lists[i];
+					kept++;
+				}
 			}
+			for (int i = kept; i < count; i++) {
+				lists[i] = null;
+			}
+			count = kept;
 		}
 
 		void draw() {
@@ -445,13 +596,13 @@ public final class LabelBatch {
 				t.draw();
 				GlStateManager.enableTexture2D();
 			}
-			for (Map.Entry<Integer, FloatList> e : textured.entrySet()) {
-				if (e.getValue().size == 0) {
+			for (int i = 0; i < count; i++) {
+				if (lists[i].size == 0) {
 					continue;
 				}
-				GlStateManager.bindTexture(e.getKey());
+				GlStateManager.bindTexture(textures[i]);
 				w.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
-				e.getValue().upload(w, true);
+				lists[i].upload(w, true);
 				t.draw();
 			}
 		}
