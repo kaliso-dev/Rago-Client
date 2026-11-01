@@ -1,5 +1,5 @@
 {
-  "_comment": "What a Rago Network loadout may hold. The client's own choices must match (checked by CosmeticsWhitelistTest). An 'exclusive' value is only accepted from the roles listed.",
+  "_comment": "What a Rago Network loadout may hold. The client's own choices must match (checked by CosmeticsWhitelistTest). An 'exclusive' value is only accepted from the roles and the players (uuid, 32 hex digits) listed; 642543c5... is qAbel, the creator's other account.",
   "fields": {
     "cape": {"type": "choice", "default": "none", "values": ["none", "rago", "black_cat", "pixel_cat", "night_cat", "qrago", "pink_r", "primal", "mfga"]},
     "cape_neon": {"type": "choice", "default": "red", "values": ["red", "orange", "yellow", "green", "cyan", "blue", "purple", "pink", "white"]},
@@ -20,6 +20,10 @@
     "neon_glow": {"type": "bool", "default": true}
   },
   "exclusive": {
-    "cape": {"black_cat": ["creator"], "qrago": ["creator"], "pink_r": ["creator"]}
+    "cape": {
+      "black_cat": ["creator", "642543c54ee741118102aa0bca1e552f"],
+      "qrago": ["creator", "642543c54ee741118102aa0bca1e552f"],
+      "pink_r": ["creator", "642543c54ee741118102aa0bca1e552f"]
+    }
   }
 }

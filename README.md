@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.9.5.** What it contains:
+**Current version: 1.9.6.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,24 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.9.6: the home screen, third version
+  - Singleplayer, Multiplayer, then the server you play the most drawn as the multiplayer list
+    draws it (its icon, name, message of the day, players and ping bars, in Minecraft's font); a
+    click joins it. Hypixel until another server has more time. The "News" card is gone
+  - fixed: the server showed "Can't connect to server." until the multiplayer list had been opened
+    once (Forge only sets up its server list data there; Rago now does it before asking)
+  - **Background** button at the top of the home screen: Night desert (the video), Neon grid,
+    Starry night and Dark (drawn and moved by Rago as the menu is drawn: no video to decode,
+    nothing to load), or your own image (rago-background.png or .jpg in the config folder, found
+    without restarting). Each is shown live in the menu; the new one fades in. Also in Settings >
+    General > Home background
+  - the creator's capes (Black Cat, qRago, Pink R) are also offered to the creator's other account,
+    qAbel, without the creator's role; Rago Network accepts them from it (server/cosmetics.json
+    lists players by uuid next to roles)
+  - lighter home screen: translations, wrapped texts, the server's message of the day, the dock's
+    buttons and the player model's layers are worked out once instead of every frame (15 KB
+    allocated a frame instead of 36 KB), and the menu video is darkened as it is drawn instead of
+    under a dark layer over the whole screen (one full-screen layer less a frame)
 - new in 1.9.5: the home screen, second version
   - two layouts (Settings > General > Home screen layout): Centred, the buttons in the middle and
     the player on the left; Left, the buttons on the left and the player in the middle; Classic
@@ -758,7 +776,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.9.5+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.9.6+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

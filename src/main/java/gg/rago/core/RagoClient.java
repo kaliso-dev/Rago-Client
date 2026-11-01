@@ -8,6 +8,7 @@ import gg.rago.config.ConfigStore;
 import gg.rago.config.IntOption;
 import gg.rago.debug.FrameProfile;
 import gg.rago.gui.ui.Anim;
+import gg.rago.gui.ui.Background;
 import gg.rago.gui.ui.TextColors;
 import gg.rago.gui.ui.Ui;
 import gg.rago.gui.ui.UiTheme;
@@ -207,6 +208,7 @@ public final class RagoClient {
 	private static IntOption homeLayout;
 	private static IntOption homeBlur;
 	private static BooleanOption smoothVideo;
+	private static IntOption homeBackground;
 	/** The home screen's layouts: buttons in the middle, buttons on the left, the classic emblem. */
 	public static final int HOME_CENTRED = 0;
 	public static final int HOME_LEFT = 1;
@@ -376,6 +378,8 @@ public final class RagoClient {
 		Ui.setGlass(glassEffect.get());
 		Ui.setMenuVideo(menuVideo.get());
 		Ui.setSmoothVideo(smoothVideo.get());
+		Background.setConfigDir(configDir);
+		Background.init(homeBackground.get());
 		UiTheme.set(uiTheme.get());
 		TextColors.set(teamColors.get());
 		optimizations.start();
@@ -432,6 +436,15 @@ public final class RagoClient {
 	/** Whether the home screen uses its classic layout (the emblem over three buttons). */
 	public static boolean classicHome() {
 		return homeLayout() == HOME_CLASSIC;
+	}
+
+	/** Shows and saves the menus' background chosen on the home screen ({@link Background}). */
+	public static void setHomeBackground(int id) {
+		if (homeBackground != null) {
+			homeBackground.set(id);
+			saveConfig();
+		}
+		Background.set(id);
 	}
 
 	/** How much the home screen blurs its background: 0 (off), a little, or fully. */
@@ -547,6 +560,7 @@ public final class RagoClient {
 			"rago.value.home_centred", "rago.value.home_left", "rago.value.home_classic");
 		homeBlur = SETTINGS.choice(g, ui, "home_blur", 1, null, "rago.value.blur_off", "rago.value.blur_light", "rago.value.blur_strong");
 		smoothVideo = SETTINGS.bool(g, ui, "smooth_video", true, Ui::setSmoothVideo);
+		homeBackground = SETTINGS.choice(g, ui, "home_background", Background.NIGHT_DESERT, Background::set, Background.KEYS);
 		SETTINGS.button(g, ui, "welcome_guide", () -> {
 			Minecraft mc = Minecraft.getMinecraft();
 			mc.displayGuiScreen(new WelcomeScreen(mc.currentScreen));

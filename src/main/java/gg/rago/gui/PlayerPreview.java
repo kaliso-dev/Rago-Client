@@ -168,10 +168,13 @@ final class PlayerPreview {
 		GlStateManager.popMatrix();
 	}
 
+	/** The renderers' layer lists, found once (by reflection) for each of the two player models. */
+	private static final java.util.Map<RenderPlayer, List<LayerRenderer<AbstractClientPlayer>>> LAYERS = new java.util.IdentityHashMap<>();
+
 	@SuppressWarnings("unchecked")
 	private static List<LayerRenderer<AbstractClientPlayer>> layers(RenderPlayer render) {
-		return (List<LayerRenderer<AbstractClientPlayer>>) ReflectionHelper.getPrivateValue(RendererLivingEntity.class, render,
-			"layerRenderers", "field_177097_h");
+		return LAYERS.computeIfAbsent(render, r -> (List<LayerRenderer<AbstractClientPlayer>>) ReflectionHelper.getPrivateValue(
+			RendererLivingEntity.class, r, "layerRenderers", "field_177097_h"));
 	}
 
 	/** A player with no connection behind it, wearing whatever skin the preview shows. */

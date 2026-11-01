@@ -64,6 +64,10 @@ final class VideoBackdrop {
 		playing = on;
 	}
 
+	static boolean isPlaying() {
+		return playing;
+	}
+
 	/** Whether each frame fades into the next (smooth at any frame rate) or is shown as it comes. */
 	static void setSmooth(boolean on) {
 		smooth = on;

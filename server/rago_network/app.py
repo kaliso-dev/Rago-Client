@@ -114,7 +114,7 @@ class Network:
         version = body.get("version")
         if not isinstance(visible, bool) or (version is not None and (not isinstance(version, str) or len(version) > 32)):
             return 400, {"error": "bad_request"}
-        loadout = self.whitelist.clean(body.get("cosmetics"), self.store.role(uuid))
+        loadout = self.whitelist.clean(body.get("cosmetics"), self.store.role(uuid), uuid)
         now = int(self.clock())
         self.store.presence(uuid, visible, loadout, version, now)
         return 200, {"online": self._counts(now)["online"], "cosmetics": loadout}

@@ -10,6 +10,8 @@ import net.minecraft.client.network.OldServerPinger;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.client.FMLClientHandler;
+import net.minecraftforge.fml.relauncher.ReflectionHelper;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -22,7 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * The server behind the home screen's Fast Play button: its icon, players online and ping, asked
+ * The server shown on the home screen (the one played the most): its icon, message, players online and ping, asked
  * with the same status request as the multiplayer list (at most once a minute), and joining it.
  */
 final class ServerStatus {
@@ -70,15 +72,39 @@ final class ServerStatus {
 		asked = true;
 		askedNs = now;
 		failed = false;
+		forgeServerList();
 		// unknown until the server answers (the field starts at 0, and stays there if the address cannot be found)
 		data.pingToServer = -1;
 		PINGS.execute(() -> {
 			try {
 				PINGER.ping(data);
+			} catch (java.net.UnknownHostException e) {
+				// what the multiplayer list says
+				data.serverMOTD = EnumChatFormatting.DARK_RED + "Can't resolve hostname";
+				data.populationInfo = "";
+				failed = true;
 			} catch (Exception | LinkageError e) {
+				data.serverMOTD = EnumChatFormatting.DARK_RED + "Can't connect to server";
+				data.populationInfo = "";
 				failed = true;
 			}
 		});
+	}
+
+	/**
+	 * Forge keeps extra data about each server answer in maps it only makes when the multiplayer list
+	 * opens; a ping before that fails ("Internal Exception: NullPointerException", shown as "Can't
+	 * connect to server."). Makes them, unless the multiplayer list already did.
+	 */
+	private static void forgeServerList() {
+		try {
+			FMLClientHandler fml = FMLClientHandler.instance();
+			if (ReflectionHelper.getPrivateValue(FMLClientHandler.class, fml, "extraServerListData") == null) {
+				fml.setupServerList();
+			}
+		} catch (RuntimeException | LinkageError e) {
+			RagoClient.LOG.debug("Forge's server list data", e);
+		}
 	}
 
 	/** Reads the answers; call once a tick while the home screen is open. */
@@ -97,6 +123,21 @@ final class ServerStatus {
 				s.asked = false;
 			}
 		}
+	}
+
+	/** The server's message of the day, with its colours (§ codes), as the server sent it. */
+	String motd() {
+		return data.serverMOTD == null ? "" : data.serverMOTD;
+	}
+
+	/** Players online and slots, with the multiplayer list's colours ("29995/200000"), or "". */
+	String population() {
+		return data.populationInfo == null ? "" : data.populationInfo;
+	}
+
+	/** Whether the answer is still awaited (the multiplayer list's moving bars). */
+	boolean waiting() {
+		return !offline() && data.pingToServer < 0 && (data.populationInfo == null || data.populationInfo.isEmpty());
 	}
 
 	/** The ping in milliseconds, or -1 while unknown. */

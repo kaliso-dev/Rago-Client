@@ -297,6 +297,60 @@ public final class Ui {
 		return r.color(c >> 16 & 0xFF, c >> 8 & 0xFF, c & 0xFF, Math.round((c >>> 24) * opacity));
 	}
 
+	// ---- batches, for the drawn backgrounds: many shapes in one draw -------------------------------
+
+	/** Starts a batch of soft dots ({@link #glow}s), added with {@link #batchGlow}, drawn by {@link #endBatch}. */
+	static WorldRenderer beginGlows() {
+		GlStateManager.enableTexture2D();
+		GlStateManager.bindTexture(glowTexture().getGlTextureId());
+		blend();
+		WorldRenderer r = Tessellator.getInstance().getWorldRenderer();
+		r.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+		return r;
+	}
+
+	static void batchGlow(WorldRenderer r, float cx, float cy, float radius, int argb) {
+		float x0 = px(cx - radius);
+		float y0 = px(cy - radius);
+		float x1 = px(cx + radius);
+		float y1 = px(cy + radius);
+		color(r.pos(x0, y1, 0).tex(0, 1), argb).endVertex();
+		color(r.pos(x1, y1, 0).tex(1, 1), argb).endVertex();
+		color(r.pos(x1, y0, 0).tex(1, 0), argb).endVertex();
+		color(r.pos(x0, y0, 0).tex(0, 0), argb).endVertex();
+	}
+
+	/** Starts a batch of plain four-cornered shapes, added with {@link #batchQuad}, drawn by {@link #endBatch}. */
+	static WorldRenderer beginShapes() {
+		GlStateManager.disableTexture2D();
+		blend();
+		GlStateManager.shadeModel(GL11.GL_SMOOTH);
+		WorldRenderer r = Tessellator.getInstance().getWorldRenderer();
+		r.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+		return r;
+	}
+
+	/** A shape with its corners clockwise from top left, and a colour for the top two and the bottom two. */
+	static void batchQuad(WorldRenderer r, float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3,
+		int top, int bottom) {
+		batchQuad(r, x0, y0, top, x1, y1, top, x2, y2, bottom, x3, y3, bottom);
+	}
+
+	/** A shape with its corners clockwise from top left, each with its colour. */
+	static void batchQuad(WorldRenderer r, float x0, float y0, int c0, float x1, float y1, int c1, float x2, float y2, int c2,
+		float x3, float y3, int c3) {
+		color(r.pos(px(x3), px(y3), 0), c3).endVertex();
+		color(r.pos(px(x2), px(y2), 0), c2).endVertex();
+		color(r.pos(px(x1), px(y1), 0), c1).endVertex();
+		color(r.pos(px(x0), px(y0), 0), c0).endVertex();
+	}
+
+	static void endBatch() {
+		Tessellator.getInstance().draw();
+		GlStateManager.shadeModel(GL11.GL_FLAT);
+		GlStateManager.enableTexture2D();
+	}
+
 	private static void blend() {
 		GlStateManager.enableBlend();
 		GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
@@ -530,8 +584,8 @@ public final class Ui {
 	}
 
 	/**
-	 * The menu background covering the whole screen, darkened by {@code dim} (0..1): the looping
-	 * menu video, or the generated block landscape when the video cannot play.
+	 * The menu background covering the whole screen, darkened by {@code dim} (0..1): the one chosen
+	 * on the home screen ({@link Background}).
 	 */
 	public static void backdrop(float dim) {
 		backdrop(dim, 0, 0, 1);
@@ -544,22 +598,7 @@ public final class Ui {
 	public static void backdrop(float dim, float dx, float dy, float zoom) {
 		float w = width();
 		float h = height();
-		int video = VideoBackdrop.textureId();
-		float aspect = video >= 0 ? VideoBackdrop.aspect() : Backdrop.aspect();
-		float bw = Math.max(w, h * aspect) * zoom;
-		float bh = bw / aspect;
-		float x = (w - bw) / 2 + dx;
-		float y = (h - bh) / 2 + dy;
-		int before = video >= 0 ? VideoBackdrop.previousTextureId() : -1;
-		float mix = before >= 0 ? VideoBackdrop.mix() : 1;
-		if (mix < 1) {
-			// the frame before, with the current one fading in over it: smooth at any frame rate
-			texturedQuad(before, x, y, bw, bh, 0xFFFFFFFF);
-			texturedQuad(video, x, y, bw, bh, alpha(0xFFFFFFFF, mix));
-		} else {
-			texturedQuad(video >= 0 ? video : Backdrop.textureId(), x, y, bw, bh, 0xFFFFFFFF);
-		}
-		rect(0, 0, w, h, alpha(0xFF050406, dim));
+		Background.drawScreen(w, h, dx, dy, zoom, dim);
 	}
 
 	/** Whether each frame of the menu video fades into the next. */
@@ -667,7 +706,7 @@ public final class Ui {
 	}
 
 	/** Draws a whole texture; {@code glId} -1 keeps the texture already bound. */
-	private static void texturedQuad(int glId, float x, float y, float w, float h, int argb) {
+	static void texturedQuad(int glId, float x, float y, float w, float h, int argb) {
 		GlStateManager.enableTexture2D();
 		if (glId >= 0) {
 			GlStateManager.bindTexture(glId);

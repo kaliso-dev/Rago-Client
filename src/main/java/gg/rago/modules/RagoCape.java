@@ -37,6 +37,11 @@ public final class RagoCape extends Module {
 	 * "exclusive"); the menu offers them to no one else.
 	 */
 	static final Set<String> CREATOR_ONLY = Collections.unmodifiableSet(new HashSet<>(Arrays.asList("black_cat", "qrago", "pink_r")));
+	/**
+	 * The creator's other accounts (uuids without dashes), offered the creator's capes too, but not the
+	 * creator's role: qAbel. The same as the uuids in server/cosmetics.json, "exclusive".
+	 */
+	static final Set<String> CREATOR_ACCOUNTS = Collections.singleton("642543c54ee741118102aa0bca1e552f");
 	private static final ResourceLocation[] TEXTURES = new ResourceLocation[DESIGNS.length];
 
 	static {
@@ -47,7 +52,7 @@ public final class RagoCape extends Module {
 	}
 
 	private final ChoiceOption design = addOption(new ChoiceOption("cape_design", "rago", DESIGNS)
-		.allowIf(id -> !CREATOR_ONLY.contains(id) || "creator".equals(role())));
+		.allowIf(id -> !CREATOR_ONLY.contains(id) || "creator".equals(role()) || CREATOR_ACCOUNTS.contains(ownId())));
 	private final ChoiceOption neon = addOption(new ChoiceOption("cape_neon", "red", NeonColors.IDS));
 	private final BooleanOption overOwnCape = addOption(new BooleanOption("cape_over_own", false));
 
@@ -101,6 +106,16 @@ public final class RagoCape extends Module {
 	private static String role() {
 		RagoNetwork network = Hooks.network;
 		return network == null ? null : network.ownRole();
+	}
+
+	/** Your account's uuid without dashes, lower case, or "" when unknown. */
+	private static String ownId() {
+		try {
+			String id = net.minecraft.client.Minecraft.getMinecraft().getSession().getPlayerID();
+			return id == null ? "" : id.replace("-", "").toLowerCase(java.util.Locale.ROOT);
+		} catch (RuntimeException | LinkageError e) {
+			return "";
+		}
 	}
 
 	/** Whether your Rago cape is shown over your Minecraft or OptiFine cape, for you and other Rago players. */

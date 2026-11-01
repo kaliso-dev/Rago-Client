@@ -59,7 +59,7 @@ class RagoCapeTest {
 		}
 	}
 
-	/** The creator's own capes are the ones the server keeps for the creator. */
+	/** The creator's own capes are the ones the server keeps for the creator and their other accounts. */
 	@Test
 	void theCreatorsCapesAreTheServersExclusiveOnes() throws IOException {
 		String text = new String(Files.readAllBytes(Paths.get("server", "cosmetics.json")), StandardCharsets.UTF_8);
@@ -67,7 +67,11 @@ class RagoCapeTest {
 		Set<String> server = new HashSet<>();
 		capes.entrySet().forEach(e -> {
 			server.add(e.getKey());
-			assertEquals("[\"creator\"]", e.getValue().toString(), e.getKey());
+			Set<String> owners = new HashSet<>();
+			e.getValue().getAsJsonArray().forEach(o -> owners.add(o.getAsString()));
+			Set<String> expected = new HashSet<>(RagoCape.CREATOR_ACCOUNTS);
+			expected.add("creator");
+			assertEquals(expected, owners, e.getKey());
 		});
 		assertEquals(server, RagoCape.CREATOR_ONLY);
 	}
