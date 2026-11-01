@@ -42,11 +42,20 @@ class InventoryBlurTest {
 
 	@Test
 	void theBlurIsRemadeAtTheChosenRate() {
-		assertFalse(InventoryBlur.remakeDue(10_000_000_000L, "frozen"));
 		assertFalse(InventoryBlur.remakeDue(20_000_000L, "30"));
 		assertTrue(InventoryBlur.remakeDue(34_000_000L, "30"));
 		assertFalse(InventoryBlur.remakeDue(10_000_000L, "60"));
 		assertTrue(InventoryBlur.remakeDue(17_000_000L, "60"));
+		// an older choice that is gone ("frozen") never stops the blur
+		assertTrue(InventoryBlur.remakeDue(17_000_000L, "frozen"));
+	}
+
+	@Test
+	void theLightQualityBlursASmallerCopy() {
+		assertEquals(2, InventoryBlur.downscale(true, false, 6));
+		assertEquals(4, InventoryBlur.downscale(true, true, 6));
+		assertEquals(4, InventoryBlur.downscale(true, false, 20), "very wide blurs");
+		assertEquals(4, InventoryBlur.downscale(false, false, 6), "the stand-in");
 	}
 
 	@Test

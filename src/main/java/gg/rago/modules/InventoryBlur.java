@@ -45,9 +45,10 @@ import java.nio.FloatBuffer;
  * weak graphics card while a window is open: nothing at all while none is; the half-size copy is
  * made by the card in one step from the game's framebuffer or the screen (OpenGL 3.0 blit, else
  * read straight from the game's framebuffer, a copy of the screen only with OptiFine's Fast
- * Render); the blurred picture is remade 30 times per second by default, 60 if chosen, or only
- * once when the window opens ("frozen", the lightest: every other frame only lays it over the
- * screen, about what vanilla's dark shade costs).
+ * Render); the blurred picture is remade 60 times per second by default, or 30 if chosen, and
+ * the frames between only lay it over the screen. The "light" quality blurs a copy a quarter of the
+ * width and height instead (a sixteenth of the pixels, and fewer taps for the same radius): a
+ * little less smooth, much less work for the card. The world behind always keeps moving.
  */
 public final class InventoryBlur extends Module {
 	/** Blending by a constant (OpenGL 1.4): GL_CONSTANT_ALPHA and GL_ONE_MINUS_CONSTANT_ALPHA. */
@@ -84,7 +85,8 @@ public final class InventoryBlur extends Module {
 		+ "}\n";
 
 	private final IntOption radius = addOption(new IntOption("inv_blur_radius", 20, 2, 50));
-	private final ChoiceOption refresh = addOption(new ChoiceOption("inv_blur_refresh", "30", "frozen", "30", "60"));
+	private final ChoiceOption quality = addOption(new ChoiceOption("inv_blur_quality", "high", "high", "light"));
+	private final ChoiceOption refresh = addOption(new ChoiceOption("inv_blur_refresh", "60", "30", "60"));
 	private final IntOption fade = addOption(new IntOption("inv_blur_fade", 150, 0, 500));
 	private final IntOption shade = addOption(new IntOption("inv_blur_shade", 45, 0, 100));
 
@@ -240,14 +242,15 @@ public final class InventoryBlur extends Module {
 
 	/** Whether the blurred picture is remade, {@code sinceMade} ns after the last time, at this refresh choice. */
 	static boolean remakeDue(long sinceMade, String refresh) {
-		switch (refresh) {
-			case "frozen":
-				return false;
-			case "60":
-				return sinceMade >= 1_000_000_000L / 60;
-			default:
-				return sinceMade >= 1_000_000_000L / 30;
-		}
+		return sinceMade >= 1_000_000_000L / ("30".equals(refresh) ? 30 : 60);
+	}
+
+	/**
+	 * How many times smaller than the screen the blurred copy is: half the width and height, a
+	 * quarter for the light quality, very wide blurs and the fixed-function stand-in.
+	 */
+	static int downscale(boolean gaussian, boolean light, float sigma) {
+		return gaussian && !light && sigma <= 16 ? 2 : 4;
 	}
 
 	/** The blur's standard deviation in screen pixels: the radius (three deviations) at 1080p, scaled to the window. */
@@ -268,15 +271,15 @@ public final class InventoryBlur extends Module {
 		int dh = mc.displayHeight;
 		boolean gaussian = shaderReady();
 		float sigma = sigmaPixels(radius.get(), dh);
-		// half size is plenty for a smooth blur; a quarter for very wide ones and the stand-in
-		int down = gaussian && sigma <= 16 ? 2 : 4;
+		boolean light = quality.is("light");
+		int down = downscale(gaussian, light, sigma);
 		int bw = dw / down;
 		int bh = dh / down;
 		int target = GameFramebuffer.bound();
 		if (fbo[0] < 0 || bw != blurW || bh != blurH) {
 			targets(bw, bh, target);
 		}
-		int setting = radius.get() * 2 + (gaussian ? 1 : 0);
+		int setting = radius.get() * 4 + (gaussian ? 1 : 0) + (light ? 2 : 0);
 		boolean remake = fresh || setting != madeWith || remakeDue(now - madeAt, refresh.get());
 		GlStateManager.matrixMode(GL11.GL_PROJECTION);
 		GlStateManager.pushMatrix();
