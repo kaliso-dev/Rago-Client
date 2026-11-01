@@ -36,6 +36,8 @@ Minecraft server's login and so join that server as the player.
 | `POST /v1/auth/finish` | no | `{"name", "serverId"}` → `{"token", "uuid", "name", "role", "expiresIn"}` |
 | `POST /v1/presence` | yes | `{"visible", "version", "cosmetics"}` → `{"online", "cosmetics"}` (the loadout as accepted) |
 | `POST /v1/lookup` | yes | `{"uuids": [...]}` (100 at most) → `{"players": {uuid: {"role", "cosmetics"}}}` |
+| `POST /v1/emote` | yes | `{"emote": "dab", "speed": 100}` (`"none"` stops it) → `{"ok": true}`; kept in memory only, 10 minutes at most |
+| `POST /v1/emotes` | yes | `{"uuids": [...]}` (100 at most) → `{"emotes": {uuid: {"emote", "speed", "elapsed"}}}`, elapsed in ms |
 | `DELETE /v1/me` | yes | forgets the player and their sessions |
 
 Signed-in calls send `Authorization: Bearer <token>`.
