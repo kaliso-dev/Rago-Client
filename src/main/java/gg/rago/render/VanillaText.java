@@ -16,7 +16,8 @@ import org.lwjgl.opengl.GL11;
  * small immediate-mode strip; for HUD text that changes every frame this is laid out the same way
  * ({@code FontRenderer.renderDefaultChar}: same glyphs, widths, colours and shadow) into a single
  * batch. Text it cannot reproduce exactly (Unicode font, characters outside the ASCII page, bold,
- * italic, underline, strikethrough or obfuscated) is left to vanilla.
+ * italic, underline, strikethrough or obfuscated, a font with fractional widths: see
+ * {@link FontWidths}) is left to vanilla.
  */
 public final class VanillaText {
 	private static final ResourceLocation ASCII = new ResourceLocation("textures/font/ascii.png");
@@ -27,7 +28,8 @@ public final class VanillaText {
 	/** Whether {@code s} can be drawn here exactly as vanilla would draw it. */
 	public static boolean batchable(String s) {
 		s = Hooks.nick(s);
-		if (Minecraft.getMinecraft().fontRendererObj.getUnicodeFlag() || s.isEmpty() || textureId() < 0) {
+		FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
+		if (fr.getUnicodeFlag() || fr.getBidiFlag() || s.isEmpty() || !FontWidths.whole() || textureId() < 0) {
 			return false;
 		}
 		for (int i = 0; i < s.length(); i++) {
@@ -55,6 +57,7 @@ public final class VanillaText {
 		if (!batchable(s)) {
 			return false;
 		}
+		GlStateManager.enableAlpha(); // as FontRenderer.drawString does first
 		GlStateManager.enableTexture2D();
 		GlStateManager.bindTexture(textureId());
 		Tessellator t = Tessellator.getInstance();

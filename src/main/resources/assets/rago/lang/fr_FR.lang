@@ -1163,7 +1163,7 @@ rago.setting.hud_cache_rate.help=À quelle fréquence le HUD en cache est redess
 rago.setting.batch_holograms=Grouper les textes flottants
 rago.setting.batch_holograms.help=Les textes flottants au-dessus des générateurs et des PNJ (armor stands invisibles avec un nom) sont dessinés ensemble en quelques appels de dessin au lieu de plusieurs chacun, et les armor stands invisibles qui les portent sautent la préparation d'un corps que personne ne voit. Le rendu est le même, derrière l'eau et le verre teinté aussi.
 rago.setting.batch_vanilla_hud=Grouper le HUD de Minecraft
-rago.setting.batch_vanilla_hud.help=Minecraft dessine chaque cœur, point d'armure, icône de faim et bulle d'air un par un, et le tableau de score ligne par ligne : plus de 60 appels de dessin par image en survie avec un tableau plein. Groupés, les icônes et le fond du tableau en prennent 4. Le rendu est le même.
+rago.setting.batch_vanilla_hud.help=Minecraft dessine chaque cœur, point d'armure, icône de faim et bulle d'air un par un, et le tableau de score ligne par ligne : plus de 60 appels de dessin par image en survie avec un tableau plein. Groupés, les icônes et le fond du tableau en prennent 4, et le texte simple du tableau 1 de plus (les titres en gras et les symboles restent dessinés un par un). Le rendu est le même.
 rago.menu.click_to_type=Clique pour écrire
 
 # 1.4: message hotkeys

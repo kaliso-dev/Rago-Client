@@ -1163,7 +1163,7 @@ rago.setting.hud_cache_rate.help=How often the cached HUD is drawn again. When t
 rago.setting.batch_holograms=Group floating texts
 rago.setting.batch_holograms.help=The floating texts over generators and shop keepers (invisible armour stands with a name) are drawn together in a few draw calls instead of several each, and the invisible stands that carry them skip setting up a body nobody can see. They look the same, behind water and stained glass too.
 rago.setting.batch_vanilla_hud=Group Minecraft's HUD
-rago.setting.batch_vanilla_hud.help=Minecraft draws every heart, armour point, food icon and air bubble on its own, and the sidebar line by line: over 60 draw calls a frame in survival with a full sidebar. Grouped, the icons and the sidebar's background take 4. They look the same.
+rago.setting.batch_vanilla_hud.help=Minecraft draws every heart, armour point, food icon and air bubble on its own, and the sidebar line by line: over 60 draw calls a frame in survival with a full sidebar. Grouped, the icons and the sidebar's background take 4, and the sidebar's plain text 1 more (bold titles and symbols are still drawn one by one). They look the same.
 rago.menu.click_to_type=Click to type
 
 # 1.4: message hotkeys

@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.10.5.** What it contains:
+**Current version: 1.10.6.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,16 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.10.6
+  - the vanilla sidebar's text goes out in one draw call: the lines the Minecraft font draws from
+    its ASCII page (most lines, and every red score number) are laid out glyph by glyph as the font
+    lays them out, all together; bold titles and symbols (the bed marks) are drawn by the font as
+    before. Same pixels: screenshots of the Bed Wars test sidebar are identical to 1.10.5's, pixel
+    for pixel. In that test (software renderer), the sidebar went from 377 to 231 µs a frame, and
+    the memory it creates from 2.07 MB to 0.47 MB in 45 seconds
+  - with an OptiFine font whose characters have fractional widths (HD fonts, or widths set by a
+    resource pack), Rago's own copies of the game's text drawing (HUD text in the Minecraft font,
+    name tags, holograms) now leave that text to the game, which spaces it exactly
 - new in 1.10.5
   - "Chunk list around you only" goes further: the list is not even made again while you stay in
     the same chunk (same world and render distance), only when you cross into another chunk. In
@@ -854,7 +864,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.10.5+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.10.6+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
