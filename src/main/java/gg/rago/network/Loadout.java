@@ -11,7 +11,7 @@ import com.google.gson.JsonPrimitive;
  * or not allowed falls back to its default, as the server itself does.
  */
 public final class Loadout {
-	public static final String[] CAPES = {"none", "rago", "black_cat", "pixel_cat", "night_cat", "qrago", "primal", "mfga"};
+	public static final String[] CAPES = {"none", "rago", "black_cat", "pixel_cat", "night_cat", "qrago", "pink_r", "primal", "mfga"};
 	public static final String[] HATS = {"none", "rago_cap", "rago_beanie", "top_hat", "wizard_hat", "crown", "halo"};
 	public static final String[] WINGS = {"none", "dragon", "dragon_small"};
 	public static final String[] SHIELDS = {"none", "rago", "crimson", "gold", "frost", "void"};

@@ -182,18 +182,21 @@ class PresenceTest(unittest.TestCase):
         self.assertEqual(n.presence(other["uuid"], {"cosmetics": {"cape": "creator"}})[1]["cosmetics"]["cape"], "none")
 
     def test_the_creators_own_capes_are_theirs_alone(self):
-        # their Discord picture and their photo (server/cosmetics.json, "exclusive"); three calls each at
-        # most, under the presence limit
-        n = network()
+        # their Discord picture, their photo and the pink R (server/cosmetics.json, "exclusive"); three calls each,
+        # the presence limit's burst
+        clock = Clock()
+        n = network(clock)
+        n.limits = Limiter(clock=clock)  # on the test's clock, to wait for a call back
         me = sign_in(n)
         other = sign_in(n, "Steve")
 
         def worn(player, cape):
             return n.presence(player["uuid"], {"cosmetics": {"cape": cape}})[1]["cosmetics"]["cape"]
 
-        for cape in ("black_cat", "qrago"):
+        for cape in ("black_cat", "qrago", "pink_r"):
             self.assertEqual(worn(me, cape), cape)
             self.assertEqual(worn(other, cape), "none")
+        clock.now += 10  # one presence call back (six a minute)
         self.assertEqual(worn(other, "night_cat"), "night_cat")
 
     def test_at_most_100_players_per_lookup(self):
