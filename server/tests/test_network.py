@@ -225,6 +225,43 @@ class PresenceTest(unittest.TestCase):
         self.assertEqual(n.stats("1.2.3.4"), (200, {"online": 1, "players": 1}))
 
 
+class EmoteTest(unittest.TestCase):
+    def test_an_emote_is_seen_by_the_players_who_ask_with_how_long_it_has_played(self):
+        clock = Clock()
+        n = network(clock)
+        me = sign_in(n)
+        other = sign_in(n, "Steve")
+        self.assertEqual(n.emote(me["uuid"], {"emote": "dab", "speed": 150})[0], 200)
+        clock.now += 2.5
+        status, body = n.emotes(other["uuid"], {"uuids": [me["uuid"].replace("-", ""), "not-a-uuid"]})
+        self.assertEqual(status, 200)
+        self.assertEqual(body["emotes"], {me["uuid"]: {"emote": "dab", "speed": 150, "elapsed": 2500}})
+
+    def test_stopping_or_a_long_time_ends_it(self):
+        clock = Clock()
+        n = network(clock)
+        me = sign_in(n)
+        other = sign_in(n, "Steve")
+        n.emote(me["uuid"], {"emote": "wave"})
+        n.emote(me["uuid"], {"emote": "none"})
+        self.assertEqual(n.emotes(other["uuid"], {"uuids": [me["uuid"]]})[1]["emotes"], {})
+        n.emote(me["uuid"], {"emote": "wave"})
+        clock.now += 601
+        self.assertEqual(n.emotes(other["uuid"], {"uuids": [me["uuid"]]})[1]["emotes"], {})
+
+    def test_bad_emotes_are_refused_and_speeds_kept_in_range(self):
+        clock = Clock()
+        n = network(clock)
+        me = sign_in(n)
+        self.assertEqual(n.emote(me["uuid"], {"emote": "<script>"})[0], 400)
+        self.assertEqual(n.emote(me["uuid"], {"emote": "dab", "speed": "fast"})[0], 400)
+        self.assertEqual(n.emote(me["uuid"], {"emote": "dab", "speed": True})[0], 400)
+        n.emote(me["uuid"], {"emote": "dab", "speed": 9999})
+        self.assertEqual(n.emotes(me["uuid"], {"uuids": [me["uuid"]]})[1]["emotes"][me["uuid"]]["speed"], 200)
+        self.assertEqual(n.emotes(me["uuid"], {"uuids": "everyone"})[0], 400)
+        self.assertEqual(n.emotes(me["uuid"], {"uuids": [me["uuid"]] * 101})[0], 400)
+
+
 class LimiterTest(unittest.TestCase):
     def test_a_bucket_refills_with_time(self):
         t = [0.0]
@@ -269,6 +306,10 @@ class HttpTest(unittest.TestCase):
             status, body = call("POST", "/v1/lookup", {"uuids": [done["uuid"]]}, done["token"])
             self.assertEqual(body["players"][done["uuid"]]["cosmetics"]["cape"], "rago")
             self.assertEqual(call("POST", "/v1/lookup", "not an object", done["token"])[0], 400)
+            self.assertEqual(call("POST", "/v1/emote", {"emote": "dab"})[0], 401)
+            self.assertEqual(call("POST", "/v1/emote", {"emote": "dab"}, done["token"]), (200, {"ok": True}))
+            status, body = call("POST", "/v1/emotes", {"uuids": [done["uuid"]]}, done["token"])
+            self.assertEqual(body["emotes"][done["uuid"]]["emote"], "dab")
             self.assertEqual(call("DELETE", "/v1/me", token=done["token"]), (200, {"deleted": True}))
         finally:
             server.shutdown()
