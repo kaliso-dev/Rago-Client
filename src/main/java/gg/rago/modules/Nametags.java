@@ -339,7 +339,10 @@ public final class Nametags extends Module implements Styled {
 				after = RagoBadge.codesAt(shown.substring(0, at)) + shown.substring(at + creator.length());
 			}
 		}
-		String style = RagoBadge.stylesAt(before);
+		// the styles in force before the creator's name; worked out only when there is one (this runs
+		// for every name tag, every frame)
+		String style = name.isEmpty() ? "" : RagoBadge.stylesAt(before);
+		String whole = name.isEmpty() ? before : before + name;
 		float beforeW = LabelBatch.width(ttf, em, WORLD_SHARPNESS, before);
 		float nameW = name.isEmpty() ? 0 : LabelBatch.width(ttf, em, WORLD_SHARPNESS, style + name);
 		float iconsW = icons != 0 ? RagoBadge.ICONS_SPACE : 0;
@@ -369,7 +372,7 @@ public final class Nametags extends Module implements Styled {
 		float afterX = tx + beforeW + nameW + iconsW;
 		int layer = seeThrough ? LabelBatch.SOLID : LabelBatch.DEPTH;
 		if (faint > 0) {
-			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, before + name, tx, 0, faint << 24 | color & 0xFFFFFF, false);
+			ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, whole, tx, 0, faint << 24 | color & 0xFFFFFF, false);
 			if (ok && !after.isEmpty()) {
 				ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, after, afterX, 0, faint << 24 | color & 0xFFFFFF, false);
 			}
@@ -387,7 +390,7 @@ public final class Nametags extends Module implements Styled {
 				cx += LabelBatch.width(ttf, em, WORLD_SHARPNESS, ch);
 			}
 		} else if (ok) {
-			ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, before + name, tx, 0, a << 24 | color & 0xFFFFFF, shadow.get());
+			ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, whole, tx, 0, a << 24 | color & 0xFFFFFF, shadow.get());
 		}
 		if (ok && !after.isEmpty()) {
 			ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, after, afterX, 0, a << 24 | color & 0xFFFFFF, shadow.get());

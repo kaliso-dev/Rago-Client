@@ -929,8 +929,11 @@ rago.option.trap_repeat=Then every
 rago.option.trap_repeat.format=%ds
 rago.option.trap_repeat.help=0 reminds only once until the next trap.
 rago.option.trap_sound=Sound
+rago.option.trap_party=Say it in the party chat
+rago.option.trap_party.help=When one of your traps goes off, a line also goes to your party with /pc, so your mates know someone is in your base. Plain text without accents.
 rago.trap.none=Your team has no trap and you carry %d diamond(s): buy one at the upgrades shop.
 rago.trap.triggered=One of your traps went off: an enemy is at your base!
+rago.trap.party=[Rago] A trap went off: an enemy is in our base!
 
 # 1.4: action sounds
 rago.module.action_sounds=Action Sounds
@@ -1105,6 +1108,10 @@ rago.setting.hud_cache=HUD cache
 rago.setting.hud_cache.help=At high frame rates, Rago's HUD is drawn a fixed number of times per second and reused in between, instead of on every frame.
 rago.setting.hud_cache_rate=HUD updates per second
 rago.setting.hud_cache_rate.help=How often the cached HUD is drawn again. When the game runs slower than this, the HUD is drawn on every frame as before.
+rago.setting.batch_holograms=Group floating texts
+rago.setting.batch_holograms.help=The floating texts over generators and shop keepers (invisible armour stands with a name) are drawn together in a few draw calls instead of several each, and the invisible stands that carry them skip setting up a body nobody can see. They look the same, behind water and stained glass too.
+rago.setting.batch_vanilla_hud=Group Minecraft's HUD
+rago.setting.batch_vanilla_hud.help=Minecraft draws every heart, armour point, food icon and air bubble on its own, and the sidebar line by line: over 60 draw calls a frame in survival with a full sidebar. Grouped, the icons and the sidebar's background take 4. They look the same.
 rago.menu.click_to_type=Click to type
 
 # 1.4: message hotkeys
@@ -1422,6 +1429,7 @@ rago.risk.auto_text=A key that types and sends a message is a macro, and Hypixel
 rago.risk.tnt_see_through_walls=Hypixel does not allow seeing through blocks.
 rago.risk.stats_alert_share=This option sends a chat message without you, and Hypixel does not allow automating what you do.
 rago.risk.sniper_gear=This sign points out players by their armour, and Hypixel does not allow armour indicators for other players.
+rago.risk.trap_party=This option sends a chat message without you, and Hypixel does not allow automating what you do.
 rago.section.chat=Chat
 rago.setting.chat_copy=Copy a message into the chat with Shift + click
 rago.setting.chat_copy.help=With the chat open, hold Shift and click a message: it is copied and pasted in the chat field where the cursor is, without its time and its (x2) counter. Nothing is sent until you press Enter. A message longer than the field (100 characters in the base game) is cut, and Rago tells you. On servers that use it, Shift + click on a name pastes the whole message instead of the name alone.
@@ -1602,3 +1610,12 @@ rago.overlays.part.clay=Clay
 rago.overlays.part.sky=Sky
 rago.overlays.part.sword=Sword
 rago.overlays.part.glass=Glass
+
+# 1.9: shop anti-misclick
+rago.module.shop_anti_misclick=Shop Anti-Misclick
+rago.module.shop_anti_misclick.desc=Bed Wars shop on Hypixel: a stone, iron or diamond sword is not bought again right after you bought it, so spam-clicking it buys it once. Buying another item in between lets you buy it again, and so does a short pause (to buy your sword back after a death). It only ignores your extra clicks, nothing else is sent.
+rago.option.misclick_delay=Pause that ends the block
+rago.option.misclick_delay.format=%d ms
+rago.option.misclick_delay.help=The same sword clicked again within this time of the last click on it is not bought. The block holds while you keep clicking it, and stops after this long without a click.
+rago.option.misclick_sound=Sound when a click is blocked
+rago.misclick.again=Not bought again: you just bought %s§c

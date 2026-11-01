@@ -4,6 +4,7 @@ import gg.rago.config.BooleanOption;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
+import gg.rago.render.HudText;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
@@ -159,16 +160,23 @@ abstract class ItemCountHud extends HudElement {
 		}
 		int x = 0;
 		int y = 0;
+		// every count in one draw call
+		HudText.Batch batch = labels.start(font.get());
+		boolean shade = shadow.get();
 		for (int k = 0; k < n; k++) {
 			int i = rows[k];
 			int c = count(i, placeholder);
-			drawText(text, text(i, placeholder), x + (icons ? ICON + 2 : 0), y + (icons ? 4 : 0), countColor(i, c));
+			batch.add(text(i, placeholder), x + (icons ? ICON + 2 : 0), y + (icons ? 4 : 0), countColor(i, c), shade);
 			if (horizontal.get()) {
 				x += cell(i, placeholder) + GAP;
 			} else {
 				y += row;
 			}
 		}
+		batch.end();
 		GlStateManager.color(1, 1, 1, 1);
 	}
+
+	/** The counts' text, reused every frame. */
+	private final HudText.Batch labels = new HudText.Batch();
 }

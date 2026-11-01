@@ -9,6 +9,7 @@ import gg.rago.gui.Theme;
 import gg.rago.render.HudText;
 import gg.rago.render.Paint;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.renderer.WorldRenderer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -350,33 +351,43 @@ public abstract class TextHudElement extends HudElement implements Styled {
 		return lines(placeholder).length * 10 - 1 + vpad() * 2 - (background.get() ? 1 : 0);
 	}
 
+	/** The text of the element, reused every frame: every piece of it goes out in one draw call. */
+	private final HudText.Batch textBatch = new HudText.Batch();
+
 	@Override
 	public void render(FontRenderer text, boolean placeholder) {
 		Seg[][] lines = lines(placeholder);
 		int w = boxWidth(placeholder);
 		int h = boxHeight(placeholder);
 		if (background.get()) {
-			Paint.round(0, 0, w, h, radius.get(), backgroundColor.get());
+			// the background and its border in one draw call
+			WorldRenderer shapes = Paint.beginShapes();
+			Paint.roundInto(shapes, 0, 0, w, h, radius.get(), backgroundColor.get());
 			if (border.get()) {
-				Paint.outline(0, 0, w, h, radius.get(), 1, borderColor.get());
+				Paint.outlineInto(shapes, 0, 0, w, h, radius.get(), 1, borderColor.get());
 			}
+			Paint.endShapes();
 		}
 		int bracketArgb = bracketColor.get();
 		int labelArgb = labelColor.get();
 		int valueArgb = valueColor(placeholder);
+		boolean rainbow = chroma.get();
+		boolean shade = shadow.get();
+		HudText.Batch batch = textBatch.start(font.get());
 		int y = vpad();
 		for (Seg[] line : lines) {
 			int lw = lineWidth(line);
 			float x = align.is("center") ? (w - lw) / 2f : align.is("right") ? w - pad() - lw : pad();
 			for (Seg seg : line) {
 				int color = seg.role == VALUE ? valueArgb : seg.role == LABEL ? labelArgb : bracketArgb;
-				if (chroma.get() && seg.role != BRACKET) {
+				if (rainbow && seg.role != BRACKET) {
 					color = Paint.chroma(x / 160f, color >>> 24);
 				}
-				drawText(text, seg.text, x, y, color);
+				batch.add(seg.text, x, y, color, shade);
 				x += textWidth(seg.text);
 			}
 			y += 10;
 		}
+		batch.end();
 	}
 }

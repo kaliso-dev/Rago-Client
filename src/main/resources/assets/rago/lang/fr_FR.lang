@@ -929,8 +929,11 @@ rago.option.trap_repeat=Puis toutes les
 rago.option.trap_repeat.format=%ds
 rago.option.trap_repeat.help=0 ne rappelle qu'une fois jusqu'au prochain piège.
 rago.option.trap_sound=Son
+rago.option.trap_party=Le dire dans le chat de la party
+rago.option.trap_party.help=Quand un de tes pièges se déclenche, une ligne part aussi dans ta party avec /pc, pour que tes mates sachent qu'un ennemi est dans votre base. Texte simple, sans accents.
 rago.trap.none=Ton équipe n'a pas de piège et tu as %d diamant(s) sur toi : achètes-en un au shop des améliorations.
 rago.trap.triggered=Un de tes pièges s'est déclenché : un ennemi est dans ta base !
+rago.trap.party=[Rago] Piège déclenché : un ennemi est dans notre base !
 
 # 1.4: action sounds
 rago.module.action_sounds=Action Sounds
@@ -1105,6 +1108,10 @@ rago.setting.hud_cache=Cache du HUD
 rago.setting.hud_cache.help=Quand le jeu tourne vite, le HUD Rago est dessiné un nombre fixe de fois par seconde et réutilisé entre-temps, au lieu d'être redessiné à chaque image.
 rago.setting.hud_cache_rate=Mises à jour du HUD par seconde
 rago.setting.hud_cache_rate.help=À quelle fréquence le HUD en cache est redessiné. Quand le jeu tourne moins vite que ça, le HUD est dessiné à chaque image comme avant.
+rago.setting.batch_holograms=Grouper les textes flottants
+rago.setting.batch_holograms.help=Les textes flottants au-dessus des générateurs et des PNJ (armor stands invisibles avec un nom) sont dessinés ensemble en quelques appels de dessin au lieu de plusieurs chacun, et les armor stands invisibles qui les portent sautent la préparation d'un corps que personne ne voit. Le rendu est le même, derrière l'eau et le verre teinté aussi.
+rago.setting.batch_vanilla_hud=Grouper le HUD de Minecraft
+rago.setting.batch_vanilla_hud.help=Minecraft dessine chaque cœur, point d'armure, icône de faim et bulle d'air un par un, et le tableau de score ligne par ligne : plus de 60 appels de dessin par image en survie avec un tableau plein. Groupés, les icônes et le fond du tableau en prennent 4. Le rendu est le même.
 rago.menu.click_to_type=Clique pour écrire
 
 # 1.4: message hotkeys
@@ -1422,6 +1429,7 @@ rago.risk.auto_text=Une touche qui écrit et envoie un message est une macro, et
 rago.risk.tnt_see_through_walls=Hypixel interdit de voir à travers les blocs.
 rago.risk.stats_alert_share=Cette option envoie un message dans le chat sans toi, et Hypixel interdit d'automatiser ce que tu fais.
 rago.risk.sniper_gear=Ce critère repère des joueurs d'après leur armure, et Hypixel interdit les indicateurs d'armure des autres joueurs.
+rago.risk.trap_party=Cette option envoie un message dans le chat sans toi, et Hypixel interdit d'automatiser ce que tu fais.
 rago.section.chat=Chat
 rago.setting.chat_copy=Copier-coller un message avec Shift + clic
 rago.setting.chat_copy.help=Chat ouvert, maintiens Shift et clique sur un message : il est copié et collé dans la barre de chat, là où est le curseur, sans son heure ni son compteur (x2). Rien n'est envoyé tant que tu n'appuies pas sur Entrée. Un message plus long que la barre (100 caractères dans le jeu de base) est coupé, et Rago te le dit. Sur les serveurs qui l'utilisent, Shift + clic sur un pseudo colle tout le message au lieu du seul pseudo.
@@ -1602,3 +1610,12 @@ rago.overlays.part.clay=Argile
 rago.overlays.part.sky=Ciel
 rago.overlays.part.sword=Épée
 rago.overlays.part.glass=Verre
+
+# 1.9: shop anti-misclick
+rago.module.shop_anti_misclick=Anti-Misclick Shop
+rago.module.shop_anti_misclick.desc=Shop Bed Wars sur Hypixel : une épée en pierre, en fer ou en diamant n'est pas rachetée juste après que tu l'as achetée, donc spammer le clic dessus ne l'achète qu'une fois. Acheter un autre item entre les deux te laisse la racheter, une petite pause aussi (pour racheter ton épée après une mort). Le mod ignore seulement tes clics en trop, rien d'autre n'est envoyé.
+rago.option.misclick_delay=Pause qui arrête le blocage
+rago.option.misclick_delay.format=%d ms
+rago.option.misclick_delay.help=La même épée recliquée moins de ce temps après le dernier clic dessus n'est pas achetée. Le blocage tient tant que tu continues de cliquer dessus, et s'arrête après ce temps sans clic.
+rago.option.misclick_sound=Son quand un clic est bloqué
+rago.misclick.again=Pas racheté : tu viens d'acheter %s§c

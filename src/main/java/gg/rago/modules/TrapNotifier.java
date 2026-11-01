@@ -35,6 +35,8 @@ public final class TrapNotifier extends Module {
 	private final BooleanOption onEmpty = addOption(new BooleanOption("trap_empty", true));
 	private final IntOption repeat = addOption(new IntOption("trap_repeat", 60, 0, 300));
 	private final BooleanOption sound = addOption(new BooleanOption("trap_sound", true));
+	/** Also tells your party (/pc) when a trap goes off; off by default, as it sends a chat message. */
+	private final BooleanOption party = addOption(new BooleanOption("trap_party", false));
 
 	private World world;
 	private int ticks;
@@ -191,9 +193,20 @@ public final class TrapNotifier extends Module {
 		}
 		lastTrigger = ticks;
 		setTraps(Math.max(0, traps - 1));
+		Minecraft mc = Minecraft.getMinecraft();
 		if (onTrigger.get()) {
-			alert(Minecraft.getMinecraft(), I18n.format("rago.trap.triggered"), 0.5f);
+			alert(mc, I18n.format("rago.trap.triggered"), 0.5f);
 		}
+		if (party.get() && mc.thePlayer != null) {
+			// plain ASCII, as every server takes it
+			mc.thePlayer.sendChatMessage(partyLine(I18n.format("rago.trap.party")));
+		}
+	}
+
+	/** The line sent to the party: "/pc " and the text without accents or colours. */
+	static String partyLine(String text) {
+		String line = BedwarsStats.ascii("/pc " + EnumChatFormatting.getTextWithoutFormattingCodes(text));
+		return line.length() > BedwarsStats.CHAT_MAX ? line.substring(0, BedwarsStats.CHAT_MAX) : line;
 	}
 
 	private void setTraps(int n) {

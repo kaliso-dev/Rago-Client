@@ -106,7 +106,11 @@ public final class PlayPreset {
 			.row("of_smooth_world", 0)
 			.row("of_clouds", 3)
 			.row("of_dynamic_lights", 0)
-			.row("of_vignette", 1));
+			.row("of_vignette", 1)
+			.row("light_glint", 1)
+			.row("hud_cache", 1)
+			.row("batch_holograms", 1)
+			.row("batch_vanilla_hud", 1));
 		PRESETS.put(Kind.BEDWARS, new Values().on(BEDWARS_MODS));
 		PRESETS.put(Kind.PVP, new Values().on(PVP_MODS));
 		java.util.Set<String> both = new java.util.LinkedHashSet<>(java.util.Arrays.asList(BEDWARS_MODS));
@@ -130,6 +134,20 @@ public final class PlayPreset {
 			.row("particle_collisions", 1)
 			.row("of_fast_render", 1)
 			.row("of_fast_math", 1));
+	}
+
+	/** Every Performance page row a preset sets, for tests. */
+	static java.util.Set<String> rowIds() {
+		java.util.Set<String> ids = new java.util.LinkedHashSet<>();
+		for (Values v : PRESETS.values()) {
+			ids.addAll(v.rows.keySet());
+		}
+		return ids;
+	}
+
+	/** The rows one preset sets and their values, for tests. */
+	static Map<String, Integer> rows(Kind kind) {
+		return java.util.Collections.unmodifiableMap(PRESETS.get(kind).rows);
 	}
 
 	private final Settings settings;

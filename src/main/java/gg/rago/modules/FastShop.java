@@ -109,7 +109,8 @@ public final class FastShop extends Module {
 		Gui.drawRect(x, y, x + 16, y + 16, alpha | cost.color);
 	}
 
-	private boolean isShopSlot(GuiContainer gui, Slot slot) {
+	/** A slot of a Hypixel shop window: an item with a price in its lore, in a chest window. */
+	static boolean isShopSlot(GuiContainer gui, Slot slot) {
 		if (!(gui instanceof GuiChest) || slot == null || !slot.getHasStack()
 			|| slot.inventory instanceof InventoryPlayer || !Hypixel.connected()) {
 			return false;

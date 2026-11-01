@@ -64,6 +64,9 @@ public final class PerformancePreset {
 		VALUES.put("unstacked_items", 1);
 		VALUES.put("light_glint", 1);
 		VALUES.put("skip_gl_errors", 1);
+		VALUES.put("hud_cache", 1);
+		VALUES.put("batch_holograms", 1);
+		VALUES.put("batch_vanilla_hud", 1);
 		// Minecraft
 		VALUES.put("render_distance", 8);
 		VALUES.put("max_framerate", 260);

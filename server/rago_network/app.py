@@ -117,8 +117,7 @@ class Network:
         loadout = self.whitelist.clean(body.get("cosmetics"), self.store.role(uuid))
         now = int(self.clock())
         self.store.presence(uuid, visible, loadout, version, now)
-        online, _ = self.store.counts(now - self.online_window)
-        return 200, {"online": online, "cosmetics": loadout}
+        return 200, {"online": self._counts(now)["online"], "cosmetics": loadout}
 
     def lookup(self, uuid, body):
         if not self.limits.allow("lookup", uuid, 30, 10):
@@ -133,13 +132,17 @@ class Network:
     def stats(self, ip):
         if not self.limits.allow("stats", ip, 60, 20):
             return 429, {"error": "slow_down"}
-        now = self.clock()
+        return 200, self._counts(self.clock())
+
+    def _counts(self, now):
+        """Players online and in total, counted again at most every 15 seconds (every presence and
+        every stats request would otherwise count the whole table)."""
         at, cached = self._stats
-        if cached is None or now - at > 15:
+        if cached is None or now - at > 15 or now < at:
             online, total = self.store.counts(int(now) - self.online_window)
             cached = {"online": online, "players": total}
             self._stats = (now, cached)
-        return 200, cached
+        return cached
 
     def delete(self, uuid):
         return 200, {"deleted": self.store.delete(uuid) > 0}

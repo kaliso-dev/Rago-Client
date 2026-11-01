@@ -104,6 +104,7 @@ import gg.rago.modules.RawInput;
 import gg.rago.modules.Screenshots;
 import gg.rago.modules.SkinChanger;
 import gg.rago.modules.FastShop;
+import gg.rago.modules.ShopAntiMisclick;
 import gg.rago.modules.GameplayFixes;
 import gg.rago.modules.HitColor;
 import gg.rago.modules.HitDelayFix;
@@ -285,6 +286,7 @@ public final class RagoClient {
 		Hooks.hitDelay = MODULES.register(new HitDelayFix());
 		Hooks.blockEdit = MODULES.register(new BlockEditFix());
 		Hooks.fastShop = MODULES.register(new FastShop());
+		Hooks.antiMisclick = MODULES.register(new ShopAntiMisclick());
 		Chat chat = MODULES.register(new Chat());
 		Nametags nametags = MODULES.register(new Nametags());
 		hypixel = new HypixelApi(configDir);
@@ -341,6 +343,7 @@ public final class RagoClient {
 		Hooks.tabPing = tabPing;
 		Hooks.chat = chat;
 		Hooks.engine = optimizations.engine();
+		Hooks.holograms = optimizations.holograms();
 		Hooks.fixes = fixes;
 		Hooks.hitColor = hitColor;
 		Hooks.cape = cape;
@@ -390,6 +393,7 @@ public final class RagoClient {
 			MinecraftForge.EVENT_BUS.register(bench);
 		}
 		MinecraftForge.EVENT_BUS.register(optimizations);
+		MinecraftForge.EVENT_BUS.register(optimizations.holograms());
 		MinecraftForge.EVENT_BUS.register(new gg.rago.chat.ChatCopy(chatCopy::get));
 		MinecraftForge.EVENT_BUS.register(new gg.rago.debug.InputTrace());
 		gg.rago.debug.StackSampler.startIfAsked();
@@ -587,10 +591,60 @@ public final class RagoClient {
 		return menuBlur.get();
 	}
 
+	/**
+	 * Saves the config: what to save is taken now, on the game thread, and the file is written on a
+	 * thread of its own, so closing the menu or joining a game never waits for the disk (the file is
+	 * a few hundred kilobytes with every profile). Saves asked for faster than they are written
+	 * become one; a save still waiting when the game quits is written before it exits.
+	 */
 	public static void saveConfig() {
+		com.google.gson.JsonObject json;
 		try {
 			PROFILES.capture(MODULES);
-			config.save(MODULES, SETTINGS, PROFILES);
+			json = config.toJson(MODULES, SETTINGS, PROFILES);
+		} catch (Exception e) {
+			LOG.error("Could not save {}", config.file(), e);
+			return;
+		}
+		if (PENDING_SAVE.getAndSet(json) == null) {
+			try {
+				SAVER.execute(RagoClient::writePendingSave);
+			} catch (java.util.concurrent.RejectedExecutionException e) {
+				writePendingSave(); // the game is quitting: the writer thread is closed, write it here
+			}
+		}
+	}
+
+	private static final java.util.concurrent.atomic.AtomicReference<com.google.gson.JsonObject> PENDING_SAVE =
+		new java.util.concurrent.atomic.AtomicReference<>();
+	private static final java.util.concurrent.ExecutorService SAVER = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+		Thread t = new Thread(r, "Rago config");
+		t.setDaemon(true);
+		return t;
+	});
+
+	static {
+		Runtime.getRuntime().addShutdownHook(new Thread(RagoClient::saveOnExit, "Rago config on exit"));
+	}
+
+	/** When the game quits: lets a save the writer thread has begun finish, then writes any left. */
+	private static void saveOnExit() {
+		SAVER.shutdown();
+		try {
+			SAVER.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+		writePendingSave();
+	}
+
+	private static void writePendingSave() {
+		com.google.gson.JsonObject latest = PENDING_SAVE.getAndSet(null);
+		if (latest == null) {
+			return;
+		}
+		try {
+			config.write(latest);
 		} catch (Exception e) {
 			LOG.error("Could not save {}", config.file(), e);
 		}
@@ -694,7 +748,7 @@ public final class RagoClient {
 		}
 		long t = FrameProfile.ON ? FrameProfile.start() : 0;
 		if (optimizations.hudCache()) {
-			HUD_CACHE.render(() -> HUD.render(!ownHud), optimizations.hudCacheRate());
+			HUD_CACHE.render(ownHud ? DRAW_HUD : DRAW_HUD_REPLACING_VANILLA, optimizations.hudCacheRate());
 		} else {
 			HUD.render(!ownHud);
 		}
@@ -706,6 +760,10 @@ public final class RagoClient {
 			FrameProfile.add(FrameProfile.HUD, System.nanoTime() - t);
 		}
 	}
+
+	/** Rago's HUD, and only the elements standing in for vanilla ones: made once, not a new lambda every frame. */
+	private static final Runnable DRAW_HUD = () -> HUD.render(false);
+	private static final Runnable DRAW_HUD_REPLACING_VANILLA = () -> HUD.render(true);
 
 	/** Developer timing ({@code -Drago.bench.frame=true -Drago.bench.hud=true}): the HUD with the card's work. */
 	private static final boolean BENCH_HUD = FrameProfile.ON && Boolean.getBoolean("rago.bench.hud");
