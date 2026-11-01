@@ -746,12 +746,10 @@ rago.option.cosmetic_hat.none=None
 rago.option.cosmetic_hat.top_hat=Top hat
 rago.option.cosmetic_hat.crown=Crown
 rago.option.cosmetic_hat.halo=Halo
-rago.option.cosmetic_hat_color=Hat colour
 rago.option.cosmetic_wings=Wings
 rago.option.cosmetic_wings.none=None
 rago.option.cosmetic_wings.dragon=Dragon
 rago.option.cosmetic_wings.dragon_small=Small dragon
-rago.option.cosmetic_wings_color=Wings colour
 rago.option.cosmetic_wings_flap=Flapping
 
 # 1.2: resource packs screen

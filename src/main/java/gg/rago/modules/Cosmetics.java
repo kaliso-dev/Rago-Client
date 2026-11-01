@@ -2,7 +2,6 @@ package gg.rago.modules;
 
 import gg.rago.config.BooleanOption;
 import gg.rago.config.ChoiceOption;
-import gg.rago.config.ColorOption;
 import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
@@ -65,12 +64,10 @@ public final class Cosmetics extends Module {
 	private final ChoiceOption hat = addOption(new ChoiceOption("cosmetic_hat", "none", Loadout.HATS));
 	/** The colour of the Rago cap's and beanie's logo, the cap's strap and the beanie's pompom. */
 	private final ChoiceOption hatNeon = addOption(new ChoiceOption("cosmetic_hat_neon", "red", NeonColors.IDS));
-	private final ColorOption hatColor = addOption(new ColorOption("cosmetic_hat_color", 0xFFFFFFFF));
 	private final IntOption hatScale = addOption(new IntOption("cosmetic_hat_scale", 100, Loadout.HAT_SCALE_MIN,
 		Loadout.HAT_SCALE_MAX));
 	private final ChoiceOption wings = addOption(new ChoiceOption("cosmetic_wings", "none", Loadout.WINGS));
 	private final ChoiceOption wingsNeon = addOption(new ChoiceOption("cosmetic_wings_neon", "red", NeonColors.IDS));
-	private final ColorOption wingsColor = addOption(new ColorOption("cosmetic_wings_color", 0xFFFFFFFF));
 	private final IntOption wingsScale = addOption(new IntOption("cosmetic_wings_scale", 100, Loadout.WINGS_SCALE_MIN,
 		Loadout.WINGS_SCALE_MAX));
 	private final BooleanOption flap = addOption(new BooleanOption("cosmetic_wings_flap", true));
@@ -93,13 +90,11 @@ public final class Cosmetics extends Module {
 
 	public Cosmetics() {
 		super("cosmetics", FeatureClass.VISUAL, false);
-		hatColor.showIf(() -> !hat.is("none"));
 		hatNeon.showIf(this::ragoHat);
 		wingsNeon.showIf(() -> wings.is("dragon_small"));
 		shieldNeon.showIf(() -> shield.is("rago"));
 		neonGlow.showIf(() -> ragoHat() || wings.is("dragon_small") || shield.is("rago"));
 		hatScale.showIf(() -> !hat.is("none"));
-		wingsColor.showIf(() -> !wings.is("none"));
 		wingsScale.showIf(() -> !wings.is("none"));
 		flap.showIf(() -> !wings.is("none"));
 		flapSpeed.showIf(() -> !wings.is("none") && flap.get());
@@ -128,8 +123,8 @@ public final class Cosmetics extends Module {
 	private Loadout loadout(boolean on, RagoCape cape) {
 		boolean capeOn = cape != null && cape.isEnabled();
 		return new Loadout(capeOn ? cape.design() : "none", cape != null ? cape.neon() : "red", cape != null && cape.overOwn(),
-			on ? hat.get() : "none", hatNeon.get(), hatColor.get(), hatScale.get(),
-			on ? wings.get() : "none", wingsNeon.get(), wingsColor.get(), wingsScale.get(), flap.get(), flapSpeed.get(),
+			on ? hat.get() : "none", hatNeon.get(), Loadout.NO_TINT, hatScale.get(),
+			on ? wings.get() : "none", wingsNeon.get(), Loadout.NO_TINT, wingsScale.get(), flap.get(), flapSpeed.get(),
 			on ? shield.get() : "none", shieldNeon.get(), shieldScale.get(), neonGlow.get());
 	}
 
@@ -137,11 +132,9 @@ public final class Cosmetics extends Module {
 		int h = on ? 1 : 0;
 		h = 31 * h + hat.get().hashCode();
 		h = 31 * h + hatNeon.get().hashCode();
-		h = 31 * h + hatColor.get();
 		h = 31 * h + hatScale.get();
 		h = 31 * h + wings.get().hashCode();
 		h = 31 * h + wingsNeon.get().hashCode();
-		h = 31 * h + wingsColor.get();
 		h = 31 * h + wingsScale.get();
 		h = 31 * h + (flap.get() ? 1 : 0);
 		h = 31 * h + flapSpeed.get();
@@ -260,8 +253,8 @@ public final class Cosmetics extends Module {
 					model.bipedBody.postRender(0.0625f);
 					float beat = l.wingsFlap ? flapAngle(player, ageInTicks * l.wingsFlapSpeed / 100f) : 0;
 					if (l.wings.equals("dragon")) {
-						BatWing.draw(tint(l.wingsColor, BatWing.MEMBRANE), l.wingsScale / 100f, -1, beat);
-						BatWing.draw(tint(l.wingsColor, BatWing.MEMBRANE), l.wingsScale / 100f, 1, beat);
+						BatWing.draw(BatWing.MEMBRANE, l.wingsScale / 100f, -1, beat);
+						BatWing.draw(BatWing.MEMBRANE, l.wingsScale / 100f, 1, beat);
 					} else {
 						extrudedWing(l, -1, beat);
 						extrudedWing(l, 1, beat);
@@ -299,10 +292,6 @@ public final class Cosmetics extends Module {
 	}
 
 	/** A piece's colour: {@code c}, or {@code fallback} while it is left at white. */
-	private static int tint(int c, int fallback) {
-		return c == Loadout.NO_TINT ? fallback : c;
-	}
-
 	/** Half the width of the skin's second layer on the head (8 pixels and half a pixel each side). */
 	private static final float SKIN_LAYER_HALF = 4.5f;
 	/** How far outside that layer a hat's sides stay, in pixels, so the two never fight for the same place. */
@@ -342,7 +331,7 @@ public final class Cosmetics extends Module {
 				drawBeanie(l, lift);
 				break;
 			case "crown": {
-				int c = tint(l.hatColor, 0xFFF2C14E);
+				int c = 0xFFF2C14E;
 				float r = 0.27f;
 				float t = 0.03f;
 				float top = base - 0.16f;
@@ -360,7 +349,7 @@ public final class Cosmetics extends Module {
 			}
 			case "halo": {
 				// halo: a glowing ring floating above the head
-				int c = tint(l.hatColor, 0xFFFFE27A);
+				int c = 0xFFFFE27A;
 				float y = base - 0.22f + (float) Math.sin(age * 0.08f) * 0.02f;
 				float lx = OpenGlHelper.lastBrightnessX;
 				float ly = OpenGlHelper.lastBrightnessY;
@@ -375,7 +364,7 @@ public final class Cosmetics extends Module {
 					GlStateManager.pushMatrix();
 					GlStateManager.translate(0, lift, 0);
 					GlStateManager.disableBlend();
-					m.render("hat", l.hatColor);
+					m.render("hat", Loadout.NO_TINT);
 					GlStateManager.popMatrix();
 					untextured();
 				}
@@ -438,7 +427,7 @@ public final class Cosmetics extends Module {
 	// ---- textured hats: head space in pixels (1/16 block), y down, the face looking to -z --------
 
 	private static void drawCap(Loadout l, float lift) {
-		int c = tint(l.hatColor, 0xFF232328);
+		int c = 0xFF232328;
 		int neon = NeonColors.swatch(l.hatNeon);
 		textured(TEX_CAP);
 		GlStateManager.pushMatrix();
@@ -467,7 +456,7 @@ public final class Cosmetics extends Module {
 	}
 
 	private static void drawBeanie(Loadout l, float lift) {
-		int c = tint(l.hatColor, 0xFF232328);
+		int c = 0xFF232328;
 		int neon = NeonColors.swatch(l.hatNeon);
 		textured(TEX_BEANIE);
 		GlStateManager.pushMatrix();
@@ -579,8 +568,8 @@ public final class Cosmetics extends Module {
 	 * other side is the same model mirrored.
 	 */
 	private static void extrudedWing(Loadout l, int side, float beat) {
-		// coloured in their texture (Rago's red and black): untinted by default
-		int c = tint(l.wingsColor, 0xFFFFFFFF);
+		// coloured in their texture (Rago's red and black)
+		int c = 0xFFFFFFFF;
 		// compact
 		float span = 0.7f * l.wingsScale / 100f;
 		GlStateManager.pushMatrix();

@@ -746,12 +746,10 @@ rago.option.cosmetic_hat.none=Aucun
 rago.option.cosmetic_hat.top_hat=Haut-de-forme
 rago.option.cosmetic_hat.crown=Couronne
 rago.option.cosmetic_hat.halo=Auréole
-rago.option.cosmetic_hat_color=Couleur du chapeau
 rago.option.cosmetic_wings=Ailes
 rago.option.cosmetic_wings.none=Aucune
 rago.option.cosmetic_wings.dragon=Dragon
 rago.option.cosmetic_wings.dragon_small=Petit dragon
-rago.option.cosmetic_wings_color=Couleur des ailes
 rago.option.cosmetic_wings_flap=Battement
 
 # 1.2: écran des packs de ressources
