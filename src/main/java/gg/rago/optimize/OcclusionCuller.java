@@ -201,8 +201,11 @@ public final class OcclusionCuller {
 		boolean opaque(int x, int y, int z);
 	}
 
+	/** Made once: a method reference that uses {@code this} is a new object each time it is evaluated. */
+	private final Blocks worldBlocks = this::opaque;
+
 	private boolean clear(double tx, double ty, double tz) {
-		return rayClear(cx, cy, cz, tx, ty, tz, this::opaque);
+		return rayClear(cx, cy, cz, tx, ty, tz, worldBlocks);
 	}
 
 	/**

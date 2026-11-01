@@ -74,6 +74,8 @@ import gg.rago.modules.Emotes;
 import gg.rago.modules.RagoBadge;
 import gg.rago.modules.AntiArmor;
 import gg.rago.modules.F5Crosshair;
+import gg.rago.modules.InventoryBlur;
+import gg.rago.modules.NoF5Bobbing;
 import gg.rago.modules.Fullbright;
 import gg.rago.modules.GlintColor;
 import gg.rago.modules.HideAchievements;
@@ -278,8 +280,8 @@ public final class RagoClient {
 		MODULES.register(new HeightLimitHud(configDir));
 		MODULES.register(new BlockCounterHud());
 		MODULES.register(new ItemCounterHud());
-		MODULES.register(new GeneratorTimersHud());
-		MODULES.register(new EventTimersHud());
+		Hooks.genTimers = MODULES.register(new GeneratorTimersHud());
+		Hooks.eventTimers = MODULES.register(new EventTimersHud());
 		MODULES.register(new UpgradesHud());
 		MODULES.register(new DirectionHud());
 		MODULES.register(new PackDisplayHud());
@@ -325,10 +327,12 @@ public final class RagoClient {
 		MODULES.register(new NoWaterOverlay());
 		MODULES.register(new HideAchievements());
 		MODULES.register(new F5Crosshair());
+		Hooks.noF5Bobbing = MODULES.register(new NoF5Bobbing());
 		MODULES.register(new WeatherChanger());
 		MODULES.register(new TimeChanger());
 		Hooks.overlays = MODULES.register(new Overlays());
 		MODULES.register(new MotionBlur(zoom));
+		Hooks.inventoryBlur = MODULES.register(new InventoryBlur());
 		MODULES.register(new ColorGrading());
 		MODULES.register(new Vignette());
 		RagoCape cape = MODULES.register(new RagoCape());
@@ -374,6 +378,7 @@ public final class RagoClient {
 		}
 		profile.markReady();
 		PROFILES.ensureDefaults(MODULES);
+		PROFILES.ensureBuiltIn(MODULES);
 		Anim.setEnabled(menuAnimations.get());
 		Ui.setGlass(glassEffect.get());
 		Ui.setMenuVideo(menuVideo.get());

@@ -98,6 +98,15 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return found;
 			}));
+		add("net.minecraft.client.renderer.EntityRenderer", new Patch("no view bobbing in third person",
+			"func_78479_a", "setupCameraTransform", "(FI)V",
+			m -> afterFieldReads(m, "field_74336_f", "viewBobbing", "Z", "cameraBobbing", "(Z)Z")));
+		add("net.minecraft.client.gui.GuiScreen", new Patch("lighter menu shade behind a blurred inventory",
+			"func_146270_b", "drawWorldBackground", "(I)V",
+			RagoTransformer::menuShade));
+		add("net.minecraft.client.gui.Gui", new Patch("menu shade kept over other mods' colours",
+			"func_73733_a", "drawGradientRect", "(IIIIII)V",
+			RagoTransformer::gradientColours));
 		add("net.minecraft.util.ScreenShotHelper", new Patch("screenshot buttons",
 			"func_148259_a", "saveScreenshot",
 			"(Ljava/io/File;Ljava/lang/String;IILnet/minecraft/client/shader/Framebuffer;)Lnet/minecraft/util/IChatComponent;",
@@ -318,6 +327,9 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return false;
 			}));
+		add("net.minecraft.world.World", new Patch("chunk list around you only",
+			"func_72903_x", "setActivePlayerChunksAndCheckLight", "()V",
+			RagoTransformer::nearbyChunks));
 		add("net.minecraft.client.entity.AbstractClientPlayer", new Patch("Rago cape",
 			"func_110303_q", "getLocationCape", "()Lnet/minecraft/util/ResourceLocation;",
 			m -> {
@@ -444,31 +456,7 @@ public final class RagoTransformer implements IClassTransformer {
 		try {
 			ClassNode node = new ClassNode();
 			new ClassReader(bytes).accept(node, 0);
-			int applied = 0;
-			for (Patch p : patches) {
-				MethodNode target = null;
-				for (MethodNode m : node.methods) {
-					if (p.desc.equals(m.desc) && (p.srg.equals(m.name) || p.mcp.equals(m.name))) {
-						target = m;
-						break;
-					}
-				}
-				if (target == null) {
-					LOG.warn("{}: {}.{} not found, feature unavailable", p.what, transformedName, p.mcp);
-					continue;
-				}
-				// patch a copy, so a pattern that is only half found leaves the method untouched
-				MethodNode copy = copyOf(target);
-				if (p.patcher.apply(copy)) {
-					node.methods.set(node.methods.indexOf(target), copy);
-					applied++;
-					LOG.info("Hook installed: {}", p.what);
-				} else {
-					LOG.warn("{}: unexpected code in {}.{}, feature unavailable", p.what, transformedName, p.mcp);
-					dump(transformedName, bytes);
-				}
-			}
-			if (applied == 0) {
+			if (applyAll(node, transformedName, patches, bytes, null).isEmpty()) {
 				return bytes;
 			}
 			ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
@@ -480,9 +468,60 @@ public final class RagoTransformer implements IClassTransformer {
 		}
 	}
 
+	/**
+	 * Applies the class's patches and returns the methods they changed. A patch whose method or
+	 * pattern is not found is logged (and added to {@code problems} when given) and leaves its
+	 * method as it was.
+	 */
+	private static List<MethodNode> applyAll(ClassNode node, String transformedName, List<Patch> patches, byte[] bytes,
+		List<String> problems) {
+		List<MethodNode> patched = new ArrayList<>();
+		for (Patch p : patches) {
+			MethodNode target = null;
+			for (MethodNode m : node.methods) {
+				if (p.desc.equals(m.desc) && (p.srg.equals(m.name) || p.mcp.equals(m.name))) {
+					target = m;
+					break;
+				}
+			}
+			if (target == null) {
+				LOG.warn("{}: {}.{} not found, feature unavailable", p.what, transformedName, p.mcp);
+				if (problems != null) {
+					problems.add(p.what + ": " + transformedName + "." + p.mcp + " not found");
+				}
+				continue;
+			}
+			// patch a copy, so a pattern that is only half found leaves the method untouched
+			MethodNode copy = copyOf(target);
+			if (p.patcher.apply(copy)) {
+				node.methods.set(node.methods.indexOf(target), copy);
+				patched.remove(target); // a second patch on the same method
+				patched.add(copy);
+				LOG.info("Hook installed: {}", p.what);
+			} else {
+				LOG.warn("{}: unexpected code in {}.{}, feature unavailable", p.what, transformedName, p.mcp);
+				if (problems != null) {
+					problems.add(p.what + ": unexpected code in " + transformedName + "." + p.mcp);
+				}
+				dump(transformedName, bytes);
+			}
+		}
+		return patched;
+	}
+
+	/** For tests: the classes with patches. */
+	static java.util.Set<String> patchedClasses() {
+		return PATCHES.keySet();
+	}
+
+	/** For tests: patches {@code node} as the game would and returns the changed methods; what did not fit goes to {@code problems}. */
+	static List<MethodNode> patchForTest(String transformedName, ClassNode node, List<String> problems) {
+		return applyAll(node, transformedName, PATCHES.get(transformedName), null, problems);
+	}
+
 	/** With {@code -Drago.dumpClasses=true}, saves a class a patch did not fit, to see what changed it. */
 	private static void dump(String name, byte[] bytes) {
-		if (!Boolean.getBoolean("rago.dumpClasses")) {
+		if (bytes == null || !Boolean.getBoolean("rago.dumpClasses")) {
 			return;
 		}
 		try {
@@ -735,6 +774,102 @@ public final class RagoTransformer implements IClassTransformer {
 			}
 		}
 		return found;
+	}
+
+	/**
+	 * World.setActivePlayerChunksAndCheckLight: first, {@code Hooks.chunkListStart} gets the world
+	 * and its active chunk list; then, while the method lists the chunks around each player (until
+	 * its "playerCheckLight" section, which keeps vanilla's lists), each read of the chunk list goes
+	 * through {@code Hooks.chunkSet} and each read of the player list through {@code Hooks.chunkPlayers}.
+	 */
+	private static boolean nearbyChunks(MethodNode m) {
+		int players = 0;
+		FieldInsnNode list = null;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof LdcInsnNode && "playerCheckLight".equals(((LdcInsnNode) insn).cst)) {
+				if (players == 0 || list == null) {
+					return false;
+				}
+				// at the start, after the reads above were changed (so this one is not)
+				InsnList head = new InsnList();
+				head.add(new VarInsnNode(Opcodes.ALOAD, 0));
+				head.add(new VarInsnNode(Opcodes.ALOAD, 0));
+				head.add(new FieldInsnNode(Opcodes.GETFIELD, list.owner, list.name, list.desc));
+				head.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chunkListStart",
+					"(Lnet/minecraft/world/World;Ljava/util/Set;)V", false));
+				m.instructions.insert(head);
+				return true;
+			}
+			if (insn.getOpcode() != Opcodes.GETFIELD) {
+				continue;
+			}
+			FieldInsnNode f = (FieldInsnNode) insn;
+			InsnList call = new InsnList();
+			if ("Ljava/util/List;".equals(f.desc) && ("field_73010_i".equals(f.name) || "playerEntities".equals(f.name))) {
+				call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chunkPlayers",
+					"(Ljava/util/List;Lnet/minecraft/world/World;)Ljava/util/List;", false));
+				players++;
+			} else if ("Ljava/util/Set;".equals(f.desc) && ("field_72993_I".equals(f.name) || "activeChunkSet".equals(f.name))) {
+				call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chunkSet",
+					"(Ljava/util/Set;Lnet/minecraft/world/World;)Ljava/util/Set;", false));
+				list = f;
+			} else {
+				continue;
+			}
+			m.instructions.insert(insn, call);
+		}
+		return false;
+	}
+
+	/** Each read of the field {@code srg}/{@code mcp} goes through {@code Hooks.hook}, which gets and returns its value. */
+	private static boolean afterFieldReads(MethodNode m, String srg, String mcp, String fieldDesc, String hook, String hookDesc) {
+		boolean found = false;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == Opcodes.GETFIELD && fieldDesc.equals(((FieldInsnNode) insn).desc)
+				&& (srg.equals(((FieldInsnNode) insn).name) || mcp.equals(((FieldInsnNode) insn).name))) {
+				m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, hook, hookDesc, false));
+				found = true;
+			}
+		}
+		return found;
+	}
+
+	/**
+	 * The two colours of the dark gradient behind menus in a world (0xC0101010 and 0xD0101010) go
+	 * through {@code Hooks.menuShade}.
+	 */
+	private static boolean menuShade(MethodNode m) {
+		int found = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof LdcInsnNode && (Integer.valueOf(0xC0101010).equals(((LdcInsnNode) insn).cst)
+				|| Integer.valueOf(0xD0101010).equals(((LdcInsnNode) insn).cst))) {
+				m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "menuShade", "(I)I", false));
+				found++;
+			}
+		}
+		return found == 2;
+	}
+
+	/**
+	 * First thing in Gui.drawGradientRect: both colours go through {@code Hooks.menuGradient} with
+	 * the rectangle, so the shade behind a blurred inventory is the one chosen in Rago even when
+	 * another mod (PolyPatcher's container background opacity) changed the colours on the way.
+	 */
+	private static boolean gradientColours(MethodNode m) {
+		InsnList call = new InsnList();
+		for (int slot = 5; slot <= 6; slot++) {
+			for (int arg = 1; arg <= 4; arg++) {
+				call.add(new VarInsnNode(Opcodes.ILOAD, arg));
+			}
+			call.add(new VarInsnNode(Opcodes.ILOAD, slot));
+			call.add(new InsnNode(slot == 5 ? Opcodes.ICONST_1 : Opcodes.ICONST_0));
+			call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "menuGradient", "(IIIIIZ)I", false));
+			call.add(new VarInsnNode(Opcodes.ISTORE, slot));
+		}
+		m.instructions.insert(call);
+		return true;
 	}
 
 	/** The 14° tilt when the player is hurt becomes {@code Hooks.hurtShake(14)}; the death tilt is kept. */

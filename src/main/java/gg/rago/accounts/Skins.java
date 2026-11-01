@@ -30,6 +30,9 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
@@ -51,8 +54,9 @@ public final class Skins {
 
 	private static final List<Skin> skins = new CopyOnWriteArrayList<>();
 	private static volatile String worn;
-	private static volatile Skin account;
-	private static volatile boolean accountRequested;
+	/** Each account's own skin by name: switching accounts shows the new account's, not the first one's. */
+	private static final Map<String, Skin> accountSkins = new ConcurrentHashMap<>();
+	private static final Set<String> accountsRequested = ConcurrentHashMap.newKeySet();
 	/** Whether the starter skin was put in the locker once; after that, removing it is the player's choice. */
 	private static volatile boolean starterAdded;
 	private static Path file;
@@ -245,24 +249,29 @@ public final class Skins {
 		return NAME.matcher(name).matches();
 	}
 
-	/** Your account's own skin, looked up once per game; null until it arrives or when offline. */
+	/**
+	 * The signed-in account's own skin, looked up once per game for each account; null until it
+	 * arrives or when offline.
+	 */
 	public static Skin account() {
-		if (!accountRequested) {
-			accountRequested = true;
-			String name = Minecraft.getMinecraft().getSession().getUsername();
+		String name = Minecraft.getMinecraft().getSession().getUsername();
+		if (name == null) {
+			return null;
+		}
+		if (accountsRequested.add(name)) {
 			background("Rago account skin", () -> {
 				try {
 					File tmp = File.createTempFile("rago-account-skin", ".png");
 					tmp.deleteOnExit();
 					Skin s = download(name, tmp);
 					s.load();
-					account = s;
+					accountSkins.put(name, s);
 				} catch (IOException | RuntimeException e) {
 					RagoClient.LOG.debug("No account skin for {}: {}", name, e.toString());
 				}
 			});
 		}
-		return account;
+		return accountSkins.get(name);
 	}
 
 	/** The reasons adding a skin can fail, shown to the player. */
@@ -358,6 +367,7 @@ public final class Skins {
 	 */
 	public static UploadResult setAccountSkin(Skin skin) {
 		String token = Minecraft.getMinecraft().getSession().getToken();
+		String name = Minecraft.getMinecraft().getSession().getUsername();
 		if (token == null || token.length() < 20) {
 			return UploadResult.SIGNED_OUT;
 		}
@@ -384,6 +394,10 @@ public final class Skins {
 			}
 			int code = c.getResponseCode();
 			if (code == 200) {
+				if (name != null) {
+					// the account wears it now: shown as the account's skin without asking Mojang again
+					accountSkins.put(name, skin);
+				}
 				return UploadResult.OK;
 			}
 			RagoClient.LOG.info("Setting the account skin failed: HTTP {}", code);

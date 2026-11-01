@@ -18,6 +18,7 @@ import net.minecraft.client.renderer.entity.RendererLivingEntity;
 import net.minecraft.client.renderer.entity.layers.LayerRenderer;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Session;
 import net.minecraft.world.EnumDifficulty;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldSettings;
@@ -37,26 +38,47 @@ final class PlayerPreview {
 	/** A world for the preview player when no world is loaded; made once, it holds nothing. */
 	private static WorldClient emptyWorld;
 
-	private final Model model;
+	private Model model;
+	/** The account the model was made for: its UUID is what makes the cape and cosmetics yours. */
+	private Session session;
 	private boolean broken;
 
-	private PlayerPreview(Model model) {
+	private PlayerPreview(Model model, Session session) {
 		this.model = model;
+		this.session = session;
 	}
 
 	/** A preview of the account's player, or null when one cannot be made. */
 	static PlayerPreview create() {
+		Session session = Minecraft.getMinecraft().getSession();
 		Model m = Model.create();
-		return m == null ? null : new PlayerPreview(m);
+		return m == null ? null : new PlayerPreview(m, session);
+	}
+
+	/**
+	 * The model for the signed-in account, made again after a switch of account: the old one keeps
+	 * the old account's UUID, so the cape and cosmetics, which are drawn only on you, disappear.
+	 */
+	private Model model() {
+		Session now = Minecraft.getMinecraft().getSession();
+		if (now != session) {
+			Model m = Model.create();
+			if (m != null) {
+				m.ticksExisted = model.ticksExisted;
+				model = m;
+			}
+			session = now;
+		}
+		return model;
 	}
 
 	/** Moves the idle animation on; call once a tick. */
 	void tick() {
-		model.ticksExisted++;
+		model().ticksExisted++;
 	}
 
 	UUID id() {
-		return model.getUniqueID();
+		return model().getUniqueID();
 	}
 
 	/**
@@ -67,7 +89,7 @@ final class PlayerPreview {
 		if (broken) {
 			return;
 		}
-		Model e = model;
+		Model e = model();
 		if (skin != null && skin.texture() != null) {
 			e.skin = skin.texture();
 			e.slim = skin.slim;

@@ -44,6 +44,7 @@ class NetworkClientTest {
 	private final List<String> calls = new ArrayList<>();
 	private final List<JsonObject> presences = new ArrayList<>();
 	private final List<JsonArray> lookups = new ArrayList<>();
+	private final List<JsonArray> emotePolls = new ArrayList<>();
 	private int startStatus = 200;
 	private int presenceStatus = 200;
 	private String joined;
@@ -95,6 +96,15 @@ class NetworkClientTest {
 			lookups.add(ids);
 			answer(x, 200, "{\"players\": {\"" + RAGO_PLAYER + "\": {\"role\": \"partner\", \"cosmetics\":"
 				+ " {\"cape\": \"rago\", \"cape_neon\": \"blue\", \"hat\": \"crown\"}}}}");
+		});
+		server.createContext("/v1/emote", x -> {
+			JsonObject body = body(x);
+			calls.add("emote " + body.get("emote").getAsString() + " " + body.get("speed").getAsInt());
+			answer(x, 200, "{\"ok\": true}");
+		});
+		server.createContext("/v1/emotes", x -> {
+			emotePolls.add(body(x).getAsJsonArray("uuids"));
+			answer(x, 200, "{\"emotes\": {\"" + RAGO_PLAYER + "\": {\"emote\": \"wave\", \"speed\": 120, \"elapsed\": 2000}}}");
 		});
 		server.start();
 		url = "http://127.0.0.1:" + server.getAddress().getPort() + "/";
@@ -172,6 +182,40 @@ class NetworkClientTest {
 		tick();
 		assertEquals(2, lookups.size());
 		assertEquals(1, lookups.get(1).size());
+	}
+
+	@Test
+	void yourEmoteIsSentAndTheRagoPlayersAroundAreAskedForTheirs() {
+		tick();
+		tick();
+		tick();
+		assertEquals("partner", client.player(RAGO_PLAYER).role);
+		// a second later: only the Rago player, not you, not the others
+		now.addAndGet(1000);
+		tick();
+		assertEquals(1, emotePolls.size());
+		assertEquals(1, emotePolls.get(0).size());
+		assertEquals(RAGO_PLAYER.toString(), emotePolls.get(0).get(0).getAsString());
+		NetworkClient.Emote e = client.emoteOf(RAGO_PLAYER);
+		assertEquals("wave", e.dance);
+		assertEquals(120, e.speed);
+		assertEquals(now.get() - 2000, e.startedAt);
+		assertNull(client.emoteOf(OTHER));
+
+		client.emote("dab", 150);
+		tick();
+		assertEquals("emote dab 150", calls.get(calls.size() - 1));
+		client.emote(null, 150);
+		tick();
+		assertEquals("emote none 150", calls.get(calls.size() - 1));
+
+		// asked again a second later, not before
+		tick();
+		assertEquals(1, emotePolls.size());
+		now.addAndGet(1000);
+		tick();
+		assertEquals(2, emotePolls.size());
+		assertEquals(now.get() - 1000 - 2000, client.emoteOf(RAGO_PLAYER).startedAt, "the same dance keeps its start");
 	}
 
 	@Test

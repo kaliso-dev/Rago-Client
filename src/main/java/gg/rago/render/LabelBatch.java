@@ -392,13 +392,14 @@ public final class LabelBatch {
 
 	/**
 	 * Whether {@link #vanillaLabel} draws {@code s} exactly as the game would: the Minecraft font's
-	 * ASCII page only (no Unicode font, no right-to-left reordering), bold but none of the styles
+	 * ASCII page only (no Unicode font, no right-to-left reordering, whole character widths: see
+	 * {@link FontWidths}), bold but none of the styles
 	 * drawn with extra lines or a slant or changing every frame (random, strikethrough, underline,
 	 * italic).
 	 */
 	public static boolean canDrawExact(String s) {
 		FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
-		if (fr.getUnicodeFlag() || fr.getBidiFlag()) {
+		if (fr.getUnicodeFlag() || fr.getBidiFlag() || !FontWidths.whole()) {
 			return false;
 		}
 		for (int i = 0; i < s.length(); i++) {

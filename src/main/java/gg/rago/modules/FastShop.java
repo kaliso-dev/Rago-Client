@@ -38,7 +38,8 @@ import java.util.regex.Pattern;
  *   on high ping. Still one click sent per click, as Meowtils' shop helper does.</li>
  *   <li>Affordable items get a background in the colour of the resource they cost.</li>
  *   <li>No duplicates: a click that would buy a sword or knockback stick you already carry is not
- *   sent.</li>
+ *   sent. Team upgrades are never stopped: Sharpened Swords is an iron sword in the upgrades window,
+ *   and they are the only things priced in diamonds.</li>
  * </ul>
  * Input class, off by default.
  */
@@ -79,7 +80,7 @@ public final class FastShop extends Module {
 		}
 		Minecraft mc = Minecraft.getMinecraft();
 		ItemStack stack = slot.getStack();
-		if (noDuplicates.get() && alreadyOwned(mc.thePlayer, stack)) {
+		if (noDuplicates.get() && !isTeamUpgrade(stack) && alreadyOwned(mc.thePlayer, stack)) {
 			return true;
 		}
 		if (!fastClicks.get()) {
@@ -156,6 +157,12 @@ public final class FastShop extends Module {
 
 	/** The price in an item's lore ("Cost: 24 Iron"), or null. */
 	static Cost cost(ItemStack stack) {
+		String[] price = lorePrice(stack);
+		return price == null ? null : cost(Integer.parseInt(price[0]), price[1]);
+	}
+
+	/** {amount, resource} from an item's lore, or null. */
+	private static String[] lorePrice(ItemStack stack) {
 		NBTTagCompound tag = stack == null ? null : stack.getTagCompound();
 		if (tag == null || !tag.hasKey("display", 10)) {
 			return null;
@@ -164,10 +171,22 @@ public final class FastShop extends Module {
 		for (int i = 0; i < lore.tagCount(); i++) {
 			String[] price = price(EnumChatFormatting.getTextWithoutFormattingCodes(lore.getStringTagAt(i)));
 			if (price != null) {
-				return cost(Integer.parseInt(price[0]), price[1]);
+				return price;
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Whether a shop item is a team upgrade or a trap (the upgrades window): those are priced in
+	 * diamonds, which the item shop never asks for. Sharpened Swords shows an iron sword there.
+	 */
+	public static boolean isTeamUpgrade(ItemStack stack) {
+		return isUpgradePrice(lorePrice(stack));
+	}
+
+	static boolean isUpgradePrice(String[] price) {
+		return price != null && "diamond".equals(price[1]);
 	}
 
 	/** {amount, resource} from a lore line without colour codes, such as "Cost: 24 Iron", or null. */
