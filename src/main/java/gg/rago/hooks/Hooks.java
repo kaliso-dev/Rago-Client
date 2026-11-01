@@ -329,6 +329,8 @@ public final class Hooks {
 	private static final int CHUNKS_AROUND_YOU = 1;
 	private static final int CHUNKS_KEPT = 2;
 	private static int chunkListMode;
+	/** With {@code -Drago.debug.chunks=true}, each time the list is built again goes to the log. */
+	private static final boolean DEBUG_CHUNKS = Boolean.getBoolean("rago.debug.chunks");
 	private static final gg.rago.optimize.ChunkListKeeper CHUNK_LIST = new gg.rago.optimize.ChunkListKeeper();
 
 	/**
@@ -358,6 +360,10 @@ public final class Hooks {
 		boolean same = CHUNK_LIST.same(world, net.minecraft.util.MathHelper.floor_double(me.posX / 16.0),
 			net.minecraft.util.MathHelper.floor_double(me.posZ / 16.0), mc.gameSettings.renderDistanceChunks, list.size());
 		chunkListMode = same ? CHUNKS_KEPT : CHUNKS_AROUND_YOU;
+		if (!same && DEBUG_CHUNKS) {
+			gg.rago.core.RagoClient.LOG.info("[debug] chunk list built again around chunk {} {}, {} chunks before",
+				net.minecraft.util.MathHelper.floor_double(me.posX / 16.0), net.minecraft.util.MathHelper.floor_double(me.posZ / 16.0), list.size());
+		}
 	}
 
 	/** The same method, each read of the active chunk list while it is built: a list that keeps nothing while last tick's is kept. */
