@@ -777,25 +777,48 @@ public final class RagoTransformer implements IClassTransformer {
 	}
 
 	/**
-	 * While World.setActivePlayerChunksAndCheckLight lists the chunks around each player (until its
-	 * "playerCheckLight" section, which keeps vanilla's list), each read of the player list goes
-	 * through {@code Hooks.chunkPlayers} with the world.
+	 * World.setActivePlayerChunksAndCheckLight: first, {@code Hooks.chunkListStart} gets the world
+	 * and its active chunk list; then, while the method lists the chunks around each player (until
+	 * its "playerCheckLight" section, which keeps vanilla's lists), each read of the chunk list goes
+	 * through {@code Hooks.chunkSet} and each read of the player list through {@code Hooks.chunkPlayers}.
 	 */
 	private static boolean nearbyChunks(MethodNode m) {
-		int found = 0;
+		int players = 0;
+		FieldInsnNode list = null;
 		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
 			if (insn instanceof LdcInsnNode && "playerCheckLight".equals(((LdcInsnNode) insn).cst)) {
-				return found > 0;
+				if (players == 0 || list == null) {
+					return false;
+				}
+				// at the start, after the reads above were changed (so this one is not)
+				InsnList head = new InsnList();
+				head.add(new VarInsnNode(Opcodes.ALOAD, 0));
+				head.add(new VarInsnNode(Opcodes.ALOAD, 0));
+				head.add(new FieldInsnNode(Opcodes.GETFIELD, list.owner, list.name, list.desc));
+				head.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chunkListStart",
+					"(Lnet/minecraft/world/World;Ljava/util/Set;)V", false));
+				m.instructions.insert(head);
+				return true;
 			}
-			if (insn.getOpcode() == Opcodes.GETFIELD && "Ljava/util/List;".equals(((FieldInsnNode) insn).desc)
-				&& ("field_73010_i".equals(((FieldInsnNode) insn).name) || "playerEntities".equals(((FieldInsnNode) insn).name))) {
-				InsnList call = new InsnList();
+			if (insn.getOpcode() != Opcodes.GETFIELD) {
+				continue;
+			}
+			FieldInsnNode f = (FieldInsnNode) insn;
+			InsnList call = new InsnList();
+			if ("Ljava/util/List;".equals(f.desc) && ("field_73010_i".equals(f.name) || "playerEntities".equals(f.name))) {
 				call.add(new VarInsnNode(Opcodes.ALOAD, 0));
 				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chunkPlayers",
 					"(Ljava/util/List;Lnet/minecraft/world/World;)Ljava/util/List;", false));
-				m.instructions.insert(insn, call);
-				found++;
+				players++;
+			} else if ("Ljava/util/Set;".equals(f.desc) && ("field_72993_I".equals(f.name) || "activeChunkSet".equals(f.name))) {
+				call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chunkSet",
+					"(Ljava/util/Set;Lnet/minecraft/world/World;)Ljava/util/Set;", false));
+				list = f;
+			} else {
+				continue;
 			}
+			m.instructions.insert(insn, call);
 		}
 		return false;
 	}

@@ -324,23 +324,56 @@ public final class Hooks {
 		}
 	}
 
+	/** How the current client tick lists the chunks around the players (see {@link #chunkListStart}). */
+	private static final int CHUNKS_VANILLA = 0;
+	private static final int CHUNKS_AROUND_YOU = 1;
+	private static final int CHUNKS_KEPT = 2;
+	private static int chunkListMode;
+	private static final gg.rago.optimize.ChunkListKeeper CHUNK_LIST = new gg.rago.optimize.ChunkListKeeper();
+
 	/**
-	 * World.setActivePlayerChunksAndCheckLight, while it lists the chunks around each player: in a
-	 * client world, the local player alone (see {@link EngineTweaks#nearbyChunksOnly}). The list
-	 * reads the player when asked, so it keeps no player or world once the world changes.
+	 * World.setActivePlayerChunksAndCheckLight, first thing, with the world's list of active chunks:
+	 * decides how a client world lists the chunks this tick (see {@link EngineTweaks#nearbyChunksOnly}).
+	 * Around the local player alone, and not at all while the list built last tick is still right
+	 * (same world, chunk and render distance). Only the client thread ticks a client world.
 	 */
-	public static List<?> chunkPlayers(List<?> players, World world) {
-		if (!world.isRemote || players.size() < 2) {
-			return players; // the integrated server's worlds, and a world with only you in it
+	public static void chunkListStart(World world, java.util.Set<?> list) {
+		if (!world.isRemote) {
+			return; // the integrated server's worlds
 		}
 		EngineTweaks e = engine;
-		EntityPlayer me = Minecraft.getMinecraft().thePlayer;
+		Minecraft mc = Minecraft.getMinecraft();
+		EntityPlayer me = mc.thePlayer;
 		if (e == null || me == null || me.worldObj != world || !e.nearbyChunksOnly()) {
-			return players;
+			chunkListMode = CHUNKS_VANILLA;
+			CHUNK_LIST.forget();
+			return;
 		}
-		return LOCAL_PLAYER;
+		if (!world.getPersistentChunks().isEmpty()) {
+			// chunks kept loaded by a mod (never on a server you join): listed as the game does, every tick
+			chunkListMode = CHUNKS_AROUND_YOU;
+			CHUNK_LIST.forget();
+			return;
+		}
+		boolean same = CHUNK_LIST.same(world, net.minecraft.util.MathHelper.floor_double(me.posX / 16.0),
+			net.minecraft.util.MathHelper.floor_double(me.posZ / 16.0), mc.gameSettings.renderDistanceChunks, list.size());
+		chunkListMode = same ? CHUNKS_KEPT : CHUNKS_AROUND_YOU;
 	}
 
+	/** The same method, each read of the active chunk list while it is built: a list that keeps nothing while last tick's is kept. */
+	public static java.util.Set<?> chunkSet(java.util.Set<?> list, World world) {
+		return world.isRemote && chunkListMode == CHUNKS_KEPT ? IGNORED_CHUNKS : list;
+	}
+
+	/** The same method, each read of the player list while the chunks around each are listed. */
+	public static List<?> chunkPlayers(List<?> players, World world) {
+		if (!world.isRemote || chunkListMode == CHUNKS_VANILLA) {
+			return players;
+		}
+		return chunkListMode == CHUNKS_KEPT ? java.util.Collections.emptyList() : LOCAL_PLAYER;
+	}
+
+	/** The local player alone, read when asked, so the list keeps no player or world once the world changes. */
 	private static final List<EntityPlayer> LOCAL_PLAYER = new java.util.AbstractList<EntityPlayer>() {
 		@Override
 		public EntityPlayer get(int index) {
@@ -350,6 +383,24 @@ public final class Hooks {
 		@Override
 		public int size() {
 			return 1;
+		}
+	};
+
+	/** Takes nothing in: what the game would empty and fill again stays as it is. */
+	private static final java.util.Set<Object> IGNORED_CHUNKS = new java.util.AbstractSet<Object>() {
+		@Override
+		public boolean add(Object o) {
+			return false;
+		}
+
+		@Override
+		public java.util.Iterator<Object> iterator() {
+			return java.util.Collections.emptyIterator();
+		}
+
+		@Override
+		public int size() {
+			return 0;
 		}
 	};
 
