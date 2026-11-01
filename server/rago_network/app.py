@@ -18,6 +18,9 @@ HEX32 = re.compile(r"^[0-9a-f]{32}$")
 ROLES = ("user", "partner", "staff", "creator")
 MAX_BODY = 16 * 1024
 MAX_LOOKUP = 100
+EMOTE = re.compile(r"^[a-z_]{1,24}$")
+# an emote plays until its player moves; one not stopped by then is over after this many seconds
+EMOTE_FOR = 600
 
 
 def join_id(challenge):
@@ -58,6 +61,9 @@ class Network:
         self._nonces = {}
         self._nonce_lock = threading.Lock()
         self._stats = (0.0, None)
+        # the emotes playing now, in memory only: uuid -> (emote, speed, started)
+        self._emotes = {}
+        self._emote_lock = threading.Lock()
 
     # each method returns (status, body)
 
@@ -114,11 +120,10 @@ class Network:
         version = body.get("version")
         if not isinstance(visible, bool) or (version is not None and (not isinstance(version, str) or len(version) > 32)):
             return 400, {"error": "bad_request"}
-        loadout = self.whitelist.clean(body.get("cosmetics"), self.store.role(uuid))
+        loadout = self.whitelist.clean(body.get("cosmetics"), self.store.role(uuid), uuid)
         now = int(self.clock())
         self.store.presence(uuid, visible, loadout, version, now)
-        online, _ = self.store.counts(now - self.online_window)
-        return 200, {"online": online, "cosmetics": loadout}
+        return 200, {"online": self._counts(now)["online"], "cosmetics": loadout}
 
     def lookup(self, uuid, body):
         if not self.limits.allow("lookup", uuid, 30, 10):
@@ -130,16 +135,54 @@ class Network:
         found = self.store.lookup(ids, int(self.clock()) - self.online_window)
         return 200, {"players": {u: {"role": r, "cosmetics": l} for u, (r, l) in found.items()}}
 
+    def emote(self, uuid, body):
+        """The player starts an emote, or stops one ("none")."""
+        if not self.limits.allow("emote", uuid, 30, 10):
+            return 429, {"error": "slow_down"}
+        name, speed = body.get("emote"), body.get("speed", 100)
+        if not isinstance(name, str) or not EMOTE.match(name) or not isinstance(speed, int) or isinstance(speed, bool):
+            return 400, {"error": "bad_request"}
+        speed = max(50, min(200, speed))
+        now = self.clock()
+        with self._emote_lock:
+            if name == "none":
+                self._emotes.pop(uuid, None)
+            else:
+                if len(self._emotes) > 100_000:
+                    self._emotes = {k: v for k, v in self._emotes.items() if now - v[2] < EMOTE_FOR}
+                self._emotes[uuid] = (name, speed, now)
+        return 200, {"ok": True}
+
+    def emotes(self, uuid, body):
+        """The emotes the players asked about play now, with how long they have been playing."""
+        if not self.limits.allow("emotes", uuid, 90, 10):
+            return 429, {"error": "slow_down"}
+        wanted = body.get("uuids")
+        if not isinstance(wanted, list) or len(wanted) > MAX_LOOKUP:
+            return 400, {"error": "bad_request"}
+        now = self.clock()
+        out = {}
+        with self._emote_lock:
+            for u in {dashed(u) for u in map(undashed, wanted) if u}:
+                e = self._emotes.get(u)
+                if e is not None and now - e[2] < EMOTE_FOR:
+                    out[u] = {"emote": e[0], "speed": e[1], "elapsed": int((now - e[2]) * 1000)}
+        return 200, {"emotes": out}
+
     def stats(self, ip):
         if not self.limits.allow("stats", ip, 60, 20):
             return 429, {"error": "slow_down"}
-        now = self.clock()
+        return 200, self._counts(self.clock())
+
+    def _counts(self, now):
+        """Players online and in total, counted again at most every 15 seconds (every presence and
+        every stats request would otherwise count the whole table)."""
         at, cached = self._stats
-        if cached is None or now - at > 15:
+        if cached is None or now - at > 15 or now < at:
             online, total = self.store.counts(int(now) - self.online_window)
             cached = {"online": online, "players": total}
             self._stats = (now, cached)
-        return 200, cached
+        return cached
 
     def delete(self, uuid):
         return 200, {"deleted": self.store.delete(uuid) > 0}
@@ -204,16 +247,16 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/v1/auth/finish":
             self._send(*n.auth_finish(body, self._ip()))
             return
-        if self.path not in ("/v1/presence", "/v1/lookup"):
+        signed_in = {"/v1/presence": n.presence, "/v1/lookup": n.lookup, "/v1/emote": n.emote, "/v1/emotes": n.emotes}
+        handle = signed_in.get(self.path)
+        if handle is None:
             self._send(404, {"error": "not_found"})
             return
         uuid = n.player(self.headers)
         if uuid is None:
             self._send(401, {"error": "sign_in"})
-        elif self.path == "/v1/presence":
-            self._send(*n.presence(uuid, body))
         else:
-            self._send(*n.lookup(uuid, body))
+            self._send(*handle(uuid, body))
 
     def do_DELETE(self):
         if self.path != "/v1/me":

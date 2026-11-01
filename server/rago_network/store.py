@@ -37,6 +37,9 @@ class Store:
         with self._lock:
             if path != ":memory:":
                 self._db.execute("PRAGMA journal_mode=WAL")
+                # with WAL, NORMAL never corrupts the database; it only skips a disk flush per write,
+                # so a presence (one small UPDATE) does not wait for the disk
+                self._db.execute("PRAGMA synchronous=NORMAL")
             self._db.executescript(SCHEMA)
 
     def sign_in(self, uuid, name, role, token, expires, now):

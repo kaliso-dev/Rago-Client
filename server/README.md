@@ -36,6 +36,8 @@ Minecraft server's login and so join that server as the player.
 | `POST /v1/auth/finish` | no | `{"name", "serverId"}` → `{"token", "uuid", "name", "role", "expiresIn"}` |
 | `POST /v1/presence` | yes | `{"visible", "version", "cosmetics"}` → `{"online", "cosmetics"}` (the loadout as accepted) |
 | `POST /v1/lookup` | yes | `{"uuids": [...]}` (100 at most) → `{"players": {uuid: {"role", "cosmetics"}}}` |
+| `POST /v1/emote` | yes | `{"emote": "dab", "speed": 100}` (`"none"` stops it) → `{"ok": true}`; kept in memory only, 10 minutes at most |
+| `POST /v1/emotes` | yes | `{"uuids": [...]}` (100 at most) → `{"emotes": {uuid: {"emote", "speed", "elapsed"}}}`, elapsed in ms |
 | `DELETE /v1/me` | yes | forgets the player and their sessions |
 
 Signed-in calls send `Authorization: Bearer <token>`.
@@ -45,7 +47,9 @@ Signed-in calls send `Authorization: Bearer <token>`.
   Rago" off in the client hides you).
 - Cosmetics are checked against [`cosmetics.json`](cosmetics.json): unknown fields are dropped and
   invalid values put back to their default. A value listed under `exclusive` is only accepted from
-  the roles given, e.g. `{"cape": {"creator": ["creator"]}}`.
+  the roles and the players (uuid, 32 hex digits) given, e.g.
+  `{"cape": {"creator": ["creator", "<uuid of another account>"]}}`: a player listed wears it
+  without getting the role.
 - Rate limits (per address for sign-in and stats, per player otherwise): sign-in 10 a minute,
   presence 6, lookup 30, stats 60. Over the limit: `429`.
 - Nothing is logged per request, addresses are never stored, and players not seen for 180 days are
