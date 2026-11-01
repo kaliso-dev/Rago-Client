@@ -17,16 +17,21 @@ import org.lwjgl.Sys;
 import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 /**
- * Rago's home screen: the emblem, three buttons and a dock of shortcuts over a blurred landscape.
+ * Rago's home screen: the emblem, three buttons, a dock of shortcuts and the Rago Optimizer card
+ * over a blurred landscape.
  * Shown instead of the vanilla title screen unless the player picks the vanilla menu.
  */
 public final class RagoTitleScreen extends GuiScreen {
 	private static final String DISCORD_URL = "https://discord.gg/ragooptimizer";
 	private static final String OPTIFINE_URL = "https://optifine.net/downloads";
+	private static final ResourceLocation PROMO = new ResourceLocation("rago", "textures/promo/optimizer.png");
 	/** The intro plays once per game start, not every time the player comes back here. */
 	private static boolean introPlayed;
+	/** The Rago Optimizer card was closed with its cross: hidden until the game starts again. */
+	private static boolean promoClosed;
 
 	private long openedNs;
 	private boolean optifineHelp;
@@ -53,6 +58,7 @@ public final class RagoTitleScreen extends GuiScreen {
 
 		center(w, h);
 		dock(w, h);
+		promo(w, h);
 		footer(w, h);
 		account(w);
 		if (optifineHelp) {
@@ -208,6 +214,97 @@ public final class RagoTitleScreen extends GuiScreen {
 			default:
 				return () -> mc.shutdown();
 		}
+	}
+
+	// ---- Rago Optimizer card --------------------------------------------------------------------
+
+	/**
+	 * The Rago Optimizer card, bottom right: the banner, a "Free cosmetic" tag and a button to the
+	 * Discord (the whole card opens it). A cross on its picture hides it until the game starts again.
+	 * Left out when the window is too narrow for it to stay clear of the buttons and the dock.
+	 */
+	private void promo(float w, float h) {
+		if (promoClosed) {
+			return;
+		}
+		float cw = 250;
+		float ih = 113;
+		float pad = 12;
+		float titleSize = 12.5f;
+		float bodySize = 9;
+		List<String> body = Ui.wrap(Ui.REGULAR, t("rago.title.promo_body"), bodySize, cw - pad * 2);
+		float ch = ih + pad + titleSize * 1.21f + 5 + body.size() * 12 + 10 + 22 + pad;
+		float x = w - 16 - cw;
+		float y = h - 34 - ch;
+		// the centre buttons reach w / 2 + 151 and the dock w / 2 + 133; the account chip ends at 44
+		if (x < w / 2 + 165 || y < 56) {
+			return;
+		}
+		float p = intro(650, 650);
+		Ui.opacity(p);
+		x += (1 - p) * 18;
+		boolean over = !optifineHelp && Ui.hover(x, y, cw, ch);
+		float hv = Anim.to("promo", over ? 1 : 0, 140);
+		y -= hv * 2;
+		float pulse = Anim.enabled() ? 0.5f + 0.5f * (float) Math.sin(System.nanoTime() / 1e9 * 2.2) : 0.5f;
+
+		Ui.glow(x + cw / 2, y + ch / 2, cw * 0.78f, Ui.alpha(Theme.ACCENT, 0.07f + 0.10f * hv));
+		int fill = Ui.mix(0xF2131215, 0xF61A181C, hv);
+		Ui.glassBorder(x, y, cw, ch, 12, fill, 0);
+		Ui.texture(PROMO, x, y, cw, ih, 0, 0, 1, 1, Ui.mix(0xFFD6D6D6, 0xFFFFFFFF, hv));
+		Ui.gradient(x, y + ih - 34, cw, 34.5f, fill & 0x00FFFFFF, fill);
+		Ui.outline(x, y, cw, ch, 12, Ui.mix(0x29FFFFFF, Ui.alpha(Theme.ACCENT, 0.7f), hv));
+
+		// the tag on the picture
+		float tagSize = 7.5f;
+		String tag = t("rago.title.promo_tag");
+		float tagW = Ui.textSpacedWidth(Ui.BOLD, tag, tagSize, 0.6f) + 27;
+		float tagX = x + 10;
+		float tagY = y + 10;
+		Ui.glow(tagX + tagW / 2, tagY + 8, tagW * 0.75f, Ui.alpha(Theme.ACCENT, 0.18f + 0.22f * pulse));
+		Ui.round(tagX, tagY, tagW, 16, 8, Theme.ACCENT);
+		Ui.icon("sparkles", tagX + 6, tagY + 3.5f, 9, 0xFF1A0605);
+		Ui.textSpaced(Ui.BOLD, tag, tagX + 19, tagY + (16 - tagSize * 1.21f) / 2, tagSize, 0.6f, 0xFF1A0605);
+
+		// the cross, while the card is pointed at
+		float xs = 18;
+		float xx = x + cw - xs - 8;
+		float xy = y + 8;
+		if (hv > 0.01f) {
+			Ui.opacity(p * hv);
+			boolean onCross = Ui.hover(xx, xy, xs, xs);
+			Ui.round(xx, xy, xs, xs, xs / 2, onCross ? 0xE6302E34 : 0xB30B0A0D);
+			Ui.icon("x", xx + 4.5f, xy + 4.5f, 9, onCross ? Theme.TEXT : 0xFFC9C7CE);
+			Ui.opacity(p);
+		}
+
+		// the text and the button
+		float ty = y + ih + pad;
+		Ui.text(Ui.SEMIBOLD, t("rago.title.promo_title"), x + pad, ty, titleSize, Theme.TEXT);
+		ty += titleSize * 1.21f + 5;
+		for (String line : body) {
+			Ui.text(Ui.REGULAR, line, x + pad, ty, bodySize, 0xFFB4B2B9);
+			ty += 12;
+		}
+		float by = ty + 10;
+		String cta = t("rago.title.promo_cta");
+		float ctaSize = 9.5f;
+		float bw = Ui.textWidth(Ui.SEMIBOLD, cta, ctaSize) + 34;
+		float bx = x + cw - pad - bw;
+		float linkSize = 7.5f;
+		String link = Ui.ellipsize(Ui.MONO, "discord.gg/ragooptimizer", linkSize, bx - x - pad * 2);
+		Ui.text(Ui.MONO, link, x + pad, by + (22 - linkSize * 1.21f) / 2, linkSize, Theme.DIM);
+		Ui.round(bx, by, bw, 22, 11, Ui.mix(Theme.ACCENT, Theme.ACCENT_HOVER, hv));
+		Ui.text(Ui.SEMIBOLD, cta, bx + 12, by + (22 - ctaSize * 1.21f) / 2, ctaSize, 0xFF1A0605);
+		Ui.icon("chevron-right", bx + bw - 19 + hv * 2, by + 5.5f, 11, 0xFF1A0605);
+
+		if (!optifineHelp) {
+			Ui.click(x, y, cw, ch, () -> Sys.openURL(DISCORD_URL));
+			if (hv > 0.5f) {
+				Ui.click(xx, xy, xs, xs, () -> promoClosed = true);
+			}
+		}
+		Ui.opacity(1);
 	}
 
 	/** The account in use, top right; opens the Accounts screen. */

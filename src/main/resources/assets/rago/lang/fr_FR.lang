@@ -854,6 +854,10 @@ rago.option.combo_minimum.format=%d coups
 
 # 1.4: home screen, shield, locker
 rago.title.join_discord=JOIN THE DISCORD
+rago.title.promo_tag=FREE COSMETIC
+rago.title.promo_title=Join Rago Optimizer
+rago.title.promo_body=Join the Discord and get a free cosmetic.
+rago.title.promo_cta=Join now
 rago.option.cosmetic_shield=Bouclier
 rago.option.cosmetic_shield.none=Aucun
 rago.option.cosmetic_shield.rago=Rago
