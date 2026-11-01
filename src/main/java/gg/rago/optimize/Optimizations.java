@@ -102,6 +102,7 @@ public final class Optimizations {
 	private final IntOption maxParticles;
 	private final BooleanOption particleCollisions;
 	private final BooleanOption fastWorldSwitch;
+	private final BooleanOption nearbyChunksOnly;
 	private final BooleanOption unstackedItems;
 	private final BooleanOption skipGlErrors;
 	private final BooleanOption hudCache;
@@ -176,6 +177,7 @@ public final class Optimizations {
 		particleCollisions = s.bool(p, WORLD, "particle_collisions", true, null);
 
 		fastWorldSwitch = s.bool(p, ENGINE, "fast_world_switch", true, null);
+		nearbyChunksOnly = s.bool(p, ENGINE, "nearby_chunks_only", true, null);
 		unstackedItems = s.bool(p, ENGINE, "unstacked_items", false, null);
 		skipGlErrors = s.bool(p, ENGINE, "skip_gl_errors", true, v -> applyGlErrorChecking());
 		hudCache = s.bool(p, ENGINE, "hud_cache", true, null);
@@ -185,7 +187,8 @@ public final class Optimizations {
 		holograms = new HologramBatch(batchHolograms::get);
 		batchVanillaHud = s.bool(p, ENGINE, "batch_vanilla_hud", true, null);
 		GuiBatch.setSwitch(batchVanillaHud::get);
-		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get, particleCollisions::get, lightGlint::get);
+		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get, particleCollisions::get, lightGlint::get,
+			nearbyChunksOnly::get);
 	}
 
 	/** Whether Rago's HUD is drawn into an image a fixed number of times per second. */
@@ -337,8 +340,8 @@ public final class Optimizations {
 			}
 			Double original = originalWeights.get(e);
 			double vanilla = original != null ? original : e.renderDistanceWeight;
-			Double want = desiredWeight(e, vanilla);
-			if (want == null) {
+			double want = desiredWeight(e, vanilla);
+			if (Double.isNaN(want)) {
 				if (original != null) {
 					e.renderDistanceWeight = original;
 					originalWeights.remove(e);
@@ -352,13 +355,13 @@ public final class Optimizations {
 		}
 	}
 
-	/** The render distance weight to use, or null to keep the entity's own. */
-	private Double desiredWeight(Entity e, double vanilla) {
+	/** The render distance weight to use, or NaN to keep the entity's own (a number, not an object, for each entity 5 times a second). */
+	private double desiredWeight(Entity e, double vanilla) {
 		if (hidden(e)) {
 			return 0.0;
 		}
 		if (!entityDistance.get() || incoming(e)) {
-			return null;
+			return Double.NaN;
 		}
 		int blocks;
 		if (e instanceof EntityPlayer) {

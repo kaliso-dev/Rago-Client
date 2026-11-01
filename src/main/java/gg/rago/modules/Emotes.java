@@ -204,14 +204,15 @@ public final class Emotes extends Module {
 		// the dance eases in from the pose the player had
 		float w = smooth(Math.min(1, elapsed / BLEND_IN));
 		ModelRenderer[] parts = parts(m);
-		float[] before = new float[parts.length * 3];
+		float[] before = this.before;
 		for (int i = 0; i < parts.length; i++) {
 			before[i * 3] = parts[i].rotateAngleX;
 			before[i * 3 + 1] = parts[i].rotateAngleY;
 			before[i * 3 + 2] = parts[i].rotateAngleZ;
 			set(parts[i], 0, 0, 0);
 		}
-		Rig rig = new Rig();
+		Rig rig = this.rig;
+		rig.reset();
 		switch (dance) {
 			case "twerk":
 				twerk(m, rig, t);
@@ -291,10 +292,31 @@ public final class Emotes extends Module {
 		/** Each knee's bend on top of the one sinking makes, the shin going back, in radians. */
 		float rightKnee;
 		float leftKnee;
+
+		void reset() {
+			drop = twist = lean = bow = 0;
+			rightElbow = leftElbow = rightElbowWay = leftElbowWay = 0;
+			rightKnee = leftKnee = 0;
+		}
 	}
 
-	private static ModelRenderer[] parts(ModelBiped m) {
-		return new ModelRenderer[] {m.bipedHead, m.bipedBody, m.bipedRightArm, m.bipedLeftArm, m.bipedRightLeg, m.bipedLeftLeg};
+	// reused for every dancer, one after another on the render thread: no garbage per frame
+	private final Rig rig = new Rig();
+	private final ModelRenderer[] parts = new ModelRenderer[6];
+	private final float[] before = new float[18];
+	private final float[] neck = new float[3];
+	private final float[] rightShoulder = new float[3];
+	private final float[] leftShoulder = new float[3];
+
+	private ModelRenderer[] parts(ModelBiped m) {
+		ModelRenderer[] p = parts;
+		p[0] = m.bipedHead;
+		p[1] = m.bipedBody;
+		p[2] = m.bipedRightArm;
+		p[3] = m.bipedLeftArm;
+		p[4] = m.bipedRightLeg;
+		p[5] = m.bipedLeftLeg;
+		return p;
 	}
 
 	/** What vanilla never puts back itself: body and head positions, the arms' height, legs' x. */
@@ -344,35 +366,29 @@ public final class Emotes extends Module {
 		float sin = MathHelper.sin(twist);
 		float cos = MathHelper.cos(twist);
 		// the neck and the shoulders where the bent chest puts them, turned with the body
-		float[] neck = BentModel.move(m.bipedBody, waist, 0, 0, 0);
+		float[] neck = BentModel.move(m.bipedBody, waist, 0, 0, 0, this.neck);
 		m.bipedHead.rotationPointX = base[0] + neck[0] * cos + neck[2] * sin;
 		m.bipedHead.rotationPointY = base[1] + drop + neck[1];
 		m.bipedHead.rotationPointZ = base[2] - neck[0] * sin + neck[2] * cos;
 		m.bipedHead.rotateAngleY += twist * 0.6f;
 		m.bipedHead.rotateAngleZ += lean * 0.5f;
 		m.bipedHead.rotateAngleX += bow * 0.5f;
-		float[] right = BentModel.move(m.bipedBody, waist, -5, base[5] - base[1], 0);
-		float[] left = BentModel.move(m.bipedBody, waist, 5, base[6] - base[1], 0);
+		float[] right = BentModel.move(m.bipedBody, waist, -5, base[5] - base[1], 0, rightShoulder);
+		float[] left = BentModel.move(m.bipedBody, waist, 5, base[6] - base[1], 0, leftShoulder);
 		m.bipedRightArm.rotationPointX = base[0] + right[0] * cos + right[2] * sin;
 		m.bipedRightArm.rotationPointY = base[1] + drop + right[1];
 		m.bipedRightArm.rotationPointZ = base[2] - right[0] * sin + right[2] * cos;
 		m.bipedLeftArm.rotationPointX = base[0] + left[0] * cos + left[2] * sin;
 		m.bipedLeftArm.rotationPointY = base[1] + drop + left[1];
 		m.bipedLeftArm.rotationPointZ = base[2] - left[0] * sin + left[2] * cos;
-		for (ModelRenderer arm : new ModelRenderer[] {m.bipedRightArm, m.bipedLeftArm}) {
-			arm.rotateAngleY += twist;
-			arm.rotateAngleZ += lean;
-			arm.rotateAngleX -= bow;
-		}
+		turnArm(m.bipedRightArm, twist, lean, bow);
+		turnArm(m.bipedLeftArm, twist, lean, bow);
 		rightElbow.set(rig.rightElbow * w, rig.rightElbowWay);
 		leftElbow.set(rig.leftElbow * w, rig.leftElbowWay);
 		// knees: thighs forward, shins back under the hips; the hips sway against the lean
 		float thigh = (float) Math.acos(1 - drop / 12);
-		for (ModelRenderer leg : new ModelRenderer[] {m.bipedRightLeg, m.bipedLeftLeg}) {
-			leg.rotateAngleX -= thigh;
-			leg.rotationPointY += drop;
-			leg.rotateAngleZ -= lean * 0.4f;
-		}
+		sinkLeg(m.bipedRightLeg, thigh, drop, lean);
+		sinkLeg(m.bipedLeftLeg, thigh, drop, lean);
 		rightKnee.set(2 * thigh + rig.rightKnee * w, PI);
 		leftKnee.set(2 * thigh + rig.leftKnee * w, PI);
 		m.bipedRightLeg.rotationPointX = base[7];
@@ -386,6 +402,18 @@ public final class Emotes extends Module {
 			// and lies along the back as the chest bows
 			cape.rotateAngleX = CAPE_BOW * bow;
 		}
+	}
+
+	private static void turnArm(ModelRenderer arm, float twist, float lean, float bow) {
+		arm.rotateAngleY += twist;
+		arm.rotateAngleZ += lean;
+		arm.rotateAngleX -= bow;
+	}
+
+	private static void sinkLeg(ModelRenderer leg, float thigh, float drop, float lean) {
+		leg.rotateAngleX -= thigh;
+		leg.rotationPointY += drop;
+		leg.rotateAngleZ -= lean * 0.4f;
 	}
 
 	/** Which way the cape turns to follow the chest bowing (its layer draws it turned half a turn). */

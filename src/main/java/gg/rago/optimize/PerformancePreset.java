@@ -62,6 +62,7 @@ public final class PerformancePreset {
 		VALUES.put("particle_collisions", 0);
 		// Rago: engine
 		VALUES.put("fast_world_switch", 1);
+		VALUES.put("nearby_chunks_only", 1);
 		VALUES.put("unstacked_items", 1);
 		VALUES.put("light_glint", 1);
 		VALUES.put("skip_gl_errors", 1);

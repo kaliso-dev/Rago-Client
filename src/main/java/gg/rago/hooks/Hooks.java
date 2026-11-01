@@ -52,6 +52,9 @@ import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3;
+import net.minecraft.world.World;
+
+import java.util.List;
 
 /**
  * What the patched game methods call (see {@code gg.rago.asm.RagoTransformer}). Each method returns
@@ -320,6 +323,35 @@ public final class Hooks {
 			System.gc();
 		}
 	}
+
+	/**
+	 * World.setActivePlayerChunksAndCheckLight, while it lists the chunks around each player: in a
+	 * client world, the local player alone (see {@link EngineTweaks#nearbyChunksOnly}). The list
+	 * reads the player when asked, so it keeps no player or world once the world changes.
+	 */
+	public static List<?> chunkPlayers(List<?> players, World world) {
+		if (!world.isRemote || players.size() < 2) {
+			return players; // the integrated server's worlds, and a world with only you in it
+		}
+		EngineTweaks e = engine;
+		EntityPlayer me = Minecraft.getMinecraft().thePlayer;
+		if (e == null || me == null || me.worldObj != world || !e.nearbyChunksOnly()) {
+			return players;
+		}
+		return LOCAL_PLAYER;
+	}
+
+	private static final List<EntityPlayer> LOCAL_PLAYER = new java.util.AbstractList<EntityPlayer>() {
+		@Override
+		public EntityPlayer get(int index) {
+			return Minecraft.getMinecraft().thePlayer;
+		}
+
+		@Override
+		public int size() {
+			return 1;
+		}
+	};
 
 	/** Minecraft.toggleFullscreen: true when Rago switched to or from borderless fullscreen itself. */
 	public static boolean toggleFullscreen() {

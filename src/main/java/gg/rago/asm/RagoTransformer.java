@@ -327,6 +327,9 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return false;
 			}));
+		add("net.minecraft.world.World", new Patch("chunk list around you only",
+			"func_72903_x", "setActivePlayerChunksAndCheckLight", "()V",
+			RagoTransformer::nearbyChunks));
 		add("net.minecraft.client.entity.AbstractClientPlayer", new Patch("Rago cape",
 			"func_110303_q", "getLocationCape", "()Lnet/minecraft/util/ResourceLocation;",
 			m -> {
@@ -453,31 +456,7 @@ public final class RagoTransformer implements IClassTransformer {
 		try {
 			ClassNode node = new ClassNode();
 			new ClassReader(bytes).accept(node, 0);
-			int applied = 0;
-			for (Patch p : patches) {
-				MethodNode target = null;
-				for (MethodNode m : node.methods) {
-					if (p.desc.equals(m.desc) && (p.srg.equals(m.name) || p.mcp.equals(m.name))) {
-						target = m;
-						break;
-					}
-				}
-				if (target == null) {
-					LOG.warn("{}: {}.{} not found, feature unavailable", p.what, transformedName, p.mcp);
-					continue;
-				}
-				// patch a copy, so a pattern that is only half found leaves the method untouched
-				MethodNode copy = copyOf(target);
-				if (p.patcher.apply(copy)) {
-					node.methods.set(node.methods.indexOf(target), copy);
-					applied++;
-					LOG.info("Hook installed: {}", p.what);
-				} else {
-					LOG.warn("{}: unexpected code in {}.{}, feature unavailable", p.what, transformedName, p.mcp);
-					dump(transformedName, bytes);
-				}
-			}
-			if (applied == 0) {
+			if (applyAll(node, transformedName, patches, bytes, null).isEmpty()) {
 				return bytes;
 			}
 			ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
@@ -489,9 +468,60 @@ public final class RagoTransformer implements IClassTransformer {
 		}
 	}
 
+	/**
+	 * Applies the class's patches and returns the methods they changed. A patch whose method or
+	 * pattern is not found is logged (and added to {@code problems} when given) and leaves its
+	 * method as it was.
+	 */
+	private static List<MethodNode> applyAll(ClassNode node, String transformedName, List<Patch> patches, byte[] bytes,
+		List<String> problems) {
+		List<MethodNode> patched = new ArrayList<>();
+		for (Patch p : patches) {
+			MethodNode target = null;
+			for (MethodNode m : node.methods) {
+				if (p.desc.equals(m.desc) && (p.srg.equals(m.name) || p.mcp.equals(m.name))) {
+					target = m;
+					break;
+				}
+			}
+			if (target == null) {
+				LOG.warn("{}: {}.{} not found, feature unavailable", p.what, transformedName, p.mcp);
+				if (problems != null) {
+					problems.add(p.what + ": " + transformedName + "." + p.mcp + " not found");
+				}
+				continue;
+			}
+			// patch a copy, so a pattern that is only half found leaves the method untouched
+			MethodNode copy = copyOf(target);
+			if (p.patcher.apply(copy)) {
+				node.methods.set(node.methods.indexOf(target), copy);
+				patched.remove(target); // a second patch on the same method
+				patched.add(copy);
+				LOG.info("Hook installed: {}", p.what);
+			} else {
+				LOG.warn("{}: unexpected code in {}.{}, feature unavailable", p.what, transformedName, p.mcp);
+				if (problems != null) {
+					problems.add(p.what + ": unexpected code in " + transformedName + "." + p.mcp);
+				}
+				dump(transformedName, bytes);
+			}
+		}
+		return patched;
+	}
+
+	/** For tests: the classes with patches. */
+	static java.util.Set<String> patchedClasses() {
+		return PATCHES.keySet();
+	}
+
+	/** For tests: patches {@code node} as the game would and returns the changed methods; what did not fit goes to {@code problems}. */
+	static List<MethodNode> patchForTest(String transformedName, ClassNode node, List<String> problems) {
+		return applyAll(node, transformedName, PATCHES.get(transformedName), null, problems);
+	}
+
 	/** With {@code -Drago.dumpClasses=true}, saves a class a patch did not fit, to see what changed it. */
 	private static void dump(String name, byte[] bytes) {
-		if (!Boolean.getBoolean("rago.dumpClasses")) {
+		if (bytes == null || !Boolean.getBoolean("rago.dumpClasses")) {
 			return;
 		}
 		try {
@@ -744,6 +774,30 @@ public final class RagoTransformer implements IClassTransformer {
 			}
 		}
 		return found;
+	}
+
+	/**
+	 * While World.setActivePlayerChunksAndCheckLight lists the chunks around each player (until its
+	 * "playerCheckLight" section, which keeps vanilla's list), each read of the player list goes
+	 * through {@code Hooks.chunkPlayers} with the world.
+	 */
+	private static boolean nearbyChunks(MethodNode m) {
+		int found = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof LdcInsnNode && "playerCheckLight".equals(((LdcInsnNode) insn).cst)) {
+				return found > 0;
+			}
+			if (insn.getOpcode() == Opcodes.GETFIELD && "Ljava/util/List;".equals(((FieldInsnNode) insn).desc)
+				&& ("field_73010_i".equals(((FieldInsnNode) insn).name) || "playerEntities".equals(((FieldInsnNode) insn).name))) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ALOAD, 0));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "chunkPlayers",
+					"(Ljava/util/List;Lnet/minecraft/world/World;)Ljava/util/List;", false));
+				m.instructions.insert(insn, call);
+				found++;
+			}
+		}
+		return false;
 	}
 
 	/** Each read of the field {@code srg}/{@code mcp} goes through {@code Hooks.hook}, which gets and returns its value. */

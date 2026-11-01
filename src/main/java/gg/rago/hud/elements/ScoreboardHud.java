@@ -36,10 +36,16 @@ public final class ScoreboardHud extends HudElement {
 		super("scoreboard", FeatureClass.VISUAL, false, Anchor.MIDDLE_RIGHT, -1, 0, 0xFFFFFFFF, true);
 	}
 
+	/** The lines shown, read again once a tick rather than several times a frame (Hypixel changes the sidebar once a second). */
+	private final List<String[]> live = new ArrayList<>();
+	private int ticks;
+	private int liveTick = -1;
+
 	/** Vanilla's own sidebar is off while this element replaces it. */
 	@Override
 	public void tick() {
 		GuiIngameForge.renderObjective = false;
+		ticks++;
 	}
 
 	@Override
@@ -67,17 +73,28 @@ public final class ScoreboardHud extends HudElement {
 		return board.getObjectiveInDisplaySlot(1);
 	}
 
-	/** Title first, then the lines from top to bottom, each as {name, score}. */
-	private static List<String[]> lines(boolean placeholder) {
-		List<String[]> out = new ArrayList<>();
+	/** Title first, then the lines from top to bottom, each as {name, score, score in red}. */
+	private List<String[]> lines(boolean placeholder) {
+		if (placeholder) {
+			return read(new ArrayList<String[]>(), true);
+		}
+		if (liveTick != ticks) {
+			liveTick = ticks;
+			live.clear();
+			read(live, false);
+		}
+		return live;
+	}
+
+	private static List<String[]> read(List<String[]> out, boolean placeholder) {
 		ScoreObjective o = placeholder ? null : objective();
 		if (o == null) {
 			if (placeholder) {
-				out.add(new String[] {EnumChatFormatting.YELLOW + "" + EnumChatFormatting.BOLD + "BED WARS", ""});
+				out.add(new String[] {EnumChatFormatting.YELLOW + "" + EnumChatFormatting.BOLD + "BED WARS", "", ""});
 				for (String s : Arrays.asList("", "Diamond II in 4:12", "", EnumChatFormatting.RED + "R " + EnumChatFormatting.WHITE + "Red: " + EnumChatFormatting.GREEN + "✔",
 					EnumChatFormatting.BLUE + "B " + EnumChatFormatting.WHITE + "Blue: " + EnumChatFormatting.GREEN + "✔", "", "Kills: 3", "Final Kills: 1", "",
 					EnumChatFormatting.YELLOW + "www.hypixel.net")) {
-					out.add(new String[] {s, Integer.toString(10 - out.size())});
+					out.add(line(s, 10 - out.size()));
 				}
 			}
 			return out;
@@ -93,14 +110,19 @@ public final class ScoreboardHud extends HudElement {
 		if (scores.size() > MAX_LINES) {
 			scores = scores.subList(scores.size() - MAX_LINES, scores.size());
 		}
-		out.add(new String[] {o.getDisplayName(), ""});
+		out.add(new String[] {o.getDisplayName(), "", ""});
 		// sorted lowest first; the highest score is drawn at the top
 		for (int i = scores.size() - 1; i >= 0; i--) {
 			Score s = scores.get(i);
 			ScorePlayerTeam team = board.getPlayersTeam(s.getPlayerName());
-			out.add(new String[] {ScorePlayerTeam.formatPlayerName(team, s.getPlayerName()), Integer.toString(s.getScorePoints())});
+			out.add(line(ScorePlayerTeam.formatPlayerName(team, s.getPlayerName()), s.getScorePoints()));
 		}
 		return out;
+	}
+
+	private static String[] line(String text, int score) {
+		String n = Integer.toString(score);
+		return new String[] {text, n, EnumChatFormatting.RED + n};
 	}
 
 	@Override
@@ -121,7 +143,7 @@ public final class ScoreboardHud extends HudElement {
 			String[] l = lines.get(i);
 			int lw = textWidth(l[0]);
 			if (i > 0 && numbers.get()) {
-				lw += textWidth(": " + l[1]);
+				lw += textWidth(": ") + textWidth(l[1]); // the same as the joined text's, without joining it each frame
 			}
 			w = Math.max(w, lw);
 		}
@@ -157,8 +179,7 @@ public final class ScoreboardHud extends HudElement {
 			} else {
 				drawText(text, l[0], 2, y, color);
 				if (numbers.get()) {
-					String n = EnumChatFormatting.RED + l[1];
-					drawText(text, n, w - 2 - textWidth(n), y, color);
+					drawText(text, l[2], w - 2 - textWidth(l[2]), y, color);
 				}
 			}
 		}

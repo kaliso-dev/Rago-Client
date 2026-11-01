@@ -83,6 +83,9 @@ public final class GeneratorTimersHud extends HudElement {
 		int seconds = -1;
 		int seenAt;
 		int cycle;
+		/** The row's text as last made, and what it was made from: made again only when that changes, not per frame. */
+		String text;
+		int textKey = Integer.MIN_VALUE;
 
 		Gen(String name, ItemStack icon, int[] cycles) {
 			this.name = name;
@@ -260,8 +263,19 @@ public final class GeneratorTimersHud extends HudElement {
 	}
 
 	private String text(Gen g, boolean placeholder) {
-		int s = placeholder ? (g == diamond ? 23 : 41) : g.left(ticks);
-		int tier = placeholder ? 2 : g.tier;
+		if (placeholder) {
+			return makeText(g, g == diamond ? 23 : 41, 2);
+		}
+		int s = g.left(ticks);
+		int key = ((s * 8 + g.tier) * 2 + (showIcons.get() ? 1 : 0)) * 4 + (showTier.get() ? 2 : 0) + (format.is("clock") ? 1 : 0);
+		if (key != g.textKey || g.text == null) {
+			g.textKey = key;
+			g.text = makeText(g, s, g.tier);
+		}
+		return g.text;
+	}
+
+	private String makeText(Gen g, int s, int tier) {
 		String time = time(s);
 		StringBuilder b = new StringBuilder();
 		if (!showIcons.get()) {
@@ -280,8 +294,9 @@ public final class GeneratorTimersHud extends HudElement {
 	@Override
 	public int width(FontRenderer text, boolean placeholder) {
 		int w = 0;
-		for (Gen g : rows(placeholder)) {
-			w = Math.max(w, (showIcons.get() ? ICON + 2 : 0) + textWidth(text(g, placeholder)));
+		List<Gen> rows = rows(placeholder);
+		for (int i = 0; i < rows.size(); i++) { // no iterator object each frame
+			w = Math.max(w, (showIcons.get() ? ICON + 2 : 0) + textWidth(text(rows.get(i), placeholder)));
 		}
 		return Math.max(ICON, w);
 	}
