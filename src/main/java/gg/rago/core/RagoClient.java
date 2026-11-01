@@ -204,6 +204,7 @@ public final class RagoClient {
 	private static BooleanOption hudInDebug;
 	private static BooleanOption chatCopy;
 	private static IntOption uiTheme;
+	private static IntOption homeLayout;
 	private static IntOption teamColors;
 	private static PerformancePreset maxPerformance;
 	private static PlayPreset playPreset;
@@ -415,6 +416,11 @@ public final class RagoClient {
 		openNext = screen;
 	}
 
+	/** Whether the home screen uses its classic layout (the emblem over three buttons). */
+	public static boolean classicHome() {
+		return homeLayout != null && homeLayout.get() == 1;
+	}
+
 	public static String version() {
 		ModContainer mod = Loader.instance().getIndexedModList().get(MOD_ID);
 		return mod == null ? "?" : mod.getVersion();
@@ -518,6 +524,7 @@ public final class RagoClient {
 		menuVideo = SETTINGS.bool(g, ui, "menu_video", true, Ui::setMenuVideo);
 		SETTINGS.choice(g, ui, "main_menu_style", () -> mainMenu.isEnabled() ? 0 : 1, i -> mainMenu.setEnabled(i == 0),
 			"rago.value.rago", "rago.value.vanilla");
+		homeLayout = SETTINGS.choice(g, ui, "home_layout", 0, null, "rago.value.home_modern", "rago.value.home_classic");
 		SETTINGS.button(g, ui, "welcome_guide", () -> {
 			Minecraft mc = Minecraft.getMinecraft();
 			mc.displayGuiScreen(new WelcomeScreen(mc.currentScreen));

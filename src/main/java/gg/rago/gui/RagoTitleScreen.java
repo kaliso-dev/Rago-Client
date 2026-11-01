@@ -1,6 +1,7 @@
 package gg.rago.gui;
 
 import gg.rago.accounts.Accounts;
+import gg.rago.accounts.Skins;
 import gg.rago.core.RagoClient;
 import gg.rago.gui.ui.Anim;
 import gg.rago.gui.ui.Ui;
@@ -20,8 +21,11 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Rago's home screen: the emblem, three buttons, a dock of shortcuts and the Rago Optimizer card
- * over a blurred landscape.
+ * Rago's home screen, over the menu video. The modern layout: a greeting, Hypixel and Minemen
+ * (icon, players online, ping) to join in one click, singleplayer and multiplayer, the player in
+ * 3D with their cape and cosmetics (a click opens the locker) and what is new in this version.
+ * The classic layout (a setting): the emblem in the middle over three buttons. Both have the dock
+ * of shortcuts, the account and the Rago Optimizer card.
  * Shown instead of the vanilla title screen unless the player picks the vanilla menu.
  */
 public final class RagoTitleScreen extends GuiScreen {
@@ -36,6 +40,7 @@ public final class RagoTitleScreen extends GuiScreen {
 	private long openedNs;
 	private boolean optifineHelp;
 	private long helpOpenedNs;
+	private PlayerPreview preview;
 
 	private static String t(String key, Object... args) {
 		return I18n.format(key, args);
@@ -45,6 +50,27 @@ public final class RagoTitleScreen extends GuiScreen {
 	public void initGui() {
 		openedNs = introPlayed ? System.nanoTime() - 5_000_000_000L : System.nanoTime();
 		introPlayed = true;
+		if (!RagoClient.classicHome()) {
+			ServerStatus.refresh();
+			if (preview == null) {
+				preview = PlayerPreview.create();
+			}
+		}
+	}
+
+	@Override
+	public void updateScreen() {
+		if (!RagoClient.classicHome()) {
+			ServerStatus.tick();
+		}
+		if (preview != null) {
+			preview.tick();
+		}
+	}
+
+	@Override
+	public void onGuiClosed() {
+		ServerStatus.cancel();
 	}
 
 	@Override
@@ -52,11 +78,15 @@ public final class RagoTitleScreen extends GuiScreen {
 		Ui.begin();
 		float w = Ui.width();
 		float h = Ui.height();
-		Ui.backdrop(0.3f);
-		Ui.gradient(0, h * 0.5f, w, h * 0.5f, 0x00050406, 0xB0050406);
-		Ui.captureGlass();
-
-		center(w, h);
+		boolean classic = RagoClient.classicHome();
+		if (classic) {
+			Ui.backdrop(0.3f);
+			Ui.gradient(0, h * 0.5f, w, h * 0.5f, 0x00050406, 0xB0050406);
+			Ui.captureGlass();
+			center(w, h);
+		} else {
+			modern(w, h, partialTicks);
+		}
 		dock(w, h);
 		promo(w, h);
 		footer(w, h);
@@ -72,7 +102,223 @@ public final class RagoTitleScreen extends GuiScreen {
 		return Anim.progress(openedNs + (long) (delayMs * 1_000_000L), ms);
 	}
 
-	// ---- centre ---------------------------------------------------------------------------------
+	// ---- modern layout --------------------------------------------------------------------------
+
+	private void modern(float w, float h, float partialTicks) {
+		// the background follows the mouse a little (parallax), lighter than the classic layout's,
+		// darkened on the left behind the text and at the bottom behind the dock
+		boolean moving = Anim.enabled();
+		float px = Anim.to("home:px", moving ? Ui.mouseX() / w - 0.5f : 0, 900);
+		float py = Anim.to("home:py", moving ? Ui.mouseY() / h - 0.5f : 0, 900);
+		Ui.backdrop(0.1f, -px * 24, -py * 14, 1.06f);
+		Ui.hgradient(0, 0, w * 0.62f, h, 0xD0070609, 0x00070609);
+		Ui.gradient(0, h * 0.55f, w, h * 0.45f, 0x00050406, 0xA8050406);
+		Ui.captureGlass();
+
+		float left = Math.max(36, Math.round(w * 0.056f));
+		brand(left);
+		player(w, h, px, partialTicks);
+		hero(left, h);
+		news(left, h);
+	}
+
+	/** The logo, the name and the version, top left. */
+	private void brand(float x) {
+		Ui.opacity(intro(0, 500));
+		Ui.logoGlow(x, 17, 24, Ui.alpha(Theme.ACCENT, 0.35f));
+		Ui.logo(x, 17, 24, Theme.ACCENT);
+		float size = 15;
+		float tx = x + 33;
+		float ty = 29 - size * 1.21f / 2;
+		tx += Ui.text(Ui.SEMIBOLD, "Rago ", tx, ty, size, Theme.TEXT);
+		tx += Ui.text(Ui.REGULAR, "Client", tx, ty, size, 0xFFB4B2B9);
+		String version = RagoClient.version().replace("+1.8.9", "");
+		float vs = 8.5f;
+		float vw = Ui.textWidth(Ui.MEDIUM, version, vs) + 14;
+		Ui.round(tx + 9, 21, vw, 16, 8, Theme.ACCENT_SOFT);
+		Ui.text(Ui.MEDIUM, version, tx + 16, 29 - vs * 1.21f / 2, vs, Theme.ACCENT);
+		Ui.opacity(1);
+	}
+
+	/** The greeting, the two servers, singleplayer and multiplayer, in a column on the left. */
+	private void hero(float x, float h) {
+		float colW = 340;
+		float top = Math.max(90, Math.round(h * 0.5f - 180));
+		String name = mc.getSession().getUsername();
+
+		slide(60);
+		Ui.text(Ui.MEDIUM, t("rago.home.welcome"), x + slideX, top, 13, 0xFFB4B2B9);
+		slide(110);
+		Ui.text(Ui.BOLD, name, x + slideX, top + 17, 36, Theme.TEXT);
+		slide(160);
+		Ui.text(Ui.REGULAR, t("rago.home.tagline"), x + slideX, top + 64, 11, 0xFF9A98A0);
+
+		float sy = top + 100;
+		slide(220);
+		server(ServerStatus.HYPIXEL, t("rago.home.hypixel_sub"), x + slideX, sy, colW, 62, true);
+		slide(290);
+		server(ServerStatus.MINEMEN, t("rago.home.minemen_sub"), x + slideX, sy + 72, colW, 62, false);
+		slide(360);
+		float by = sy + 72 * 2 + 4;
+		float bw = (colW - 10) / 2;
+		pill("home:single", x + slideX, by, bw, 36, "user", t("menu.singleplayer"),
+			() -> mc.displayGuiScreen(new GuiSelectWorld(this)));
+		pill("home:multi", x + slideX + bw + 10, by, bw, 36, "globe", t("menu.multiplayer"),
+			() -> mc.displayGuiScreen(new GuiMultiplayer(this)));
+		Ui.opacity(1);
+	}
+
+	/** How far the element being drawn still sits to the left of its place while it fades in. */
+	private float slideX;
+
+	/** Starts the next element of the column: fades it in and slides it from the left. */
+	private void slide(float delayMs) {
+		float p = intro(delayMs, 520);
+		Ui.opacity(p);
+		slideX = -(1 - p) * 18;
+	}
+
+	/** A server to join: its icon, name, games, players online and ping. */
+	private void server(ServerStatus s, String games, float x, float y, float w, float h, boolean primary) {
+		boolean over = !optifineHelp && Ui.hover(x, y, w, h);
+		float hv = Anim.to("srv:" + s.id, over ? 1 : 0, 140);
+		float lift = hv * 2;
+		y -= lift;
+		float r = 14;
+		if (primary) {
+			Ui.glow(x + w / 2, y + h / 2, w * 0.62f, Ui.alpha(Theme.ACCENT, 0.12f + 0.16f * hv));
+			Ui.glass(x, y, w, h, r, 0);
+			Ui.round(x, y, w, h, r, Ui.alpha(Ui.mix(Theme.ACCENT, Theme.ACCENT_HOVER, hv), 0.93f));
+		} else {
+			Ui.glassBorder(x, y, w, h, r, Ui.mix(0xE6131215, 0xF0222126, hv), Ui.mix(0x24FFFFFF, 0x45FFFFFF, hv));
+		}
+		sheen("sheen:" + s.id, x, y, w, h, over);
+
+		// the server's own icon, as in the multiplayer list
+		float is = h - 20;
+		Ui.round(x + 10, y + 10, is, is, 10, primary ? 0x30000000 : 0xFF1C1B1F);
+		if (s.icon() != null) {
+			Ui.texture(s.icon(), x + 13, y + 13, is - 6, is - 6, 0, 0, 1, 1, 0xFFFFFFFF);
+		} else {
+			Ui.icon("server", x + 10 + (is - 18) / 2, y + 10 + (is - 18) / 2, 18, primary ? 0xFFFFFFFF : Theme.MUTED);
+		}
+
+		int main = primary ? 0xFFFFFFFF : Theme.TEXT;
+		int soft = primary ? 0xD9FFFFFF : Theme.MUTED;
+		float tx = x + 10 + is + 12;
+		Ui.text(Ui.SEMIBOLD, t("rago.home.play", s.name), tx, y + 13, 14, main);
+		String players = s.playersText();
+		String line = players != null ? games + "  \u00b7  " + t("rago.home.players", players)
+			: s.offline() ? games + "  \u00b7  " + t("rago.title.offline") : games;
+		Ui.text(Ui.REGULAR, line, tx, y + 34, 9.5f, soft);
+
+		// the ping, right; an arrow comes in while pointed at
+		long ping = s.ping();
+		String pingText = ping >= 0 ? ping + " ms" : s.offline() ? "\u2013" : "\u2026";
+		float ps = 9;
+		float pw = Ui.textWidth(Ui.MEDIUM, pingText, ps);
+		float right = x + w - 16 - hv * 14;
+		int pingColor = primary ? 0xFFFFFFFF : ping < 0 ? Theme.DIM : ping < 80 ? Theme.GREEN : ping < 150 ? Theme.YELLOW : Theme.ACCENT;
+		Ui.text(Ui.MEDIUM, pingText, right - pw, y + (h - ps * 1.21f) / 2, ps, pingColor);
+		Ui.icon("signal", right - pw - 15, y + (h - 11) / 2, 11, pingColor);
+		if (hv > 0.01f) {
+			float o = Ui.opacity();
+			Ui.opacity(o * hv);
+			Ui.icon("chevron-right", x + w - 22, y + (h - 12) / 2, 12, main);
+			Ui.opacity(o);
+		}
+		if (!optifineHelp) {
+			Ui.click(x, y, w, h, () -> s.join(this));
+		}
+	}
+
+	/** A light that crosses a button once when the mouse comes on it, kept inside its round corners. */
+	private static void sheen(String key, float x, float y, float w, float h, boolean over) {
+		float t = Anim.to(key, over ? 1 : 0, 650);
+		if (!over || t <= 0.01f || t >= 0.99f) {
+			return;
+		}
+		float band = 46;
+		float bx = x - band * 2 + (w + band * 2) * t;
+		Ui.scissor(x + 5, y + 5, w - 10, h - 10);
+		Ui.hgradient(bx, y, band, h, 0x00FFFFFF, 0x2EFFFFFF);
+		Ui.hgradient(bx + band, y, band, h, 0x2EFFFFFF, 0x00FFFFFF);
+		Ui.endScissor();
+	}
+
+	/** A secondary button with an icon. */
+	private void pill(String key, float x, float y, float w, float h, String icon, String label, Runnable action) {
+		boolean over = !optifineHelp && Ui.hover(x, y, w, h);
+		float hv = Anim.to(key, over ? 1 : 0, 120);
+		Ui.glassBorder(x, y, w, h, h / 2, Ui.mix(0xE6131215, 0xF0222126, hv), Ui.mix(0x24FFFFFF, 0x45FFFFFF, hv));
+		sheen(key + ":sheen", x, y, w, h, over);
+		float size = 10.5f;
+		float lw = Ui.textWidth(Ui.MEDIUM, label, size);
+		float cx = x + (w - lw - 18) / 2;
+		Ui.icon(icon, cx, y + (h - 12) / 2, 12, Ui.mix(0xFFC9C7CE, Theme.TEXT, hv));
+		Ui.text(Ui.MEDIUM, label, cx + 18, y + (h - size * 1.21f) / 2, size, Theme.TEXT);
+		if (!optifineHelp) {
+			Ui.click(x, y, w, h, action);
+		}
+	}
+
+	/** The player in 3D, right of the column, with their skin, cape and cosmetics; a click opens the locker. */
+	private void player(float w, float h, float px, float partialTicks) {
+		if (preview == null) {
+			return;
+		}
+		float size = Math.min(h * 0.2f, 160);
+		float cx = Math.round(w * 0.6f);
+		float feetY = Math.round(h * 0.79f);
+		float top = feetY - size * 2.05f;
+		float p = intro(200, 800);
+		boolean over = !optifineHelp && Ui.hover(cx - size * 0.6f, top, size * 1.2f, feetY - top + 30);
+		float hv = Anim.to("home:player", over ? 1 : 0, 160);
+		Ui.opacity(p);
+		Ui.glow(cx, feetY - size * 0.95f, size * 1.7f, Ui.alpha(Theme.ACCENT, 0.16f + 0.08f * hv));
+		Ui.glow(cx, feetY, size * 0.75f, 0x60000000);
+		float t = Anim.enabled() ? System.nanoTime() / 1e9f : 0;
+		float yaw = -22 + px * 34 + (float) Math.sin(t * 0.45f) * 7;
+		preview.draw(cx, feetY + (1 - p) * 10, size, yaw, Skins.worn(), partialTicks);
+
+		// "Customize", under the feet
+		String label = t("rago.home.customize");
+		float ls = 9.5f;
+		float lw = Ui.textWidth(Ui.MEDIUM, label, ls) + 36;
+		float ly = feetY + 18;
+		Ui.opacity(p * (0.55f + 0.45f * hv));
+		Ui.glassBorder(cx - lw / 2, ly, lw, 24, 12, Ui.mix(0xD9131215, 0xF0222126, hv), Ui.mix(0x24FFFFFF, Ui.alpha(Theme.ACCENT, 0.6f), hv));
+		Ui.icon("shirt", cx - lw / 2 + 12, ly + 6, 12, Ui.mix(0xFFC9C7CE, Theme.TEXT, hv));
+		Ui.text(Ui.MEDIUM, label, cx - lw / 2 + 28, ly + (24 - ls * 1.21f) / 2, ls, Theme.TEXT);
+		Ui.opacity(1);
+		if (!optifineHelp) {
+			Ui.click(cx - size * 0.6f, top, size * 1.2f, ly + 24 - top, () -> mc.displayGuiScreen(new LockerScreen(this)));
+		}
+	}
+
+	/** What is new in this version, bottom left. */
+	private void news(float x, float h) {
+		float nw = 280;
+		float pad = 12;
+		List<String> body = Ui.wrap(Ui.REGULAR, t("rago.title.news_body"), 9, nw - pad * 2);
+		float nh = pad + 10 + 6 + 14 + 3 + body.size() * 12 + pad - 2;
+		float y = h - 34 - nh;
+		float p = intro(520, 600);
+		Ui.opacity(p);
+		y += (1 - p) * 10;
+		Ui.glassBorder(x, y, nw, nh, 12, 0xE6131215, 0x24FFFFFF);
+		String tag = t("rago.title.whats_new", RagoClient.version().replace("+1.8.9", ""));
+		Ui.textSpaced(Ui.BOLD, tag, x + pad, y + pad, 7.5f, 0.6f, Theme.ACCENT);
+		Ui.text(Ui.SEMIBOLD, t("rago.title.news_title"), x + pad, y + pad + 16, 11.5f, Theme.TEXT);
+		float ty = y + pad + 33;
+		for (String line : body) {
+			Ui.text(Ui.REGULAR, line, x + pad, ty, 9, 0xFFB4B2B9);
+			ty += 12;
+		}
+		Ui.opacity(1);
+	}
+
+	// ---- classic layout: the centre -------------------------------------------------------------
 
 	private void center(float w, float h) {
 		float cx = w / 2;
@@ -343,7 +589,11 @@ public final class RagoTitleScreen extends GuiScreen {
 	private void footer(float w, float h) {
 		float size = 8.5f;
 		Ui.opacity(intro(500, 500));
-		Ui.text(Ui.MONO, "Rago Client 1.8.9 (" + RagoClient.version() + ")", 14, h - 20, size, 0xFF8A888F);
+		if (RagoClient.classicHome()) {
+			Ui.text(Ui.MONO, "Rago Client 1.8.9 (" + RagoClient.version() + ")", 14, h - 20, size, 0xFF8A888F);
+		} else {
+			Ui.text(Ui.REGULAR, "Minecraft 1.8.9", Math.max(36, Math.round(w * 0.056f)), h - 20, size, 0xFF8A888F);
+		}
 		Ui.textRight(Ui.REGULAR, t("rago.title.legal"), w - 14, h - 20, size, 0xFF8A888F);
 		float made = Ui.textWidth(Ui.REGULAR, "Made by ", size);
 		float mx = w / 2 - (made + Ui.textWidth(Ui.SEMIBOLD, "Rago", size)) / 2;

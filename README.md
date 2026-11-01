@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.9.3.** What it contains:
+**Current version: 1.9.4.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,15 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.9.4: a new home screen
+  - top left, the logo, the name and the version; a greeting with the player's name; Hypixel and
+    Minemen to join in one click, each with its own icon, players online and ping (the same status
+    request as the multiplayer list, at most once a minute); singleplayer and multiplayer below
+  - the player in 3D, with their skin, cape and cosmetics, the head following the mouse; a click
+    opens the locker
+  - what is new in this version, bottom left; the background follows the mouse a little, lighter
+    than before and darker behind the text; a light crosses the buttons when pointed at
+  - the old layout stays: Settings > General > Home screen layout > Classic
 - new in 1.9.3: the Rago Optimizer card
   - bottom right of the home screen: the Rago Optimizer banner, a "Free cosmetic" tag and a Join
     now button to the Discord (the whole card opens it); its cross hides it until the next start,
@@ -737,7 +746,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.9.3+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.9.4+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

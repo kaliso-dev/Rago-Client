@@ -534,13 +534,21 @@ public final class Ui {
 	 * menu video, or the generated block landscape when the video cannot play.
 	 */
 	public static void backdrop(float dim) {
+		backdrop(dim, 0, 0, 1);
+	}
+
+	/**
+	 * {@link #backdrop(float)} zoomed by {@code zoom} and moved by ({@code dx}, {@code dy}) units,
+	 * for a parallax: keep the move within the zoom's margin, w * (zoom - 1) / 2, so no edge shows.
+	 */
+	public static void backdrop(float dim, float dx, float dy, float zoom) {
 		float w = width();
 		float h = height();
 		int video = VideoBackdrop.textureId();
 		float aspect = video >= 0 ? VideoBackdrop.aspect() : Backdrop.aspect();
-		float bw = Math.max(w, h * aspect);
+		float bw = Math.max(w, h * aspect) * zoom;
 		float bh = bw / aspect;
-		texturedQuad(video >= 0 ? video : Backdrop.textureId(), (w - bw) / 2, (h - bh) / 2, bw, bh, 0xFFFFFFFF);
+		texturedQuad(video >= 0 ? video : Backdrop.textureId(), (w - bw) / 2 + dx, (h - bh) / 2 + dy, bw, bh, 0xFFFFFFFF);
 		rect(0, 0, w, h, alpha(0xFF050406, dim));
 	}
 

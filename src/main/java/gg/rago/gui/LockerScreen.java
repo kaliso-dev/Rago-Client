@@ -1,6 +1,5 @@
 package gg.rago.gui;
 
-import com.mojang.authlib.GameProfile;
 import gg.rago.hooks.Hooks;
 import gg.rago.modules.NickHider;
 import gg.rago.accounts.Skins;
@@ -15,30 +14,13 @@ import gg.rago.gui.ui.Widgets;
 import gg.rago.render.NeonColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
-import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.multiplayer.WorldClient;
-import net.minecraft.client.network.NetworkPlayerInfo;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.OpenGlHelper;
-import net.minecraft.client.renderer.RenderHelper;
-import net.minecraft.client.entity.AbstractClientPlayer;
-import net.minecraft.client.model.ModelPlayer;
-import net.minecraft.client.renderer.entity.RenderPlayer;
-import net.minecraft.client.renderer.entity.RendererLivingEntity;
-import net.minecraft.client.renderer.entity.layers.LayerRenderer;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.util.ChatAllowedCharacters;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.EnumDifficulty;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldSettings;
-import net.minecraft.world.WorldType;
-import net.minecraftforge.fml.relauncher.ReflectionHelper;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
-import org.lwjgl.opengl.GL11;
 
 import java.io.IOException;
 import java.util.List;
@@ -54,8 +36,6 @@ public final class LockerScreen extends GuiScreen {
 	private static final float CARD_W = 96;
 	private static final float CARD_H = 128;
 	private static final float GAP = 10;
-	/** A world for the preview player when no world is loaded; made once, it holds nothing. */
-	private static WorldClient emptyWorld;
 
 	private final GuiScreen parent;
 	private long openedNs;
@@ -69,7 +49,7 @@ public final class LockerScreen extends GuiScreen {
 	private float stageY;
 	private float stageW;
 	private float stageH;
-	private Preview preview;
+	private PlayerPreview preview;
 	/** The skin under the mouse, shown on the preview instead of the worn one. */
 	private Skins.Skin hovered;
 	private boolean hoveredAccount;
@@ -91,14 +71,14 @@ public final class LockerScreen extends GuiScreen {
 		openedNs = System.nanoTime();
 		Keyboard.enableRepeatEvents(true);
 		if (preview == null) {
-			preview = Preview.create();
+			preview = PlayerPreview.create();
 		}
 	}
 
 	@Override
 	public void updateScreen() {
 		if (preview != null) {
-			preview.ticksExisted++;
+			preview.tick();
 		}
 	}
 
@@ -173,7 +153,7 @@ public final class LockerScreen extends GuiScreen {
 		}
 		lastMouseX = Ui.mouseX();
 		if (preview != null && p > 0.05f) {
-			drawPlayer(x + w / 2, floorY, Math.min(w * 0.42f, (floorY - y - 60) / 2.1f), shown, partialTicks);
+			preview.draw(x + w / 2, floorY, Math.min(w * 0.42f, (floorY - y - 60) / 2.1f), yaw, shown, partialTicks);
 		}
 
 		// what wearing means, and the account button
@@ -198,179 +178,6 @@ public final class LockerScreen extends GuiScreen {
 			return hovered;
 		}
 		return hoveredAccount ? null : Skins.worn();
-	}
-
-	private void drawPlayer(float cx, float feetY, float size, Skins.Skin skin, float partialTicks) {
-		Preview e = preview;
-		if (skin != null && skin.texture() != null) {
-			e.skin = skin.texture();
-			e.slim = skin.slim;
-		} else {
-			Skins.Skin acc = Skins.account();
-			if (acc != null && acc.texture() != null) {
-				e.skin = acc.texture();
-				e.slim = acc.slim;
-			} else {
-				e.skin = DefaultPlayerSkin.getDefaultSkin(e.getUniqueID());
-				e.slim = "slim".equals(DefaultPlayerSkin.getSkinType(e.getUniqueID()));
-			}
-		}
-		float s = Ui.scale();
-		// the head follows the mouse, as in the inventory
-		float lookX = (cx - Ui.mouseX()) / 40f;
-		float lookY = (feetY - size * 1.6f - Ui.mouseY()) / 40f;
-		e.renderYawOffset = e.prevRenderYawOffset = 0;
-		e.rotationYaw = e.prevRotationYaw = 0;
-		e.rotationYawHead = e.prevRotationYawHead = (float) Math.atan(lookX) * 30f;
-		e.rotationPitch = e.prevRotationPitch = -(float) Math.atan(lookY) * 20f;
-
-		GlStateManager.pushMatrix();
-		GlStateManager.clear(GL11.GL_DEPTH_BUFFER_BIT);
-		GlStateManager.enableDepth();
-		GlStateManager.depthMask(true);
-		GlStateManager.enableAlpha();
-		GlStateManager.enableColorMaterial();
-		GlStateManager.color(1, 1, 1, Ui.opacity());
-		GlStateManager.translate(cx * s, feetY * s, 100);
-		GlStateManager.scale(-size * s, size * s, size * s);
-		GlStateManager.rotate(180, 0, 0, 1);
-		GlStateManager.rotate(135, 0, 1, 0);
-		RenderHelper.enableStandardItemLighting();
-		GlStateManager.rotate(-135, 0, 1, 0);
-		GlStateManager.rotate(yaw, 0, 1, 0);
-		try {
-			renderModel(e, partialTicks);
-		} catch (RuntimeException ex) {
-			RagoClient.LOG.warn("The locker preview failed and is turned off", ex);
-			preview = null;
-		}
-		GlStateManager.popMatrix();
-		RenderHelper.disableStandardItemLighting();
-		GlStateManager.disableRescaleNormal();
-		GlStateManager.setActiveTexture(OpenGlHelper.lightmapTexUnit);
-		GlStateManager.disableTexture2D();
-		GlStateManager.setActiveTexture(OpenGlHelper.defaultTexUnit);
-		GlStateManager.enableTexture2D();
-		// back to the state Ui draws in
-		GlStateManager.disableLighting();
-		GlStateManager.disableDepth();
-		GlStateManager.enableBlend();
-		GlStateManager.disableCull();
-		GlStateManager.disableAlpha();
-		GlStateManager.color(1, 1, 1, 1);
-	}
-
-	/**
-	 * Draws the player model and its layers (cape, cosmetics) the way RendererLivingEntity does,
-	 * but without its render events: mods listening to them (Patcher, for one) expect a world with
-	 * a player in it, which the home screen does not have.
-	 */
-	private void renderModel(Preview e, float partialTicks) {
-		RenderPlayer render = mc.getRenderManager().getSkinMap().get(e.getSkinType());
-		if (render == null) {
-			return;
-		}
-		ModelPlayer model = render.getMainModel();
-		model.setInvisible(true);
-		model.swingProgress = 0;
-		model.isRiding = false;
-		model.isChild = false;
-		model.isSneak = false;
-		model.heldItemLeft = 0;
-		model.heldItemRight = 0;
-		model.aimedBow = false;
-		float age = e.ticksExisted + partialTicks;
-		float headYaw = e.rotationYawHead - e.renderYawOffset;
-		float pitch = e.rotationPitch;
-		float scale = 0.0625f;
-		GlStateManager.pushMatrix();
-		GlStateManager.disableCull();
-		GlStateManager.enableRescaleNormal();
-		GlStateManager.rotate(180, 0, 1, 0);
-		GlStateManager.scale(-1, -1, 1);
-		GlStateManager.scale(0.9375f, 0.9375f, 0.9375f);
-		GlStateManager.translate(0, -1.5078125f, 0);
-		model.setLivingAnimations(e, 0, 0, partialTicks);
-		model.setRotationAngles(0, 0, age, headYaw, pitch, scale, e);
-		mc.getTextureManager().bindTexture(e.getLocationSkin());
-		model.render(e, 0, 0, age, headYaw, pitch, scale);
-		for (LayerRenderer<AbstractClientPlayer> layer : layers(render)) {
-			GlStateManager.color(1, 1, 1, 1);
-			layer.doRenderLayer(e, 0, 0, partialTicks, age, headYaw, pitch, scale);
-		}
-		GlStateManager.disableRescaleNormal();
-		GlStateManager.popMatrix();
-	}
-
-	@SuppressWarnings("unchecked")
-	private static List<LayerRenderer<AbstractClientPlayer>> layers(RenderPlayer render) {
-		return (List<LayerRenderer<AbstractClientPlayer>>) ReflectionHelper.getPrivateValue(RendererLivingEntity.class, render,
-			"layerRenderers", "field_177097_h");
-	}
-
-	/** A player with no connection behind it, wearing whatever skin the locker shows. */
-	static final class Preview extends EntityOtherPlayerMP {
-		ResourceLocation skin;
-		boolean slim;
-
-		private Preview(World world, GameProfile profile) {
-			super(world, profile);
-			// every skin layer (hat, jacket, sleeves, trousers) and the cape shown
-			getDataWatcher().updateObject(10, (byte) 0x7F);
-			chasingPosX = prevChasingPosX = posX;
-			chasingPosY = prevChasingPosY = posY;
-			chasingPosZ = prevChasingPosZ = posZ;
-		}
-
-		static Preview create() {
-			Minecraft mc = Minecraft.getMinecraft();
-			try {
-				World world = mc.theWorld;
-				if (world == null) {
-					if (emptyWorld == null) {
-						emptyWorld = new WorldClient(null, new WorldSettings(0L, WorldSettings.GameType.SURVIVAL, false, false, WorldType.FLAT),
-							0, EnumDifficulty.PEACEFUL, mc.mcProfiler);
-					}
-					world = emptyWorld;
-				}
-				GameProfile own = mc.getSession().getProfile();
-				UUID id = own.getId() != null ? own.getId() : UUID.nameUUIDFromBytes(own.getName().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-				return new Preview(world, new GameProfile(id, own.getName()));
-			} catch (RuntimeException e) {
-				RagoClient.LOG.warn("No player preview in the locker", e);
-				return null;
-			}
-		}
-
-		@Override
-		public ResourceLocation getLocationSkin() {
-			return skin != null ? skin : DefaultPlayerSkin.getDefaultSkin(getUniqueID());
-		}
-
-		@Override
-		public String getSkinType() {
-			return slim ? "slim" : "default";
-		}
-
-		@Override
-		public boolean hasPlayerInfo() {
-			return true;
-		}
-
-		@Override
-		protected NetworkPlayerInfo getPlayerInfo() {
-			return null;
-		}
-
-		@Override
-		public boolean isSpectator() {
-			return false;
-		}
-
-		@Override
-		public boolean isInvisibleToPlayer(net.minecraft.entity.player.EntityPlayer player) {
-			return false;
-		}
 	}
 
 	// ---- tabs -----------------------------------------------------------------------------------
@@ -475,7 +282,7 @@ public final class LockerScreen extends GuiScreen {
 			tex = acc.texture();
 			slim = acc.slim;
 		} else {
-			UUID id = preview != null ? preview.getUniqueID() : mc.getSession().getProfile().getId();
+			UUID id = preview != null ? preview.id() : mc.getSession().getProfile().getId();
 			tex = id == null ? DefaultPlayerSkin.getDefaultSkinLegacy() : DefaultPlayerSkin.getDefaultSkin(id);
 			slim = id != null && "slim".equals(DefaultPlayerSkin.getSkinType(id));
 		}
