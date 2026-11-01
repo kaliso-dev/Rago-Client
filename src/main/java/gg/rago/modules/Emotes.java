@@ -8,7 +8,10 @@ import gg.rago.core.Module;
 import gg.rago.gui.EmoteWheelScreen;
 import gg.rago.render.BentModel;
 import gg.rago.render.BentModel.Bend;
+import gg.rago.hooks.Hooks;
+import gg.rago.network.NetworkClient;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.model.ModelPlayer;
 import net.minecraft.client.model.ModelRenderer;
@@ -21,8 +24,9 @@ import org.lwjgl.input.Keyboard;
  * Emotes: dances and gestures for your own player, picked on a wheel (B by default). While one
  * plays, the camera turns to face you, and moving, attacking or the key again stops it. The body
  * moves as one: elbows and knees bend ({@link BentModel}), the hips sink as the knees bend and the
- * chest bends at the waist. Only the pose of your player on your screen changes: nothing is sent,
- * other players see you standing.
+ * chest bends at the waist. Through Rago Network the other Rago players see your emote (only which
+ * one and since when is sent), and you see theirs ("See other players' emotes"); a player who walks
+ * stops dancing on your screen at once. Players without Rago see you standing.
  */
 public final class Emotes extends Module {
 	public static final String[] DANCES = {"twerk", "dab", "wave", "disco", "zombie", "griddy", "clap", "macarena", "groove"};
@@ -30,6 +34,7 @@ public final class Emotes extends Module {
 
 	private final BooleanOption faceCamera = addOption(new BooleanOption("emote_camera", true));
 	private final IntOption speed = addOption(new IntOption("emote_speed", 100, 50, 200));
+	private final BooleanOption others = addOption(new BooleanOption("emote_others", true));
 	private final KeyBinding key = new KeyBinding("key.rago.emotes", Keyboard.KEY_B, "key.categories.rago");
 
 	private String playing;
@@ -96,6 +101,10 @@ public final class Emotes extends Module {
 		Minecraft mc = Minecraft.getMinecraft();
 		playing = dance;
 		startedNs = System.nanoTime();
+		RagoNetwork network = Hooks.network;
+		if (network != null) {
+			network.shareEmote(dance, speed.get());
+		}
 		if (faceCamera.get()) {
 			if (viewBefore < 0) {
 				viewBefore = mc.gameSettings.thirdPersonView;
@@ -106,6 +115,12 @@ public final class Emotes extends Module {
 	}
 
 	public void stop() {
+		if (playing != null) {
+			RagoNetwork network = Hooks.network;
+			if (network != null) {
+				network.shareEmote(null, speed.get());
+			}
+		}
 		playing = null;
 		if (viewBefore >= 0) {
 			Minecraft.getMinecraft().gameSettings.thirdPersonView = viewBefore;
@@ -118,13 +133,61 @@ public final class Emotes extends Module {
 		return !touched.isEmpty();
 	}
 
+	/** Whether {@link #pose} has anything to do: your dance, a Rago player's around, or a pose to take off. */
+	public boolean active() {
+		if (playing != null || !touched.isEmpty()) {
+			return true;
+		}
+		RagoNetwork network = Hooks.network;
+		return others.get() && isEnabled() && network != null && network.anyEmote();
+	}
+
+	/** The emote another Rago player plays now, if they stand still; null for none. */
+	private NetworkClient.Emote remote(Entity entity) {
+		if (!(entity instanceof EntityOtherPlayerMP) || !others.get() || !isEnabled()) {
+			return null;
+		}
+		RagoNetwork network = Hooks.network;
+		NetworkClient.Emote e = network == null ? null : network.emoteOf(entity.getUniqueID());
+		if (e == null || !known(e.dance)) {
+			return null;
+		}
+		// walking ends it there: no sliding dancer while the stop is on its way
+		double dx = entity.posX - entity.prevPosX;
+		double dz = entity.posZ - entity.prevPosZ;
+		return dx * dx + dz * dz > 0.0025 ? null : e;
+	}
+
+	static boolean known(String dance) {
+		for (String d : DANCES) {
+			if (d.equals(dance)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * ModelBiped.setRotationAngles, at its end: your player's pose while a dance plays. The models are
 	 * shared by every player drawn with them, and vanilla leaves a few angles and positions alone each
 	 * frame; the ones a dance moves are put back before the model draws anyone else.
 	 */
 	public void pose(ModelBiped m, Entity entity) {
-		if (playing == null || entity != Minecraft.getMinecraft().thePlayer) {
+		boolean own = entity == Minecraft.getMinecraft().thePlayer;
+		String dance;
+		float elapsed;
+		int danceSpeed;
+		if (own) {
+			dance = playing;
+			elapsed = (System.nanoTime() - startedNs) / 1e9f;
+			danceSpeed = speed.get();
+		} else {
+			NetworkClient.Emote e = remote(entity);
+			dance = e == null ? null : e.dance;
+			elapsed = e == null ? 0 : Math.max(0, System.currentTimeMillis() - e.startedAt) / 1000f;
+			danceSpeed = e == null ? 100 : e.speed;
+		}
+		if (dance == null) {
 			float[] base = touched.remove(m);
 			if (base != null) {
 				restore(m, base);
@@ -137,8 +200,7 @@ public final class Emotes extends Module {
 			base = snapshot(m);
 			touched.put(m, base);
 		}
-		float elapsed = (System.nanoTime() - startedNs) / 1e9f;
-		float t = elapsed * speed.get() / 100f;
+		float t = elapsed * danceSpeed / 100f;
 		// the dance eases in from the pose the player had
 		float w = smooth(Math.min(1, elapsed / BLEND_IN));
 		ModelRenderer[] parts = parts(m);
@@ -150,7 +212,7 @@ public final class Emotes extends Module {
 			set(parts[i], 0, 0, 0);
 		}
 		Rig rig = new Rig();
-		switch (playing) {
+		switch (dance) {
 			case "twerk":
 				twerk(m, rig, t);
 				break;
@@ -187,7 +249,7 @@ public final class Emotes extends Module {
 		ModelBiped.copyModelAngles(m.bipedHead, m.bipedHeadwear);
 		// the hand drawn in first person stays straight; the whole player bends
 		Minecraft mc = Minecraft.getMinecraft();
-		bendParts(m, mc.gameSettings.thirdPersonView != 0 || mc.currentScreen != null);
+		bendParts(m, !own || mc.gameSettings.thirdPersonView != 0 || mc.currentScreen != null);
 	}
 
 	/** Gives the model's arms, legs and body (and their outer skin layer) this frame's bends, or takes them off. */

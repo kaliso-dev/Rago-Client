@@ -25,7 +25,10 @@ import net.minecraft.client.resources.I18n;
 import net.minecraft.client.resources.IResourcePack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.IProjectile;
 import net.minecraft.entity.item.EntityArmorStand;
+import net.minecraft.entity.item.EntityTNTPrimed;
+import net.minecraft.entity.projectile.EntityFireball;
 import net.minecraft.entity.item.EntityFallingBlock;
 import net.minecraft.entity.item.EntityFireworkRocket;
 import net.minecraft.entity.item.EntityItemFrame;
@@ -141,10 +144,10 @@ public final class Optimizations {
 
 		entityDistance = s.bool(p, ENTITIES, "entity_distance", false, null);
 		hideStuckArrows = s.bool(p, ENTITIES, "hide_stuck_arrows", false, v -> applyArrowLayers());
-		playerDistance = s.slider(p, ENTITIES, "player_distance", 96, 8, 128, 8, Optimizations::blocks, null);
-		hostileDistance = s.slider(p, ENTITIES, "hostile_distance", 64, 8, 128, 8, Optimizations::blocks, null);
-		passiveDistance = s.slider(p, ENTITIES, "passive_distance", 48, 8, 128, 8, Optimizations::blocks, null);
-		otherDistance = s.slider(p, ENTITIES, "other_distance", 48, 8, 128, 8, Optimizations::blocks, null);
+		playerDistance = s.slider(p, ENTITIES, "player_distance", NO_LIMIT, 8, NO_LIMIT, 8, Optimizations::distanceLabel, null);
+		hostileDistance = s.slider(p, ENTITIES, "hostile_distance", 64, 8, NO_LIMIT, 8, Optimizations::distanceLabel, null);
+		passiveDistance = s.slider(p, ENTITIES, "passive_distance", 64, 8, NO_LIMIT, 8, Optimizations::distanceLabel, null);
+		otherDistance = s.slider(p, ENTITIES, "other_distance", 48, 8, NO_LIMIT, 8, Optimizations::distanceLabel, null);
 		for (String id : new String[] {"player_distance", "hostile_distance", "passive_distance", "other_distance"}) {
 			visibleWhen(s, id, entityDistance::get);
 		}
@@ -232,6 +235,16 @@ public final class Optimizations {
 
 	private static String blocks(int v) {
 		return I18n.format("rago.value.blocks", v);
+	}
+
+	/**
+	 * The entity distance sliders' last value: no limit, so as far as the server sends entities, and
+	 * never nearer than the game's own distance.
+	 */
+	static final int NO_LIMIT = 512;
+
+	private static String distanceLabel(int v) {
+		return v >= NO_LIMIT ? I18n.format("rago.value.unlimited") : blocks(v);
 	}
 
 	/** Applies settings that need it once the config is loaded and the game is up. */
@@ -344,7 +357,7 @@ public final class Optimizations {
 		if (hidden(e)) {
 			return 0.0;
 		}
-		if (!entityDistance.get()) {
+		if (!entityDistance.get() || incoming(e)) {
 			return null;
 		}
 		int blocks;
@@ -352,24 +365,46 @@ public final class Optimizations {
 			blocks = playerDistance.get();
 		} else if (e instanceof IMob) {
 			blocks = hostileDistance.get();
-		} else if (e instanceof EntityLivingBase && !(e instanceof EntityArmorStand)) {
+		} else if (e instanceof EntityLivingBase && !(e instanceof EntityArmorStand) || isFloatingName(e)) {
+			// animals and NPCs, with the floating names over the NPCs (Hypixel's shops, for one)
 			blocks = passiveDistance.get();
 		} else {
 			blocks = otherDistance.get();
 		}
+		return weight(blocks, e.getEntityBoundingBox(), vanilla);
+	}
+
+	/** What can hit you (arrows, fireballs, lit TNT): always drawn as far as the game draws it. */
+	private static boolean incoming(Entity e) {
+		return e instanceof IProjectile || e instanceof EntityFireball || e instanceof EntityTNTPrimed;
+	}
+
+	/**
+	 * An invisible armor stand that only carries a name, as servers put over their NPCs and
+	 * generators: kept by "hide armor stands", and drawn as far as NPCs.
+	 */
+	private static boolean isFloatingName(Entity e) {
+		return e instanceof EntityArmorStand && e.hasCustomName() && e.getAlwaysRenderNameTag();
+	}
+
+	/**
+	 * The render distance weight for {@code blocks} blocks: farther or nearer than the game's own
+	 * ({@code vanilla}), as chosen; {@link #NO_LIMIT} never nearer than the game's.
+	 */
+	static double weight(int blocks, AxisAlignedBB box, double vanilla) {
 		// Entity.isInRangeToRenderDist: distance < averageEdge * 64 * weight
-		AxisAlignedBB box = e.getEntityBoundingBox();
 		double edge = box == null ? 1 : box.getAverageEdgeLength();
 		if (Double.isNaN(edge) || edge <= 0) {
 			edge = 1;
 		}
-		return Math.min(vanilla, blocks / (edge * 64));
+		double weight = blocks / (edge * 64);
+		return blocks >= NO_LIMIT ? Math.max(vanilla, weight) : weight;
 	}
 
 	private boolean hidden(Entity e) {
 		return hideItemFrames.get() && e instanceof EntityItemFrame
 			|| hidePaintings.get() && e instanceof EntityPainting
-			|| hideArmorStands.get() && e instanceof EntityArmorStand
+			|| hideArmorStands.get() && e instanceof EntityArmorStand && !isFloatingName(e)
 			|| hideXpOrbs.get() && e instanceof EntityXPOrb
 			|| hideFireworks.get() && e instanceof EntityFireworkRocket
 			|| hideFallingBlocks.get() && e instanceof EntityFallingBlock;

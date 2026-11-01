@@ -98,6 +98,15 @@ public final class RagoTransformer implements IClassTransformer {
 				}
 				return found;
 			}));
+		add("net.minecraft.client.renderer.EntityRenderer", new Patch("no view bobbing in third person",
+			"func_78479_a", "setupCameraTransform", "(FI)V",
+			m -> afterFieldReads(m, "field_74336_f", "viewBobbing", "Z", "cameraBobbing", "(Z)Z")));
+		add("net.minecraft.client.gui.GuiScreen", new Patch("lighter menu shade behind a blurred inventory",
+			"func_146270_b", "drawWorldBackground", "(I)V",
+			RagoTransformer::menuShade));
+		add("net.minecraft.client.gui.Gui", new Patch("menu shade kept over other mods' colours",
+			"func_73733_a", "drawGradientRect", "(IIIIII)V",
+			RagoTransformer::gradientColours));
 		add("net.minecraft.util.ScreenShotHelper", new Patch("screenshot buttons",
 			"func_148259_a", "saveScreenshot",
 			"(Ljava/io/File;Ljava/lang/String;IILnet/minecraft/client/shader/Framebuffer;)Lnet/minecraft/util/IChatComponent;",
@@ -735,6 +744,55 @@ public final class RagoTransformer implements IClassTransformer {
 			}
 		}
 		return found;
+	}
+
+	/** Each read of the field {@code srg}/{@code mcp} goes through {@code Hooks.hook}, which gets and returns its value. */
+	private static boolean afterFieldReads(MethodNode m, String srg, String mcp, String fieldDesc, String hook, String hookDesc) {
+		boolean found = false;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == Opcodes.GETFIELD && fieldDesc.equals(((FieldInsnNode) insn).desc)
+				&& (srg.equals(((FieldInsnNode) insn).name) || mcp.equals(((FieldInsnNode) insn).name))) {
+				m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, hook, hookDesc, false));
+				found = true;
+			}
+		}
+		return found;
+	}
+
+	/**
+	 * The two colours of the dark gradient behind menus in a world (0xC0101010 and 0xD0101010) go
+	 * through {@code Hooks.menuShade}.
+	 */
+	private static boolean menuShade(MethodNode m) {
+		int found = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof LdcInsnNode && (Integer.valueOf(0xC0101010).equals(((LdcInsnNode) insn).cst)
+				|| Integer.valueOf(0xD0101010).equals(((LdcInsnNode) insn).cst))) {
+				m.instructions.insert(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "menuShade", "(I)I", false));
+				found++;
+			}
+		}
+		return found == 2;
+	}
+
+	/**
+	 * First thing in Gui.drawGradientRect: both colours go through {@code Hooks.menuGradient} with
+	 * the rectangle, so the shade behind a blurred inventory is the one chosen in Rago even when
+	 * another mod (PolyPatcher's container background opacity) changed the colours on the way.
+	 */
+	private static boolean gradientColours(MethodNode m) {
+		InsnList call = new InsnList();
+		for (int slot = 5; slot <= 6; slot++) {
+			for (int arg = 1; arg <= 4; arg++) {
+				call.add(new VarInsnNode(Opcodes.ILOAD, arg));
+			}
+			call.add(new VarInsnNode(Opcodes.ILOAD, slot));
+			call.add(new InsnNode(slot == 5 ? Opcodes.ICONST_1 : Opcodes.ICONST_0));
+			call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "menuGradient", "(IIIIIZ)I", false));
+			call.add(new VarInsnNode(Opcodes.ISTORE, slot));
+		}
+		m.instructions.insert(call);
+		return true;
 	}
 
 	/** The 14° tilt when the player is hurt becomes {@code Hooks.hurtShake(14)}; the death tilt is kept. */

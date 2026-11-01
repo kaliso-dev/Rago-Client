@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.9.9.** What it contains:
+**Current version: 1.10.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,24 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.10.0
+  - fixed: with Shop Anti-Misclick or Fast Shop's "no duplicates", Sharpened Swords could not be
+    bought in the team upgrades window while you held an iron sword (its icon is an iron sword).
+    Team upgrades and traps, the only things priced in diamonds, are never stopped now
+  - Bed Wars stars: each prestige has its own colours, as on Hypixel (1100 to 2000 and the 2100+
+    ones were all drawn like 1000's rainbow), with the right star symbol per range (from 1100 ✪,
+    from 2100 ⚝, from 3100 ✥)
+  - far entities: the Entities distances can now be raised past the game's (up to 512 blocks or
+    Unlimited for players); players default to Unlimited, NPCs and floating names follow "Passive
+    mobs and NPCs", the hidden armour stands are decoration only (floating names stay), "Max
+    performance" never shows fewer players or NPCs, and hitboxes show as far as the entity is
+    drawn. Name tags stay at Minecraft's 64 blocks, since they show through walls
+  - emotes are shared through Rago Network: other Rago players see yours and you see theirs
+    (option "See other players' emotes")
+  - new mod **No F5 Bobbing**: no camera sway in third person, first person keeps it
+  - new mod **Inventory Blur**: the world behind inventories, chests and Hypixel's menus is
+    blurred and less dark, with a fade as they open; the HUD stays sharp. Worked out on a picture a
+    sixteenth of the size, at most 60 times per second, only while such a window is open
 - new in 1.9.9
   - the hat's and the wings' colour settings are gone: they tinted the whole piece, could not be
     put back to the piece's own colours and fought with the neon colour. The neon colour stays the
@@ -788,7 +806,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.9.9+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.10.0+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

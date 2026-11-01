@@ -43,9 +43,10 @@ public final class PerformancePreset {
 		VALUES.put("cull_tile_entities", 1);
 		// Rago: entities
 		VALUES.put("entity_distance", 1);
-		VALUES.put("player_distance", 64);
+		// never fewer players, nor NPCs nearer than the game's distance: a disadvantage, not a saving
+		VALUES.put("player_distance", Optimizations.NO_LIMIT);
 		VALUES.put("hostile_distance", 32);
-		VALUES.put("passive_distance", 24);
+		VALUES.put("passive_distance", 64);
 		VALUES.put("other_distance", 24);
 		for (String id : new String[] {"hide_stuck_arrows", "hide_item_frames", "hide_paintings", "hide_armor_stands",
 			"hide_xp_orbs", "hide_fireworks", "hide_falling_blocks"}) {

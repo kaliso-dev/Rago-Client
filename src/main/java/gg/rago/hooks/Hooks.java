@@ -11,6 +11,8 @@ import gg.rago.modules.HitColor;
 import gg.rago.modules.HitDelayFix;
 import gg.rago.modules.BlockEditFix;
 import gg.rago.modules.NoHurtCam;
+import gg.rago.modules.NoF5Bobbing;
+import gg.rago.modules.InventoryBlur;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.Overlays;
 import gg.rago.modules.HitParticles;
@@ -63,6 +65,8 @@ public final class Hooks {
 	public static volatile OcclusionCuller culler;
 	public static volatile gg.rago.optimize.HologramBatch holograms;
 	public static volatile NoHurtCam noHurtCam;
+	public static volatile NoF5Bobbing noF5Bobbing;
+	public static volatile InventoryBlur inventoryBlur;
 	public static volatile OldAnimations animations;
 	public static volatile Overlays overlays;
 	public static volatile TabPing tabPing;
@@ -132,6 +136,27 @@ public final class Hooks {
 	public static float hurtShake(float vanilla) {
 		NoHurtCam m = noHurtCam;
 		return m != null && m.isEnabled() ? vanilla * m.strength() : vanilla;
+	}
+
+	/**
+	 * EntityRenderer.setupCameraTransform, where it reads gameSettings.viewBobbing: no bobbing in
+	 * third person with "No F5 Bobbing" on. The hand (first person) reads the setting elsewhere.
+	 */
+	public static boolean cameraBobbing(boolean vanilla) {
+		NoF5Bobbing m = noF5Bobbing;
+		return vanilla && (m == null || !m.isEnabled() || Minecraft.getMinecraft().gameSettings.thirdPersonView == 0);
+	}
+
+	/** GuiScreen.drawWorldBackground: the colours of the dark gradient behind menus in a world. */
+	public static int menuShade(int vanilla) {
+		InventoryBlur b = inventoryBlur;
+		return b != null ? b.shade(vanilla) : vanilla;
+	}
+
+	/** Gui.drawGradientRect, first thing: one of its two colours ({@code start} the top one). */
+	public static int menuGradient(int left, int top, int right, int bottom, int color, boolean start) {
+		InventoryBlur b = inventoryBlur;
+		return b != null ? b.gradient(left, top, right, bottom, color, start) : color;
 	}
 
 	/** LayerArmorBase.shouldCombineTextures: true tints armour red with the player, as in 1.7. */
@@ -379,14 +404,14 @@ public final class Hooks {
 		return h != null && h.isEnabled() && h.hideBlockBreak();
 	}
 
-	/** ModelBiped.setRotationAngles, at its end: 1.7's blocking arm, then the pose of a dance on your own player. */
+	/** ModelBiped.setRotationAngles, at its end: 1.7's blocking arm, then the pose of a dance (yours, or a Rago player's). */
 	public static void emotePose(ModelBiped model, Entity entity) {
 		OldAnimations a = animations;
 		if (a != null && a.isEnabled()) {
 			a.blockArm(model);
 		}
 		Emotes e = emotes;
-		if (e != null && (e.playing() != null || e.posed())) {
+		if (e != null && e.active()) {
 			e.pose(model, entity);
 		}
 	}

@@ -3,6 +3,8 @@ package gg.rago.modules;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class FastShopTest {
@@ -18,6 +20,16 @@ class FastShopTest {
 		assertArrayEquals(new String[] {"8", "gold"}, FastShop.price("Prix : 8 Or"));
 		assertArrayEquals(new String[] {"2", "diamond"}, FastShop.price("Kosten: 2 Diamanten"));
 		assertNull(FastShop.price("Durée : 30 secondes"));
+	}
+
+	@Test
+	void teamUpgradesArePricedInDiamonds() {
+		// Sharpened Swords is an iron sword in the upgrades window: it must not count as a sword bought twice
+		assertTrue(FastShop.isUpgradePrice(FastShop.price("Cost: 4 Diamonds")));
+		assertTrue(FastShop.isUpgradePrice(FastShop.price("Coût : 8 Diamants")));
+		assertFalse(FastShop.isUpgradePrice(FastShop.price("Cost: 7 Gold")));
+		assertFalse(FastShop.isUpgradePrice(FastShop.price("Cost: 4 Emeralds")));
+		assertFalse(FastShop.isUpgradePrice(null));
 	}
 
 	@Test

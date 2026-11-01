@@ -64,7 +64,30 @@ class HypixelTest {
 		assertEquals("§7[5✫]", Hypixel.bedwarsStar(5));
 		assertEquals("§6[250✫]", Hypixel.bedwarsStar(250));
 		assertEquals("§5[999✫]", Hypixel.bedwarsStar(999));
-		assertTrue(Hypixel.bedwarsStar(1200).startsWith("§c["));
+		// the rainbow
+		assertEquals("§c[§61§e0§a0§b0§d✫§5]", Hypixel.bedwarsStar(1000));
+	}
+
+	@Test
+	void eachPrestigeAfter1000HasItsOwnColours() {
+		// as on Hypixel's list: 1100 to 1900 grey brackets, the digits in the prestige's colour, its own star
+		assertEquals("§7[§f1100§7✪]", Hypixel.bedwarsStar(1100));
+		assertEquals("§7[§e1234§6✪§7]", Hypixel.bedwarsStar(1234));
+		assertEquals("§7[§31500§9✪§7]", Hypixel.bedwarsStar(1500));
+		assertEquals("§7[§51999§8✪§7]", Hypixel.bedwarsStar(1999));
+		assertEquals("§8[§72§f00§70✪§8]", Hypixel.bedwarsStar(2000));
+		assertEquals("§f[2§e10§60⚝]", Hypixel.bedwarsStar(2100));
+		assertEquals("§b[2§f40§70⚝§8]", Hypixel.bedwarsStar(2400));
+		assertEquals("§b[2§399§91⚝§1]", Hypixel.bedwarsStar(2991));
+		assertEquals("§e[3§600§c0⚝§4]", Hypixel.bedwarsStar(3000));
+		assertEquals('✥', Hypixel.starSymbol(3100));
+		// every 100 stars a different tag colouring, up to 10000
+		java.util.Set<String> seen = new java.util.HashSet<>();
+		for (int p = 1000; p <= 3000; p += 100) {
+			assertTrue(seen.add(Hypixel.bedwarsStar(p).replaceAll("(?<!§)\\d", "")), "prestige " + p);
+		}
+		assertEquals(Hypixel.bedwarsStar(1234), Hypixel.bedwarsStar(1234));
+		assertEquals("[12345✭]", Hypixel.bedwarsStar(12345).replaceAll("§.", ""));
 	}
 
 	@Test
