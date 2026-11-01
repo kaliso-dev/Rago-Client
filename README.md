@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.9.4.** What it contains:
+**Current version: 1.9.5.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,18 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.9.5: the home screen, second version
+  - two layouts (Settings > General > Home screen layout): Centred, the buttons in the middle and
+    the player on the left; Left, the buttons on the left and the player in the middle; Classic
+    is still there
+  - the red **Fast Play** button joins the server you play the most (time spent in a world on
+    each server, kept in config/rago-servers.json), Hypixel until another one has more; it shows
+    the server's icon, players online and ping. Singleplayer and multiplayer below it
+  - the menu video fades each frame into the next, so it moves smoothly at the menu's frame rate
+    (setting "Smooth menu video"; one more picture drawn per frame, no more decoding)
+  - "Home screen blur": off, light (default) or strong, from the glass effect's blurred copy
+  - the screen fades out in 0.17 s before the next one opens; Fast Play breathes and a light
+    crosses it every five seconds; all of it follows "Menu animations"
 - new in 1.9.4: a new home screen
   - top left, the logo, the name and the version; a greeting with the player's name; Hypixel and
     Minemen to join in one click, each with its own icon, players online and ping (the same status
@@ -746,7 +758,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.9.4+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.9.5+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

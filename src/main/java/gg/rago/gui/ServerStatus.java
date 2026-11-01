@@ -16,20 +16,21 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.text.NumberFormat;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * The servers on the home screen: their icon, players online and ping, asked with the same status
- * request as the multiplayer list (at most once a minute), and joining them.
+ * The server behind the home screen's Fast Play button: its icon, players online and ping, asked
+ * with the same status request as the multiplayer list (at most once a minute), and joining it.
  */
 final class ServerStatus {
 	/** Asked again after a minute. */
 	private static final long REFRESH_NS = 60_000_000_000L;
 
-	static final ServerStatus HYPIXEL = new ServerStatus("hypixel", "Hypixel", "mc.hypixel.net");
-	static final ServerStatus MINEMEN = new ServerStatus("minemen", "Minemen Club", "eu.minemen.club");
-	private static final ServerStatus[] ALL = {HYPIXEL, MINEMEN};
+	/** One per address asked for, kept for the session. */
+	private static final Map<String, ServerStatus> ALL = new HashMap<>();
 
 	private static final OldServerPinger PINGER = new OldServerPinger();
 	private static final ExecutorService PINGS = Executors.newSingleThreadExecutor(r -> {
@@ -48,6 +49,11 @@ final class ServerStatus {
 	private String iconData;
 	private ResourceLocation icon;
 
+	/** The status of a server, made the first time it is asked for. */
+	static ServerStatus of(String address, String name) {
+		return ALL.computeIfAbsent(address, a -> new ServerStatus("s" + ALL.size(), name, a));
+	}
+
 	private ServerStatus(String id, String name, String address) {
 		this.id = id;
 		this.name = name;
@@ -55,32 +61,30 @@ final class ServerStatus {
 		this.data = new ServerData(name, address, false);
 	}
 
-	/** Asks every server for its status unless it answered less than a minute ago. */
-	static void refresh() {
+	/** Asks the server for its status unless it was asked less than a minute ago. */
+	void refresh() {
 		long now = System.nanoTime();
-		for (ServerStatus s : ALL) {
-			if (s.asked && now - s.askedNs < REFRESH_NS) {
-				continue;
-			}
-			s.asked = true;
-			s.askedNs = now;
-			s.failed = false;
-			// unknown until the server answers (the field starts at 0, and stays there if the address cannot be found)
-			s.data.pingToServer = -1;
-			PINGS.execute(() -> {
-				try {
-					PINGER.ping(s.data);
-				} catch (Exception | LinkageError e) {
-					s.failed = true;
-				}
-			});
+		if (asked && now - askedNs < REFRESH_NS) {
+			return;
 		}
+		asked = true;
+		askedNs = now;
+		failed = false;
+		// unknown until the server answers (the field starts at 0, and stays there if the address cannot be found)
+		data.pingToServer = -1;
+		PINGS.execute(() -> {
+			try {
+				PINGER.ping(data);
+			} catch (Exception | LinkageError e) {
+				failed = true;
+			}
+		});
 	}
 
 	/** Reads the answers; call once a tick while the home screen is open. */
 	static void tick() {
 		PINGER.pingPendingNetworks();
-		for (ServerStatus s : ALL) {
+		for (ServerStatus s : ALL.values()) {
 			s.updateIcon();
 		}
 	}
@@ -88,7 +92,7 @@ final class ServerStatus {
 	/** Drops the requests still waiting (the home screen closed); they are asked again next time. */
 	static void cancel() {
 		PINGER.clearPendingNetworks();
-		for (ServerStatus s : ALL) {
+		for (ServerStatus s : ALL.values()) {
 			if (s.ping() < 0) {
 				s.asked = false;
 			}

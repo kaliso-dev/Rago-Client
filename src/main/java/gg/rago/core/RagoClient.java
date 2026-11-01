@@ -205,6 +205,12 @@ public final class RagoClient {
 	private static BooleanOption chatCopy;
 	private static IntOption uiTheme;
 	private static IntOption homeLayout;
+	private static IntOption homeBlur;
+	private static BooleanOption smoothVideo;
+	/** The home screen's layouts: buttons in the middle, buttons on the left, the classic emblem. */
+	public static final int HOME_CENTRED = 0;
+	public static final int HOME_LEFT = 1;
+	public static final int HOME_CLASSIC = 2;
 	private static IntOption teamColors;
 	private static PerformancePreset maxPerformance;
 	private static PlayPreset playPreset;
@@ -351,6 +357,7 @@ public final class RagoClient {
 		Hooks.skins = skinChanger;
 		Hooks.nickHider = nickHider;
 		Skins.load(configDir);
+		ServerPlaytime.load(configDir);
 		Hooks.glint = glint;
 		ClientCommandHandler.instance.registerCommand(new RagoCommand(hypixel, () -> openMenu = true));
 
@@ -368,6 +375,7 @@ public final class RagoClient {
 		Anim.setEnabled(menuAnimations.get());
 		Ui.setGlass(glassEffect.get());
 		Ui.setMenuVideo(menuVideo.get());
+		Ui.setSmoothVideo(smoothVideo.get());
 		UiTheme.set(uiTheme.get());
 		TextColors.set(teamColors.get());
 		optimizations.start();
@@ -416,9 +424,20 @@ public final class RagoClient {
 		openNext = screen;
 	}
 
+	/** The home screen's layout: {@link #HOME_CENTRED}, {@link #HOME_LEFT} or {@link #HOME_CLASSIC}. */
+	public static int homeLayout() {
+		return homeLayout == null ? HOME_CENTRED : homeLayout.get();
+	}
+
 	/** Whether the home screen uses its classic layout (the emblem over three buttons). */
 	public static boolean classicHome() {
-		return homeLayout != null && homeLayout.get() == 1;
+		return homeLayout() == HOME_CLASSIC;
+	}
+
+	/** How much the home screen blurs its background: 0 (off), a little, or fully. */
+	public static float homeBlur() {
+		int v = homeBlur == null ? 1 : homeBlur.get();
+		return v == 0 ? 0 : v == 1 ? 0.5f : 1;
 	}
 
 	public static String version() {
@@ -524,7 +543,10 @@ public final class RagoClient {
 		menuVideo = SETTINGS.bool(g, ui, "menu_video", true, Ui::setMenuVideo);
 		SETTINGS.choice(g, ui, "main_menu_style", () -> mainMenu.isEnabled() ? 0 : 1, i -> mainMenu.setEnabled(i == 0),
 			"rago.value.rago", "rago.value.vanilla");
-		homeLayout = SETTINGS.choice(g, ui, "home_layout", 0, null, "rago.value.home_modern", "rago.value.home_classic");
+		homeLayout = SETTINGS.choice(g, ui, "home_layout", HOME_CENTRED, null,
+			"rago.value.home_centred", "rago.value.home_left", "rago.value.home_classic");
+		homeBlur = SETTINGS.choice(g, ui, "home_blur", 1, null, "rago.value.blur_off", "rago.value.blur_light", "rago.value.blur_strong");
+		smoothVideo = SETTINGS.bool(g, ui, "smooth_video", true, Ui::setSmoothVideo);
 		SETTINGS.button(g, ui, "welcome_guide", () -> {
 			Minecraft mc = Minecraft.getMinecraft();
 			mc.displayGuiScreen(new WelcomeScreen(mc.currentScreen));
@@ -895,6 +917,7 @@ public final class RagoClient {
 			}
 		}
 		QuickJoin.tick(mc);
+		ServerPlaytime.tick(mc);
 		if (gg.rago.debug.InputTrace.on() && mc.theWorld != null && mc.theWorld.getTotalWorldTime() % 100 == 0) {
 			gg.rago.bedwars.BedwarsGame.logSidebar();
 		}

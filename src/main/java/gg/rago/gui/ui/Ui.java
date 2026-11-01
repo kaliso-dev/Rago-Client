@@ -548,8 +548,36 @@ public final class Ui {
 		float aspect = video >= 0 ? VideoBackdrop.aspect() : Backdrop.aspect();
 		float bw = Math.max(w, h * aspect) * zoom;
 		float bh = bw / aspect;
-		texturedQuad(video >= 0 ? video : Backdrop.textureId(), (w - bw) / 2 + dx, (h - bh) / 2 + dy, bw, bh, 0xFFFFFFFF);
+		float x = (w - bw) / 2 + dx;
+		float y = (h - bh) / 2 + dy;
+		int before = video >= 0 ? VideoBackdrop.previousTextureId() : -1;
+		float mix = before >= 0 ? VideoBackdrop.mix() : 1;
+		if (mix < 1) {
+			// the frame before, with the current one fading in over it: smooth at any frame rate
+			texturedQuad(before, x, y, bw, bh, 0xFFFFFFFF);
+			texturedQuad(video, x, y, bw, bh, alpha(0xFFFFFFFF, mix));
+		} else {
+			texturedQuad(video >= 0 ? video : Backdrop.textureId(), x, y, bw, bh, 0xFFFFFFFF);
+		}
 		rect(0, 0, w, h, alpha(0xFF050406, dim));
+	}
+
+	/** Whether each frame of the menu video fades into the next. */
+	public static void setSmoothVideo(boolean on) {
+		VideoBackdrop.setSmooth(on);
+	}
+
+	/**
+	 * Blurs everything drawn before {@link #captureGlass}: the glass's blurred copy of the screen,
+	 * laid over the whole screen at {@code amount} (0..1). Nothing without glass.
+	 */
+	public static void blurScreen(float amount) {
+		if (amount <= 0 || !Glass.ready() || !UiTheme.glass()) {
+			return;
+		}
+		Minecraft mc = Minecraft.getMinecraft();
+		Glass.draw(0, 0, mc.displayWidth, mc.displayHeight, 0, 0, 0, mc.displayWidth, mc.displayHeight,
+			cornerTexture().getGlTextureId(), opacity * Math.min(1, amount));
 	}
 
 	/** Whether the menu video moves; when off it shows a still frame. */

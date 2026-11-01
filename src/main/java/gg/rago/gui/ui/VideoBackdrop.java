@@ -39,6 +39,11 @@ final class VideoBackdrop {
 	private static boolean playing = true;
 	private static boolean failed;
 	private static int texture = -1;
+	/** The frame shown before {@link #texture}'s, faded into it so the clip moves at the menu's frame rate. */
+	private static int previous = -1;
+	private static int previousFrame = -1;
+	private static long uploadedNs;
+	private static boolean smooth = true;
 	private static volatile int shownFrame = -1;
 	private static long startNs;
 	private static volatile long lastDrawNs;
@@ -59,6 +64,24 @@ final class VideoBackdrop {
 		playing = on;
 	}
 
+	/** Whether each frame fades into the next (smooth at any frame rate) or is shown as it comes. */
+	static void setSmooth(boolean on) {
+		smooth = on;
+	}
+
+	/**
+	 * The frame before the one {@link #textureId} shows, or -1: drawn first, with the current one
+	 * over it at {@link #mix}, it turns the clip's 30 frames a second into a steady movement.
+	 */
+	static int previousTextureId() {
+		return smooth && playing && previousFrame >= 0 ? previous : -1;
+	}
+
+	/** How far (0..1) the current frame has faded in over the previous one: one frame's time after it came. */
+	static float mix() {
+		return Math.max(0, Math.min(1, (System.nanoTime() - uploadedNs) * FPS / 1e9f));
+	}
+
 	static float aspect() {
 		return WIDTH / (float) HEIGHT;
 	}
@@ -75,13 +98,8 @@ final class VideoBackdrop {
 		}
 		lastDrawNs = now;
 		if (texture < 0) {
-			texture = GlStateManager.generateTexture();
-			GlStateManager.bindTexture(texture);
-			GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-			GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-			GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-			GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
-			GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGB8, WIDTH, HEIGHT, 0, GL12.GL_BGR, GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
+			texture = frameTexture();
+			previous = frameTexture();
 		}
 		int due = playing ? (int) ((now - startNs) * FPS / 1_000_000_000L % FRAMES) : 0;
 		wanted = due;
@@ -90,7 +108,21 @@ final class VideoBackdrop {
 		return shownFrame < 0 ? -1 : texture;
 	}
 
-	/** Uploads the newest decoded frame that is not ahead of {@code due}. */
+	private static int frameTexture() {
+		int id = GlStateManager.generateTexture();
+		GlStateManager.bindTexture(id);
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+		GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+		GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGB8, WIDTH, HEIGHT, 0, GL12.GL_BGR, GL11.GL_UNSIGNED_BYTE, (ByteBuffer) null);
+		return id;
+	}
+
+	/**
+	 * Uploads the newest decoded frame that is not ahead of {@code due}, into the texture that held
+	 * the older of the two frames kept; the one shown until now becomes the previous frame.
+	 */
 	private static void upload(int due) {
 		int best = -1;
 		synchronized (LOCK) {
@@ -111,11 +143,21 @@ final class VideoBackdrop {
 			if (best < 0 || slotFrame[best] == shownFrame) {
 				return;
 			}
+			int older = previous;
+			previous = texture;
+			texture = older;
+			previousFrame = shownFrame;
 			GlStateManager.bindTexture(texture);
 			GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 1);
 			GL11.glTexSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0, WIDTH, HEIGHT, GL12.GL_BGR, GL11.GL_UNSIGNED_BYTE, slots[best]);
 			GL11.glPixelStorei(GL11.GL_UNPACK_ALIGNMENT, 4);
+			// a jump (the menu was away, or the decoder fell behind) is not faded
+			int step = Math.floorMod(slotFrame[best] - shownFrame, FRAMES);
+			if (shownFrame < 0 || step != 1) {
+				previousFrame = -1;
+			}
 			shownFrame = slotFrame[best];
+			uploadedNs = System.nanoTime();
 			// frames at or before the one shown are no longer needed
 			for (int i = 0; i < QUEUE; i++) {
 				if (slotFrame[i] >= 0 && Math.floorMod(shownFrame - slotFrame[i], FRAMES) <= FRAMES / 2) {
