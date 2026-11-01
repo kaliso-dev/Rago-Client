@@ -71,6 +71,9 @@ public final class Hooks {
 	public static volatile Overlays overlays;
 	public static volatile TabPing tabPing;
 	public static volatile TabList tabList;
+	public static volatile gg.rago.hud.elements.EventTimersHud eventTimers;
+	public static volatile gg.rago.hud.elements.GeneratorTimersHud genTimers;
+	private static final gg.rago.hud.TabTimers TAB_TIMERS = new gg.rago.hud.TabTimers();
 	public static volatile HitParticles hitParticles;
 	public static volatile ItemScale itemScale;
 	public static volatile ItemPhysics itemPhysics;
@@ -468,10 +471,19 @@ public final class Hooks {
 		return t != null && t.isEnabled() ? t.rectColor(vanilla) : vanilla;
 	}
 
-	/** GuiPlayerTabOverlay.renderPlayerlist: the header ({@code first}) or footer, null to hide it. */
+	/**
+	 * GuiPlayerTabOverlay.renderPlayerlist: the header ({@code first}) or footer, null to hide it.
+	 * The Bed Wars timers set to show in the tab list go under the header.
+	 */
 	public static IChatComponent tabHeaderFooter(IChatComponent text, boolean first) {
 		TabList t = tabList;
-		return t != null && t.isEnabled() ? t.headerFooter(text, first) : text;
+		IChatComponent shown = t != null && t.isEnabled() ? t.headerFooter(text, first) : text;
+		if (!first) {
+			return shown;
+		}
+		gg.rago.hud.elements.EventTimersHud events = eventTimers;
+		gg.rago.hud.elements.GeneratorTimersHud gens = genTimers;
+		return TAB_TIMERS.header(shown, events == null ? null : events.tabLine(), gens == null ? null : gens.tabLine());
 	}
 
 	/** GuiPlayerTabOverlay.renderPlayerlist: draws a name, header or footer line. */

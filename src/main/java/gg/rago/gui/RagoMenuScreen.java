@@ -398,13 +398,24 @@ public final class RagoMenuScreen extends GuiScreen {
 		Ui.click(x + 4, ey, w - 8, eh, () -> mc.displayGuiScreen(new HudEditorScreen(this)));
 	}
 
+	/** The pictures of the profiles that come with Rago, by icon id. */
+	private static final java.util.Map<String, net.minecraft.util.ResourceLocation> PROFILE_PICTURES = new java.util.HashMap<>();
+
 	private void profileRow(ModProfiles profiles, String name, float x, float y, float w) {
 		boolean active = name.equals(profiles.active());
 		float rh = 23;
 		float hv = Widgets.hoverAmount("profile:" + name, x, y, w, rh);
 		int fill = active ? 0x26FFFFFF : Ui.mix(0x0AFFFFFF, 0x16FFFFFF, hv);
 		Ui.roundBorder(x, y, w, rh, 6, fill, active ? 0x33FFFFFF : 0x12FFFFFF);
-		Ui.icon(profiles.icon(name), x + 9, y + 6, 11, active ? Theme.ACCENT : 0xFF9A98A0);
+		String icon = profiles.icon(name);
+		if (ModProfiles.isPicture(icon)) {
+			// a profile that comes with Rago: its picture, a little larger than the drawn icons
+			Ui.texture(PROFILE_PICTURES.computeIfAbsent(icon, ic -> new net.minecraft.util.ResourceLocation("rago",
+				"textures/profiles/" + ic.substring("official:".length()) + "_official.png")),
+				x + 7.5f, y + 4.5f, 14, 14, 0, 0, 1, 1, 0xFFFFFFFF);
+		} else {
+			Ui.icon(icon, x + 9, y + 6, 11, active ? Theme.ACCENT : 0xFF9A98A0);
+		}
 		boolean editing = name.equals(renaming);
 		String label = editing ? renameText + ((System.currentTimeMillis() / 500) % 2 == 0 ? "|" : "") : name;
 		Ui.text(Ui.MEDIUM, label, x + 27, y + (rh - 10 * 1.21f) / 2, 10, editing ? Theme.ACCENT : Theme.TEXT);
@@ -641,6 +652,9 @@ public final class RagoMenuScreen extends GuiScreen {
 		Ui.icon(ModuleInfo.icon(m), x + (w - is) / 2, y - lift + topH / 2 - is / 2 - 10, is, iconColor);
 		String name = fit(Ui.REGULAR, t(m.nameKey()), fourColumns ? 11.5f : 13, w - 12);
 		Ui.textCentered(Ui.REGULAR, name, x + w / 2, y - lift + topH / 2 + 14, fourColumns ? 11.5f : 13, Ui.mix(0xFFB4B2B9, Theme.TEXT, on));
+		if (ModuleInfo.fpsHungry(m)) {
+			fpsBadge(m, x + 6, y - lift + 6, inside);
+		}
 		Option<?> riskyOption = ModuleInfo.risky(m) ? null : ModuleInfo.riskyOptionOn(m);
 		if (ModuleInfo.risky(m) || riskyOption != null) {
 			// risky on Hypixel: a warning, never a lock
@@ -682,6 +696,18 @@ public final class RagoMenuScreen extends GuiScreen {
 		}
 	}
 
+	/** The yellow lightning "FPS HUNGRY" mark of a mod that can cost frames, with why on hover. */
+	private void fpsBadge(Module m, float x, float y, boolean inside) {
+		String label = t("rago.fps_hungry.title");
+		float w = 4 + 9 + 3 + Ui.textWidth(Ui.SEMIBOLD, label, 7.5f) + 5;
+		Ui.round(x, y, w, 15, 7.5f, Ui.alpha(Theme.YELLOW, 0.12f));
+		Ui.icon("zap", x + 4, y + 3, 9, Theme.YELLOW);
+		Ui.text(Ui.SEMIBOLD, label, x + 16, y + (15 - 7.5f * 1.21f) / 2, 7.5f, Theme.YELLOW);
+		if (inside && Ui.hover(x, y, w, 15)) {
+			tooltip = t("rago.fps_hungry.tooltip", t(ModuleInfo.fpsKey(m)));
+		}
+	}
+
 	private static String fit(gg.rago.gui.ui.TtfFont font, String s, float size, float max) {
 		if (Ui.textWidth(font, s, size) <= max) {
 			return s;
@@ -716,6 +742,10 @@ public final class RagoMenuScreen extends GuiScreen {
 			cy += 14;
 		}
 		cy += 8;
+		if (ModuleInfo.fpsHungry(m)) {
+			cy = noticeBox("zap", Theme.YELLOW, t("rago.fps_hungry.title"),
+				t(ModuleInfo.fpsKey(m)) + " " + t("rago.fps_hungry.note"), x, cy, w - 8) + 10;
+		}
 		if (ModuleInfo.risky(m)) {
 			cy = riskBox(t(ModuleInfo.riskKey(m.id())), x, cy, w - 8) + 10;
 		}
@@ -796,12 +826,17 @@ public final class RagoMenuScreen extends GuiScreen {
 
 	/** Why a mod is risky on Hypixel, and that Rago leaves the choice to the player. */
 	private static float riskBox(String reason, float x, float y, float w) {
-		List<String> lines = Ui.wrap(Ui.REGULAR, reason + " " + t("rago.risk.note"), 9, w - 46);
+		return noticeBox("triangle-alert", Theme.WARNING, t("rago.risk.title"), reason + " " + t("rago.risk.note"), x, y, w);
+	}
+
+	/** A framed note at the top of a mod's page: an icon and a title in {@code color}, then the text. */
+	private static float noticeBox(String icon, int color, String title, String text, float x, float y, float w) {
+		List<String> lines = Ui.wrap(Ui.REGULAR, text, 9, w - 46);
 		float h = 30 + lines.size() * 12;
-		Ui.round(x, y, w, h, 8, Ui.alpha(Theme.WARNING, 0.07f));
-		Ui.outline(x, y, w, h, 8, Ui.alpha(Theme.WARNING, 0.38f));
-		Ui.icon("triangle-alert", x + 12, y + 10, 14, Theme.WARNING);
-		Ui.text(Ui.MEDIUM, t("rago.risk.title"), x + 34, y + 9, 10, Theme.WARNING);
+		Ui.round(x, y, w, h, 8, Ui.alpha(color, 0.07f));
+		Ui.outline(x, y, w, h, 8, Ui.alpha(color, 0.38f));
+		Ui.icon(icon, x + 12, y + 10, 14, color);
+		Ui.text(Ui.MEDIUM, title, x + 34, y + 9, 10, color);
 		float ly = y + 24;
 		for (String line : lines) {
 			Ui.text(Ui.REGULAR, line, x + 34, ly, 9, 0xFFD4D2D9);

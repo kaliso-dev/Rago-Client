@@ -280,8 +280,8 @@ public final class RagoClient {
 		MODULES.register(new HeightLimitHud(configDir));
 		MODULES.register(new BlockCounterHud());
 		MODULES.register(new ItemCounterHud());
-		MODULES.register(new GeneratorTimersHud());
-		MODULES.register(new EventTimersHud());
+		Hooks.genTimers = MODULES.register(new GeneratorTimersHud());
+		Hooks.eventTimers = MODULES.register(new EventTimersHud());
 		MODULES.register(new UpgradesHud());
 		MODULES.register(new DirectionHud());
 		MODULES.register(new PackDisplayHud());
@@ -378,6 +378,7 @@ public final class RagoClient {
 		}
 		profile.markReady();
 		PROFILES.ensureDefaults(MODULES);
+		PROFILES.ensureBuiltIn(MODULES);
 		Anim.setEnabled(menuAnimations.get());
 		Ui.setGlass(glassEffect.get());
 		Ui.setMenuVideo(menuVideo.get());

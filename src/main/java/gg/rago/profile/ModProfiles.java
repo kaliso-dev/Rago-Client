@@ -21,6 +21,17 @@ public final class ModProfiles {
 		{"Default", "user"}, {"Bedwars", "bed"}, {"Practice", "swords"}, {"Skywars", "cloud"}
 	};
 
+	/**
+	 * Profiles that come with Rago, offered once to every player (new or not) without being
+	 * switched to: {name, icon, share code resource}. A player who deletes one does not get it back.
+	 */
+	static final String[][] BUILT_IN = {
+		{"qRago Official", "official:qrago", "/assets/rago/profiles/qrago_official.txt"}
+	};
+
+	/** Built-in profiles already offered to this player. */
+	private final java.util.Set<String> offered = new java.util.LinkedHashSet<>();
+
 	private final Map<String, Entry> profiles = new LinkedHashMap<>();
 	private String active = "Default";
 
@@ -47,6 +58,64 @@ public final class ModProfiles {
 			profiles.put(d[0], new Entry(d[1], copy(now)));
 		}
 		active = DEFAULTS[0][0];
+	}
+
+	/**
+	 * Adds each built-in profile not yet offered to this player, after the others, keeping the
+	 * active one: Rago's defaults with the code's changes, the personal mods as the player has them.
+	 */
+	public void ensureBuiltIn(ModuleRegistry registry) {
+		for (String[] b : BUILT_IN) {
+			offer(registry, b[0], b[1], resource(b[2]));
+		}
+	}
+
+	/**
+	 * Adds one built-in profile unless this player was already offered it. Returns false only
+	 * when the code cannot be read: the profile is then offered again by a later Rago.
+	 */
+	boolean offer(ModuleRegistry registry, String name, String icon, String code) {
+		if (offered.contains(name)) {
+			return true;
+		}
+		ProfileShare.Shared shared = ProfileShare.decode(code);
+		if (shared == null) {
+			return false;
+		}
+		offered.add(name);
+		if (!profiles.containsKey(name)) {
+			capture(registry);
+			JsonObject modules = ProfileShare.merge(ConfigStore.defaultsToJson(registry),
+				ConfigStore.modulesToJson(registry), shared.changes);
+			profiles.put(name, new Entry(icon, modules));
+		}
+		return true;
+	}
+
+	/** Whether a profile's icon is a picture that comes with Rago rather than a drawn icon. */
+	public static boolean isPicture(String icon) {
+		for (String[] b : BUILT_IN) {
+			if (b[1].equals(icon)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	static String resource(String path) {
+		try (java.io.InputStream in = ModProfiles.class.getResourceAsStream(path)) {
+			if (in == null) {
+				return null;
+			}
+			java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+			byte[] buf = new byte[4096];
+			for (int n; (n = in.read(buf)) > 0; ) {
+				out.write(buf, 0, n);
+			}
+			return new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+		} catch (java.io.IOException e) {
+			return null;
+		}
 	}
 
 	public List<String> names() {
@@ -168,11 +237,25 @@ public final class ModProfiles {
 			list.add(e.getKey(), p);
 		}
 		o.add("list", list);
+		com.google.gson.JsonArray given = new com.google.gson.JsonArray();
+		for (String name : offered) {
+			given.add(new com.google.gson.JsonPrimitive(name));
+		}
+		o.add("offered", given);
 		return o;
 	}
 
 	public void fromJson(JsonObject o) {
 		profiles.clear();
+		offered.clear();
+		JsonElement given = o.get("offered");
+		if (given != null && given.isJsonArray()) {
+			for (JsonElement e : given.getAsJsonArray()) {
+				if (e.isJsonPrimitive()) {
+					offered.add(e.getAsString());
+				}
+			}
+		}
 		JsonElement list = o.get("list");
 		if (list != null && list.isJsonObject()) {
 			for (Map.Entry<String, JsonElement> e : list.getAsJsonObject().entrySet()) {

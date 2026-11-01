@@ -22,6 +22,12 @@ final class ModuleInfo {
 	 */
 	static final Set<String> RISKY_MODULES = new HashSet<>(Arrays.asList("hit_delay_fix", "block_edit_fix", "fast_shop",
 		"auto_messages", "auto_text"));
+	/**
+	 * Mods that can cost frames while on (a pass over the whole picture, every frame or while a
+	 * window is open): marked FPS HUNGRY, with why and how to make them lighter under
+	 * {@code rago.fps_hungry.<id>}.
+	 */
+	static final Set<String> FPS_HUNGRY = new HashSet<>(Arrays.asList("inventory_blur", "motion_blur", "color_grading"));
 	static final Set<String> RISKY_OPTIONS = new HashSet<>(Arrays.asList("tnt_see_through_walls", "stats_alert_share", "sniper_gear", "trap_party"));
 
 	static {
@@ -108,6 +114,8 @@ final class ModuleInfo {
 		ICONS.put("rago_network", "globe");
 		ICONS.put("game_debrief", "image");
 		ICONS.put("overlays", "paintbrush");
+		ICONS.put("inventory_blur", "droplet");
+		ICONS.put("no_f5_bobbing", "camera");
 	}
 
 	private ModuleInfo() {
@@ -125,6 +133,16 @@ final class ModuleInfo {
 
 	static String descKey(Module m) {
 		return "rago.module." + m.id() + ".desc";
+	}
+
+	/** Whether the mod can cost frames while it is on. */
+	static boolean fpsHungry(Module m) {
+		return FPS_HUNGRY.contains(m.id());
+	}
+
+	/** Why a mod costs frames, and how to make it lighter. */
+	static String fpsKey(Module m) {
+		return "rago.fps_hungry." + m.id();
 	}
 
 	/** Whether the whole mod is risky on Hypixel. */

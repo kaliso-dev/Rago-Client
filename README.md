@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.10.1.** What it contains:
+**Current version: 1.10.2.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,17 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.10.2
+  - a "qRago Official" profile comes with Rago: it is added to everyone's profile list (after
+    their own profiles, with qRago's skin as its picture) but never switched to on its own. Your
+    personal mods (cape, cosmetics, messages) stay yours when you switch to it, and a deleted one
+    does not come back. Only this built-in profile shows the picture: a shared code cannot bring it
+  - mods that can cost frames (Inventory Blur, Motion Blur, Colour Grading) carry a yellow
+    lightning "FPS HUNGRY" mark in the menu, with why on hover, and their page says why and how to
+    make them lighter
+  - Event Timers and Generator Timers have "Show in: HUD, Tab list or Both". In the tab list the
+    timers show at the top of the player list while you hold Tab, with nothing on the screen; the
+    lines are made again at most once a second, never per frame
 - new in 1.10.1
   - Inventory Blur is now a true Gaussian blur worked out by the graphics card (a shader, two
     passes on a picture half the size), smooth and without the blocky look of the first version.
@@ -815,7 +826,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.10.1+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.10.2+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

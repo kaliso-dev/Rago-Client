@@ -3,24 +3,36 @@ package gg.rago.hud.elements;
 import gg.rago.bedwars.BedwarsGame;
 import gg.rago.bedwars.GameEvents;
 import gg.rago.config.BooleanOption;
+import gg.rago.config.ChoiceOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
+import gg.rago.hud.TabTimers;
 import gg.rago.hud.TextHudElement;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.world.World;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Bed Wars event timers: how long until Diamond II, Emerald II, Diamond III, Emerald III, the
  * beds going, sudden death and the end of the game. The sidebar's countdown to the next event sets
  * the game clock twice a second; the events after it follow Hypixel's usual schedule. The text is
- * rebuilt once a second, never per frame.
+ * rebuilt once a second, never per frame. Shown on the screen, in the tab list ({@link TabTimers}),
+ * or both.
  */
 public final class EventTimersHud extends TextHudElement {
 	/** What the editor shows: a game 3:23 in. */
 	private static final int SAMPLE_ELAPSED = 3 * 60 + 23;
 
+	{
+		section("timers"); // after the style and background of every HUD element
+	}
+
+	/** Where the timers show: "hud", "tab" (the tab list, nothing on the screen) or "both". */
+	private final ChoiceOption display = addOption(new ChoiceOption("timers_display", "hud", "hud", "tab", "both"));
 	private final BooleanOption diamonds = addOption(new BooleanOption("events_diamond", true));
 	private final BooleanOption emeralds = addOption(new BooleanOption("events_emerald", true));
 	private final BooleanOption beds = addOption(new BooleanOption("events_bed_gone", true));
@@ -40,6 +52,9 @@ public final class EventTimersHud extends TextHudElement {
 	private int otherAt;
 	private int shownSecond = -1;
 	private String text = "";
+	/** The tab list's lines, or null when there is nothing to add there. */
+	private String tabText;
+	private final List<String> entries = new ArrayList<>();
 
 	public EventTimersHud() {
 		super("event_timers", FeatureClass.INFORMATIONAL, false, Anchor.MIDDLE_LEFT, 4, 0);
@@ -64,6 +79,7 @@ public final class EventTimersHud extends TextHudElement {
 			elapsed = -1;
 			other = null;
 			text = "";
+			tabText = null;
 			shownSecond = -1;
 		}
 		if (w == null || ticks % 10 != 0) {
@@ -73,6 +89,7 @@ public final class EventTimersHud extends TextHudElement {
 			elapsed = -1;
 			other = null;
 			text = "";
+			tabText = null;
 			return;
 		}
 		GameEvents.Reading r = GameEvents.read(BedwarsGame.eventLine());
@@ -88,6 +105,7 @@ public final class EventTimersHud extends TextHudElement {
 		if (second != shownSecond || second < 0 && other != null) {
 			shownSecond = second;
 			text = build(second, false);
+			tabText = display.is("hud") ? null : TabTimers.lines(entries);
 		}
 	}
 
@@ -96,8 +114,9 @@ public final class EventTimersHud extends TextHudElement {
 		return elapsed < 0 ? -1 : elapsed + (ticks - readAt) / 20;
 	}
 
+	/** The timers, one to a line; {@link #entries} keeps them for the tab list. */
 	private String build(int now, boolean placeholder) {
-		StringBuilder b = new StringBuilder();
+		entries.clear();
 		int rows = 0;
 		if (now >= 0) {
 			for (GameEvents.Event e : GameEvents.SCHEDULE) {
@@ -107,24 +126,27 @@ public final class EventTimersHud extends TextHudElement {
 				if (nextOnly.get() && rows == 2) {
 					break;
 				}
-				row(b, name(e), color(e.kind), e.at - now);
+				entries.add(row(name(e), color(e.kind), e.at - now));
 				rows++;
 			}
 		} else if (other != null && !placeholder) {
-			row(b, other.label, "§e", other.left - (ticks - otherAt) / 20);
+			entries.add(row(other.label, "§e", other.left - (ticks - otherAt) / 20));
 		}
-		return b.toString();
+		return String.join("\n", entries);
 	}
 
-	private void row(StringBuilder b, String name, String color, int left) {
-		if (b.length() > 0) {
-			b.append('\n');
-		}
-		if (colors.get()) {
-			b.append(color).append(name).append(" §f").append(GameEvents.clock(left));
-		} else {
-			b.append(name).append(' ').append(GameEvents.clock(left));
-		}
+	private String row(String name, String color, int left) {
+		return colors.get() ? color + name + " §f" + GameEvents.clock(left) : name + ' ' + GameEvents.clock(left);
+	}
+
+	@Override
+	public boolean onScreen() {
+		return !display.is("tab");
+	}
+
+	/** The lines to add to the tab list, or null. */
+	public String tabLine() {
+		return isEnabled() ? tabText : null;
 	}
 
 	private boolean shown(GameEvents.Kind kind) {

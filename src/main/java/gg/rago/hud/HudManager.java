@@ -47,7 +47,7 @@ public final class HudManager {
 		ScaledResolution window = HudText.resolution();
 		shown.clear();
 		for (HudElement element : elements()) {
-			if (element.isEnabled() && (!onlyVanilla || element.replacesVanilla()) && element.hasContent()) {
+			if (element.isEnabled() && element.onScreen() && (!onlyVanilla || element.replacesVanilla()) && element.hasContent()) {
 				shown.add(element);
 			}
 		}

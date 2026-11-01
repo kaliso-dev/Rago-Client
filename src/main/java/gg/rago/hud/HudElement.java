@@ -82,6 +82,11 @@ public abstract class HudElement extends Module {
 		return true;
 	}
 
+	/** Whether the element is drawn on the screen at all: false when it is shown elsewhere (the tab list). */
+	public boolean onScreen() {
+		return true;
+	}
+
 	/** Draws text in the chosen font, with or without shadow as configured. */
 	protected final void drawText(FontRenderer text, String s, float x, float y, int color) {
 		HudText.draw(font.get(), s, x, y, color, shadow.get());

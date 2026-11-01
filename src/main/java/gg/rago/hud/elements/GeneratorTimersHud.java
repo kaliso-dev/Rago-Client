@@ -8,11 +8,13 @@ import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
+import gg.rago.hud.TabTimers;
 import gg.rago.render.HudText;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityArmorStand;
 import net.minecraft.init.Items;
@@ -27,13 +29,20 @@ import java.util.List;
  * Bed Wars diamond and emerald generator timers, read from the floating text above the generators
  * ("Diamond", "Tier II", "Spawns in 23 seconds"). The text is read every few ticks while a
  * generator is in range; out of range, the last time read keeps counting down and starts over with
- * the length of the cycle seen for that tier.
+ * the length of the cycle seen for that tier. Shown on the screen, in the tab list
+ * ({@link TabTimers}), or both.
  */
 public final class GeneratorTimersHud extends HudElement {
 	private static final int ROW = 17;
 	private static final int ICON = 16;
 	private static final String[] TIERS = {"", "I", "II", "III", "IV"};
 
+	{
+		section("timers"); // after the style and background of every HUD element
+	}
+
+	/** Where the timers show: "hud", "tab" (the tab list, nothing on the screen) or "both". */
+	private final ChoiceOption display = addOption(new ChoiceOption("timers_display", "hud", "hud", "tab", "both"));
 	private final BooleanOption showDiamonds = addOption(new BooleanOption("gen_diamonds", true));
 	private final BooleanOption showEmeralds = addOption(new BooleanOption("gen_emeralds", true));
 	private final BooleanOption showTier = addOption(new BooleanOption("gen_tier", true));
@@ -50,6 +59,10 @@ public final class GeneratorTimersHud extends HudElement {
 	private final List<Gen> sample = new ArrayList<>(2);
 	private World world;
 	private int ticks;
+	/** The tab list's line, or null; made again only when what it says changes. */
+	private String tabText;
+	private int tabKey = Integer.MIN_VALUE;
+	private final List<String> tabEntries = new ArrayList<>(2);
 
 	public GeneratorTimersHud() {
 		super("gen_timers", FeatureClass.INFORMATIONAL, false, Anchor.MIDDLE_LEFT, 4, -50);
@@ -101,6 +114,7 @@ public final class GeneratorTimersHud extends HudElement {
 			emerald.seconds = -1;
 		}
 		fill(live, false);
+		updateTab();
 		if (world == null || ticks % 5 != 0) {
 			return;
 		}
@@ -153,6 +167,43 @@ public final class GeneratorTimersHud extends HudElement {
 		}
 		stands.clear();
 		fill(live, false);
+	}
+
+	/** The tab list's line, made again when a timer's second, a tier or the rows shown change. */
+	private void updateTab() {
+		if (display.is("hud") || live.isEmpty()) {
+			tabText = null;
+			tabKey = Integer.MIN_VALUE;
+			return;
+		}
+		int key = 1;
+		for (Gen g : live) {
+			key = key * 31 + (g == diamond ? 1 : 2);
+			key = key * 31 + g.left(ticks);
+			key = key * 31 + g.tier;
+		}
+		key = key * 31 + (showTier.get() ? 1 : 0);
+		key = key * 31 + (format.is("clock") ? 1 : 0);
+		if (key == tabKey && tabText != null) {
+			return;
+		}
+		tabKey = key;
+		tabEntries.clear();
+		for (Gen g : live) {
+			tabEntries.add((g == diamond ? "§b" : "§a") + I18n.format(g == diamond ? "rago.events.diamond" : "rago.events.emerald")
+				+ (showTier.get() && g.tier > 0 ? " " + TIERS[g.tier] : "") + " §f" + time(g.left(ticks)));
+		}
+		tabText = TabTimers.lines(tabEntries);
+	}
+
+	@Override
+	public boolean onScreen() {
+		return !display.is("tab");
+	}
+
+	/** The line to add to the tab list, or null. */
+	public String tabLine() {
+		return isEnabled() ? tabText : null;
 	}
 
 	private void read(Gen gen, int seconds, int tier) {
@@ -211,7 +262,7 @@ public final class GeneratorTimersHud extends HudElement {
 	private String text(Gen g, boolean placeholder) {
 		int s = placeholder ? (g == diamond ? 23 : 41) : g.left(ticks);
 		int tier = placeholder ? 2 : g.tier;
-		String time = format.is("clock") ? s / 60 + ":" + (s % 60 < 10 ? "0" : "") + s % 60 : s + "s";
+		String time = time(s);
 		StringBuilder b = new StringBuilder();
 		if (!showIcons.get()) {
 			b.append(g.name).append(' ');
@@ -220,6 +271,10 @@ public final class GeneratorTimersHud extends HudElement {
 			b.append(TIERS[tier]).append(' ');
 		}
 		return b.append(time).toString();
+	}
+
+	private String time(int s) {
+		return format.is("clock") ? s / 60 + ":" + (s % 60 < 10 ? "0" : "") + s % 60 : s + "s";
 	}
 
 	@Override
