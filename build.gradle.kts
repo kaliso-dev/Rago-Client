@@ -75,36 +75,52 @@ val optifineJar = fileTree("libs/optifine") { include("OptiFine*.jar") }.files.s
 // Rago's Accounts screen uses it for the Microsoft sign-in.
 val iasJar = fileTree("libs/ias") { include("InGameAccountSwitcher*.jar") }.files.sortedBy { it.name }.lastOrNull()
 
-// PolyPatcher (CC BY-NC-SA 4.0, see libs/patcher/README.md) is bundled unmodified the same way. It is
-// downloaded from Modrinth at build time and checked against its published SHA-512, so the
-// repository never stores it; -PnoPatcher builds without it.
+// Downloads a jar Rago bundles unmodified (from Modrinth) at build time, checked against its
+// published SHA-512, so the repository never stores it.
+fun verifiedDownload(task: String, url: String, sha512: String, out: Provider<RegularFile>, wanted: Boolean) =
+    tasks.register(task) {
+        onlyIf { wanted }
+        outputs.file(out)
+        doLast {
+            val file = out.get().asFile
+            fun sha512Of(f: File) = MessageDigest.getInstance("SHA-512").digest(f.readBytes())
+                .joinToString("") { "%02x".format(it) }
+            if (file.isFile && sha512Of(file) == sha512) {
+                return@doLast
+            }
+            file.parentFile.mkdirs()
+            val tmp = File(file.parentFile, "${file.name}.part")
+            URI(url).toURL().openStream().use { input -> tmp.outputStream().use { input.copyTo(it) } }
+            val got = sha512Of(tmp)
+            if (got != sha512) {
+                tmp.delete()
+                throw GradleException("${file.name} from Modrinth has SHA-512 $got, expected $sha512")
+            }
+            tmp.renameTo(file)
+        }
+    }
+
+// PolyPatcher (CC BY-NC-SA 4.0, see libs/patcher/README.md) is bundled unmodified the same way as
+// OptiFine; -PnoPatcher builds without it.
 val patcherName = "PolyPatcher-1.8.9-forge-1.10.4.jar"
-val patcherUrl = "https://cdn.modrinth.com/data/YknNc5nN/versions/iNjGeSxM/$patcherName"
-val patcherSha512 = "dc4979fce67d4e1c18143bb369ef0f597438a925baa47cea30aebb027b813a2520fe16e58f6eb4a55e80a8d22bfab86f100009e9a2b35fdd9d219564e300d0b4"
 val patcherFile = layout.buildDirectory.file("patcher/$patcherName")
 val bundlePatcher = !project.hasProperty("noPatcher")
+val downloadPatcher = verifiedDownload("downloadPatcher",
+    "https://cdn.modrinth.com/data/YknNc5nN/versions/iNjGeSxM/$patcherName",
+    "dc4979fce67d4e1c18143bb369ef0f597438a925baa47cea30aebb027b813a2520fe16e58f6eb4a55e80a8d22bfab86f100009e9a2b35fdd9d219564e300d0b4",
+    patcherFile, bundlePatcher)
 
-val downloadPatcher by tasks.registering {
-    onlyIf { bundlePatcher }
-    outputs.file(patcherFile)
-    doLast {
-        val out = patcherFile.get().asFile
-        fun sha512(f: File) = MessageDigest.getInstance("SHA-512").digest(f.readBytes())
-            .joinToString("") { "%02x".format(it) }
-        if (out.isFile && sha512(out) == patcherSha512) {
-            return@doLast
-        }
-        out.parentFile.mkdirs()
-        val tmp = File(out.parentFile, "$patcherName.part")
-        URI(patcherUrl).toURL().openStream().use { input -> tmp.outputStream().use { input.copyTo(it) } }
-        val got = sha512(tmp)
-        if (got != patcherSha512) {
-            tmp.delete()
-            throw GradleException("$patcherName from Modrinth has SHA-512 $got, expected $patcherSha512")
-        }
-        tmp.renameTo(out)
-    }
-}
+// Phosphor Legacy Forge version 7 (GPL-3.0, see libs/phosphor/README.md), a rewrite of the game's
+// light engine, is bundled unmodified too, but packed outside ContainedDeps: Rago starts it itself
+// (gg.rago.asm.BundledPhosphor), so a copy the player installed is not loaded twice.
+// -PnoPhosphor builds without it.
+val phosphorName = "Phosphor-Legacy-Forge-1.8.9-7.jar"
+val phosphorFile = layout.buildDirectory.file("phosphor/$phosphorName")
+val bundlePhosphor = !project.hasProperty("noPhosphor")
+val downloadPhosphor = verifiedDownload("downloadPhosphor",
+    "https://cdn.modrinth.com/data/oCBQFmrZ/versions/iECFoMt9/phosphor-universal.jar",
+    "18f4437026b29127e4439b92b27eeb4d596bdb44bfd37e358c213ec9b7ebd26705f138b2e475546f02f2127f0ee4a4807c4e3356a86df9015df0b4cd55a0aa73",
+    phosphorFile, bundlePhosphor)
 
 // The jar is both a Forge mod and a coremod: the transformer raises the menu frame-rate cap
 tasks.jar {
@@ -113,7 +129,7 @@ tasks.jar {
         "FMLCorePluginContainsFMLMod" to "true",
         "ForceLoadAsMod" to "true",
     )
-    dependsOn(downloadPatcher)
+    dependsOn(downloadPatcher, downloadPhosphor)
     val patcherJar = if (bundlePatcher) patcherFile.get().asFile else null
     val contained = listOfNotNull(optifineJar, iasJar, patcherJar)
     contained.forEach { from(it) }
@@ -121,6 +137,15 @@ tasks.jar {
         from("libs/patcher") {
             include("LICENSE.md", "README.md")
             into("META-INF/licenses/polypatcher")
+        }
+    }
+    if (bundlePhosphor) {
+        from(phosphorFile) {
+            into("META-INF/rago/bundled")
+        }
+        from("libs/phosphor") {
+            include("LICENSE.txt", "README.md")
+            into("META-INF/licenses/phosphor")
         }
     }
     if (iasJar != null) {
