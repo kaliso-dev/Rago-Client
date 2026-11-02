@@ -1,16 +1,21 @@
 package gg.rago.gui;
 
+import gg.rago.accounts.Skins;
 import gg.rago.bedwars.Debrief;
 import gg.rago.core.RagoClient;
 import gg.rago.gui.ui.Anim;
 import gg.rago.gui.ui.Ui;
 import gg.rago.gui.ui.Widgets;
+import gg.rago.hooks.Hooks;
 import gg.rago.modules.GameDebrief;
+import gg.rago.modules.NickHider;
 import gg.rago.modules.Screenshots;
+import gg.rago.modules.SkinChanger;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.texture.TextureUtil;
+import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.resources.IResourceManager;
 import net.minecraft.util.ResourceLocation;
@@ -20,14 +25,18 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 /**
  * The debrief of your Bed Wars games of this session: the picture of one game (the last at first,
  * the arrows go back), which can be copied to paste into Discord or saved in the screenshots folder.
+ * The picture is drawn on a thread of its own (the game goes on meanwhile), with the game's font,
+ * icons and your skin read once when the screen opens, and again when the game's stats arrive late.
  */
 public final class DebriefScreen extends GuiScreen {
 	private static final ResourceLocation CARD = new ResourceLocation("rago", "debrief_card");
@@ -36,7 +45,12 @@ public final class DebriefScreen extends GuiScreen {
 	private final long openedNs = System.nanoTime();
 	private int index;
 	private BufferedImage image;
+	/** The game and version of the picture drawn or being drawn; whether one is being drawn; whether the screen is gone. */
 	private int shown = -1;
+	private int shownVersion = -1;
+	private boolean drawing;
+	private boolean closed;
+	private CardArt art;
 	private String message;
 	private boolean messageError;
 	private long messageNs;
@@ -85,6 +99,9 @@ public final class DebriefScreen extends GuiScreen {
 		Ui.round(x - 1, y - 1, iw + 2, ih + 2, 7, Theme.BORDER_STRONG);
 		if (image != null) {
 			Ui.texture(CARD, x, y, iw, ih, 0, 0, 1, 1, Ui.fade(0xFFFFFFFF));
+		} else {
+			Ui.round(x, y, iw, ih, 6, Ui.fade(0xFF0B0A0D));
+			Ui.textCentered(Ui.MEDIUM, t("rago.debrief.drawing"), w / 2, y + ih / 2 - 5, 10, Theme.MUTED);
 		}
 
 		// the buttons
@@ -140,28 +157,125 @@ public final class DebriefScreen extends GuiScreen {
 		messageNs = System.nanoTime();
 	}
 
-	/** Draws the picture of the game shown, once per game. */
+	/**
+	 * Draws the picture of the game shown, on another thread: once per game, and again when its
+	 * stats change (Hypixel saves the game a little after it ends). The last picture stays shown
+	 * until the new one is ready.
+	 */
 	private void show(List<Debrief> games) {
-		if (shown == index && image != null) {
+		Debrief d = games.get(index);
+		if (drawing || shown == index && shownVersion == d.version()) {
 			return;
 		}
 		shown = index;
+		shownVersion = d.version();
 		int wins = 0;
 		int finals = 0;
-		for (Debrief d : games) {
-			wins += d.result() == Debrief.Result.WIN ? 1 : 0;
-			finals += d.finalKills();
+		for (Debrief g : games) {
+			wins += g.result() == Debrief.Result.WIN ? 1 : 0;
+			finals += g.finalKills();
 		}
+		DebriefCard.Session session = new DebriefCard.Session(games.size(), wins, finals);
+		Locale locale = locale();
+		boolean signature = module.signature();
+		CardArt withSkin;
+		String name;
 		try {
-			Locale locale = locale();
-			image = DebriefCard.render(games.get(index), new DebriefCard.Session(games.size(), wins, finals), I18n::format, locale, module.signature());
-			mc.getTextureManager().deleteTexture(CARD);
-			mc.getTextureManager().loadTexture(CARD, new CardTexture(image));
+			if (art == null) {
+				art = CardArt.load(this::resource, null, false);
+			}
+			withSkin = skinFor(d);
+			name = Hooks.nickPlain(d.player);
 		} catch (RuntimeException | LinkageError e) {
-			RagoClient.LOG.warn("Could not draw the debrief", e);
-			image = null;
-			say(t("rago.debrief.failed"), true);
+			RagoClient.LOG.warn("Could not read the debrief's pictures", e);
+			withSkin = null;
+			name = d.player;
 		}
+		CardArt a = withSkin;
+		String n = name;
+		int forIndex = index;
+		int forVersion = shownVersion;
+		drawing = true;
+		Thread worker = new Thread(() -> {
+			BufferedImage img;
+			try {
+				img = DebriefCard.render(d, session, I18n::format, locale, signature, a, n);
+			} catch (RuntimeException | LinkageError e) {
+				RagoClient.LOG.warn("Could not draw the debrief", e);
+				img = null;
+			}
+			BufferedImage done = img;
+			mc.addScheduledTask(() -> shown(done, forIndex, forVersion));
+		}, "Rago debrief picture");
+		worker.setDaemon(true);
+		worker.start();
+	}
+
+	/** A picture is ready (null: it failed): shown unless the screen closed or moved to another game meanwhile. */
+	private void shown(BufferedImage img, int forIndex, int forVersion) {
+		drawing = false;
+		if (closed) {
+			return;
+		}
+		if (img == null) {
+			say(t("rago.debrief.failed"), true);
+			return;
+		}
+		if (forIndex != index) {
+			return; // the next frame draws the game shown now
+		}
+		image = img;
+		mc.getTextureManager().deleteTexture(CARD);
+		mc.getTextureManager().loadTexture(CARD, new CardTexture(img));
+	}
+
+	/** A file of the game's resources (the resource pack's when it has one), or null. */
+	private InputStream resource(String path) {
+		try {
+			return mc.getResourceManager().getResource(new ResourceLocation("minecraft", path)).getInputStream();
+		} catch (IOException | RuntimeException e) {
+			return null;
+		}
+	}
+
+	/**
+	 * The pictures with the skin your player shows: the Nick Hider's while it hides you, the locker
+	 * skin you wear, your account's, else Minecraft's default one for your account. A game played on
+	 * another account of this session gets the default skin.
+	 */
+	private CardArt skinFor(Debrief d) {
+		String me = mc.getSession().getUsername();
+		if (me == null || !me.equals(d.player)) {
+			return art.withSkin(null, false);
+		}
+		NickHider nick = Hooks.nickHider;
+		if (nick != null && nick.isEnabled()) {
+			switch (nick.skinChoice()) {
+				case "steve":
+					return art.withSkin(null, false);
+				case "alex":
+					return art.withSkin(null, true);
+				case "locker":
+					Skins.Skin s = Skins.find(nick.lockerSkinName());
+					if (s != null && s.image() != null) {
+						return art.withSkin(s.image(), s.slim);
+					}
+					break;
+				default:
+					break;
+			}
+		}
+		SkinChanger changer = Hooks.skins;
+		Skins.Skin worn = changer != null && changer.isEnabled() ? Skins.worn() : null;
+		if (worn != null && worn.image() != null) {
+			return art.withSkin(worn.image(), worn.slim);
+		}
+		Skins.Skin account = Skins.account();
+		if (account != null && account.image() != null) {
+			return art.withSkin(account.image(), account.slim);
+		}
+		UUID id = mc.thePlayer != null ? mc.thePlayer.getUniqueID() : RagoClient.ownId();
+		return art.withSkin(null, id != null && "slim".equals(DefaultPlayerSkin.getSkinType(id)));
 	}
 
 	/** The game's language as a locale ("fr_FR" gives French numbers and dates). */
@@ -223,6 +337,7 @@ public final class DebriefScreen extends GuiScreen {
 
 	@Override
 	public void onGuiClosed() {
+		closed = true;
 		mc.getTextureManager().deleteTexture(CARD);
 		image = null;
 	}

@@ -107,6 +107,38 @@ class HypixelTest {
 	}
 
 	@Test
+	void ranksAsHypixelShowsThem() {
+		assertEquals("§b[MVP§c+§b]", rank("{\"newPackageRank\":\"MVP_PLUS\"}"), "the plus is red unless chosen");
+		assertEquals("§b[MVP§2+§b]", rank("{\"newPackageRank\":\"MVP_PLUS\",\"rankPlusColor\":\"DARK_GREEN\"}"));
+		assertEquals("§6[MVP§c++§6]", rank("{\"newPackageRank\":\"MVP_PLUS\",\"monthlyPackageRank\":\"SUPERSTAR\"}"));
+		assertEquals("§b[MVP§d++§b]", rank("{\"monthlyPackageRank\":\"SUPERSTAR\",\"monthlyRankColor\":\"AQUA\",\"rankPlusColor\":\"LIGHT_PURPLE\"}"));
+		assertEquals("§b[MVP§c+§b]", rank("{\"newPackageRank\":\"MVP_PLUS\",\"monthlyPackageRank\":\"NONE\"}"), "MVP++ ran out");
+		assertEquals("§a[VIP§6+§a]", rank("{\"newPackageRank\":\"VIP_PLUS\"}"));
+		assertEquals("§a[VIP]", rank("{\"packageRank\":\"VIP\"}"), "an old account");
+		assertEquals("§c[§fYOUTUBE§c]", rank("{\"rank\":\"YOUTUBER\",\"newPackageRank\":\"MVP_PLUS\"}"));
+		assertEquals("§c[OWNER]", rank("{\"prefix\":\"§c[OWNER]\",\"rank\":\"ADMIN\"}"));
+		assertEquals("", rank("{\"rank\":\"NORMAL\"}"));
+		assertEquals("", rank("{}"));
+	}
+
+	private static String rank(String player) {
+		return HypixelApi.parse(new JsonParser().parse("{\"player\":" + player + "}"), 0).rank();
+	}
+
+	@Test
+	void careerNumbersForTheDebrief() {
+		HypixelApi.Stats s = HypixelApi.parse(new JsonParser().parse("{\"player\":{\"stats\":{\"Bedwars\":{\"Experience\":1512800.0,"
+			+ "\"beds_lost_bedwars\":30,\"beds_broken_bedwars\":45,\"kills_bedwars\":900,\"deaths_bedwars\":700,\"games_played_bedwars\":200}}}}"), 0);
+		assertEquals(1_512_800, s.xp);
+		assertEquals(1.5, s.bblr(), 1e-9);
+		assertEquals(900, s.kills);
+		assertEquals(700, s.deaths);
+		assertEquals(200, s.games);
+		assertTrue(s.career());
+		assertTrue(Double.isNaN(new HypixelApi.Stats(0, 1, true, 0, 0, 0, 0, 0, -1, 0, false).bblr()), "stats from an older Rago");
+	}
+
+	@Test
 	void dangerLevels() {
 		assertEquals(1, Danger.level(0.6, 79));
 		assertEquals(2, Danger.level(1.5, 150));

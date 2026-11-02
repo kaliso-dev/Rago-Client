@@ -1,21 +1,29 @@
 package gg.rago.bedwars;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Follows one Bed Wars game for its debrief, from the chat lines, the sidebar and your bed, and
- * hands the {@link Debrief} over when the game ends. Only lines about you count: your kills (a
- * death line that names you after the victim), your deaths (a line that starts with your name)
- * and the beds you break; your team's upgrades are kept for the timeline.
+ * hands the {@link Debrief} over when the game ends. Your kills (a death line that names you
+ * after the victim), your deaths (a line that starts with your name) and the beds you break make
+ * the debrief; your team's upgrades are kept for the timeline. Every death line also gives its
+ * killer a kill on the game's leaderboard.
  */
 public final class DebriefTracker {
 	/** Hypixel's own counts at the bottom of the sidebar in some modes: "Kills: 3". */
 	private static final Pattern COUNTER = Pattern.compile("^(Kills|Final Kills|Beds Broken)\\s*:\\s*(\\d+)$");
 	/** The waiting room's map line: "Map: Lighthouse". */
 	private static final Pattern MAP = Pattern.compile("^(?:Map|Carte|Karte|Mapa|Mappa)\\s*:\\s*(.+)$");
+	/**
+	 * Hypixel's top killers after the game: "1st Killer - [MVP+] Name - 12" (and the same in other
+	 * languages: a place, a word or two, the name and the kills).
+	 */
+	private static final Pattern TOP_KILLER = Pattern.compile("^([1-3])\\S{0,3}\\s+\\p{L}[\\p{L} ]{1,20}?\\s+-\\s+(?:\\[[^\\]]{1,20}\\]\\s+)?(\\w{1,16})\\s+-\\s+(\\d{1,4})$");
 	/** A death in the void, in the languages Hypixel's death lines use. */
 	private static final Pattern VOID = Pattern.compile("(?i)(^|[^\\p{L}])(void|vide|leere|vac[ií]o|vuoto)($|[^\\p{L}])");
 
@@ -53,14 +61,42 @@ public final class DebriefTracker {
 		}
 	}
 
+	/** Your Bed Wars career from the Hypixel API when the game started. */
+	public void statsBefore(Debrief.Career career) {
+		if (game != null && career != null) {
+			game.before = career;
+			game.fkdrBefore = career.fkdr();
+			game.starBefore = career.star;
+		}
+	}
+
+	/** Your team's colour code ('c' for red) and how many players the teams have now. */
+	public void teams(char ownColor, int players) {
+		if (game != null) {
+			if (ownColor != 0) {
+				game.teamColor = ownColor;
+			}
+			game.players = Math.max(game.players, players);
+		}
+	}
+
 	/** The game's result once known after all: a team that wins after your final death. */
 	public static void result(Debrief d, Debrief.Result result) {
 		d.result = result;
+		d.touch();
 	}
 
 	/** Your final kill ratio once Hypixel has saved the game. */
 	public static void statsAfter(Debrief d, double fkdr) {
 		d.fkdrAfter = fkdr;
+		d.touch();
+	}
+
+	/** Your Bed Wars career once Hypixel has saved the game. */
+	public static void statsAfter(Debrief d, Debrief.Career career) {
+		d.after = career;
+		d.fkdrAfter = career.fkdr();
+		d.touch();
 	}
 
 	private int at(long now) {
@@ -72,9 +108,15 @@ public final class DebriefTracker {
 	 * a death line starts with its victim's name.
 	 */
 	public void chat(String line, String name, Set<String> players, long now) {
+		chat(line, name, players, Collections.emptyMap(), now);
+	}
+
+	/** {@link #chat(String, String, Set, long)}, with each player's team colour code for the leaderboard. */
+	public void chat(String line, String name, Set<String> players, Map<String, Character> colors, long now) {
 		if (game == null || line.isEmpty()) {
 			return;
 		}
+		countKill(game, line, players, colors);
 		int at = at(now);
 		Debrief.Kind kill = ownKill(line, name, players);
 		if (kill != null) {
@@ -157,6 +199,41 @@ public final class DebriefTracker {
 			d.result = result;
 		}
 		return d;
+	}
+
+	/**
+	 * Any player's kill, for the leaderboard: a death line (it starts with the victim's name, has no
+	 * colon as chat does, ends a sentence) that names another player, the killer, last. A final kill
+	 * when it ends in capitals. Lines after your final death count too, until the game ends. Returns
+	 * whether the line was one.
+	 */
+	public static boolean countKill(Debrief d, String line, Set<String> players, Map<String, Character> colors) {
+		if (line.isEmpty() || line.indexOf(':') >= 0 || !endsSentence(line) || TeamUpgrades.purchase(line) != null) {
+			return false;
+		}
+		int space = line.indexOf(' ');
+		if (space <= 0 || !players.contains(line.substring(0, space))) {
+			return false;
+		}
+		String killer = killer(line, line.substring(0, space), players);
+		if (killer.isEmpty()) {
+			return false;
+		}
+		Character color = colors.get(killer);
+		d.kill(killer, BedwarsGame.finalEnding(line, killer), color == null ? 0 : color);
+		d.touch();
+		return true;
+	}
+
+	/** One of Hypixel's top killer lines after the game, for the leaderboard; whether it was one. */
+	public static boolean topKiller(Debrief d, String line) {
+		Matcher m = TOP_KILLER.matcher(line);
+		if (!m.find()) {
+			return false;
+		}
+		d.topKiller(m.group(2), Integer.parseInt(m.group(3)));
+		d.touch();
+		return true;
 	}
 
 	/**

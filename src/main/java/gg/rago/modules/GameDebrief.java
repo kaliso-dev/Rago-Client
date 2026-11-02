@@ -15,6 +15,8 @@ import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.event.ClickEvent;
 import net.minecraft.event.HoverEvent;
+import net.minecraft.scoreboard.ScorePlayerTeam;
+import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
@@ -25,16 +27,19 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 /**
  * The debrief after each Hypixel Bed Wars game: your kills, final kills, beds and deaths, when they
- * came (a timeline), your team's first upgrade, when your bed fell and, with your own API key, your
- * final kill ratio before and after. A line in chat (seen only by you) opens it, as the game ends for
+ * came, your team's first upgrade, when your bed fell, the game's kill leaderboard (from the death
+ * lines everyone sees, and Hypixel's own top three at the end) and, with your own API key, your
+ * stars, experience and ratios before and after. A line in chat (seen only by you) opens it, as the game ends for
  * you: at "VICTORY!" or "GAME OVER!", or at your final death (and again if your team wins after it).
  * A game you leave before its end keeps its debrief in /rago debrief, without the line, so none shows
  * up when you join the next one. The debrief is also a picture to copy into Discord. Everything is read from the chat, the sidebar and the titles of
@@ -57,6 +62,10 @@ public final class GameDebrief extends Module {
 	static final long SAY_BY_MS = 8_000;
 	/** Lines that still come this long after the game put it back at the bottom (one copy only). */
 	static final long KEEP_LAST_MS = 12_000;
+	/** Hypixel's top killers come in the chat within this after the end of the game. */
+	private static final long TOP_KILLERS_MS = 15_000;
+	/** Your stats are taken again for this long after the start: a fresh answer replaces cached ones. */
+	private static final long STATS_BEFORE_MS = 120_000;
 	/** What the GG button puts in the chat bar: all chat, since a party chat mode would keep it in the party. */
 	static final String GG = "/ac gg";
 	/** The line's chat ID, outside the range Rago's chat stacking uses. */
@@ -84,6 +93,10 @@ public final class GameDebrief extends Module {
 	private boolean bump;
 	/** A game you were final-killed in, while you watch its end: your team may still win it. */
 	private Debrief eliminated;
+	/** The game Hypixel's top killer lines are for, until when; and the stats its start was told from. */
+	private Debrief topKillersFor;
+	private long topKillersUntil;
+	private HypixelApi.Stats statsUsedBefore;
 
 	public GameDebrief() {
 		super("game_debrief", FeatureClass.INFORMATIONAL, true);
@@ -128,6 +141,7 @@ public final class GameDebrief extends Module {
 				toSay = null;
 			}
 			said = null;
+			topKillersFor = null;
 			if (eliminated != null) {
 				eliminated = null;
 				statsFrom = Math.min(statsFrom, now);
@@ -159,6 +173,9 @@ public final class GameDebrief extends Module {
 			}
 			if (ticks % 20 == 0 && now - tracker.current().startedAt < 120_000) {
 				tracker.teamSize(BedwarsGame.ownTeamSize());
+			}
+			if (ticks % 20 == 0 && now - tracker.current().startedAt < STATS_BEFORE_MS) {
+				statsBefore(RagoClient.hypixel().get(mc.thePlayer.getUniqueID()));
 			}
 		}
 		statsAfterGame(mc, now);
@@ -209,9 +226,41 @@ public final class GameDebrief extends Module {
 		GameEvents.Reading r = GameEvents.read(BedwarsGame.eventLine());
 		int elapsed = r == null ? 0 : Math.max(0, r.elapsed());
 		tracker.start(mc.thePlayer.getName(), now, elapsed, BedwarsGame.teamBeds().size());
-		HypixelApi.Stats s = RagoClient.hypixel().get(mc.thePlayer.getUniqueID());
-		if (s != null && s.found) {
-			tracker.statsBefore(s.fkdr(), s.star);
+		Map<String, Character> colors = new HashMap<>();
+		tabList(mc, new HashSet<>(), colors);
+		tracker.teams(colors.getOrDefault(mc.thePlayer.getName(), (char) 0), colors.size());
+		HypixelApi api = RagoClient.hypixel();
+		statsUsedBefore = null;
+		statsBefore(api.get(mc.thePlayer.getUniqueID()));
+		// cached stats can be two days old: fresh ones replace them in a second or two
+		api.refresh(mc.thePlayer.getUniqueID());
+	}
+
+	/** Your stats for the start of the game, when they are new. */
+	private void statsBefore(HypixelApi.Stats s) {
+		if (s != null && s.found && s != statsUsedBefore) {
+			statsUsedBefore = s;
+			tracker.statsBefore(career(s));
+		}
+	}
+
+	/** Your Bed Wars career as the Hypixel API gave it. */
+	static Debrief.Career career(HypixelApi.Stats s) {
+		return new Debrief.Career(s.star, s.xp, s.finalKills, s.finalDeaths, s.wins, s.losses, s.bedsBroken, s.bedsLost,
+			s.kills, s.deaths, s.games, s.winstreak, s.rank());
+	}
+
+	/** The names in the tab list, and the colour of each one's team (players with no team, Hypixel's bots, have none). */
+	private static void tabList(Minecraft mc, Set<String> players, Map<String, Character> colors) {
+		Scoreboard board = mc.theWorld == null ? null : mc.theWorld.getScoreboard();
+		for (NetworkPlayerInfo info : mc.getNetHandler().getPlayerInfoMap()) {
+			String name = info.getGameProfile().getName();
+			players.add(name);
+			ScorePlayerTeam team = board == null ? null : board.getPlayersTeam(name);
+			char c = team == null ? 0 : BedwarsGame.teamColor(team);
+			if (c != 0) {
+				colors.put(name, c);
+			}
 		}
 	}
 
@@ -222,11 +271,10 @@ public final class GameDebrief extends Module {
 			return;
 		}
 		lastTitle = t;
-		if (BedwarsGame.isVictory(t)) {
-			finish(Debrief.Result.WIN, now);
-			statsFrom = now;
-		} else if (BedwarsGame.isGameOver(t)) {
-			finish(Debrief.Result.LOSS, now);
+		boolean won = BedwarsGame.isVictory(t);
+		if (won || BedwarsGame.isGameOver(t)) {
+			topKillersFor = finish(won ? Debrief.Result.WIN : Debrief.Result.LOSS, now);
+			topKillersUntil = now + TOP_KILLERS_MS;
 			statsFrom = now;
 		}
 	}
@@ -248,6 +296,8 @@ public final class GameDebrief extends Module {
 		Debrief d = eliminated;
 		eliminated = null;
 		statsFrom = now;
+		topKillersFor = d;
+		topKillersUntil = now + TOP_KILLERS_MS;
 		if (won) {
 			DebriefTracker.result(d, Debrief.Result.WIN);
 			if (chatLine.get()) {
@@ -256,12 +306,13 @@ public final class GameDebrief extends Module {
 		}
 	}
 
-	private void finish(Debrief.Result result, long now) {
+	/** Ends the game being followed; returns its debrief, or null when it gets none. */
+	private Debrief finish(Debrief.Result result, long now) {
 		Debrief d = tracker.end(result, now);
 		endedIn = world;
 		statsFrom = Long.MAX_VALUE;
 		if (d == null || d.seconds() < MIN_SECONDS && d.moments().isEmpty()) {
-			return;
+			return null;
 		}
 		games.add(d);
 		if (games.size() > KEPT) {
@@ -281,6 +332,7 @@ public final class GameDebrief extends Module {
 		}
 		awaitingStats = !Double.isNaN(d.fkdrBefore()) && RagoClient.hypixel().hasKey() ? d : null;
 		statsAsked = false;
+		return d;
 	}
 
 	/** Whether a game ending so gets its line: not one you left before its end (it would show in the next place). */
@@ -314,7 +366,7 @@ public final class GameDebrief extends Module {
 		}
 		HypixelApi.Stats s = api.get(me);
 		if (s != null && s.found && s.time() > statsFrom + STATS_AFTER_MS / 2) {
-			DebriefTracker.statsAfter(d, s.fkdr());
+			DebriefTracker.statsAfter(d, career(s));
 			awaitingStats = null;
 		}
 	}
@@ -333,17 +385,37 @@ public final class GameDebrief extends Module {
 		if (!tracker.inGame()) {
 			if (line.contains(BedwarsGame.START) && mc.theWorld != endedIn && BedwarsGame.inBedwars()) {
 				start(mc, now);
+				return;
 			}
+			afterGame(mc, line, now);
 			return;
 		}
 		Set<String> players = new HashSet<>();
-		for (NetworkPlayerInfo info : mc.getNetHandler().getPlayerInfoMap()) {
-			players.add(info.getGameProfile().getName());
-		}
-		tracker.chat(line, mc.thePlayer.getName(), players, now);
+		Map<String, Character> colors = new HashMap<>();
+		tabList(mc, players, colors);
+		tracker.teams(colors.getOrDefault(mc.thePlayer.getName(), (char) 0), colors.size());
+		// Hypixel's top killers may come a tick before the title that ends the game
+		DebriefTracker.topKiller(tracker.current(), line);
+		tracker.chat(line, mc.thePlayer.getName(), players, colors, now);
 		if (tracker.current().count(Debrief.Kind.FINAL_DEATH) > 0) {
 			// your final death: the game is over for you, its debrief comes now
 			finish(Debrief.Result.ELIMINATED, now);
+		}
+	}
+
+	/**
+	 * A chat line once the game is over for you: after your final death, the kills of the players
+	 * still in the game go on counting on its leaderboard; after its end, Hypixel's top killers.
+	 */
+	private void afterGame(Minecraft mc, String line, long now) {
+		if (eliminated != null) {
+			Set<String> players = new HashSet<>();
+			Map<String, Character> colors = new HashMap<>();
+			tabList(mc, players, colors);
+			DebriefTracker.countKill(eliminated, line, players, colors);
+		}
+		if (topKillersFor != null && now < topKillersUntil) {
+			DebriefTracker.topKiller(topKillersFor, line);
 		}
 	}
 

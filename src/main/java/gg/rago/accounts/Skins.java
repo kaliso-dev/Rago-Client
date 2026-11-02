@@ -96,6 +96,11 @@ public final class Skins {
 			return image == null && !failed;
 		}
 
+		/** The skin's picture (64 x 64), or null while it loads or when it could not be read. */
+		public BufferedImage image() {
+			return image;
+		}
+
 		void load() {
 			try {
 				BufferedImage raw = ImageIO.read(png);

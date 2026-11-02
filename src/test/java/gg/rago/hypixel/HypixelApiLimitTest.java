@@ -45,7 +45,9 @@ class HypixelApiLimitTest {
 				exchange.getResponseHeaders().add("RateLimit-Reset", "1");
 				exchange.sendResponseHeaders(429, body.length);
 			} else {
-				body = "{\"success\":true,\"player\":{\"networkExp\":22500,\"achievements\":{\"bedwars_level\":312}}}".getBytes(StandardCharsets.UTF_8);
+				body = ("{\"success\":true,\"player\":{\"networkExp\":22500,\"achievements\":{\"bedwars_level\":312},"
+					+ "\"newPackageRank\":\"MVP_PLUS\",\"rankPlusColor\":\"GOLD\",\"stats\":{\"Bedwars\":{\"Experience\":1512800,"
+					+ "\"games_played_bedwars\":1930,\"beds_lost_bedwars\":1200}}}}").getBytes(StandardCharsets.UTF_8);
 				exchange.getResponseHeaders().add("RateLimit-Limit", "300");
 				exchange.getResponseHeaders().add("RateLimit-Remaining", "299");
 				exchange.getResponseHeaders().add("RateLimit-Reset", String.valueOf(window));
@@ -137,6 +139,11 @@ class HypixelApiLimitTest {
 		assertNotNull(s, "read back from the disk");
 		assertEquals(312, s.star);
 		assertTrue(s.saved());
+		// what the debrief shows was saved too (1.10.9)
+		assertEquals(1_512_800, s.xp);
+		assertEquals(1930, s.games);
+		assertEquals(1200, s.bedsLost);
+		assertEquals("§b[MVP§6+§b]", s.rank());
 		Thread.sleep(200);
 		assertEquals(1, calls.get(), "no new request after the restart");
 	}

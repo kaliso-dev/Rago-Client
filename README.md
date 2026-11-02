@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.10.7.** What it contains:
+**Current version: 1.10.9.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,29 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.10.9
+  - 1.10.8 is withdrawn: 1.10.9 is 1.10.7 with the new Game Debrief picture below. In 1.10.8, with
+    the bundled Phosphor, Patcher's Fullbright no longer stopped the game's light work (Phosphor
+    answers the game's light checks before Patcher can), and OptiFine could not find which chunks
+    hold entities, so it went through every chunk section in view to draw entities, every frame
+    (303 to 425 sections in a test world, against 5 to 22 without Phosphor). 1.10.8 also turned
+    Patcher's Fullbright off once; 1.10.9 leaves it as it is, so if yours is off, turn it back on
+    in `/patcher`
+  - the **Game Debrief picture** is drawn again, to be shared: 1600x900, in Minecraft's own font,
+    item icons and experience bar (read from your game, so your resource pack's), with the Rago
+    logo and the Rago Client line at the bottom. On the right, your skin in 3D (the one you wear,
+    Nick Hider's when it is on), your name with your Hypixel rank, your Bed Wars star in its
+    prestige colours, the experience bar to the next star (what is left, and the XP the game gave
+    you) and your FKDR, BBLR and WLR with what the game changed in them. On the left, the result
+    in big letters, the mode with your team's wool, the map, the length of the game and the number
+    of players, a Rago grade from S+ to D, your final kills, kills, beds and deaths rated Elite,
+    Good, Average or Poor against your own average per game, the game's kill leaderboard with
+    your place in it (team colours, kills and final kills, from every kill line of the chat and
+    Hypixel's top killers at the end), and the highlights: badges (level up, MVP, flawless, kill
+    spree, final boss, bed breaker, clutch, speedrun, first blood) and facts (who eliminated you,
+    your nemesis, your favourite victim, your first final kill). Your star, ratios and averages
+    come from Hypixel with your own API key, as before; without one the picture shows your session
+    instead. The picture is drawn beside the game, which never waits for it
 - new in 1.10.7
   - the qRago Official profile turns Generator Timers on, shown in the tab list. Players who
     already have the profile get this change once, on top of their own settings in it; nothing
@@ -875,7 +898,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.10.7+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.10.9+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
