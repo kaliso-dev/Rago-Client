@@ -29,7 +29,7 @@ import java.util.Map;
  * and stays sharp at any window size. Covers Latin-1 plus a few typographic marks.
  */
 public final class TtfFont {
-	private static final String EXTRA = "·•…×→—–’‘“”▶";
+	private static final String EXTRA = "·•…×→—–’‘“”▶œŒ€";
 	private static final int PAD = 2;
 
 	private final ResourceLocation source;

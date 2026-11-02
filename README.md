@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.10.11.** What it contains:
+**Current version: 1.11.0.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,34 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.11.0
+  - **Daily chest**: free every day (dock, gift button), three cards drawn by Rago Network: Rago
+    Points, cosmetics or fragments of one. Day 7 of a streak gives a card more, day 14 a rare card,
+    day 30 an epic one; an epic card comes within 20 chests and a legendary one within 90 at most.
+    The odds of each rarity are shown on the screen; a cosmetic already owned turns into points.
+    Nothing is ever sold at random, and points have no money value: they cannot be bought, traded,
+    given or cashed out
+  - **Rago Points and the shop**: four cosmetics a day, a bundle a week (20 % cheaper, the items
+    already owned taken off its price) and the Forge, which finishes a cosmetic started with
+    fragments
+  - **Play pass**: one tier for each hour played in a world (time away from the keyboard does not
+    count, four hours a day at most), 30 tiers of points and cosmetics, three found nowhere else.
+    Free; a reached tier is said in chat
+  - **Cosmetics are won**: the Rago cape, the Rago cap, the small dragon wings, the clap and every
+    neon colour are free; every other cosmetic, the old ones too, is won in the chest, the pass or
+    the shop. The locker and the emote wheel show the others with a lock and lead to the shop, and
+    what you wear is what you own, as other players see it. The creator's capes stay theirs
+  - new capes (Sakura, Circuit, Inferno, Galaxy, Hundred days), hats (cat ears, devil horns,
+    headphones, kitsune mask) and wings (Frost, Angel, Mecha, whose lines glow), all Rago's own
+  - **name colour and icon**: 14 colours for your name above your head and in the player list
+    (plain, gradients, moving, rainbow) and 11 icons after it, seen by Rago players. Your real name
+    always stays readable, and in a Bed Wars game the team colour shows instead
+  - dances: the twerk (with a rounder back, the cape lifting off it), the griddy (head down) and a
+    new moonwalk, with the clap and the wave; dab, disco, zombie, macarena and groove are gone
+  - the home screen's **Strong** blur is strong on every screen: it blurred the same few pixels as
+    Light, which looked the same on a large screen
+  - Rago Network keeps the points and the collection in a free PostgreSQL database (Neon) when one
+    is set, so they survive the server restarting (see `server/README.md`)
 - new in 1.10.11
   - **11 new menu backgrounds**: Minecraft landscapes filmed with shaders (Lake at sunset, Great
     oak, Golden peak, Coast from above, Lake valley, Seabed, Meadow, Mountain flower, Dusk,
@@ -948,7 +976,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.10.11+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.11.0+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

@@ -231,13 +231,21 @@ public final class Emotes extends Module {
 			default:
 				clap(m, rig, t);
 		}
-		Glutes.show(m, "twerk".equals(dance), rig.jiggle, rig.sway);
+		boolean twerk = "twerk".equals(dance);
+		Glutes.show(m, twerk, rig.jiggle, rig.sway);
 		for (int i = 0; i < parts.length; i++) {
 			parts[i].rotateAngleX = lerp(before[i * 3], parts[i].rotateAngleX, w);
 			parts[i].rotateAngleY = lerp(before[i * 3 + 1], parts[i].rotateAngleY, w);
 			parts[i].rotateAngleZ = lerp(before[i * 3 + 2], parts[i].rotateAngleZ, w);
 		}
 		apply(m, base, rig, w);
+		if (twerk) {
+			// the cape flares up off the back so it does not hide the dance
+			ModelRenderer cape = cape(m);
+			if (cape != null) {
+				cape.rotateAngleX += CAPE_BOW * TWERK_CAPE_LIFT * w;
+			}
+		}
 		ModelBiped.copyModelAngles(m.bipedHead, m.bipedHeadwear);
 		// the hand drawn in first person stays straight; the whole player bends
 		Minecraft mc = Minecraft.getMinecraft();
@@ -437,6 +445,8 @@ public final class Emotes extends Module {
 
 	/** Which way the cape turns to follow the chest bowing (its layer draws it turned half a turn). */
 	private static final float CAPE_BOW = -1;
+	/** How far the cape lifts off the back during the twerk, in radians. */
+	private static final float TWERK_CAPE_LIFT = 1.0f;
 
 	private static java.lang.reflect.Field capeField;
 	private static boolean capeBroken;
