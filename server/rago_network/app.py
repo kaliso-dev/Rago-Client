@@ -71,6 +71,8 @@ class Network:
         self.online_window = int(config.get("online_window", 150))
         self.roles = {undashed(k): v for k, v in config.get("roles", {}).items() if undashed(k) and v in ROLES}
         self.role_names = {k.lower(): v for k, v in config.get("role_names", {}).items() if v in ROLES}
+        # accounts that own every cosmetic without a role (the creator's other accounts), by uuid
+        self.own_everything = {u for u in map(undashed, config.get("own_everything", [])) if u}
         self._nonces = {}
         self._nonce_lock = threading.Lock()
         self._stats = (0.0, None)
@@ -198,17 +200,25 @@ class Network:
 
     # --- the daily chest, Rago Points, the shop and the forge ---
 
+    def _has_everything(self, uuid, role=None):
+        """Whether the player owns every cosmetic: Rago's creator, and the accounts in own_everything."""
+        if undashed(uuid) in self.own_everything:
+            return True
+        return (role if role is not None else self.store.role(uuid)) == "creator"
+
     def _owns(self, uuid, role=None):
         """owns(field, value): whether the player has that cosmetic. A value the catalogue does not
         know (none, a colour) or one kept for a role (the creator's capes) is the whitelist's call.
-        Rago's creator has everything (to show it and try it)."""
+        Rago's creator and the accounts in own_everything have everything (to show it and try it)."""
         cache = []
         if role is None:
             role = self.store.role(uuid)
+        if self._has_everything(uuid, role):
+            return lambda field, value: True
 
         def owns(field, value):
             kind = OWNED_FIELDS.get(field, "dance" if field == "dance" else None)
-            if kind is None or not isinstance(value, str) or role == "creator":
+            if kind is None or not isinstance(value, str):
                 return True
             spec = self.catalogue.items.get(f"{kind}:{value}")
             if spec is None or "creator" in spec["sources"]:
@@ -261,7 +271,7 @@ class Network:
             return 429, {"error": "slow_down"}
         w = self.store.wallet(uuid)
         owned = w["owned"] | self.catalogue.starter
-        if self.store.role(uuid) == "creator":
+        if self._has_everything(uuid):
             owned |= set(self.catalogue.items)
         return 200, {"points": w["points"], "owned": sorted(owned), "fragments": w["fragments"],
                      "streak": w["streak"]}

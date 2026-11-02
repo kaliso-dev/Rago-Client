@@ -8,7 +8,7 @@ from rago_network.app import Network
 from rago_network.rewards import Catalogue, day_of, next_reset, open_chest
 from rago_network.store import NEW_WALLET, Store
 
-from test_network import COSMETICS, FakeMojang, fresh_store, sign_in
+from test_network import COSMETICS, QABEL, FakeMojang, fresh_store, sign_in
 
 CATALOGUE = os.path.join(os.path.dirname(__file__), "..", "catalogue.json")
 
@@ -43,8 +43,9 @@ class Clock:
         return self.now
 
 
-def network(catalogue=None, now=None, founder_until=None):
-    config = {"cosmetics": COSMETICS, "catalogue": catalogue or small_catalogue(), "role_names": {"qRago": "creator"}}
+def network(catalogue=None, now=None, founder_until=None, own_everything=()):
+    config = {"cosmetics": COSMETICS, "catalogue": catalogue or small_catalogue(), "role_names": {"qRago": "creator"},
+              "own_everything": list(own_everything)}
     if founder_until:
         config["founder_until"] = founder_until
     return Network(config, store=fresh_store(), session_server=FakeMojang(),
@@ -335,6 +336,22 @@ class OwnershipTest(unittest.TestCase):
         self.assertEqual((body["cosmetics"]["hat"], body["cosmetics"]["name_color"]), ("crown", "aurora"))
         self.assertEqual(set(n.inventory(creator, {})[1]["owned"]), set(n.catalogue.items))
         self.assertEqual(n.emote(creator, {"emote": "rare_dance"})[0], 200)
+
+    def test_the_creators_other_accounts_have_everything_without_the_role(self):
+        cat = small_catalogue()
+        cat["items"]["hat:crown"] = {"rarity": "epic", "sources": ["chest"]}
+        n = network(cat, own_everything=[QABEL])
+        abel = sign_in(n, "qAbel")["uuid"]
+        steve = sign_in(n, "Steve")["uuid"]
+        self.assertEqual(n.store.role(abel), "user")
+        status, body = n.presence(abel, {"cosmetics": {"hat": "crown", "cape": "black_cat"}})
+        self.assertEqual((body["cosmetics"]["hat"], body["cosmetics"]["cape"]), ("crown", "black_cat"))
+        self.assertEqual(set(n.inventory(abel, {})[1]["owned"]), set(n.catalogue.items))
+        self.assertEqual(n.emote(abel, {"emote": "rare_dance"})[0], 200)
+        # and no one else
+        status, body = n.presence(steve, {"cosmetics": {"hat": "crown", "cape": "black_cat"}})
+        self.assertEqual((body["cosmetics"]["hat"], body["cosmetics"]["cape"]), ("none", "none"))
+        self.assertEqual(n.emote(steve, {"emote": "rare_dance"})[0], 403)
 
     def test_a_name_colour_and_icon_are_shown_once_owned(self):
         import json

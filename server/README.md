@@ -72,6 +72,7 @@ Copy `config.example.json` to `config.json` and edit it:
 | `forget_after` | `15552000` | delete players not seen for this long, seconds |
 | `roles` | `{}` | `{"<uuid>": "creator"}`: roles by uuid (preferred) |
 | `role_names` | `{}` | `{"qRago": "creator"}`: roles by name, applied when that player signs in |
+| `own_everything` | `[]` | `["<uuid>"]`: accounts that own every cosmetic without a role (qAbel, the creator's other account); the creator role owns everything too |
 
 Roles: `user`, `partner`, `staff`, `creator`. A role can also be set from the command line once the
 player has signed in once:
