@@ -84,6 +84,7 @@ public final class RagoTitleScreen extends GuiScreen {
 	public void updateScreen() {
 		if (!RagoClient.classicHome()) {
 			ServerStatus.tick();
+			gg.rago.rewards.Rewards.tickHome();
 		}
 		if (preview != null) {
 			preview.tick();
@@ -666,6 +667,12 @@ public final class RagoTitleScreen extends GuiScreen {
 			if ("zap".equals(icon)) {
 				Ui.circle(x + size - 3, y - lift + 3, 3.5f, Theme.ACCENT);
 			}
+			if ("gift".equals(icon) && gg.rago.rewards.Rewards.chestWaiting()) {
+				// today's chest waits: a dot that breathes
+				float beat = Anim.enabled() ? 0.5f + 0.5f * (float) Math.sin(System.nanoTime() / 1e9 * 3.2) : 1;
+				Ui.glow(x + size - 3, y - lift + 3, 9, Ui.alpha(0xFFFFAA00, 0.35f * beat));
+				Ui.circle(x + size - 3, y - lift + 3, 3.5f, 0xFFFFAA00);
+			}
 			if (hv > 0.01f) {
 				String tip = t(tips[i]);
 				float ts = 9;
@@ -685,12 +692,12 @@ public final class RagoTitleScreen extends GuiScreen {
 	}
 
 	/** The dock's buttons, with the OptiFine helper's when OptiFine is missing; their tips and animation keys. */
-	private static final String[] DOCK_ICONS = {"logo", "shirt", "sliders-horizontal", "settings", "globe", "power"};
-	private static final String[] DOCK_ICONS_OPTIFINE_HELP = {"logo", "shirt", "sliders-horizontal", "settings", "globe", "zap", "power"};
-	private static final String[] DOCK_TIPS = {"rago.dock.mods", "rago.dock.locker", "rago.dock.rago_settings", "rago.dock.options",
-		"rago.dock.servers", "rago.dock.quit"};
-	private static final String[] DOCK_TIPS_OPTIFINE_HELP = {"rago.dock.mods", "rago.dock.locker", "rago.dock.rago_settings",
-		"rago.dock.options", "rago.dock.servers", "rago.dock.optifine", "rago.dock.quit"};
+	private static final String[] DOCK_ICONS = {"logo", "gift", "shirt", "store", "sliders-horizontal", "settings", "globe", "power"};
+	private static final String[] DOCK_ICONS_OPTIFINE_HELP = {"logo", "gift", "shirt", "store", "sliders-horizontal", "settings", "globe", "zap", "power"};
+	private static final String[] DOCK_TIPS = {"rago.dock.mods", "rago.dock.rewards", "rago.dock.locker", "rago.dock.shop",
+		"rago.dock.rago_settings", "rago.dock.options", "rago.dock.servers", "rago.dock.quit"};
+	private static final String[] DOCK_TIPS_OPTIFINE_HELP = {"rago.dock.mods", "rago.dock.rewards", "rago.dock.locker", "rago.dock.shop",
+		"rago.dock.rago_settings", "rago.dock.options", "rago.dock.servers", "rago.dock.optifine", "rago.dock.quit"};
 	private static final String[] DOCK_KEYS = keys("dock:", DOCK_ICONS);
 	private static final String[] DOCK_KEYS_OPTIFINE_HELP = keys("dock:", DOCK_ICONS_OPTIFINE_HELP);
 	private Runnable[] dockActions;
@@ -709,6 +716,10 @@ public final class RagoTitleScreen extends GuiScreen {
 				return () -> mc.displayGuiScreen(new RagoMenuScreen(this));
 			case "shirt":
 				return () -> mc.displayGuiScreen(new LockerScreen(this));
+			case "gift":
+				return () -> mc.displayGuiScreen(new RewardsScreen(this));
+			case "store":
+				return () -> mc.displayGuiScreen(new ShopScreen(this));
 			case "sliders-horizontal":
 				return () -> mc.displayGuiScreen(RagoMenuScreen.settings(this));
 			case "settings":

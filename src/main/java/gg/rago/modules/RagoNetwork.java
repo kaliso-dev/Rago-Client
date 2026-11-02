@@ -45,10 +45,11 @@ public final class RagoNetwork extends Module {
 	private final StringOption url = addOption(new StringOption("network_server", DEFAULT_SERVER, 120));
 	private final BooleanOption visible = addOption(new BooleanOption("network_visible", true));
 	private final BooleanOption others = addOption(new BooleanOption("network_others", true));
-	private final NetworkClient client = new NetworkClient(this::execute, System::currentTimeMillis,
+	private final NetworkClient client = new NetworkClient(this::execute, this::executeCall, System::currentTimeMillis,
 		RagoNetwork::version, LOG::info);
 	private final List<UUID> around = new ArrayList<>();
 	private ExecutorService worker;
+	private ExecutorService callWorker;
 	private SessionAccount account;
 
 	public RagoNetwork() {
@@ -107,6 +108,20 @@ public final class RagoNetwork extends Module {
 		return isEnabled() ? client.online() : -1;
 	}
 
+	/** A call for a screen (the daily chest, the shop...); answered "offline" when the mod is off. */
+	public void request(String path, com.google.gson.JsonObject body, NetworkClient.Answer answer) {
+		if (isEnabled()) {
+			client.request(path, body, answer);
+		} else {
+			answer.done(new com.google.gson.JsonObject(), "offline");
+		}
+	}
+
+	/** Whether this client is signed in to Rago Network. */
+	public boolean signedIn() {
+		return isEnabled() && client.signedIn();
+	}
+
 	/** One line for /rago network. */
 	public String status() {
 		if (!isEnabled()) {
@@ -152,6 +167,17 @@ public final class RagoNetwork extends Module {
 		worker.execute(job);
 	}
 
+	private synchronized void executeCall(Runnable job) {
+		if (callWorker == null) {
+			callWorker = Executors.newSingleThreadExecutor(r -> {
+				Thread t = new Thread(r, "Rago Network calls");
+				t.setDaemon(true);
+				return t;
+			});
+		}
+		callWorker.execute(job);
+	}
+
 	private NetworkClient.Account account() {
 		Session session = Minecraft.getMinecraft().getSession();
 		if (account == null || account.session != session) {
@@ -194,6 +220,11 @@ public final class RagoNetwork extends Module {
 
 		@Override
 		public void joinServer(String serverId) throws Exception {
+			if (Boolean.getBoolean("rago.test.network")) {
+				// developer testing against a local server whose session server says yes to anyone:
+				// a real server asks Mojang, which this skips, so it refuses the sign-in
+				return;
+			}
 			Minecraft.getMinecraft().getSessionService().joinServer(session.getProfile(), session.getToken(), serverId);
 		}
 	}

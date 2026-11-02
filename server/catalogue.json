@@ -1,0 +1,215 @@
+{
+ "_comment": "Every cosmetic Rago Network knows, by type:name, with its rarity and where it comes from: starter (every player has it), chest (the daily chest), shop (bought with Rago Points), streak, event, founder (players who joined before the rewards), creator (see exclusive in cosmetics.json). Mythics are never sold; badges are never drawn or sold. The client's copy must match (checked by its tests).",
+ "items": {
+  "cape:rago": {
+   "rarity": "rare",
+   "sources": [
+    "starter"
+   ]
+  },
+  "cape:pixel_cat": {
+   "rarity": "rare",
+   "sources": [
+    "starter"
+   ]
+  },
+  "cape:night_cat": {
+   "rarity": "rare",
+   "sources": [
+    "starter"
+   ]
+  },
+  "cape:mfga": {
+   "rarity": "rare",
+   "sources": [
+    "starter"
+   ]
+  },
+  "cape:primal": {
+   "rarity": "epic",
+   "sources": [
+    "starter"
+   ]
+  },
+  "cape:black_cat": {
+   "rarity": "mythic",
+   "sources": [
+    "creator"
+   ]
+  },
+  "cape:qrago": {
+   "rarity": "mythic",
+   "sources": [
+    "creator"
+   ]
+  },
+  "cape:pink_r": {
+   "rarity": "mythic",
+   "sources": [
+    "creator"
+   ]
+  },
+  "hat:rago_cap": {
+   "rarity": "common",
+   "sources": [
+    "starter"
+   ]
+  },
+  "hat:rago_beanie": {
+   "rarity": "common",
+   "sources": [
+    "starter"
+   ]
+  },
+  "hat:top_hat": {
+   "rarity": "uncommon",
+   "sources": [
+    "starter"
+   ]
+  },
+  "hat:wizard_hat": {
+   "rarity": "rare",
+   "sources": [
+    "starter"
+   ]
+  },
+  "hat:crown": {
+   "rarity": "epic",
+   "sources": [
+    "starter"
+   ]
+  },
+  "hat:halo": {
+   "rarity": "epic",
+   "sources": [
+    "starter"
+   ]
+  },
+  "wings:dragon_small": {
+   "rarity": "epic",
+   "sources": [
+    "starter"
+   ]
+  },
+  "wings:dragon": {
+   "rarity": "legendary",
+   "sources": [
+    "starter"
+   ]
+  },
+  "shield:rago": {
+   "rarity": "common",
+   "sources": [
+    "starter"
+   ]
+  },
+  "shield:crimson": {
+   "rarity": "uncommon",
+   "sources": [
+    "starter"
+   ]
+  },
+  "shield:gold": {
+   "rarity": "rare",
+   "sources": [
+    "starter"
+   ]
+  },
+  "shield:frost": {
+   "rarity": "rare",
+   "sources": [
+    "starter"
+   ]
+  },
+  "shield:void": {
+   "rarity": "epic",
+   "sources": [
+    "starter"
+   ]
+  },
+  "dance:wave": {
+   "rarity": "common",
+   "sources": [
+    "starter"
+   ]
+  },
+  "dance:clap": {
+   "rarity": "common",
+   "sources": [
+    "starter"
+   ]
+  },
+  "dance:dab": {
+   "rarity": "common",
+   "sources": [
+    "starter"
+   ]
+  },
+  "dance:zombie": {
+   "rarity": "uncommon",
+   "sources": [
+    "starter"
+   ]
+  },
+  "dance:disco": {
+   "rarity": "uncommon",
+   "sources": [
+    "starter"
+   ]
+  },
+  "dance:twerk": {
+   "rarity": "uncommon",
+   "sources": [
+    "starter"
+   ]
+  },
+  "dance:groove": {
+   "rarity": "rare",
+   "sources": [
+    "starter"
+   ]
+  },
+  "dance:griddy": {
+   "rarity": "rare",
+   "sources": [
+    "starter"
+   ]
+  },
+  "dance:macarena": {
+   "rarity": "rare",
+   "sources": [
+    "starter"
+   ]
+  },
+  "badge:founder": {
+   "rarity": "legendary",
+   "sources": [
+    "founder"
+   ]
+  },
+  "badge:streak_7": {
+   "rarity": "uncommon",
+   "sources": [
+    "streak"
+   ]
+  },
+  "badge:streak_30": {
+   "rarity": "epic",
+   "sources": [
+    "streak"
+   ]
+  },
+  "badge:streak_100": {
+   "rarity": "legendary",
+   "sources": [
+    "streak"
+   ]
+  },
+  "cape:streak_100": {
+   "rarity": "legendary",
+   "sources": [
+    "streak"
+   ]
+  }
+ }
+}

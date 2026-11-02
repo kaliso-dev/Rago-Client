@@ -8,9 +8,11 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from . import rewards
 from .limits import Limiter
 from .loadout import Whitelist
 from .mojang import SessionServer
+from .rewards import Catalogue, day_of, next_reset
 from .store import Store
 
 NAME = re.compile(r"^[A-Za-z0-9_]{1,16}$")
@@ -21,6 +23,11 @@ MAX_LOOKUP = 100
 EMOTE = re.compile(r"^[a-z_]{1,24}$")
 # an emote plays until its player moves; one not stopped by then is over after this many seconds
 EMOTE_FOR = 600
+# a purchase's key, chosen by the client, so that sending it twice buys once
+KEY = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+ITEM = re.compile(r"^[a-z]{1,16}:[a-z0-9_]{1,32}$")
+# the loadout fields whose values are cosmetics a player must own, and their catalogue type
+OWNED_FIELDS = {"cape": "cape", "hat": "hat", "wings": "wings", "shield": "shield"}
 
 
 def join_id(challenge):
@@ -46,13 +53,18 @@ def undashed(value):
 class Network:
     """Everything the handlers need; no HTTP in here, so it can be tested directly."""
 
-    def __init__(self, config, store=None, session_server=None, clock=time.time):
+    def __init__(self, config, store=None, session_server=None, clock=time.time, rng=None):
         self.config = config
         self.clock = clock
         self.store = store or Store(config.get("database", "rago-network.db"))
         self.mojang = session_server or SessionServer(config.get("session_server", "https://sessionserver.mojang.com"))
         self.whitelist = Whitelist.load(config["cosmetics"]) if isinstance(config.get("cosmetics"), str) \
             else Whitelist(config["cosmetics"])
+        catalogue = config.get("catalogue", {"items": {}})
+        self.catalogue = Catalogue.load(catalogue) if isinstance(catalogue, str) else Catalogue(catalogue)
+        self.rng = rng or secrets.SystemRandom()
+        # players who sign in before this time (seconds since 1970) get the founder badge
+        self.founder_until = config.get("founder_until")
         self.limits = Limiter()
         self.session_ttl = int(config.get("session_ttl", 86400))
         self.online_window = int(config.get("online_window", 150))
@@ -101,6 +113,8 @@ class Network:
         token = secrets.token_hex(32)
         now = int(self.clock())
         self.store.sign_in(uuid, real_name, role, token, now + self.session_ttl, now)
+        if self.founder_until and now < self.founder_until and "badge:founder" in self.catalogue.items:
+            self.store.grant(uuid, "badge:founder", "founder", now)
         return 200, {"token": token, "uuid": uuid, "name": real_name, "role": self.store.role(uuid),
                      "expiresIn": self.session_ttl}
 
@@ -120,7 +134,7 @@ class Network:
         version = body.get("version")
         if not isinstance(visible, bool) or (version is not None and (not isinstance(version, str) or len(version) > 32)):
             return 400, {"error": "bad_request"}
-        loadout = self.whitelist.clean(body.get("cosmetics"), self.store.role(uuid), uuid)
+        loadout = self.whitelist.clean(body.get("cosmetics"), self.store.role(uuid), uuid, self._owns(uuid))
         now = int(self.clock())
         self.store.presence(uuid, visible, loadout, version, now)
         return 200, {"online": self._counts(now)["online"], "cosmetics": loadout}
@@ -143,6 +157,8 @@ class Network:
         if not isinstance(name, str) or not EMOTE.match(name) or not isinstance(speed, int) or isinstance(speed, bool):
             return 400, {"error": "bad_request"}
         speed = max(50, min(200, speed))
+        if name != "none" and not self._owns(uuid)("dance", name):
+            return 403, {"error": "not_owned"}
         now = self.clock()
         with self._emote_lock:
             if name == "none":
@@ -168,6 +184,144 @@ class Network:
                 if e is not None and now - e[2] < EMOTE_FOR:
                     out[u] = {"emote": e[0], "speed": e[1], "elapsed": int((now - e[2]) * 1000)}
         return 200, {"emotes": out}
+
+    # --- the daily chest, Rago Points, the shop and the forge ---
+
+    def _owns(self, uuid):
+        """owns(field, value): whether the player has that cosmetic. A value the catalogue does not
+        know (none, a colour) or one kept for a role (the creator's capes) is the whitelist's call."""
+        cache = []
+
+        def owns(field, value):
+            kind = OWNED_FIELDS.get(field, "dance" if field == "dance" else None)
+            if kind is None or not isinstance(value, str):
+                return True
+            spec = self.catalogue.items.get(f"{kind}:{value}")
+            if spec is None or "creator" in spec["sources"]:
+                return True
+            if not cache:
+                cache.append(self.store.owned(uuid) | self.catalogue.starter)
+            return f"{kind}:{value}" in cache[0]
+
+        return owns
+
+    def catalogue_info(self, ip):
+        if not self.limits.allow("catalogue", ip, 30, 10):
+            return 429, {"error": "slow_down"}
+        return 200, self.catalogue.public()
+
+    def rewards(self, uuid, body):
+        """The player's points, streak and today's chest (opened or not, and when the next one comes)."""
+        if not self.limits.allow("rewards", uuid, 30, 10):
+            return 429, {"error": "slow_down"}
+        now = self.clock()
+        day = day_of(now)
+        w = self.store.wallet(uuid)
+        chest = self.store.chest(uuid, day)
+        if chest is None:
+            streak = rewards.next_streak(w["streak"], w["last_day"], w["joker_day"], day)[0]
+        else:
+            streak = w["streak"]
+        return 200, {"points": w["points"], "streak": w["streak"], "opened": chest is not None, "chest": chest,
+                     "todayStreak": streak, "nextReset": int(next_reset(now) - now),
+                     "epicIn": max(1, rewards.EPIC_PITY - w["since_epic"]),
+                     "legendaryIn": max(1, rewards.LEGENDARY_PITY - w["since_legendary"])}
+
+    def open_chest(self, uuid, body):
+        """Opens today's chest (once a day; asking again gives the same cards)."""
+        if not self.limits.allow("open", uuid, 10, 3):
+            return 429, {"error": "slow_down"}
+        now = self.clock()
+        day = day_of(now)
+
+        def draw(wallet, owned, fragments):
+            return rewards.open_chest(wallet, day, owned | self.catalogue.starter, fragments, self.catalogue, self.rng)
+
+        chest, w, fresh = self.store.open_chest(uuid, day, draw, int(now))
+        return 200, {"chest": chest, "points": w["points"], "streak": w["streak"], "fresh": fresh,
+                     "nextReset": int(next_reset(now) - now)}
+
+    def inventory(self, uuid, body):
+        """Everything the player has: points, cosmetics (the starter pack included), fragments."""
+        if not self.limits.allow("inventory", uuid, 30, 10):
+            return 429, {"error": "slow_down"}
+        w = self.store.wallet(uuid)
+        owned = w["owned"] | self.catalogue.starter
+        return 200, {"points": w["points"], "owned": sorted(owned), "fragments": w["fragments"],
+                     "streak": w["streak"]}
+
+    def shop(self, uuid, body):
+        """Today's shop, with what the player already has and the bundle's price for them."""
+        if not self.limits.allow("shop", uuid, 30, 10):
+            return 429, {"error": "slow_down"}
+        now = self.clock()
+        offer = rewards.shop_of(day_of(now), self.catalogue)
+        owned = self.store.owned(uuid) | self.catalogue.starter
+        prices = {i: self.catalogue.price(i) for i in set(offer["daily"]) | set(offer["permanent"]) | set(offer["bundle"])}
+        return 200, {"daily": offer["daily"], "bundle": offer["bundle"], "permanent": offer["permanent"],
+                     "prices": prices, "bundlePrice": rewards.bundle_price(offer["bundle"], owned, self.catalogue),
+                     "owned": sorted(owned & set(prices)), "nextReset": int(next_reset(now) - now)}
+
+    def buy(self, uuid, body):
+        """Buys one cosmetic of today's shop, or the week's bundle, with Rago Points."""
+        if not self.limits.allow("buy", uuid, 20, 5):
+            return 429, {"error": "slow_down"}
+        key, item, bundle = body.get("key"), body.get("item"), body.get("bundle", False)
+        if not isinstance(key, str) or not KEY.match(key) or not isinstance(bundle, bool):
+            return 400, {"error": "bad_request"}
+        now = self.clock()
+        offer = rewards.shop_of(day_of(now), self.catalogue)
+        if bundle:
+            items = offer["bundle"]
+            if not items:
+                return 404, {"error": "not_for_sale"}
+
+            def check(owned, fragments):
+                return "owned" if all(i in owned for i in items) else None
+
+            have = self.store.owned(uuid) | self.catalogue.starter
+            items = [i for i in items if i not in have]
+            cost = rewards.bundle_price(items, set(), self.catalogue)
+        else:
+            if not isinstance(item, str) or not ITEM.match(item):
+                return 400, {"error": "bad_request"}
+            if item not in offer["daily"] and item not in offer["permanent"]:
+                return 404, {"error": "not_for_sale"}
+            items = [item]
+            cost = self.catalogue.price(item)
+
+            def check(owned, fragments):
+                return "owned" if item in owned or item in self.catalogue.starter else None
+
+        if not items:
+            return 409, {"error": "owned"}
+        result, points = self.store.spend(uuid, key, items, cost, "shop", int(now), check)
+        if "error" in result:
+            return 409, {"error": result["error"], "points": points}
+        return 200, {"bought": result["items"], "cost": result["cost"], "points": points}
+
+    def forge(self, uuid, body):
+        """Finishes a started cosmetic, paying its missing fragments in points."""
+        if not self.limits.allow("buy", uuid, 20, 5):
+            return 429, {"error": "slow_down"}
+        key, item = body.get("key"), body.get("item")
+        if not isinstance(key, str) or not KEY.match(key) or not isinstance(item, str) or not ITEM.match(item) \
+                or item not in self.catalogue.items or self.catalogue.pieces(item) is None:
+            return 400, {"error": "bad_request"}
+        have = self.store.wallet(uuid)["fragments"].get(item, 0)
+        if have <= 0:
+            return 409, {"error": "not_started"}
+        cost = rewards.forge_cost(item, have, self.catalogue)
+
+        def check(owned, fragments):
+            if item in owned:
+                return "owned"
+            return None if fragments.get(item, 0) == have else "changed"
+
+        result, points = self.store.spend(uuid, key, [item], cost, "forge", int(self.clock()), check)
+        if "error" in result:
+            return 409, {"error": result["error"], "points": points}
+        return 200, {"forged": item, "cost": result["cost"], "points": points}
 
     def stats(self, ip):
         if not self.limits.allow("stats", ip, 60, 20):
@@ -232,6 +386,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"service": "Rago Network", "ok": True, "health": "/v1/health", "stats": "/v1/stats"})
         elif self.path == "/v1/stats":
             self._send(*self.network.stats(self._ip()))
+        elif self.path == "/v1/catalogue":
+            self._send(*self.network.catalogue_info(self._ip()))
         else:
             self._send(404, {"error": "not_found"})
 
@@ -247,7 +403,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/v1/auth/finish":
             self._send(*n.auth_finish(body, self._ip()))
             return
-        signed_in = {"/v1/presence": n.presence, "/v1/lookup": n.lookup, "/v1/emote": n.emote, "/v1/emotes": n.emotes}
+        signed_in = {"/v1/presence": n.presence, "/v1/lookup": n.lookup, "/v1/emote": n.emote, "/v1/emotes": n.emotes,
+                     "/v1/rewards": n.rewards, "/v1/rewards/open": n.open_chest, "/v1/inventory": n.inventory,
+                     "/v1/shop": n.shop, "/v1/shop/buy": n.buy, "/v1/forge": n.forge}
         handle = signed_in.get(self.path)
         if handle is None:
             self._send(404, {"error": "not_found"})
