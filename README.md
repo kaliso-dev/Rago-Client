@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.10.9.** What it contains:
+**Current version: 1.10.10.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,29 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.10.10
+  - the Game Debrief picture comes in **four styles**, picked at the top of the debrief screen (or
+    with the mod's new "Picture style" option); Copy and Save take the style shown:
+    - **Classic**: the 1600x900 picture of 1.10.9, for Discord, unchanged
+    - **Story** (1080x1920, for TikTok, Instagram or Snapchat): the result, you large in the middle
+      with your grade and your place in the game's kills as stickers around you, two highlights,
+      your star and the experience bar to the next one, your four counts and your FKDR, BBLR and
+      WLR. After a grade of A or better, the foot challenges whoever sees it to beat it with Rago
+      Client. What phones cover (the top, the reply bar at the foot) is kept clear
+    - **Player card** (1080x1512): you as a collectible card, drawn as one of Minecraft's item
+      tooltips. Its rarity follows your star (common under 100, uncommon from 100, rare from 300,
+      epic from 500, legendary from 1000, mythic from 2000, in Hypixel's rarity colours), you
+      stand on your prestige's colours with an overall rating (1 to 99, from your FKDR, WLR, BBLR
+      and star) and a talent worked out from what your stats are best at (Finisher, Bed Breaker,
+      Born Winner, Rusher, Veteran or All-Rounder), your stats written as the item's lines, and the
+      last game's grade as a stamp. A game graded S+ makes the card holographic, with the shine of
+      enchanted items read from your game; the others say how to get it
+    - **Session recap** (1600x900): the title your session earned (Unbeaten, Final Kill Machine,
+      Bed Destroyer, Untouchable, Wild Rusher, On Fire, Marathoner or Warming Up), your totals in
+      big numbers (wins, final kills, kills, beds, deaths, experience gained), each game as a tile
+      with its grade (the best one crowned), and on the right you, the stars you gained, your MVPs,
+      your best run of wins, your nemesis and your lucky map
+  - all four are drawn beside the game, as before: the game never waits for them
 - new in 1.10.9
   - 1.10.8 is withdrawn: 1.10.9 is 1.10.7 with the new Game Debrief picture below. In 1.10.8, with
     the bundled Phosphor, Patcher's Fullbright no longer stopped the game's light work (Phosphor
@@ -898,7 +921,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.10.9+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.10.10+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

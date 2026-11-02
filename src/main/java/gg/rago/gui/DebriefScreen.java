@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -34,7 +35,8 @@ import java.util.UUID;
 
 /**
  * The debrief of your Bed Wars games of this session: the picture of one game (the last at first,
- * the arrows go back), which can be copied to paste into Discord or saved in the screenshots folder.
+ * the arrows go back) in the style picked at the top (landscape, story, player card or the session's
+ * recap), which can be copied to paste into Discord or saved in the screenshots folder.
  * The picture is drawn on a thread of its own (the game goes on meanwhile), with the game's font,
  * icons and your skin read once when the screen opens, and again when the game's stats arrive late.
  */
@@ -48,6 +50,7 @@ public final class DebriefScreen extends GuiScreen {
 	/** The game and version of the picture drawn or being drawn; whether one is being drawn; whether the screen is gone. */
 	private int shown = -1;
 	private int shownVersion = -1;
+	private DebriefCard.Style shownStyle;
 	private boolean drawing;
 	private boolean closed;
 	private CardArt art;
@@ -89,13 +92,39 @@ public final class DebriefScreen extends GuiScreen {
 			return;
 		}
 		index = Math.max(0, Math.min(index, games.size() - 1));
-		show(games);
+		DebriefCard.Style style = module.style();
+		show(games, style);
 
-		// the picture, as large as the screen allows above the buttons
-		float iw = Math.min(w - 40, (h - 84) * DebriefCard.W / DebriefCard.H);
-		float ih = iw * DebriefCard.H / DebriefCard.W;
+		// the styles, at the top
+		float tabH = 24;
+		float tabY = 10 + (1 - p) * 6;
+		DebriefCard.Style[] styles = DebriefCard.Style.values();
+		String[] icons = {"image", "camera", "award", "trophy"};
+		float[] tw = new float[styles.length];
+		float tabsW = -6;
+		for (int i = 0; i < styles.length; i++) {
+			tw[i] = Ui.textWidth(Ui.SEMIBOLD, t("rago.option.debrief_style." + styles[i].id), 9) + 12 + 10 + 26;
+			tabsW += tw[i] + 6;
+		}
+		float tx = (w - tabsW) / 2;
+		for (int i = 0; i < styles.length; i++) {
+			DebriefCard.Style s = styles[i];
+			Widgets.button(tx, tabY, tw[i], tabH, icons[i], t("rago.option.debrief_style." + s.id), s == style, 9);
+			Ui.click(tx, tabY, tw[i], tabH, () -> {
+				module.style(s);
+				RagoClient.saveConfig();
+			});
+			tx += tw[i] + 6;
+		}
+
+		// the picture, as large as the screen allows between the styles and the buttons
+		float top = tabY + tabH + 10;
+		float room = h - top - 52;
+		float aspect = image != null ? image.getWidth() / (float) image.getHeight() : style.width / (float) style.height;
+		float ih = Math.min(room, (w - 40) / aspect);
+		float iw = ih * aspect;
 		float x = (w - iw) / 2;
-		float y = Math.max(12, (h - ih - 52) / 2) + (1 - p) * 10;
+		float y = top + (room - ih) / 2;
 		Ui.round(x - 1, y - 1, iw + 2, ih + 2, 7, Theme.BORDER_STRONG);
 		if (image != null) {
 			Ui.texture(CARD, x, y, iw, ih, 0, 0, 1, 1, Ui.fade(0xFFFFFFFF));
@@ -112,12 +141,14 @@ public final class DebriefScreen extends GuiScreen {
 		float closeW = 96;
 		float total = copyW + saveW + closeW + 16;
 		float bx = (w - total) / 2;
-		if (games.size() > 1) {
-			Widgets.iconButton(x, by, bh, "chevron-left");
-			Ui.click(x, by, bh, bh, () -> index = Math.max(0, index - 1));
-			Widgets.iconButton(x + bh + 6, by, bh, "chevron-right");
-			Ui.click(x + bh + 6, by, bh, bh, () -> index = Math.min(module.games().size() - 1, index + 1));
-			Ui.text(Ui.MEDIUM, t("rago.debrief.count", index + 1, games.size()), x + bh * 2 + 16, by + 8, 9, Theme.MUTED);
+		if (games.size() > 1 && style != DebriefCard.Style.SESSION) {
+			String count = t("rago.debrief.count", index + 1, games.size());
+			float ax = Math.max(12, Math.min(x, bx - 16 - (bh * 2 + 6 + 10 + Ui.textWidth(Ui.MEDIUM, count, 9))));
+			Widgets.iconButton(ax, by, bh, "chevron-left");
+			Ui.click(ax, by, bh, bh, () -> index = Math.max(0, index - 1));
+			Widgets.iconButton(ax + bh + 6, by, bh, "chevron-right");
+			Ui.click(ax + bh + 6, by, bh, bh, () -> index = Math.min(module.games().size() - 1, index + 1));
+			Ui.text(Ui.MEDIUM, count, ax + bh * 2 + 16, by + 8, 9, Theme.MUTED);
 		}
 		Widgets.button(bx, by, copyW, bh, "image", t("rago.debrief.copy"), true, 10);
 		Ui.click(bx, by, copyW, bh, this::copy);
@@ -162,20 +193,23 @@ public final class DebriefScreen extends GuiScreen {
 	 * stats change (Hypixel saves the game a little after it ends). The last picture stays shown
 	 * until the new one is ready.
 	 */
-	private void show(List<Debrief> games) {
+	private void show(List<Debrief> games, DebriefCard.Style style) {
 		Debrief d = games.get(index);
-		if (drawing || shown == index && shownVersion == d.version()) {
+		// the session's recap changes with any of its games
+		int version = d.version();
+		if (style == DebriefCard.Style.SESSION) {
+			version = games.size();
+			for (Debrief g : games) {
+				version = version * 31 + g.version();
+			}
+		}
+		if (drawing || shown == index && shownVersion == version && shownStyle == style) {
 			return;
 		}
 		shown = index;
-		shownVersion = d.version();
-		int wins = 0;
-		int finals = 0;
-		for (Debrief g : games) {
-			wins += g.result() == Debrief.Result.WIN ? 1 : 0;
-			finals += g.finalKills();
-		}
-		DebriefCard.Session session = new DebriefCard.Session(games.size(), wins, finals);
+		shownVersion = version;
+		shownStyle = style;
+		List<Debrief> all = new ArrayList<>(games);
 		Locale locale = locale();
 		boolean signature = module.signature();
 		CardArt withSkin;
@@ -194,25 +228,24 @@ public final class DebriefScreen extends GuiScreen {
 		CardArt a = withSkin;
 		String n = name;
 		int forIndex = index;
-		int forVersion = shownVersion;
 		drawing = true;
 		Thread worker = new Thread(() -> {
 			BufferedImage img;
 			try {
-				img = DebriefCard.render(d, session, I18n::format, locale, signature, a, n);
+				img = DebriefCard.render(style, all, forIndex, I18n::format, locale, signature, a, n);
 			} catch (RuntimeException | LinkageError e) {
 				RagoClient.LOG.warn("Could not draw the debrief", e);
 				img = null;
 			}
 			BufferedImage done = img;
-			mc.addScheduledTask(() -> shown(done, forIndex, forVersion));
+			mc.addScheduledTask(() -> shown(done, forIndex, style));
 		}, "Rago debrief picture");
 		worker.setDaemon(true);
 		worker.start();
 	}
 
 	/** A picture is ready (null: it failed): shown unless the screen closed or moved to another game meanwhile. */
-	private void shown(BufferedImage img, int forIndex, int forVersion) {
+	private void shown(BufferedImage img, int forIndex, DebriefCard.Style forStyle) {
 		drawing = false;
 		if (closed) {
 			return;
@@ -221,7 +254,7 @@ public final class DebriefScreen extends GuiScreen {
 			say(t("rago.debrief.failed"), true);
 			return;
 		}
-		if (forIndex != index) {
+		if (forIndex != index || forStyle != module.style()) {
 			return; // the next frame draws the game shown now
 		}
 		image = img;
@@ -298,7 +331,7 @@ public final class DebriefScreen extends GuiScreen {
 		}
 		BufferedImage img = image;
 		File dir = new File(mc.mcDataDir, "screenshots");
-		File file = new File(dir, "rago-debrief_" + new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss").format(new Date()) + ".png");
+		File file = new File(dir, "rago-" + (shownStyle == null || shownStyle == DebriefCard.Style.CLASSIC ? "debrief" : shownStyle.id) + "_" + new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss").format(new Date()) + ".png");
 		Thread worker = new Thread(() -> {
 			boolean ok;
 			try {

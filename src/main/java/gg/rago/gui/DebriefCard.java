@@ -39,7 +39,7 @@ import java.util.Map;
  * shows is exactly what is copied or saved. Drawn with Java 2D, so it needs no OpenGL, can be drawn
  * off the client thread, and can be tested on its own.
  */
-public final class DebriefCard {
+public final class DebriefCard extends CardPainter {
 	public static final int W = 1600;
 	public static final int H = 900;
 	private static final int M = 48;
@@ -67,6 +67,43 @@ public final class DebriefCard {
 			this.wins = wins;
 			this.finalKills = finalKills;
 		}
+
+		/** The counts of {@code games}. */
+		public static Session of(List<Debrief> games) {
+			int wins = 0;
+			int finals = 0;
+			for (Debrief g : games) {
+				wins += g.result() == Debrief.Result.WIN ? 1 : 0;
+				finals += g.finalKills();
+			}
+			return new Session(games.size(), wins, finals);
+		}
+	}
+
+	/** The ways the debrief is drawn: the landscape picture, a story, a collectible card, the session's recap. */
+	public enum Style {
+		CLASSIC("classic", W, H), STORY("story", StoryCard.W, StoryCard.H), CARD("card", CollectorCard.W, CollectorCard.H),
+		SESSION("session", SessionCard.W, SessionCard.H);
+
+		public final String id;
+		public final int width;
+		public final int height;
+
+		Style(String id, int width, int height) {
+			this.id = id;
+			this.width = width;
+			this.height = height;
+		}
+
+		/** The style saved as {@code id}, or the landscape picture. */
+		public static Style of(String id) {
+			for (Style s : values()) {
+				if (s.id.equals(id)) {
+					return s;
+				}
+			}
+			return CLASSIC;
+		}
 	}
 
 	/** How good a count is, against your own average per game when the Hypixel API gives it. */
@@ -93,50 +130,8 @@ public final class DebriefCard {
 		}
 	}
 
-	private static final Color BG = new Color(0x0B0A0D);
-	private static final Color PANEL = new Color(0x141317);
-	private static final Color PANEL_TOP = new Color(0x1B191F);
-	private static final Color INSET = new Color(0x1D1B22);
-	private static final Color LINE = new Color(255, 255, 255, 18);
-	private static final Color TEXT = new Color(0xF4F4F5);
-	private static final Color MUTED = new Color(0x9A98A0);
-	private static final Color DIM = new Color(0x6B6970);
-	private static final Color ACCENT = new Color(0xF2392C);
-	/** Minecraft's chat colours, for what is written in its font. */
-	private static final int MC_GOLD = 0xFFAA00;
-	private static final int MC_GREEN = 0x55FF55;
-	private static final int MC_RED = 0xFF5555;
-	private static final int MC_GRAY = 0xAAAAAA;
-	private static final int MC_WHITE = 0xFFFFFF;
-	private static final int MC_AQUA = 0x55FFFF;
-	private static final int MC_PINK = 0xFF55FF;
-	/** The colour of the experience level over the hotbar. */
-	private static final int XP_GREEN = 0x80FF20;
-	private static final int SILVER = 0xC9CED6;
-	private static final int BRONZE = 0xD08A4E;
-
-	private static final Map<String, Font> FONTS = new HashMap<>();
-	private static BufferedImage logo;
-
-	private final Debrief d;
-	private final Session session;
-	private final Text t;
-	private final Locale locale;
-	private final boolean signature;
-	private final CardArt art;
-	private final String name;
-	private final Debrief.Career career;
-	private Graphics2D g;
-
 	private DebriefCard(Debrief d, Session session, Text t, Locale locale, boolean signature, CardArt art, String name) {
-		this.d = d;
-		this.session = session;
-		this.t = t;
-		this.locale = locale;
-		this.signature = signature;
-		this.art = art;
-		this.name = name == null || name.isEmpty() ? d.player : name;
-		this.career = d.careerAfter() != null ? d.careerAfter() : d.careerBefore();
+		super(d, session, t, locale, signature, art, name, W, H);
 	}
 
 	/** The picture with Rago's fonts only, and Minecraft's default skin. */
@@ -149,25 +144,36 @@ public final class DebriefCard {
 	 * no skin) and {@code name} for you (the Nick Hider's; null: your name).
 	 */
 	static BufferedImage render(Debrief d, Session session, Text t, Locale locale, boolean signature, CardArt art, String name) {
-		BufferedImage img = new BufferedImage(W, H, BufferedImage.TYPE_INT_RGB);
-		Graphics2D g = img.createGraphics();
-		try {
-			g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-			g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-			g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
-			g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-			g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-			g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
-			DebriefCard card = new DebriefCard(d, session, t, locale, signature, art, name);
-			card.g = g;
-			card.draw();
-		} finally {
-			g.dispose();
-		}
-		return img;
+		return new DebriefCard(d, session, t, locale, signature, art, name).paint();
 	}
 
-	private void draw() {
+	/**
+	 * Game {@code index} of the session's {@code games} (oldest first) drawn in {@code style}. The
+	 * session's recap is of the games played with that game's name, up to the last one.
+	 */
+	static BufferedImage render(Style style, List<Debrief> games, int index, Text t, Locale locale, boolean signature, CardArt art, String name) {
+		Debrief d = games.get(index);
+		Session session = Session.of(games);
+		switch (style) {
+			case STORY:
+				return new StoryCard(d, session, t, locale, signature, art, name).paint();
+			case CARD:
+				return new CollectorCard(d, session, t, locale, signature, art, name).paint();
+			case SESSION:
+				List<Debrief> mine = new ArrayList<>();
+				for (Debrief g : games) {
+					if (g.player.equals(d.player)) {
+						mine.add(g);
+					}
+				}
+				return new SessionCard(mine, t, locale, signature, art, name).paint();
+			default:
+				return render(d, session, t, locale, signature, art, name);
+		}
+	}
+
+	@Override
+	void draw() {
 		background();
 		header();
 		float y = result();
@@ -229,32 +235,6 @@ public final class DebriefCard {
 		if (d.players() >= 2 && x < M + LW - 380) {
 			chip(item("name_tag"), t.get("rago.debrief.players", d.players()), x, y, h);
 		}
-	}
-
-	private float chip(BufferedImage icon, String label, float x, float y, float h) {
-		Font f = font("inter-600.ttf", 18, 0);
-		String s = fit(label, f, 300);
-		float w = 18 + (icon != null ? 30 : 0) + width(s, f) + 18;
-		RoundRectangle2D r = new RoundRectangle2D.Float(x, y, w, h, h, h);
-		g.setColor(new Color(255, 255, 255, 12));
-		g.fill(r);
-		g.setColor(LINE);
-		g.setStroke(new BasicStroke(1.5f));
-		g.draw(r);
-		float tx = x + 18;
-		if (icon != null) {
-			pixels(icon, tx - 2, y + (h - 24) / 2, 24);
-			tx += 30;
-		}
-		text(s, f, TEXT, tx, y + h / 2 + 6.5f);
-		return w;
-	}
-
-	private String mode() {
-		if (!d.mode().isEmpty()) {
-			return t.get("rago.debrief.mode." + d.mode());
-		}
-		return d.teams() > 0 ? t.get("rago.debrief.mode.teams", d.teams()) : "Bed Wars";
 	}
 
 	/** Your grade for the game, S+ to D, in a badge at the top right of the game's column. */
@@ -435,7 +415,7 @@ public final class DebriefCard {
 	}
 
 	/** The place shown for row {@code i}: players with as many kills share it. */
-	private static int placeOf(List<Debrief.Killer> board, int i) {
+	static int placeOf(List<Debrief.Killer> board, int i) {
 		int place = i;
 		while (place > 0 && board.get(place - 1).kills() == board.get(i).kills()) {
 			place--;
@@ -443,7 +423,7 @@ public final class DebriefCard {
 		return place + 1;
 	}
 
-	private static int medal(int place) {
+	static int medal(int place) {
 		return place == 1 ? MC_GOLD : place == 2 ? SILVER : place == 3 ? BRONZE : MC_GRAY;
 	}
 
@@ -554,7 +534,7 @@ public final class DebriefCard {
 		boolean sessionShown = !stats && session != null && session.games > 0;
 		float boxesTop = BOTTOM - 22 - 96;
 		float bottom = stats ? boxesTop - 18 : sessionShown ? boxesTop - 40 : BOTTOM - 28;
-		float info = nameHeight(w - 48) + (stats ? 14 + starsHeight() : 0);
+		float info = nameHeight(w - 48, 5) + (stats ? 14 + starsHeight() : 0);
 		float avail = bottom - (y + 28);
 		float modelH = Math.max(240, Math.min(400, avail - info - 24));
 		float top = y + 28 + Math.max(0, (avail - modelH - 24 - info) / 2);
@@ -584,53 +564,13 @@ public final class DebriefCard {
 			}
 		}
 
-		float ny = nameLine(cx, feet + 24, w - 48);
+		float ny = nameLine(cx, feet + 24, w - 48, 5);
 		if (stats) {
 			stars(cx, ny + 14);
 			ratios(x + 22, boxesTop, w - 44);
 		} else if (sessionShown) {
 			sessionBox(x + 22, boxesTop, w - 44);
 		}
-	}
-
-	/** Your name with your rank's colour and the rank before it, when the Hypixel API told them. */
-	private String[] nameParts() {
-		String rank = career == null ? "" : career.rank;
-		char color = career == null ? 'f' : firstColor(rank, '7');
-		return new String[] {rank, "§" + color + name};
-	}
-
-	/** How tall {@link #nameLine} draws: one line, or the rank above a long name. */
-	private float nameHeight(float max) {
-		String[] p = nameParts();
-		String both = p[0].isEmpty() ? p[1] : p[0] + " " + p[1];
-		int scale = fitScale(both, max, 5, 2);
-		if (scale >= 4 || p[0].isEmpty()) {
-			return 8 * scale;
-		}
-		return 8 * 3 + 8 + 8 * fitScale(p[1], max, 5, 2);
-	}
-
-	/** Your name in big letters; returns the line under it. */
-	private float nameLine(float cx, float y, float max) {
-		String[] p = nameParts();
-		String both = p[0].isEmpty() ? p[1] : p[0] + " " + p[1];
-		int scale = fitScale(both, max, 5, 2);
-		if (scale >= 4 || p[0].isEmpty()) {
-			mc(both, cx - mcWidth(both, scale) / 2, y, scale, MC_WHITE);
-			return y + 8 * scale;
-		}
-		// a long rank and name: the rank on its own line, smaller
-		mc(p[0], cx - mcWidth(p[0], 3) / 2, y, 3, MC_WHITE);
-		y += 8 * 3 + 8;
-		scale = fitScale(p[1], max, 5, 2);
-		mc(p[1], cx - mcWidth(p[1], scale) / 2, y, scale, MC_WHITE);
-		return y + 8 * scale;
-	}
-
-	/** The star you are at: worked out from your experience when known, as the bar under it is. */
-	private int star() {
-		return starOf(career);
 	}
 
 	private float starsHeight() {
@@ -727,38 +667,6 @@ public final class DebriefCard {
 		}
 	}
 
-	private void box(float x, float y, float w, float h) {
-		RoundRectangle2D r = new RoundRectangle2D.Float(x, y, w, h, 22, 22);
-		g.setColor(INSET);
-		g.fill(r);
-		g.setColor(LINE);
-		g.setStroke(new BasicStroke(1.5f));
-		g.draw(r);
-	}
-
-	/** Minecraft's experience bar from the game's icons, {@code scale} pixels per texel, filled to {@code progress}. */
-	private void xpBar(float x, float y, int scale, double progress) {
-		int fill = (int) Math.round(182 * Math.max(0, Math.min(1, progress)));
-		if (art != null && art.icons != null) {
-			BufferedImage icons = art.icons;
-			int k = Math.max(1, icons.getWidth() / 256);
-			Object hint = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
-			g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-			int ix = Math.round(x);
-			int iy = Math.round(y);
-			g.drawImage(icons, ix, iy, ix + 182 * scale, iy + 5 * scale, 0, 64 * k, 182 * k, 69 * k, null);
-			if (fill > 0) {
-				g.drawImage(icons, ix, iy, ix + fill * scale, iy + 5 * scale, 0, 69 * k, fill * k, 74 * k, null);
-			}
-			g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, hint);
-			return;
-		}
-		g.setColor(new Color(0x26252B));
-		g.fill(new RoundRectangle2D.Float(x, y, 182 * scale, 5 * scale, 5 * scale, 5 * scale));
-		g.setColor(new Color(XP_GREEN));
-		g.fill(new RoundRectangle2D.Float(x, y, fill * scale, 5 * scale, 5 * scale, 5 * scale));
-	}
-
 	// ---- the foot: Rago ----
 
 	private void footer() {
@@ -810,13 +718,18 @@ public final class DebriefCard {
 
 	// ---- what the picture says, worked out ----
 
+	/** The points your grade is given from: final kills, kills, beds, deaths and the result. */
+	static double score(Debrief d) {
+		return d.finalKills() * 3 + d.kills() + d.beds() * 4 - d.deaths() * 1.5 + (d.result() == Debrief.Result.WIN ? 6 : 0);
+	}
+
 	/** Your grade for the game, from your counts and the result: S+, S, A, B, C or D. */
 	static String grade(Debrief d) {
-		double score = d.finalKills() * 3 + d.kills() + d.beds() * 4 - d.deaths() * 1.5 + (d.result() == Debrief.Result.WIN ? 6 : 0);
+		double score = score(d);
 		return score >= 30 ? "S+" : score >= 20 ? "S" : score >= 12 ? "A" : score >= 6 ? "B" : score >= 2 ? "C" : "D";
 	}
 
-	private static int gradeColor(String grade) {
+	static int gradeColor(String grade) {
 		switch (grade) {
 			case "S+":
 				return MC_PINK;
@@ -961,187 +874,6 @@ public final class DebriefCard {
 		return s / 60 + ":" + (s % 60 < 10 ? "0" : "") + s % 60;
 	}
 
-	private String number(double v, int decimals) {
-		return String.format(locale, "%." + decimals + "f", v);
-	}
-
-	/** A count with the language's thousands separator; no-break spaces (French) as plain ones, which every font has. */
-	private String group(long v) {
-		return String.format(locale, "%,d", v).replace('\u202F', ' ').replace('\u00A0', ' ');
-	}
-
 	// ---- drawing ----
 
-	private void panel(float x, float y, float w, float h) {
-		RoundRectangle2D r = new RoundRectangle2D.Float(x, y, w, h, 30, 30);
-		g.setPaint(new GradientPaint(x, y, PANEL_TOP, x, y + h, PANEL));
-		g.fill(r);
-		g.setColor(LINE);
-		g.setStroke(new BasicStroke(1.5f));
-		g.draw(r);
-	}
-
-	private void glow(float x, float y, float r, Color c, float alpha) {
-		g.setPaint(new RadialGradientPaint(new Point2D.Float(x, y), r, new float[] {0, 1},
-			new Color[] {alpha(c, alpha), alpha(c, 0)}, MultipleGradientPaint.CycleMethod.NO_CYCLE));
-		g.fillRect(0, 0, W, H);
-	}
-
-	private BufferedImage item(String name) {
-		return art == null ? null : art.item(name);
-	}
-
-	/** A pixel-art picture at {@code size} pixels, texels kept sharp. */
-	private void pixels(BufferedImage img, float x, float y, int size) {
-		Object hint = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
-		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-		g.drawImage(img, Math.round(x), Math.round(y), size, size, null);
-		g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, hint);
-	}
-
-	/** Width of text in Minecraft's font at {@code scale} (Rago's font when the game's is missing). */
-	private float mcWidth(String s, int scale) {
-		if (art != null && art.font != null) {
-			return art.font.width(s) * scale;
-		}
-		Font f = mcFallback(scale);
-		StringBuilder b = new StringBuilder(plain(s));
-		for (int i = 0; i < b.length(); i++) {
-			if (!f.canDisplay(b.charAt(i))) {
-				b.setCharAt(i, '*');
-			}
-		}
-		return width(b.toString(), f);
-	}
-
-	/** Text in Minecraft's font with its shadow, top left at (x, y), colour codes followed. */
-	private float mc(String s, float x, float y, int scale, int rgb) {
-		if (art != null && art.font != null) {
-			return art.font.draw(g, s, x, y, scale, rgb, true);
-		}
-		return coded(s, mcFallback(scale), x, y + 7.2f * scale, rgb);
-	}
-
-	/** Text in Minecraft's font with a dark outline, as the game writes your experience level. */
-	private void outlined(String s, float x, float y, int scale, int rgb) {
-		if (art != null && art.font != null) {
-			for (int[] o : new int[][] {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) {
-				art.font.draw(g, s, x + o[0] * scale, y + o[1] * scale, scale, 0, false);
-			}
-			art.font.draw(g, s, x, y, scale, rgb, false);
-			return;
-		}
-		coded(s, mcFallback(scale), x, y + 7.2f * scale, rgb);
-	}
-
-	/** The largest scale from {@code most} down to {@code least} at which {@code s} fits in {@code max}. */
-	private int fitScale(String s, float max, int most, int least) {
-		for (int scale = most; scale > least; scale--) {
-			if (mcWidth(s, scale) <= max) {
-				return scale;
-			}
-		}
-		return least;
-	}
-
-	private static Font mcFallback(int scale) {
-		return font("poppins-600.ttf", 8.6f * scale, 0);
-	}
-
-	/** Text with Minecraft colour codes in one of Rago's fonts (when the game's font is missing). */
-	private float coded(String s, Font f, float x, float baseline, int rgb) {
-		float x0 = x;
-		int color = rgb;
-		StringBuilder run = new StringBuilder();
-		for (int i = 0; i < s.length(); i++) {
-			char c = s.charAt(i);
-			if (c == '§' && i + 1 < s.length()) {
-				int code = "0123456789abcdef".indexOf(Character.toLowerCase(s.charAt(++i)));
-				if (code >= 0 || Character.toLowerCase(s.charAt(i)) == 'r') {
-					x += text(run.toString(), f, new Color(color), x, baseline);
-					run.setLength(0);
-					color = code >= 0 ? PixelFont.COLORS[code] : rgb;
-				}
-				continue;
-			}
-			// the prestige stars are only in Minecraft's font
-			run.append(f.canDisplay(c) ? c : '*');
-		}
-		x += text(run.toString(), f, new Color(color), x, baseline);
-		return x - x0;
-	}
-
-	private static Color alpha(Color c, float a) {
-		return new Color(c.getRed(), c.getGreen(), c.getBlue(), Math.round(a * 255));
-	}
-
-	private float text(String s, Font f, Color c, float x, float baseline) {
-		g.setFont(f);
-		g.setColor(c);
-		g.drawString(s, x, baseline);
-		return width(s, f);
-	}
-
-	private float width(String s, Font f) {
-		return (float) f.getStringBounds(s, g.getFontRenderContext()).getWidth();
-	}
-
-	private String fit(String s, Font f, float max) {
-		if (width(s, f) <= max) {
-			return s;
-		}
-		String out = s;
-		while (out.length() > 1 && width(out + "…", f) > max) {
-			out = out.substring(0, out.length() - 1);
-		}
-		return out.trim() + "…";
-	}
-
-	/** One of Rago's fonts at a size, with extra space between letters ({@code tracking}, in ems). */
-	private static synchronized Font font(String file, float size, float tracking) {
-		String key = file + "/" + size + "/" + tracking;
-		Font f = FONTS.get(key);
-		if (f == null) {
-			Font base = FONTS.get(file);
-			if (base == null) {
-				try (InputStream in = DebriefCard.class.getResourceAsStream("/assets/rago/fonts/" + file)) {
-					base = in == null ? new Font(Font.SANS_SERIF, Font.PLAIN, 12) : Font.createFont(Font.TRUETYPE_FONT, in);
-				} catch (IOException | FontFormatException | RuntimeException e) {
-					base = new Font(Font.SANS_SERIF, Font.PLAIN, 12);
-				}
-				FONTS.put(file, base);
-			}
-			Map<TextAttribute, Object> attrs = new HashMap<>();
-			attrs.put(TextAttribute.SIZE, size);
-			if (tracking != 0) {
-				attrs.put(TextAttribute.TRACKING, tracking);
-			}
-			f = base.deriveFont(attrs);
-			FONTS.put(key, f);
-		}
-		return f;
-	}
-
-	/** Rago's emblem in its red. */
-	private static synchronized BufferedImage logo() {
-		if (logo == null) {
-			try (InputStream in = DebriefCard.class.getResourceAsStream("/assets/rago/textures/logo.png")) {
-				BufferedImage src = in == null ? null : ImageIO.read(in);
-				if (src == null) {
-					return null;
-				}
-				BufferedImage out = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_ARGB);
-				int rgb = ACCENT.getRGB() & 0xFFFFFF;
-				for (int y = 0; y < src.getHeight(); y++) {
-					for (int x = 0; x < src.getWidth(); x++) {
-						out.setRGB(x, y, src.getRGB(x, y) & 0xFF000000 | rgb);
-					}
-				}
-				logo = out;
-			} catch (IOException | RuntimeException e) {
-				return null;
-			}
-		}
-		return logo;
-	}
 }

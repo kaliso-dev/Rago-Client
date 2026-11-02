@@ -30,6 +30,8 @@ final class CardArt {
 	final PixelFont font;
 	/** {@code textures/gui/icons.png} (the experience bar), or null. */
 	final BufferedImage icons;
+	/** The shine of enchanted items ({@code textures/misc/enchanted_item_glint.png}), or null. */
+	final BufferedImage glint;
 	/** The player's skin (64 x 64 or 64 x 32), or null when none could be read. */
 	final BufferedImage skin;
 	final boolean slim;
@@ -38,10 +40,11 @@ final class CardArt {
 	private final BufferedImage steve;
 	private final BufferedImage alex;
 
-	private CardArt(PixelFont font, BufferedImage icons, BufferedImage skin, boolean slim, Map<String, BufferedImage> items,
+	private CardArt(PixelFont font, BufferedImage icons, BufferedImage glint, BufferedImage skin, boolean slim, Map<String, BufferedImage> items,
 		BufferedImage steve, BufferedImage alex) {
 		this.font = font;
 		this.icons = icons;
+		this.glint = glint;
 		this.skin = skin;
 		this.slim = slim;
 		this.items = items;
@@ -52,7 +55,7 @@ final class CardArt {
 	/** The same pictures with another player's skin: {@code skin}, or Minecraft's default one (Alex's when {@code slim}). */
 	CardArt withSkin(BufferedImage skin, boolean slim) {
 		BufferedImage s = skin != null ? skin : slim ? alex : steve;
-		return new CardArt(font, icons, s, slim, items, steve, alex);
+		return new CardArt(font, icons, glint, s, slim, items, steve, alex);
 	}
 
 	/**
@@ -86,7 +89,8 @@ final class CardArt {
 		BufferedImage steve = image(open, "textures/entity/steve.png");
 		BufferedImage alex = image(open, "textures/entity/alex.png");
 		BufferedImage player = skin != null ? skin : slim ? alex : steve;
-		return new CardArt(font, image(open, "textures/gui/icons.png"), player, slim, items, steve, alex);
+		return new CardArt(font, image(open, "textures/gui/icons.png"), image(open, "textures/misc/enchanted_item_glint.png"), player, slim, items,
+			steve, alex);
 	}
 
 	/** An item's icon (16 x 16 at the default size), or null. */

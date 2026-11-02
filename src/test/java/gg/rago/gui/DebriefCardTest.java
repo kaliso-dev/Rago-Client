@@ -193,6 +193,75 @@ class DebriefCardTest {
 	}
 
 	@Test
+	void theOtherStylesAreDrawnInBothLanguages() throws IOException {
+		File out = new File("build/debrief-cards");
+		out.mkdirs();
+		CardArt art = art();
+		assertNotNull(art.glint, "the enchanted glint is read from the game's jar");
+		Object[][] langs = {{"en_US", Locale.US}, {"fr_FR", Locale.FRANCE}};
+		// a session: a loss without the API, then two wins with it
+		List<Debrief> session = Arrays.asList(noApi(), bigGame(), fullGame());
+		List<Debrief> others = Arrays.asList(eliminated(), nothing());
+		for (Object[] l : langs) {
+			DebriefCard.Text t = lang((String) l[0], (Locale) l[1]);
+			Locale locale = (Locale) l[1];
+			for (DebriefCard.Style style : DebriefCard.Style.values()) {
+				for (int i = 0; i < session.size(); i++) {
+					BufferedImage img = DebriefCard.render(style, session, i, t, locale, true, art, null);
+					assertEquals(style.width, img.getWidth());
+					assertEquals(style.height, img.getHeight());
+					if (style != DebriefCard.Style.CLASSIC) {
+						ImageIO.write(img, "png", new File(out, l[0] + "-" + style.id + "-" + i + ".png"));
+					}
+				}
+				for (int i = 0; i < others.size(); i++) {
+					BufferedImage img = DebriefCard.render(style, others, i, t, locale, i == 0, art.withSkin(null, true), null);
+					assertEquals(style.width, img.getWidth());
+					if (style != DebriefCard.Style.CLASSIC) {
+						ImageIO.write(img, "png", new File(out, l[0] + "-" + style.id + "-other" + i + ".png"));
+					}
+				}
+				// without the game's pictures (Rago's fonts only)
+				BufferedImage plain = DebriefCard.render(style, session, 2, t, locale, true, null, null);
+				ImageIO.write(plain, "png", new File(out, l[0] + "-" + style.id + "-plain.png"));
+			}
+		}
+	}
+
+	@Test
+	void cardsAreRatedFromTheStats() {
+		Debrief.Career pro = new Debrief.Career(1200, 6_000_000, 60000, 5000, 9000, 1500, 20000, 4000, 80000, 30000, 10500, 20, "");
+		Debrief.Career mid = new Debrief.Career(413, 2_000_250, 9807, 2400, 2100, 1300, 4200, 1900, 14000, 9000, 3400, 8, "");
+		Debrief.Career fresh = new Debrief.Career(12, 40_000, 40, 90, 10, 40, 15, 45, 120, 200, 50, 0, "");
+		Debrief game = fullGame();
+		assertTrue(CollectorCard.overall(pro, game) > CollectorCard.overall(mid, game));
+		assertTrue(CollectorCard.overall(mid, game) > CollectorCard.overall(fresh, game));
+		assertTrue(CollectorCard.overall(pro, game) <= 99 && CollectorCard.overall(fresh, game) >= 1);
+		assertEquals(CollectorCard.Rarity.LEGENDARY, CollectorCard.rarity(1200));
+		assertEquals(CollectorCard.Rarity.RARE, CollectorCard.rarity(413));
+		assertEquals(CollectorCard.Rarity.COMMON, CollectorCard.rarity(12));
+		assertEquals(CollectorCard.Rarity.COMMON, CollectorCard.rarity(-1));
+		assertEquals("finisher", CollectorCard.talent(pro).key);
+		assertEquals("finisher", CollectorCard.talent(mid).key);
+		assertEquals("all_rounder", CollectorCard.talent(fresh).key);
+		assertEquals("no_api", CollectorCard.talent(null).key);
+	}
+
+	@Test
+	void theSessionEarnsATitle() {
+		SessionCard.Recap recap = new SessionCard.Recap(Arrays.asList(noApi(), bigGame(), fullGame()));
+		assertEquals(3, recap.games);
+		assertEquals(2, recap.wins);
+		assertEquals(2, recap.bestRun);
+		assertEquals(5 + 7 + 0, recap.finals - noApi().finalKills());
+		assertEquals("final_machine", recap.title()[0]);
+		SessionCard.Recap lost = new SessionCard.Recap(Arrays.asList(noApi()));
+		assertEquals("warming_up", lost.title()[0]);
+		SessionCard.Recap won = new SessionCard.Recap(Arrays.asList(bigGame(), fullGame()));
+		assertEquals("unbeaten", won.title()[0]);
+	}
+
+	@Test
 	void gradesFollowTheGame() {
 		assertEquals("S+", DebriefCard.grade(bigGame()));
 		assertEquals("D", DebriefCard.grade(eliminated()));

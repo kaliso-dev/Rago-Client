@@ -5,10 +5,12 @@ import gg.rago.bedwars.Debrief;
 import gg.rago.bedwars.DebriefTracker;
 import gg.rago.bedwars.GameEvents;
 import gg.rago.config.BooleanOption;
+import gg.rago.config.ChoiceOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import gg.rago.core.RagoClient;
+import gg.rago.gui.DebriefCard;
 import gg.rago.hypixel.HypixelApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.network.NetworkPlayerInfo;
@@ -73,6 +75,7 @@ public final class GameDebrief extends Module {
 
 	private final BooleanOption chatLine = addOption(new BooleanOption("debrief_chat", true));
 	private final BooleanOption signature = addOption(new BooleanOption("debrief_signature", true));
+	private final ChoiceOption style = addOption(new ChoiceOption("debrief_style", "classic", "classic", "story", "card", "session"));
 
 	private final DebriefTracker tracker = new DebriefTracker();
 	private final List<Debrief> games = new ArrayList<>();
@@ -114,6 +117,15 @@ public final class GameDebrief extends Module {
 
 	public boolean signature() {
 		return signature.get();
+	}
+
+	/** How the debrief's picture is drawn: the landscape picture, a story, a player card or the session's recap. */
+	public DebriefCard.Style style() {
+		return DebriefCard.Style.of(style.get());
+	}
+
+	public void style(DebriefCard.Style s) {
+		style.set(s.id);
 	}
 
 	@Override
