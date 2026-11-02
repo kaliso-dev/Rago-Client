@@ -306,8 +306,8 @@ public final class RewardsScreen extends GuiScreen {
 			Ui.text(Ui.REGULAR, t("rago.rewards.next", duration(left)), x + 38, y + 9, 9.5f, Theme.MUTED);
 		}
 		float bx = x + w - 20;
-		String[] labels = {t("rago.rewards.shop"), t("rago.rewards.locker"), t("rago.rewards.odds")};
-		String[] icons = {"store", "shirt", "percent"};
+		String[] labels = {t("rago.rewards.shop"), t("rago.rewards.locker"), t("rago.dock.pass"), t("rago.rewards.odds")};
+		String[] icons = {"store", "shirt", "ticket", "percent"};
 		for (int i = 0; i < labels.length; i++) {
 			float bw = Ui.textWidth(Ui.SEMIBOLD, labels[i], 9.5f) + 40;
 			bx -= bw;
@@ -318,6 +318,8 @@ public final class RewardsScreen extends GuiScreen {
 					mc.displayGuiScreen(new ShopScreen(this));
 				} else if (which == 1) {
 					mc.displayGuiScreen(new LockerScreen(this));
+				} else if (which == 2) {
+					mc.displayGuiScreen(new PassScreen(this));
 				} else {
 					showOdds = true;
 				}

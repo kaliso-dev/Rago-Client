@@ -11,6 +11,7 @@ import gg.rago.network.Loadout;
 import gg.rago.network.NetworkClient;
 import gg.rago.render.HdTexture;
 import gg.rago.render.NeonColors;
+import gg.rago.rewards.Rewards;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.util.ResourceLocation;
 
@@ -77,7 +78,7 @@ public final class RagoCape extends Module {
 	 */
 	public ResourceLocation capeFor(AbstractClientPlayer player, ResourceLocation vanilla) {
 		if (RagoClient.isOwn(player)) {
-			return isEnabled() && (vanilla == null || overOwnCape.get()) ? shown(texture(design.get(), neon.get()), vanilla) : vanilla;
+			return isEnabled() && (vanilla == null || overOwnCape.get()) ? shown(texture(worn(), neon.get()), vanilla) : vanilla;
 		}
 		RagoNetwork network = Hooks.network;
 		NetworkClient.Player p = network == null ? null : network.player(player.getUniqueID());
@@ -130,6 +131,22 @@ public final class RagoCape extends Module {
 	/** The design you chose. */
 	public String design() {
 		return design.get();
+	}
+
+	private String wornFor;
+	private int wornVersion = -1;
+	private String worn;
+
+	/** The design you chose when you have it (bought or won), the free Rago cape until then. */
+	public String worn() {
+		String d = design.get();
+		int v = Rewards.ownedVersion();
+		if (!d.equals(wornFor) || v != wornVersion) {
+			worn = Rewards.wearable("cape", d) ? d : "rago";
+			wornFor = d;
+			wornVersion = v;
+		}
+		return worn;
 	}
 
 	/** The colour of the Rago design. */

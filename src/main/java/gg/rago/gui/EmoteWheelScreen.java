@@ -21,6 +21,7 @@ public final class EmoteWheelScreen extends GuiScreen {
 
 	public EmoteWheelScreen(Emotes emotes) {
 		this.emotes = emotes;
+		gg.rago.rewards.Rewards.inventory();
 	}
 
 	@Override
@@ -46,11 +47,22 @@ public final class EmoteWheelScreen extends GuiScreen {
 			float x = cx + (float) Math.cos(a) * r - CHIP_W / 2;
 			float y = cy + (float) Math.sin(a) * r - CHIP_H / 2;
 			boolean hover = Ui.hover(x, y, CHIP_W, CHIP_H);
-			Ui.glassBorder(x, y, CHIP_W, CHIP_H, CHIP_H / 2, hover ? Theme.ACCENT : 0xE6141316, hover ? Theme.ACCENT : Theme.BORDER_STRONG);
-			Ui.textCentered(Ui.MEDIUM, I18n.format("rago.emote." + dances[i]), x + CHIP_W / 2, y + (CHIP_H - 10 * 1.21f) / 2, 10,
-				hover ? 0xFFFFFFFF : Theme.TEXT);
 			String dance = dances[i];
+			// a dance not won yet: locked, and a click opens the shop
+			boolean owned = gg.rago.rewards.Rewards.owns("dance", dance);
+			int edge = hover ? owned ? Theme.ACCENT : Theme.BORDER_STRONG : Theme.BORDER_STRONG;
+			Ui.glassBorder(x, y, CHIP_W, CHIP_H, CHIP_H / 2, hover && owned ? Theme.ACCENT : 0xE6141316, edge);
+			float shift = owned ? 0 : 7;
+			if (!owned) {
+				Ui.icon("lock", x + 12, y + (CHIP_H - 10) / 2, 10, Theme.MUTED);
+			}
+			Ui.textCentered(Ui.MEDIUM, I18n.format("rago.emote." + dance), x + CHIP_W / 2 + shift, y + (CHIP_H - 10 * 1.21f) / 2, 10,
+				owned ? hover ? 0xFFFFFFFF : Theme.TEXT : Theme.MUTED);
 			Ui.click(x, y, CHIP_W, CHIP_H, () -> {
+				if (!owned) {
+					mc.displayGuiScreen(new ShopScreen(null));
+					return;
+				}
 				emotes.play(dance);
 				mc.displayGuiScreen(null);
 			});

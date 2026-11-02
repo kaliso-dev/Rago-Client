@@ -155,6 +155,10 @@ public final class Rewards {
 	private static volatile boolean catalogueFetched;
 	private static volatile Status status;
 	private static volatile Set<String> owned = Collections.emptySet();
+	/** Whether {@link #owned} is the account's (asked since it signed in), not just empty. */
+	private static volatile boolean ownedKnown;
+	/** Goes up whenever what the player owns or the catalogue changes, so what is worn can be kept. */
+	private static volatile int ownedVersion;
 	private static volatile Map<String, Integer> fragments = Collections.emptyMap();
 	private static volatile Shop shop;
 	private static volatile String error;
@@ -201,7 +205,21 @@ public final class Rewards {
 	/** Whether you have {@code id}: won, bought, or in the starter pack every player has. */
 	public static boolean owns(String id) {
 		Item it = catalogue.get(id);
-		return it == null || it.from("starter") || owned.contains(id);
+		// the creator's capes are for the accounts the cosmetics whitelist names, as on the server
+		return it == null || it.from("starter") || it.from("creator") || owned.contains(id);
+	}
+
+	/**
+	 * Whether the player can wear {@code id} of {@code type} now: one they own, a free one, or anything
+	 * while their collection is not known yet (offline). Rago Network shows others the same.
+	 */
+	public static boolean wearable(String type, String id) {
+		return !ownedKnown || owns(type, id);
+	}
+
+	/** Changes whenever {@link #wearable} may answer differently. */
+	public static int ownedVersion() {
+		return ownedVersion;
 	}
 
 	public static int fragments(String id) {
@@ -289,6 +307,7 @@ public final class Rewards {
 		if (net == null || !net.signedIn()) {
 			return;
 		}
+		inventory();
 		long now = System.currentTimeMillis();
 		Status s = status;
 		boolean due = s == null ? now - homeAsked > 15_000 : now - homeAsked > 300_000 || s.opened && now >= s.resetAt && now - homeAsked > 15_000;
@@ -301,6 +320,141 @@ public final class Rewards {
 				}
 			});
 		}
+	}
+
+	/** The play pass: a season of tiers won by playing, one an hour. */
+	public static final class Pass {
+		public final String season;
+		public final int minutesPerTier;
+		public final int dailyCap;
+		public final int minutes;
+		public final int tier;
+		public final int today;
+		public final long resetAt;
+		/** Each tier's reward: an item id, or null for points. */
+		public final List<String> items;
+		public final List<Integer> points;
+
+		Pass(JsonObject o, long now) {
+			season = str(o, "season", "");
+			minutesPerTier = Math.max(1, num(o, "minutesPerTier", 60));
+			dailyCap = num(o, "dailyCap", 0);
+			minutes = num(o, "minutes", 0);
+			tier = num(o, "tier", 0);
+			today = num(o, "today", 0);
+			resetAt = now + num(o, "nextReset", 0) * 1000L;
+			List<String> it = new ArrayList<>();
+			List<Integer> pts = new ArrayList<>();
+			for (JsonElement e : array(o, "tiers")) {
+				if (!e.isJsonObject()) {
+					continue;
+				}
+				JsonObject t = e.getAsJsonObject();
+				it.add(t.has("item") ? t.get("item").getAsString() : null);
+				pts.add(num(t, "points", 0));
+			}
+			items = Collections.unmodifiableList(it);
+			points = Collections.unmodifiableList(pts);
+		}
+
+		Pass(Pass old, int minutes, int tier) {
+			season = old.season;
+			minutesPerTier = old.minutesPerTier;
+			dailyCap = old.dailyCap;
+			this.minutes = minutes;
+			this.tier = tier;
+			today = old.today + Math.max(0, minutes - old.minutes);
+			resetAt = old.resetAt;
+			items = old.items;
+			points = old.points;
+		}
+	}
+
+	private static volatile Pass pass;
+
+	public static Pass pass() {
+		return pass;
+	}
+
+	/** Asks for the play pass. */
+	public static void refreshPass() {
+		RagoNetwork net = Hooks.network;
+		if (net == null) {
+			return;
+		}
+		net.request("/v1/pass", new JsonObject(), (a, e) -> {
+			if (e == null) {
+				pass = new Pass(a, System.currentTimeMillis());
+			}
+		});
+	}
+
+	/**
+	 * A presence counted a minute of play (on the network thread): the pass moves on, and each tier
+	 * reached is told in the chat with what it gave.
+	 */
+	public static void passProgress(JsonObject p) {
+		Pass old = pass;
+		if (old != null) {
+			pass = new Pass(old, num(p, "minutes", old.minutes), num(p, "tier", old.tier));
+		}
+		JsonArray given = array(p, "given");
+		if (given.size() == 0) {
+			return;
+		}
+		List<String> lines = new ArrayList<>();
+		for (JsonElement e : given) {
+			if (!e.isJsonObject()) {
+				continue;
+			}
+			JsonObject g = e.getAsJsonObject();
+			int tier = num(g, "tier", 0);
+			String item = g.has("item") ? g.get("item").getAsString() : null;
+			int points = num(g, "points", 0);
+			if (item != null && points == 0) {
+				lines.add(I18n.format("rago.pass.reached_item", tier, name(item)));
+			} else if (item != null) {
+				lines.add(I18n.format("rago.pass.reached_duplicate", tier, name(item), points));
+			} else {
+				lines.add(I18n.format("rago.pass.reached_points", tier, points));
+			}
+		}
+		inventoryAsked = 0;
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
+		mc.addScheduledTask(() -> {
+			inventory();
+			if (mc.thePlayer != null) {
+				for (String line : lines) {
+					mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText(line));
+				}
+			}
+		});
+	}
+
+	private static long inventoryAsked;
+
+	/**
+	 * Asks for the collection again (the locker and the emote wheel lock what is not won yet), at most
+	 * every half minute.
+	 */
+	public static void inventory() {
+		RagoNetwork net = Hooks.network;
+		long now = System.currentTimeMillis();
+		if (net == null || !net.signedIn() || now - inventoryAsked < 30_000) {
+			return;
+		}
+		inventoryAsked = now;
+		forgetIfAnotherAccount();
+		net.request("/v1/inventory", new JsonObject(), (a, e) -> {
+			if (e == null) {
+				readInventory(a);
+			}
+		});
+	}
+
+	/** Whether the cosmetic {@code type:id} is the player's ("none" always is). */
+	public static boolean owns(String type, String id) {
+		return "none".equals(id) || owns(type + ":" + id);
 	}
 
 	/** Asks for the chest's state, the collection, the shop and (once) the catalogue. */
@@ -434,6 +588,7 @@ public final class Rewards {
 		Map<String, Item> items = parseItems(a.getAsJsonObject("items"));
 		if (!items.isEmpty()) {
 			catalogue = items;
+			ownedVersion++;
 		}
 		Map<String, Integer> o = new HashMap<>();
 		if (a.has("odds") && a.get("odds").isJsonObject()) {
@@ -453,6 +608,8 @@ public final class Rewards {
 			}
 		}
 		fragments = Collections.unmodifiableMap(f);
+		ownedKnown = true;
+		ownedVersion++;
 	}
 
 	static Map<String, Item> parseItems(JsonObject items) {
@@ -491,8 +648,11 @@ public final class Rewards {
 			owner = id;
 			status = null;
 			owned = Collections.emptySet();
+			ownedKnown = false;
+			ownedVersion++;
 			fragments = Collections.emptyMap();
 			shop = null;
+			pass = null;
 		}
 	}
 

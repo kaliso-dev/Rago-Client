@@ -29,7 +29,8 @@ import org.lwjgl.input.Keyboard;
  * stops dancing on your screen at once. Players without Rago see you standing.
  */
 public final class Emotes extends Module {
-	public static final String[] DANCES = {"twerk", "dab", "wave", "disco", "zombie", "griddy", "clap", "macarena", "groove"};
+	/** The dances, as Rago Network's catalogue names them ("dance:..."): the clap is everyone's, the others are won. */
+	public static final String[] DANCES = {"clap", "wave", "twerk", "griddy", "moonwalk"};
 	private static final float PI = (float) Math.PI;
 
 	private final BooleanOption faceCamera = addOption(new BooleanOption("emote_camera", true));
@@ -192,6 +193,7 @@ public final class Emotes extends Module {
 			if (base != null) {
 				restore(m, base);
 				bendParts(m, false);
+				Glutes.show(m, false, 0, 0);
 			}
 			return;
 		}
@@ -217,30 +219,19 @@ public final class Emotes extends Module {
 			case "twerk":
 				twerk(m, rig, t);
 				break;
-			case "dab":
-				dab(m, rig, t);
-				break;
 			case "wave":
 				wave(m, rig, t);
-				break;
-			case "disco":
-				disco(m, rig, t);
-				break;
-			case "zombie":
-				zombie(m, rig, t);
 				break;
 			case "griddy":
 				griddy(m, rig, t);
 				break;
-			case "clap":
-				clap(m, rig, t);
-				break;
-			case "groove":
-				groove(m, rig, t);
+			case "moonwalk":
+				moonwalk(m, rig, t);
 				break;
 			default:
-				macarena(m, rig, t);
+				clap(m, rig, t);
 		}
+		Glutes.show(m, "twerk".equals(dance), rig.jiggle, rig.sway);
 		for (int i = 0; i < parts.length; i++) {
 			parts[i].rotateAngleX = lerp(before[i * 3], parts[i].rotateAngleX, w);
 			parts[i].rotateAngleY = lerp(before[i * 3 + 1], parts[i].rotateAngleY, w);
@@ -292,11 +283,19 @@ public final class Emotes extends Module {
 		/** Each knee's bend on top of the one sinking makes, the shin going back, in radians. */
 		float rightKnee;
 		float leftKnee;
+		/** Pixels the whole player has gone back (toward +z), for a dance that travels. */
+		float back;
+		/** A turn of the whole player around the spine, legs and head included, in radians. */
+		float spin;
+		/** The twerk's glutes: how high they bounce (0 to 1) and their sway (-1 to 1). */
+		float jiggle;
+		float sway;
 
 		void reset() {
 			drop = twist = lean = bow = 0;
 			rightElbow = leftElbow = rightElbowWay = leftElbowWay = 0;
 			rightKnee = leftKnee = 0;
+			back = spin = jiggle = sway = 0;
 		}
 	}
 
@@ -357,11 +356,13 @@ public final class Emotes extends Module {
 	 */
 	private void apply(ModelBiped m, float[] base, Rig rig, float w) {
 		float drop = Math.max(0, Math.min(6, rig.drop * w));
-		float twist = rig.twist * w;
+		float spin = rig.spin * w;
+		float twist = rig.twist * w + spin;
 		float lean = rig.lean * w;
 		float bow = rig.bow * w;
+		float back = rig.back * w;
 		waist.set((float) Math.hypot(lean, bow), (float) Math.atan2(lean, bow));
-		m.bipedBody.setRotationPoint(base[0], base[1] + drop, base[2]);
+		m.bipedBody.setRotationPoint(base[0], base[1] + drop, base[2] + back);
 		m.bipedBody.rotateAngleY += twist;
 		float sin = MathHelper.sin(twist);
 		float cos = MathHelper.cos(twist);
@@ -369,18 +370,18 @@ public final class Emotes extends Module {
 		float[] neck = BentModel.move(m.bipedBody, waist, 0, 0, 0, this.neck);
 		m.bipedHead.rotationPointX = base[0] + neck[0] * cos + neck[2] * sin;
 		m.bipedHead.rotationPointY = base[1] + drop + neck[1];
-		m.bipedHead.rotationPointZ = base[2] - neck[0] * sin + neck[2] * cos;
-		m.bipedHead.rotateAngleY += twist * 0.6f;
+		m.bipedHead.rotationPointZ = base[2] + back - neck[0] * sin + neck[2] * cos;
+		m.bipedHead.rotateAngleY += (twist - spin) * 0.6f + spin;
 		m.bipedHead.rotateAngleZ += lean * 0.5f;
 		m.bipedHead.rotateAngleX += bow * 0.5f;
 		float[] right = BentModel.move(m.bipedBody, waist, -5, base[5] - base[1], 0, rightShoulder);
 		float[] left = BentModel.move(m.bipedBody, waist, 5, base[6] - base[1], 0, leftShoulder);
 		m.bipedRightArm.rotationPointX = base[0] + right[0] * cos + right[2] * sin;
 		m.bipedRightArm.rotationPointY = base[1] + drop + right[1];
-		m.bipedRightArm.rotationPointZ = base[2] - right[0] * sin + right[2] * cos;
+		m.bipedRightArm.rotationPointZ = base[2] + back - right[0] * sin + right[2] * cos;
 		m.bipedLeftArm.rotationPointX = base[0] + left[0] * cos + left[2] * sin;
 		m.bipedLeftArm.rotationPointY = base[1] + drop + left[1];
-		m.bipedLeftArm.rotationPointZ = base[2] - left[0] * sin + left[2] * cos;
+		m.bipedLeftArm.rotationPointZ = base[2] + back - left[0] * sin + left[2] * cos;
 		turnArm(m.bipedRightArm, twist, lean, bow);
 		turnArm(m.bipedLeftArm, twist, lean, bow);
 		rightElbow.set(rig.rightElbow * w, rig.rightElbowWay);
@@ -393,6 +394,14 @@ public final class Emotes extends Module {
 		leftKnee.set(2 * thigh + rig.leftKnee * w, PI);
 		m.bipedRightLeg.rotationPointX = base[7];
 		m.bipedLeftLeg.rotationPointX = base[8];
+		// vanilla sets the legs' z every frame
+		m.bipedRightLeg.rotationPointZ += back;
+		m.bipedLeftLeg.rotationPointZ += back;
+		if (spin != 0) {
+			// the hips turn with the player: each leg goes round the spine and turns with it
+			spinLeg(m.bipedRightLeg, spin, base[0], base[2] + back);
+			spinLeg(m.bipedLeftLeg, spin, base[0], base[2] + back);
+		}
 		// the cape hangs from the neck, wherever it went (its layer turns it half a turn: x and z swap sign)
 		ModelRenderer cape = cape(m);
 		if (cape != null) {
@@ -402,6 +411,16 @@ public final class Emotes extends Module {
 			// and lies along the back as the chest bows
 			cape.rotateAngleX = CAPE_BOW * bow;
 		}
+	}
+
+	private static void spinLeg(ModelRenderer leg, float spin, float cx, float cz) {
+		float ss = MathHelper.sin(spin);
+		float cs = MathHelper.cos(spin);
+		float x = leg.rotationPointX - cx;
+		float z = leg.rotationPointZ - cz;
+		leg.rotationPointX = cx + x * cs + z * ss;
+		leg.rotationPointZ = cz - x * ss + z * cs;
+		leg.rotateAngleY += spin;
 	}
 
 	private static void turnArm(ModelRenderer arm, float twist, float lean, float bow) {
@@ -477,9 +496,9 @@ public final class Emotes extends Module {
 	// ---- dances ------------------------------------------------------------------------------------
 
 	/**
-	 * Twerk, seen from behind: a wide, low squat, the chest bowed forward with the hands near the
-	 * knees, the hips popping up quickly on each beat and settling back, swaying from side to side
-	 * every few beats.
+	 * Twerk, seen from behind: a wide, low squat, the chest bowed forward with the hands on the knees,
+	 * the hips popping up quickly on each beat and settling back (the glutes bouncing with them),
+	 * swaying from side to side every few beats.
 	 */
 	private static void twerk(ModelBiped m, Rig rig, float t) {
 		float hz = 3.2f;
@@ -491,7 +510,9 @@ public final class Emotes extends Module {
 		rig.bow = 0.8f + pop * 0.14f;
 		rig.lean = sway * 0.1f;
 		rig.twist = sway * 0.07f;
-		// the arms hang from the bowed chest toward the knees, elbows soft
+		rig.jiggle = pop;
+		rig.sway = sway;
+		// the hands on the knees, elbows soft
 		set(m.bipedRightArm, 0.62f, 0.12f, 0.22f);
 		set(m.bipedLeftArm, 0.62f, -0.12f, -0.22f);
 		rig.rightElbow = 0.35f;
@@ -504,25 +525,6 @@ public final class Emotes extends Module {
 		// the head up, looking ahead over the bow, nodding with the pop
 		m.bipedHead.rotateAngleX = -0.45f + pop * 0.08f;
 		m.bipedHead.rotateAngleY = sway * 0.2f;
-	}
-
-	/** Head down into the bent left elbow, the right arm thrown up and out; again every two seconds. */
-	private static void dab(ModelBiped m, Rig rig, float t) {
-		float cycle = t % 2f;
-		float k = cycle < 0.25f ? smooth(cycle / 0.25f) : cycle < 1.45f ? 1 : smooth(1 - (cycle - 1.45f) / 0.35f);
-		// a little kick as the dab lands
-		float kick = cycle < 0.45f ? MathHelper.sin(Math.min(1, cycle / 0.45f) * PI) : 0;
-		set(m.bipedRightArm, -2.35f * k, 0.15f * k, 0.95f * k);
-		set(m.bipedLeftArm, -1.6f * k, 0.9f * k, 0.15f * k);
-		rig.rightElbow = 0.05f;
-		rig.leftElbow = 2.1f * k;
-		set(m.bipedHead, 0.55f * k, 0.5f * k, 0.1f * k);
-		rig.twist = 0.25f * k;
-		rig.lean = -0.1f * k;
-		rig.bow = 0.2f * k;
-		rig.drop = 1.8f * k + kick * 0.8f;
-		m.bipedRightLeg.rotateAngleZ = 0.12f * k;
-		m.bipedLeftLeg.rotateAngleZ = -0.05f * k;
 	}
 
 	/** A hand raised high, waving hello from the elbow, the weight rocking from foot to foot. */
@@ -543,70 +545,44 @@ public final class Emotes extends Module {
 		rig.leftKnee = Math.max(0, -sway) * 0.35f;
 	}
 
-	/** Pointing up across the body and down again, the other hand on the hip, knees bouncing on the beat. */
-	private static void disco(ModelBiped m, Rig rig, float t) {
-		float hz = 0.9f;
-		float u = pulse(t, hz);
-		set(m.bipedRightArm, lerp(-0.35f, -2.7f, u), 0, lerp(0.55f, -0.35f, u));
-		rig.rightElbow = lerp(0.5f, 0.05f, u);
-		set(m.bipedLeftArm, 0.2f, 0, -0.65f);
-		rig.leftElbow = 1.7f;
-		rig.leftElbowWay = -PI / 2;
-		m.bipedHead.rotateAngleX = lerp(0.25f, -0.3f, u);
-		m.bipedHead.rotateAngleZ = lerp(-0.1f, 0.15f, u);
-		rig.lean = lerp(0.14f, -0.16f, u);
-		rig.twist = lerp(-0.15f, 0.2f, u);
-		rig.drop = 0.5f + pulse(t, hz * 2) * 1.8f;
-		rig.rightKnee = pulse(t, hz * 2) * 0.3f;
-	}
-
-	/** Arms stretched forward, staggering slowly, knees giving way, head lolling. */
-	private static void zombie(ModelBiped m, Rig rig, float t) {
-		float step = wave(t, 0.7f);
-		set(m.bipedRightArm, -1.45f + step * 0.12f, -0.1f, 0.05f);
-		set(m.bipedLeftArm, -1.45f - step * 0.12f, 0.1f, -0.05f);
-		rig.rightElbow = 0.25f - step * 0.1f;
-		rig.leftElbow = 0.25f + step * 0.1f;
-		set(m.bipedHead, 0.25f + pulse(t, 0.7f) * 0.1f, step * 0.15f, step * 0.25f);
-		m.bipedRightLeg.rotateAngleX = step * 0.35f;
-		m.bipedLeftLeg.rotateAngleX = -step * 0.35f;
-		rig.rightKnee = Math.max(0, -step) * 0.6f;
-		rig.leftKnee = Math.max(0, step) * 0.6f;
-		rig.lean = step * 0.12f;
-		rig.twist = step * 0.12f;
-		rig.bow = 0.15f;
-		rig.drop = 0.6f + pulse(t, 1.4f) * 0.6f;
-	}
-
 	/**
-	 * The Griddy: on the balls of the feet, a heel tapped forward with one foot then the other, with
-	 * a little hop on each step, the arms swinging hard against the legs; on the last of every four
-	 * steps pairs the hands come up around the eyes like glasses.
+	 * The Griddy: hunched over, head down watching the feet, the dancer skips from foot to foot,
+	 * tapping the heel of the front foot ahead (that leg straight) while the back knee bends, with a
+	 * little hop on each tap; the arms, bent hard at the elbows, swing big and fast against the legs
+	 * like an exaggerated jog. On the last two taps of every eight the hands come up around the eyes
+	 * like goggles and the head comes up.
 	 */
 	private static void griddy(ModelBiped m, Rig rig, float t) {
-		float hz = 1.25f;
-		// which leg is forward: 1 the right, -1 the left
-		float s = wave(t, hz);
+		// a tap on each beat, about 104 a minute: a full right-left cycle in 1.15 seconds
+		float hz = 0.87f;
+		float phase = t * hz;
+		// which leg is ahead: 1 the right, -1 the left, snapping quickly from one to the other
+		float raw = wave(t, hz);
+		float s = Math.signum(raw) * (float) Math.pow(Math.abs(raw), 0.45);
+		// the hop: up as the feet change, down on the tap
 		float hop = pulse(t, hz * 2);
-		float bar = (t * hz) % 4f;
-		float glasses = bar < 3f ? 0 : smooth((bar - 3f) / 0.2f) * smooth((4f - bar) / 0.2f);
-		// the leg in front straight, heel down; the one behind bending
-		m.bipedRightLeg.rotateAngleX = -0.6f * Math.max(0, s);
-		m.bipedLeftLeg.rotateAngleX = -0.6f * Math.max(0, -s);
-		rig.rightKnee = 0.55f * Math.max(0, -s);
-		rig.leftKnee = 0.55f * Math.max(0, s);
-		rig.drop = 1.3f - hop * 0.9f;
-		rig.bow = 0.16f + hop * 0.05f;
-		rig.twist = -s * 0.2f * (1 - glasses);
-		// arms against the legs, elbows bent, swinging hard
-		float rx = lerp(-0.25f + 0.8f * s, -1.5f, glasses);
-		float lx = lerp(-0.25f - 0.8f * s, -1.5f, glasses);
-		set(m.bipedRightArm, rx, lerp(0, 0.62f, glasses), lerp(0.18f, 0, glasses));
-		set(m.bipedLeftArm, lx, lerp(0, -0.62f, glasses), lerp(-0.18f, 0, glasses));
-		rig.rightElbow = lerp(1.15f, 2.1f, glasses);
-		rig.leftElbow = lerp(1.15f, 2.1f, glasses);
-		m.bipedHead.rotateAngleX = 0.05f + hop * 0.07f - glasses * 0.1f;
-		m.bipedHead.rotateAngleY = s * 0.08f * (1 - glasses);
+		float bar = phase % 4f;
+		float goggles = bar < 3f ? 0 : smooth((bar - 3f) / 0.15f) * smooth((4f - bar) / 0.15f);
+		float step = 1 - goggles * 0.6f;
+		// the front leg straight out, heel tapping; the one behind bending under the body
+		m.bipedRightLeg.rotateAngleX = (-0.62f * Math.max(0, s) + 0.18f * Math.max(0, -s)) * step;
+		m.bipedLeftLeg.rotateAngleX = (-0.62f * Math.max(0, -s) + 0.18f * Math.max(0, s)) * step;
+		rig.rightKnee = 0.7f * Math.max(0, -s) * step;
+		rig.leftKnee = 0.7f * Math.max(0, s) * step;
+		rig.drop = 2.2f - hop * 1.1f;
+		// hunched forward over the feet
+		rig.bow = lerp(0.42f, 0.2f, goggles) + hop * 0.04f;
+		rig.twist = s * 0.22f * (1 - goggles);
+		// the arms swing against the legs, far forward and far back, elbows bent hard
+		float rx = lerp(1.05f * s - 0.1f, -2.0f, goggles);
+		float lx = lerp(-1.05f * s - 0.1f, -2.0f, goggles);
+		set(m.bipedRightArm, rx, lerp(0, 0.55f, goggles), lerp(0.22f, 0, goggles));
+		set(m.bipedLeftArm, lx, lerp(0, -0.55f, goggles), lerp(-0.22f, 0, goggles));
+		rig.rightElbow = lerp(1.45f, 2.25f, goggles);
+		rig.leftElbow = lerp(1.45f, 2.25f, goggles);
+		// head down, eyes on the feet, bobbing with the hop; up behind the goggles
+		m.bipedHead.rotateAngleX = lerp(0.62f + hop * 0.1f, -0.05f, goggles);
+		m.bipedHead.rotateAngleY = s * 0.1f * (1 - goggles);
 	}
 
 	/** Clapping in front of the chest, forearms up from the elbows, nodding and bouncing on each clap. */
@@ -623,56 +599,173 @@ public final class Emotes extends Module {
 		rig.bow = (1 - open) * 0.08f;
 	}
 
-	private static final float[] MAC_RX = {-1.5f, -1.5f, -1.5f, -1.5f, -2.6f, -2.6f, 0.3f, 0.3f};
-	private static final float[] MAC_RY = {0, 0, -0.9f, -0.9f, -0.5f, -0.5f, 0.2f, 0.2f};
-	private static final float[] MAC_RZ = {0, 0, 0, 0, 0.3f, 0.3f, 0.6f, 0.6f};
-	private static final float[] MAC_RE = {0.05f, 0.05f, 0.35f, 0.35f, 2.0f, 2.0f, 1.5f, 1.5f};
-	private static final float[] MAC_LX = {0.3f, -1.5f, -1.5f, -1.5f, -1.5f, -2.6f, -2.6f, 0.3f};
-	private static final float[] MAC_LY = {-0.2f, 0, 0, 0.9f, 0.9f, 0.5f, 0.5f, -0.2f};
-	private static final float[] MAC_LZ = {-0.6f, 0, 0, 0, 0, -0.3f, -0.3f, -0.6f};
-	private static final float[] MAC_LE = {1.5f, 0.05f, 0.05f, 0.35f, 0.35f, 2.0f, 2.0f, 1.5f};
-	private static final float[] MAC_RW = {0, 0, 0, 0, 0, 0, PI / 2, PI / 2};
-	private static final float[] MAC_LW = {-PI / 2, 0, 0, 0, 0, 0, 0, -PI / 2};
+	// ---- the moonwalk ------------------------------------------------------------------------------
 
-	/** The Macarena's arm moves, one every half second and eased: hands to the head and the hips, hips swinging. */
-	private static void macarena(ModelBiped m, Rig rig, float t) {
-		float step = 0.5f;
-		set(m.bipedRightArm, key(MAC_RX, t, step), key(MAC_RY, t, step), key(MAC_RZ, t, step));
-		set(m.bipedLeftArm, key(MAC_LX, t, step), key(MAC_LY, t, step), key(MAC_LZ, t, step));
-		rig.rightElbow = key(MAC_RE, t, step);
-		rig.leftElbow = key(MAC_LE, t, step);
-		// hands on the hips: the forearms come in toward the body; elsewhere forward
-		rig.rightElbowWay = key(MAC_RW, t, step);
-		rig.leftElbowWay = key(MAC_LW, t, step);
-		float hips = wave(t, 1);
-		rig.lean = hips * 0.12f;
-		rig.drop = 0.4f + pulse(t, 2) * 0.8f;
-		m.bipedHead.rotateAngleZ = -hips * 0.06f;
-		m.bipedHead.rotateAngleX = 0.05f;
+	/** Seconds per moonwalk step (one slide and one switch of the heels). */
+	private static final float MOON_STEP = 0.6f;
+	/** Steps back before the spin. */
+	private static final int MOON_STEPS = 6;
+	/** Pixels the player goes back on each step: how far the flat foot slides past the other. */
+	private static final float MOON_STRIDE = 2.6f;
+	private static final float MOON_SPIN = 0.55f;
+	private static final float MOON_TOE_STAND = 1.1f;
+	private static final float MOON_LOOP = MOON_STEPS * MOON_STEP + MOON_SPIN + MOON_TOE_STAND;
+
+	/**
+	 * The moonwalk: one foot flat, the other up on its toes. The flat foot slides straight back past
+	 * the other, then in one motion its heel rises and the other heel drops, and that one slides back:
+	 * never both feet flat, never both up. The foot on its toes stays where it is on the ground while
+	 * the player glides back, so the walk looks like walking forward. The knee over the raised heel is
+	 * bent, the leg sliding is straight; the head is left behind as the foot slides and catches up on
+	 * the switch; the shoulders are a little hunched, the arms loose, swinging with the steps. After
+	 * six steps, a spin on the spot and a toe stand, one hand up at the brim of the hat, while the
+	 * player glides back to where they started.
+	 */
+	private static void moonwalk(ModelBiped m, Rig rig, float t) {
+		float loopT = t % MOON_LOOP;
+		float walk = MOON_STEPS * MOON_STEP;
+		float travelled = MOON_STEPS * MOON_STRIDE;
+		if (loopT < walk) {
+			int n = (int) (loopT / MOON_STEP);
+			float u = (loopT - n * MOON_STEP) / MOON_STEP;
+			// the slide takes most of the step, the switch of the heels the end of it
+			float slide = smooth(Math.min(1, u / 0.78f));
+			float sw = smooth(Math.max(0, (u - 0.78f) / 0.22f));
+			boolean rightSlides = n % 2 == 0;
+			// the body glides back steadily
+			rig.back = (n + u) * MOON_STRIDE;
+			// relative to the hips: the flat foot goes from half a stride in front to half behind; the
+			// planted foot, still on the ground, from half behind to half in front
+			float half = MOON_STRIDE / 2;
+			float flatZ = lerp(-half, half, slide);
+			float toeZ = lerp(half, -half, u);
+			// the planted foot is up on its toes until the switch, then flat; the sliding one the other way
+			float flatHeel = sw;
+			float toeHeel = 1 - sw;
+			rig.drop = 0.6f;
+			leg(m, rig, true, rightSlides ? flatZ : toeZ, rightSlides ? flatHeel : toeHeel);
+			leg(m, rig, false, rightSlides ? toeZ : flatZ, rightSlides ? toeHeel : flatHeel);
+			float side = rightSlides ? 1 : -1;
+			// the weight over the planted foot, the hips leaning to it
+			rig.lean = -side * 0.05f;
+			rig.bow = 0.12f;
+			// the head left behind as the foot slides, catching up on the switch
+			m.bipedHead.rotateAngleX = 0.12f - slide * 0.1f + sw * 0.1f;
+			rig.twist = side * 0.06f * (slide - sw);
+			m.bipedHead.rotateAngleY = -rig.twist * 0.8f;
+			// arms loose, bent a little, swinging with the steps
+			float swing = side * (slide - 0.5f) * 0.5f;
+			set(m.bipedRightArm, -0.15f - swing, 0, 0.1f);
+			set(m.bipedLeftArm, -0.15f + swing, 0, -0.1f);
+			rig.rightElbow = 0.75f;
+			rig.leftElbow = 0.75f;
+			return;
+		}
+		float after = loopT - walk;
+		// back to the start during the spin and the toe stand
+		float home = smooth(after / (MOON_SPIN + MOON_TOE_STAND));
+		rig.back = travelled * (1 - home);
+		if (after < MOON_SPIN) {
+			// a full turn on the spot, arms in close
+			float k = after / MOON_SPIN;
+			rig.spin = smooth(k) * 2 * PI;
+			set(m.bipedRightArm, -0.3f, 0, 0.35f);
+			set(m.bipedLeftArm, -0.3f, 0, -0.35f);
+			rig.rightElbow = 1.4f;
+			rig.leftElbow = 1.4f;
+			rig.drop = 0.8f - MathHelper.sin(k * PI) * 0.4f;
+			// on the ball of the right foot, the left tucked in
+			leg(m, rig, true, 0, 1);
+			leg(m, rig, false, -0.5f, 0);
+			return;
+		}
+		// the toe stand: up on both toes, knees together, the right hand at the brim of the hat
+		float k = smooth(Math.min(1, (after - MOON_SPIN) / 0.2f)) * smooth(Math.min(1, (MOON_LOOP - loopT) / 0.25f));
+		leg(m, rig, true, 0, k);
+		leg(m, rig, false, 0, k);
+		m.bipedRightLeg.rotateAngleZ = -0.06f * k;
+		m.bipedLeftLeg.rotateAngleZ = 0.06f * k;
+		set(m.bipedRightArm, -2.5f * k, -0.35f * k, 0.25f * k);
+		rig.rightElbow = 1.9f * k;
+		set(m.bipedLeftArm, 0.1f * k, 0, -0.3f * k);
+		rig.leftElbow = 0.4f * k;
+		m.bipedHead.rotateAngleX = 0.18f * k;
+		m.bipedHead.rotateAngleY = 0.3f * k;
+		rig.lean = 0.04f * k;
 	}
 
 	/**
-	 * A low groove: knees bent wide and bouncing, fists pumping from the elbows one after the other,
-	 * the chest swinging over the hips.
+	 * Puts one leg's foot {@code z} pixels behind the hip (in front when negative), on the ground,
+	 * its heel up by {@code heel} (0 flat, 1 up on the toes: the knee bends to lift it). Works out the
+	 * thigh's angle and the knee's bend for a leg of two six pixel halves under hips {@code rig.drop}
+	 * lower, as {@link #apply} will sink them.
 	 */
-	private static void groove(ModelBiped m, Rig rig, float t) {
-		float hz = 1.8f;
-		float bounce = pulse(t, hz);
-		float pump = wave(t, hz / 2);
-		set(m.bipedRightArm, -0.35f - Math.max(0, pump) * 0.5f, 0.15f, 0.35f);
-		set(m.bipedLeftArm, -0.35f - Math.max(0, -pump) * 0.5f, -0.15f, -0.35f);
-		rig.rightElbow = 1.3f + Math.max(0, pump) * 0.5f;
-		rig.leftElbow = 1.3f + Math.max(0, -pump) * 0.5f;
-		// knees out to the sides
-		m.bipedRightLeg.rotateAngleZ = 0.22f;
-		m.bipedLeftLeg.rotateAngleZ = -0.22f;
-		m.bipedRightLeg.rotateAngleY = 0.35f;
-		m.bipedLeftLeg.rotateAngleY = -0.35f;
-		rig.drop = 2.2f + bounce * 1.4f;
-		rig.lean = pump * 0.14f;
-		rig.bow = 0.12f + bounce * 0.08f;
-		rig.twist = pump * 0.12f;
-		m.bipedHead.rotateAngleX = 0.1f - bounce * 0.15f;
-		m.bipedHead.rotateAngleZ = -pump * 0.08f;
+	private static void leg(ModelBiped m, Rig rig, boolean right, float z, float heel) {
+		float hip = 12 - Math.max(0, Math.min(6, rig.drop));
+		// up on the toes: the ankle (the bottom of the model's leg) rises about a pixel and a half
+		float y = hip - heel * 1.5f;
+		float d = Math.min(11.98f, (float) Math.hypot(z, y));
+		float knee = 2 * (float) Math.acos(d / 12);
+		float thigh = (float) Math.atan2(z, y) - knee / 2;
+		// apply() bends the knees and brings the thighs forward for the drop: take that off again
+		float sink = (float) Math.acos(1 - Math.max(0, Math.min(6, rig.drop)) / 12);
+		ModelRenderer leg = right ? m.bipedRightLeg : m.bipedLeftLeg;
+		leg.rotateAngleX = thigh + sink;
+		if (right) {
+			rig.rightKnee = knee - 2 * sink;
+		} else {
+			rig.leftKnee = knee - 2 * sink;
+		}
+	}
+
+	/**
+	 * The twerk's glutes: two rounded pads on the back of the hips, on the player model's legs (so
+	 * they take the skin of the trousers there), shown only while the twerk plays and bouncing with
+	 * it. Cartoonish, like the rest of the blocky player.
+	 */
+	static final class Glutes {
+		private static final java.util.Map<ModelBiped, ModelRenderer[]> MADE = new java.util.WeakHashMap<>();
+
+		private Glutes() {
+		}
+
+		static void show(ModelBiped m, boolean on, float jiggle, float sway) {
+			if (!(m instanceof ModelPlayer)) {
+				return;
+			}
+			ModelRenderer[] g = MADE.get(m);
+			if (g == null) {
+				if (!on) {
+					return;
+				}
+				g = new ModelRenderer[] {pad(m, m.bipedRightLeg, 4, 18, 7, 20), pad(m, m.bipedLeftLeg, 20, 50, 23, 52)};
+				MADE.put(m, g);
+			}
+			for (int i = 0; i < 2; i++) {
+				g[i].showModel = on;
+				float side = i == 0 ? 1 : -1;
+				// up and back on the pop, one side then the other with the sway
+				g[i].rotateAngleX = -0.28f * jiggle - 0.06f * side * sway;
+				g[i].rotateAngleZ = 0.05f * side * sway;
+			}
+		}
+
+		/**
+		 * One glute on a leg: a box behind the top of the thigh and a smaller one further back, so it
+		 * looks round; textured from the back of the leg ({@code u, v}: the boxes' texture corners).
+		 */
+		private static ModelRenderer pad(ModelBiped m, ModelRenderer leg, int u, int v, int u2, int v2) {
+			ModelRenderer pad = new ModelRenderer(m, u, v);
+			pad.setTextureSize(m.textureWidth, m.textureHeight);
+			pad.setRotationPoint(0, 0.5f, 1.6f);
+			pad.addBox(-2, 0, -0.2f, 4, 5, 2, 0.2f);
+			ModelRenderer round = new ModelRenderer(m, u2, v2);
+			round.setTextureSize(m.textureWidth, m.textureHeight);
+			round.addBox(-1.5f, 0.8f, 1.3f, 3, 3, 1, 0.15f);
+			pad.addChild(round);
+			pad.showModel = false;
+			leg.addChild(pad);
+			return pad;
+		}
 	}
 }

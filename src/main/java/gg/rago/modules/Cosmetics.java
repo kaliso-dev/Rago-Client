@@ -13,6 +13,7 @@ import gg.rago.network.NetworkClient;
 import gg.rago.render.BatWing;
 import gg.rago.render.CosmeticModel;
 import gg.rago.render.NeonColors;
+import gg.rago.rewards.Rewards;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.model.ModelPlayer;
@@ -137,20 +138,27 @@ public final class Cosmetics extends Module {
 
 	private Loadout loadout(boolean on, RagoCape cape) {
 		boolean capeOn = cape != null && cape.isEnabled();
-		return new Loadout(capeOn ? cape.design() : "none", cape != null ? cape.neon() : "red", cape != null && cape.overOwn(),
-			on ? hat.get() : "none", hatNeon.get(), Loadout.NO_TINT, hatScale.get(),
-			on ? wings.get() : "none", wingsNeon.get(), Loadout.NO_TINT, wingsScale.get(), flap.get(), flapSpeed.get(),
-			on ? shield.get() : "none", shieldNeon.get(), shieldScale.get(), neonGlow.get(), nameColor.get(), nameIcon.get());
+		return new Loadout(capeOn ? cape.worn() : "none", cape != null ? cape.neon() : "red", cape != null && cape.overOwn(),
+			on ? worn("hat", hat) : "none", hatNeon.get(), Loadout.NO_TINT, hatScale.get(),
+			on ? worn("wings", wings) : "none", wingsNeon.get(), Loadout.NO_TINT, wingsScale.get(), flap.get(), flapSpeed.get(),
+			on ? worn("shield", shield) : "none", shieldNeon.get(), shieldScale.get(), neonGlow.get(), worn("name", nameColor),
+			worn("icon", nameIcon));
+	}
+
+	/** The option's value when you have that cosmetic (bought or won), "none" until then. */
+	private static String worn(String type, ChoiceOption option) {
+		String id = option.get();
+		return Rewards.wearable(type, id) ? id : "none";
 	}
 
 	/** The colour of your name ("none": the game's). Shown whether the hat, wings and shield are on or not. */
 	public String nameColor() {
-		return nameColor.get();
+		return ownLoadout().nameColor;
 	}
 
 	/** The icon after your name ("none" for none). */
 	public String nameIcon() {
-		return nameIcon.get();
+		return ownLoadout().nameIcon;
 	}
 
 	private int signature(boolean on, RagoCape cape) {
@@ -169,6 +177,7 @@ public final class Cosmetics extends Module {
 		h = 31 * h + (neonGlow.get() ? 1 : 0);
 		h = 31 * h + nameColor.get().hashCode();
 		h = 31 * h + nameIcon.get().hashCode();
+		h = 31 * h + Rewards.ownedVersion();
 		if (cape != null) {
 			h = 31 * h + (cape.isEnabled() ? 1 : 0);
 			h = 31 * h + cape.design().hashCode();

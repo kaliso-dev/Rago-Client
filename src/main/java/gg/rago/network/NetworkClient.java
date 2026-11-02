@@ -165,6 +165,19 @@ public final class NetworkClient {
 		this(worker, worker, clock, version, log);
 	}
 
+	/** Whether the player plays now (in a world, not away): the play pass counts those minutes. */
+	private volatile boolean playing;
+	/** Told of the play pass's progress each presence that counts a minute (on the network thread). */
+	private volatile Consumer<JsonObject> passListener;
+
+	public void playing(boolean playing) {
+		this.playing = playing;
+	}
+
+	public void onPass(Consumer<JsonObject> listener) {
+		this.passListener = listener;
+	}
+
 	public NetworkClient(Executor worker, Executor calls, LongSupplier clock, Supplier<String> version, Consumer<String> log) {
 		this.worker = worker;
 		this.calls = calls;
@@ -453,9 +466,15 @@ public final class NetworkClient {
 		JsonObject body = new JsonObject();
 		body.addProperty("visible", visible);
 		body.addProperty("version", version.get());
+		body.addProperty("playing", playing);
 		body.add("cosmetics", loadout.toJson());
 		try {
 			JsonObject answer = call(b, "POST", "/v1/presence", body, token);
+			JsonElement pass = answer.get("pass");
+			Consumer<JsonObject> listener = passListener;
+			if (pass != null && pass.isJsonObject() && listener != null) {
+				listener.accept(pass.getAsJsonObject());
+			}
 			JsonElement count = answer.get("online");
 			if (count != null && count.isJsonPrimitive() && count.getAsJsonPrimitive().isNumber()) {
 				online = count.getAsInt();

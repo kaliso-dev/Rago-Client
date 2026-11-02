@@ -231,6 +231,12 @@ public final class RagoBadge extends Module {
 		}
 	}
 
+	/** The colour (RGB) a name colour shows on its first letter, for a swatch. */
+	public static int nameShade(String color) {
+		int[] stops = NameColors.stops(color);
+		return stops == null ? 0xFFFFFF : stops[0];
+	}
+
 	/** The GL texture of the icon {@code icon} ({@link Style#icon}); 0 for none. */
 	public int iconTexture(String icon) {
 		if (icon.equals("none")) {

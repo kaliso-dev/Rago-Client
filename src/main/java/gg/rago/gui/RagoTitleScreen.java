@@ -692,11 +692,11 @@ public final class RagoTitleScreen extends GuiScreen {
 	}
 
 	/** The dock's buttons, with the OptiFine helper's when OptiFine is missing; their tips and animation keys. */
-	private static final String[] DOCK_ICONS = {"logo", "gift", "shirt", "store", "sliders-horizontal", "settings", "globe", "power"};
-	private static final String[] DOCK_ICONS_OPTIFINE_HELP = {"logo", "gift", "shirt", "store", "sliders-horizontal", "settings", "globe", "zap", "power"};
-	private static final String[] DOCK_TIPS = {"rago.dock.mods", "rago.dock.rewards", "rago.dock.locker", "rago.dock.shop",
+	private static final String[] DOCK_ICONS = {"logo", "gift", "ticket", "shirt", "store", "sliders-horizontal", "settings", "globe", "power"};
+	private static final String[] DOCK_ICONS_OPTIFINE_HELP = {"logo", "gift", "ticket", "shirt", "store", "sliders-horizontal", "settings", "globe", "zap", "power"};
+	private static final String[] DOCK_TIPS = {"rago.dock.mods", "rago.dock.rewards", "rago.dock.pass", "rago.dock.locker", "rago.dock.shop",
 		"rago.dock.rago_settings", "rago.dock.options", "rago.dock.servers", "rago.dock.quit"};
-	private static final String[] DOCK_TIPS_OPTIFINE_HELP = {"rago.dock.mods", "rago.dock.rewards", "rago.dock.locker", "rago.dock.shop",
+	private static final String[] DOCK_TIPS_OPTIFINE_HELP = {"rago.dock.mods", "rago.dock.rewards", "rago.dock.pass", "rago.dock.locker", "rago.dock.shop",
 		"rago.dock.rago_settings", "rago.dock.options", "rago.dock.servers", "rago.dock.optifine", "rago.dock.quit"};
 	private static final String[] DOCK_KEYS = keys("dock:", DOCK_ICONS);
 	private static final String[] DOCK_KEYS_OPTIFINE_HELP = keys("dock:", DOCK_ICONS_OPTIFINE_HELP);
@@ -720,6 +720,8 @@ public final class RagoTitleScreen extends GuiScreen {
 				return () -> mc.displayGuiScreen(new RewardsScreen(this));
 			case "store":
 				return () -> mc.displayGuiScreen(new ShopScreen(this));
+			case "ticket":
+				return () -> mc.displayGuiScreen(new PassScreen(this));
 			case "sliders-horizontal":
 				return () -> mc.displayGuiScreen(RagoMenuScreen.settings(this));
 			case "settings":

@@ -52,8 +52,36 @@ public final class RagoNetwork extends Module {
 	private ExecutorService callWorker;
 	private SessionAccount account;
 
+	/** When the player last moved or looked around, for the play pass (minutes away do not count). */
+	private long lastActive;
+	private double lastX;
+	private double lastZ;
+	private float lastYaw;
+	private float lastPitch;
+	/** Minutes without moving after which the play pass stops counting. */
+	private static final long AWAY_AFTER = 5 * 60_000;
+
 	public RagoNetwork() {
 		super("rago_network", FeatureClass.VISUAL, true);
+		client.onPass(gg.rago.rewards.Rewards::passProgress);
+	}
+
+	/** In a world and not away from the keyboard: the time the play pass counts. */
+	private boolean playing() {
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
+		net.minecraft.client.entity.EntityPlayerSP p = mc.thePlayer;
+		if (mc.theWorld == null || p == null) {
+			return false;
+		}
+		long now = System.currentTimeMillis();
+		if (p.posX != lastX || p.posZ != lastZ || p.rotationYaw != lastYaw || p.rotationPitch != lastPitch) {
+			lastX = p.posX;
+			lastZ = p.posZ;
+			lastYaw = p.rotationYaw;
+			lastPitch = p.rotationPitch;
+			lastActive = now;
+		}
+		return now - lastActive < AWAY_AFTER;
 	}
 
 	@Override
@@ -67,6 +95,7 @@ public final class RagoNetwork extends Module {
 		RagoCape cape = Hooks.cape;
 		boolean show = visible.get();
 		int signature = (show ? 1 : 0) + 31 * (cosmetics != null ? cosmetics.sharedSignature(cape) : 0);
+		client.playing(playing());
 		client.tick(url.get(), account(), show, others.get(), signature,
 			() -> cosmetics != null ? cosmetics.shared(cape) : Loadout.NONE, this::around);
 	}
