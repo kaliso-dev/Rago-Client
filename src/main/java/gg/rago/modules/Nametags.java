@@ -265,8 +265,8 @@ public final class Nametags extends Module implements Styled {
 			label(name, x, top, z, 0, throughWalls.get(), 0xFF);
 			return;
 		}
-		boolean creator = badge.creator(p.getUniqueID());
-		label(name, x, top, z, 0, throughWalls.get(), 0xFF, badge.texture(p.getUniqueID()), logo, creator ? p.getName() : null);
+		RagoBadge.Style style = badge.style(p.getUniqueID());
+		label(name, x, top, z, 0, throughWalls.get(), 0xFF, badge.texture(p.getUniqueID()), logo, style != null ? p.getName() : null, style);
 	}
 
 	/** A player's name as the game shows it, what it was made from, and the tick it was made. */
@@ -327,16 +327,16 @@ public final class Nametags extends Module implements Styled {
 	 * all together after the world (see {@link LabelBatch}).
 	 */
 	public void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha) {
-		label(text, x, anchorY, z, drop, seeThrough, alpha, 0, 0, null);
+		label(text, x, anchorY, z, drop, seeThrough, alpha, 0, 0, null, null);
 	}
 
 	/**
 	 * {@link #label}, with the Rago logo (GL texture {@code logoTexture}, none for 0) before the text in
-	 * colour {@code logo}; for the creator ({@code creator}: their name), the name in pink and the
-	 * crown and sparkle after it.
+	 * colour {@code logo}; for a player whose name has a style ({@code player}: their name), the name
+	 * in its colours and its icon after it.
 	 */
 	private void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha,
-		int logoTexture, int logo, String creator) {
+		int logoTexture, int logo, String player, RagoBadge.Style style) {
 		String shown = colorMode.is("custom") ? stripped(text) : text;
 		int color = colorMode.is("custom") ? nameColor.get() : 0xFFFFFFFF;
 		float s = WorldDraw.LABEL_SCALE * scale.get() / 100f;
@@ -344,29 +344,30 @@ public final class Nametags extends Module implements Styled {
 		TtfFont ttf = HudText.ttf(font.get());
 		float em = HudText.em(font.get());
 		float logoW = logoTexture != 0 ? RagoBadge.LOGO_SIZE + 2 : 0;
-		RagoBadge badge = creator != null ? gg.rago.hooks.Hooks.ragoBadge : null;
+		RagoBadge badge = player != null && style != null ? gg.rago.hooks.Hooks.ragoBadge : null;
 		String nicked = badge != null ? gg.rago.hooks.Hooks.nick(shown) : shown;
-		// the crown and sparkle, unless the vanilla font draws the label (characters outside its ASCII page)
-		int icons = badge != null && LabelBatch.canDraw(ttf, nicked) ? badge.iconsTexture() : 0;
-		// the creator's name split from the text before and after it, the icons in between
+		// a styled name is drawn by Rago unless the vanilla font draws the label (characters outside its ASCII page)
+		boolean styled = badge != null && LabelBatch.canDraw(ttf, nicked);
+		int icons = styled ? badge.iconTexture(style.icon) : 0;
+		// the player's name split from the text before and after it, the icon in between
 		String before = shown;
 		String name = "";
 		String after = "";
-		if (icons != 0) {
-			int at = RagoBadge.nameAt(nicked, creator) >= 0 ? RagoBadge.nameAt(shown, creator) : -1;
+		if (styled) {
+			int at = RagoBadge.nameAt(nicked, player) >= 0 ? RagoBadge.nameAt(shown, player) : -1;
 			if (at >= 0) {
 				before = shown.substring(0, at);
-				name = shown.substring(at, at + creator.length());
-				after = RagoBadge.codesAt(shown.substring(0, at)) + shown.substring(at + creator.length());
+				name = shown.substring(at, at + player.length());
+				after = RagoBadge.codesAt(shown.substring(0, at)) + shown.substring(at + player.length());
 			}
 		}
-		// the styles in force before the creator's name; worked out only when there is one (this runs
+		// the styles in force before the player's name; worked out only when there is one (this runs
 		// for every name tag, every frame)
-		String style = name.isEmpty() ? "" : RagoBadge.stylesAt(before);
+		String codes = name.isEmpty() ? "" : RagoBadge.stylesAt(before);
 		String whole = name.isEmpty() ? before : before + name;
 		float beforeW = LabelBatch.width(ttf, em, WORLD_SHARPNESS, before);
-		float nameW = name.isEmpty() ? 0 : LabelBatch.width(ttf, em, WORLD_SHARPNESS, style + name);
-		float iconsW = icons != 0 ? RagoBadge.ICONS_SPACE : 0;
+		float nameW = name.isEmpty() ? 0 : LabelBatch.width(ttf, em, WORLD_SHARPNESS, codes + name);
+		float iconsW = icons != 0 ? style.iconSpace : 0;
 		float afterW = after.isEmpty() ? 0 : LabelBatch.width(ttf, em, WORLD_SHARPNESS, after);
 		float w = logoW + beforeW + nameW + iconsW + afterW;
 		float half = w / 2f;
@@ -401,16 +402,16 @@ public final class Nametags extends Module implements Styled {
 				ok = batch.text(LabelBatch.SEE_THROUGH, ttf, em, WORLD_SHARPNESS, after, afterX, 0, faint << 24 | color & 0xFFFFFF, false);
 			}
 		}
-		if (ok && !name.isEmpty() && RagoBadge.pinkName()) {
-			// the creator's name, letter by letter in its shades of pink
+		if (ok && !name.isEmpty() && style.colours()) {
+			// the name, letter by letter in its colours
 			if (!before.isEmpty()) {
 				ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, before, tx, 0, a << 24 | color & 0xFFFFFF, shadow.get());
 			}
 			float cx = tx + beforeW;
 			long now = Minecraft.getSystemTime();
 			for (int i = 0; ok && i < name.length(); i++) {
-				String ch = style + name.charAt(i);
-				ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, ch, cx, 0, a << 24 | RagoBadge.creatorShade(i, name.length(), now), shadow.get());
+				String ch = codes + name.charAt(i);
+				ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, ch, cx, 0, a << 24 | style.shade(i, name.length(), now), shadow.get());
 				cx += LabelBatch.width(ttf, em, WORLD_SHARPNESS, ch);
 			}
 		} else if (ok) {
@@ -423,7 +424,8 @@ public final class Nametags extends Module implements Styled {
 			batch.image(layer, logoTexture, -half, -0.5f, RagoBadge.LOGO_SIZE, RagoBadge.LOGO_SIZE, logo);
 		}
 		if (ok && icons != 0) {
-			batch.image(layer, icons, tx + beforeW + nameW + 1.5f, -0.5f, RagoBadge.ICONS_W, RagoBadge.ICONS_H, a << 24 | 0xFFFFFF);
+			float ih = style.icon.equals(RagoBadge.Style.CREATOR) ? RagoBadge.ICONS_H : RagoBadge.ICON_SIZE;
+			batch.image(layer, icons, tx + beforeW + nameW + 1.5f, -0.5f, style.iconW, ih, a << 24 | 0xFFFFFF);
 		}
 		if (!ok) {
 			// characters outside the Minecraft font's ASCII page (or the Unicode font): vanilla draws it

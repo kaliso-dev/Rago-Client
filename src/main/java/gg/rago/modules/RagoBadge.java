@@ -30,8 +30,10 @@ import java.util.UUID;
  * the colour you choose (on your name tag in third person, with Nametags showing your own name), and
  * other Rago players' as {@link RagoNetwork} tells (Rago's red, or their role's colour).
  *
- * <p>The creator of Rago stands out: the logo in a pink gradient, the name in moving shades of pink
- * (in a Bed Wars game it keeps its team's colour) and a crown and a sparkle after it.
+ * <p>A Rago player can show a colour on their name and an icon after it, won with Rago Points (out of a
+ * Bed Wars game: there the name keeps its team's colour). The creator of Rago stands out: the logo in
+ * a pink gradient, the name in moving shades of pink and a crown and a sparkle after it, unless they
+ * chose others.
  */
 public final class RagoBadge extends Module {
 	/** Size of the logo, in name tag and tab list units (the height of a line of text). */
@@ -49,6 +51,11 @@ public final class RagoBadge extends Module {
 	public static final float ICONS_SPACE = 1.5f + ICONS_W + 1;
 	/** Five spaces in the Minecraft font: their room in a tab line, so its column is wide enough. */
 	private static final String ICON_GAP = "     ";
+	/** Size of one icon won with Rago Points (textures/name_icons), and its room in a tab line. */
+	public static final float ICON_SIZE = 8;
+	private static final String SMALL_ICON_GAP = "   ";
+	/** The icons' textures, by id. */
+	private static final Map<String, ResourceLocation> ICON_TEXTURES = new HashMap<>();
 	/** The creator's name goes from light to deep pink and back. */
 	static final int CREATOR_LIGHT = 0xFFC8E4;
 	static final int CREATOR_DEEP = 0xFF3E9E;
@@ -121,8 +128,8 @@ public final class RagoBadge extends Module {
 		return p != null && "creator".equals(p.role);
 	}
 
-	/** Whether the creator's name is shown in pink now: not in a Bed Wars game, where it keeps its team's colour. */
-	public static boolean pinkName() {
+	/** Whether names are shown in their chosen colours now: not in a Bed Wars game, where they keep their team's colour. */
+	public static boolean styledName() {
 		return !BedwarsGame.playing();
 	}
 
@@ -147,8 +154,98 @@ public final class RagoBadge extends Module {
 	}
 
 	/**
+	 * How the name of the player {@code id} is drawn: null for the game's way (not a Rago player, or one
+	 * who shows neither a colour nor an icon).
+	 */
+	public Style style(UUID id) {
+		RagoNetwork network = Hooks.network;
+		if (id == null) {
+			return null;
+		}
+		Minecraft mc = Minecraft.getMinecraft();
+		String color;
+		String icon;
+		if (mc.thePlayer != null && id.equals(mc.thePlayer.getUniqueID())) {
+			Cosmetics c = Hooks.cosmetics;
+			color = c != null ? c.nameColor() : "none";
+			icon = c != null ? c.nameIcon() : "none";
+		} else {
+			NetworkClient.Player p = network != null ? network.player(id) : null;
+			if (p == null) {
+				return null;
+			}
+			color = p.loadout.nameColor;
+			icon = p.loadout.nameIcon;
+		}
+		if (creator(id)) {
+			color = color.equals("none") ? Style.CREATOR : color;
+			icon = icon.equals("none") ? Style.CREATOR : icon;
+		}
+		return color.equals("none") && icon.equals("none") ? null : Style.of(color, icon);
+	}
+
+	/** A name's colour and icon, made once for each pair. */
+	public static final class Style {
+		/** The creator's own pink shades, or crown and sparkle. */
+		public static final String CREATOR = "creator";
+		/** By colour, then icon: found again every frame without making a key. */
+		private static final Map<String, Map<String, Style>> MADE = new HashMap<>();
+
+		/** "none", a colour of {@link gg.rago.network.Loadout#NAME_COLORS} or {@link #CREATOR}. */
+		public final String color;
+		/** "none", an icon of {@link gg.rago.network.Loadout#NAME_ICONS} or {@link #CREATOR}. */
+		public final String icon;
+		/** Width of the icon, in name tag and tab list units, and the room it takes after the name. */
+		public final float iconW;
+		public final float iconSpace;
+		final String gap;
+		private final int[] stops;
+		private final boolean moving;
+
+		private Style(String color, String icon) {
+			this.color = color;
+			this.icon = icon;
+			boolean creatorIcon = icon.equals(CREATOR);
+			iconW = icon.equals("none") ? 0 : creatorIcon ? ICONS_W : ICON_SIZE;
+			iconSpace = icon.equals("none") ? 0 : 1.5f + iconW + 1;
+			gap = icon.equals("none") ? "" : creatorIcon ? ICON_GAP : SMALL_ICON_GAP;
+			stops = NameColors.stops(color);
+			moving = NameColors.moving(color);
+		}
+
+		static synchronized Style of(String color, String icon) {
+			return MADE.computeIfAbsent(color, c -> new HashMap<>()).computeIfAbsent(icon, i -> new Style(color, i));
+		}
+
+		/** Whether the name is drawn letter by letter in this style's colours (out of a Bed Wars game). */
+		public boolean colours() {
+			return stops != null && styledName();
+		}
+
+		/** The colour (RGB) of letter {@code i} of an {@code n} letter name at {@code time} (milliseconds). */
+		public int shade(int i, int n, long time) {
+			if (color.equals(CREATOR)) {
+				return creatorShade(i, n, time);
+			}
+			return NameColors.shade(stops, moving, i, n, time);
+		}
+	}
+
+	/** The GL texture of the icon {@code icon} ({@link Style#icon}); 0 for none. */
+	public int iconTexture(String icon) {
+		if (icon.equals("none")) {
+			return 0;
+		}
+		if (icon.equals(Style.CREATOR)) {
+			return iconsTexture();
+		}
+		ResourceLocation tex = ICON_TEXTURES.computeIfAbsent(icon, i -> new ResourceLocation("rago", "textures/name_icons/" + i + ".png"));
+		return texture(tex);
+	}
+
+	/**
 	 * GuiPlayerTabOverlay.getPlayerName: room for the logo before the names of Rago players, and for
-	 * the creator's crown and sparkle after the name.
+	 * the icon after the name.
 	 */
 	public String tabName(String name, NetworkPlayerInfo info) {
 		if (!isEnabled() || !inTab.get() || Minecraft.getMinecraft().thePlayer == null || info == null) {
@@ -161,15 +258,16 @@ public final class RagoBadge extends Module {
 		}
 		TabLine tab;
 		String line;
-		if (creator(id)) {
+		Style style = style(id);
+		if (style != null) {
 			String player = info.getGameProfile().getName();
 			int at = nameAt(name, player);
 			int end = at < 0 ? name.length() : at + player.length();
-			line = TAB_GAP + name.substring(0, end) + ICON_GAP + name.substring(end);
-			tab = new TabLine(c, true, at < 0 ? null : player, at, end);
+			line = TAB_GAP + name.substring(0, end) + style.gap + name.substring(end);
+			tab = new TabLine(c, creator(id), style, at < 0 ? null : player, at, end);
 		} else {
 			line = TAB_GAP + name;
-			tab = new TabLine(c, false, null, -1, -1);
+			tab = new TabLine(c, creator(id), null, null, -1, -1);
 		}
 		if (tabLines.size() > 512) {
 			tabLines.clear();
@@ -191,24 +289,25 @@ public final class RagoBadge extends Module {
 		quad(logo, x, y, LOGO_SIZE, LOGO_SIZE, tab.color);
 		text = text.substring(TAB_GAP.length());
 		x += LOGO_SIZE + 2;
-		if (!tab.creator) {
+		Style style = tab.style;
+		if (style == null) {
 			font.drawString(text, x, y, color, shadow);
 			return true;
 		}
 		String before = text.substring(0, tab.end);
-		String after = codesAt(before) + text.substring(tab.end + ICON_GAP.length());
+		String after = codesAt(before) + text.substring(tab.end + style.gap.length());
 		float nameEnd;
-		if (tab.name != null && pinkName()) {
+		if (tab.name != null && style.colours()) {
 			String start = text.substring(0, tab.at);
 			if (!start.isEmpty()) {
 				font.drawString(start, x, y, color, shadow);
 			}
 			float cx = x + font.getStringWidth(start);
-			String style = stylesAt(start);
+			String styles = stylesAt(start);
 			long now = Minecraft.getSystemTime();
 			for (int i = 0; i < tab.name.length(); i++) {
-				String ch = style + tab.name.charAt(i);
-				font.drawString(ch, cx, y, color & 0xFF000000 | creatorShade(i, tab.name.length(), now), shadow);
+				String ch = styles + tab.name.charAt(i);
+				font.drawString(ch, cx, y, color & 0xFF000000 | style.shade(i, tab.name.length(), now), shadow);
 				cx += font.getStringWidth(ch);
 			}
 			nameEnd = cx;
@@ -216,27 +315,30 @@ public final class RagoBadge extends Module {
 			font.drawString(before, x, y, color, shadow);
 			nameEnd = x + font.getStringWidth(before);
 		}
-		int icons = iconsTexture();
-		if (icons != 0) {
-			quad(icons, nameEnd + 1.5f, y - 0.5f, ICONS_W, ICONS_H, 0xFFFFFFFF);
+		int icon = iconTexture(style.icon);
+		if (icon != 0) {
+			quad(icon, nameEnd + 1.5f, y - 0.5f, style.iconW, style.icon.equals(Style.CREATOR) ? ICONS_H : ICON_SIZE, 0xFFFFFFFF);
 		}
-		font.drawString(after, x + font.getStringWidth(before + ICON_GAP), y, color, shadow);
+		font.drawString(after, x + font.getStringWidth(before + style.gap), y, color, shadow);
 		return true;
 	}
 
-	/** One tab line with the logo: its colour, and for the creator where the name is. */
+	/** One tab line with the logo: its colour, and for a styled name where the name is. */
 	private static final class TabLine {
 		final int color;
 		final boolean creator;
-		/** The creator's name, null when it is not in the line as it is (a nick). */
+		/** The name's colour and icon, null for the game's way. */
+		final Style style;
+		/** The player's name, null when it is not in the line as it is (a nick). */
 		final String name;
-		/** Where the name starts and ends in the line without the logo's room (end: the icons' place). */
+		/** Where the name starts and ends in the line without the logo's room (end: the icon's place). */
 		final int at;
 		final int end;
 
-		TabLine(int color, boolean creator, String name, int at, int end) {
+		TabLine(int color, boolean creator, Style style, String name, int at, int end) {
 			this.color = color;
 			this.creator = creator;
+			this.style = style;
 			this.name = name;
 			this.at = at;
 			this.end = end;
@@ -325,7 +427,7 @@ public final class RagoBadge extends Module {
 		return mix(CREATOR_LIGHT, CREATOR_DEEP, k);
 	}
 
-	private static int mix(int a, int b, float k) {
+	static int mix(int a, int b, float k) {
 		int r = Math.round((a >> 16 & 0xFF) + ((b >> 16 & 0xFF) - (a >> 16 & 0xFF)) * k);
 		int g = Math.round((a >> 8 & 0xFF) + ((b >> 8 & 0xFF) - (a >> 8 & 0xFF)) * k);
 		int bl = Math.round((a & 0xFF) + ((b & 0xFF) - (a & 0xFF)) * k);
