@@ -615,6 +615,11 @@ public final class Ui {
 			return;
 		}
 		Minecraft mc = Minecraft.getMinecraft();
+		if (amount >= 1 && Glass.deepen()) {
+			// strong: blurred much further, the same on every screen size
+			Glass.drawDeep(mc.displayWidth, mc.displayHeight, opacity);
+			return;
+		}
 		Glass.draw(0, 0, mc.displayWidth, mc.displayHeight, 0, 0, 0, mc.displayWidth, mc.displayHeight,
 			cornerTexture().getGlTextureId(), opacity * Math.min(1, amount));
 	}

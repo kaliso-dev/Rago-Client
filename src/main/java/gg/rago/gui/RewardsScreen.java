@@ -29,6 +29,8 @@ public final class RewardsScreen extends GuiScreen {
 	private static final ResourceLocation CHEST = new ResourceLocation("textures/entity/chest/normal.png");
 	private static final float CARD_W = 118;
 	private static final float CARD_H = 164;
+	/** The chest's width on screen. */
+	private static final float CHEST_SIZE = 92;
 	private static final long SHAKE_MS = 650;
 	private static final long LID_MS = 450;
 	private static final long RISE_MS = 420;
@@ -93,7 +95,8 @@ public final class RewardsScreen extends GuiScreen {
 		header(x, y, pw, s);
 		float top = y + 70;
 		float bottom = y + ph - 54;
-		Rewards.Chest shown = drawn != null ? drawn : s != null && s.opened && openClicked < 0 ? s.chest : null;
+		// a chest just drawn stays shut, shaking, until closed() opens its lid
+		Rewards.Chest shown = drawn != null && lidAt > 0 ? drawn : s != null && s.opened && openClicked < 0 ? s.chest : null;
 		if (s == null && openClicked < 0) {
 			waiting(x, top, pw, bottom - top);
 		} else if (shown == null) {
@@ -194,10 +197,10 @@ public final class RewardsScreen extends GuiScreen {
 		}
 		Ui.glow(cx, cy, 150, Ui.alpha(0xFFFFAA00, openClicked >= 0 ? 0.22f : 0.12f));
 		float bob = openClicked >= 0 ? 0 : (float) Math.sin(now / 520.0) * 3;
-		drawChest(cx + shake, cy + 34 + bob, 74, lid, partialTicks);
+		drawChest(cx + shake, cy + 40 + bob, CHEST_SIZE, lid, partialTicks);
 
 		if (s != null) {
-			streak(x, y + h - 74, w, s);
+			streak(x, y + h - 86, w, s);
 		}
 		float bw = 200;
 		boolean busy = openClicked >= 0;
@@ -220,10 +223,11 @@ public final class RewardsScreen extends GuiScreen {
 		rise = Math.max(0, rise);
 		float lid = lidAt <= 0 ? 1 : Math.min(1, (now - lidAt) / (float) LID_MS);
 		if (lidAt > 0 && rise < 1) {
-			drawChest(cx, y + h * 0.42f + 34, 74, lid, partialTicks);
+			drawChest(cx, y + h * 0.42f + 40, CHEST_SIZE, lid, partialTicks);
 		}
 		List<Rewards.Card> cards = chest.cards;
 		int n = cards.size();
+		ensureFlips(n, lidAt <= 0);
 		float gap = 16;
 		float cw = Math.min(CARD_W, (w - 60 - (n - 1) * gap) / n);
 		float ch = cw * CARD_H / CARD_W;
@@ -482,18 +486,20 @@ public final class RewardsScreen extends GuiScreen {
 		GlStateManager.enableTexture2D();
 		GlStateManager.enableRescaleNormal();
 		GlStateManager.color(1, 1, 1, Ui.opacity());
-		GlStateManager.translate(cx * s, bottomY * s, 120);
-		float k = size * s / 16f;
-		GlStateManager.scale(k, k, k);
-		GlStateManager.rotate(-22, 1, 0, 0);
-		GlStateManager.rotate(-24, 0, 1, 0);
+		GlStateManager.translate(cx * s, bottomY * s, 150);
+		// the model is in blocks (its box 14/16 of one wide): size is the chest's width on screen
+		float k = size * s * 16 / 14f;
+		// y up from here, as for items drawn in menus; seen a little from above and from the side
+		GlStateManager.scale(k, -k, k);
 		RenderHelper.enableGUIStandardItemLighting();
+		GlStateManager.rotate(22, 1, 0, 0);
+		GlStateManager.rotate(-28, 0, 1, 0);
 		mc.getTextureManager().bindTexture(CHEST);
-		// the model's box spans 1 to 15 on x and z and hangs from y = 0 down: centre it on its base
-		GlStateManager.scale(1, 1, 1);
-		GlStateManager.translate(-8, -16, -8);
+		// the model hangs down from y = 0 with its front at z = 1/16, as the game draws a chest block:
+		// turned the right way up, its base centred on the origin and its front toward the player
+		GlStateManager.translate(-0.5f, 0, -0.5f);
 		GlStateManager.scale(1, -1, -1);
-		GlStateManager.translate(0, -16, -16);
+		GlStateManager.translate(0, -1, -1);
 		try {
 			model.renderAll();
 		} catch (RuntimeException ignored) {

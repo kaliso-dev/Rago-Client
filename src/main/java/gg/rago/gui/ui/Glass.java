@@ -25,6 +25,12 @@ final class Glass {
 	private static final int ONE_MINUS_CONSTANT_ALPHA = 0x8004;
 	private static final int DOWNSCALE = 4;
 	private static final float[] OFFSETS = {1.5f, 2.5f, 3.5f};
+	/**
+	 * The strong blur's copy is this many pixels tall whatever the screen, so it blurs as much on a
+	 * 1440p or 4K screen as on a small one (the glass's own blur is a fixed number of pixels).
+	 */
+	private static final int DEEP_HEIGHT = 72;
+	private static final float[] DEEP_OFFSETS = {0.5f, 1.5f, 2.5f};
 
 	private static boolean enabled = true;
 	private static boolean ready;
@@ -34,6 +40,9 @@ final class Glass {
 	private static Target ping;
 	private static Target pong;
 	private static Target result;
+	private static Target deepPing;
+	private static Target deepPong;
+	private static Target deep;
 	private static final IntBuffer VIEWPORT = BufferUtils.createIntBuffer(16);
 
 	private Glass() {
@@ -54,11 +63,13 @@ final class Glass {
 
 	static void frameStart() {
 		ready = false;
+		deep = null;
 	}
 
 	/** Copies and blurs the screen as it is now. Call after the background, before any panel. */
 	static void capture() {
 		ready = false;
+		deep = null;
 		// framebuffers are used directly: OptiFine's Fast Render reports them as off, yet they work
 		if (!enabled || !OpenGlHelper.framebufferSupported) {
 			return;
@@ -122,6 +133,93 @@ final class Glass {
 		}
 		GlStateManager.resetColor();
 		ready = true;
+	}
+
+	/**
+	 * Blurs the copy {@link #capture} made much further, for a background meant to be very soft: on
+	 * a copy {@link #DEEP_HEIGHT} pixels tall, so it costs almost nothing. False without a copy.
+	 */
+	static boolean deepen() {
+		if (!ready || result == null) {
+			return false;
+		}
+		if (deep != null) {
+			return true;
+		}
+		int bh = Math.min(DEEP_HEIGHT, result.h);
+		int bw = Math.max(1, Math.round(result.w * bh / (float) result.h));
+		// read before making the copies: making one binds its framebuffer
+		int previous = GL11.glGetInteger(FRAMEBUFFER_BINDING);
+		VIEWPORT.clear();
+		GL11.glGetInteger(GL11.GL_VIEWPORT, VIEWPORT);
+		boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+		GL11.glDisable(GL11.GL_SCISSOR_TEST);
+		if (deepPing == null || deepPing.w != bw || deepPing.h != bh) {
+			deepPing = Target.resize(deepPing, bw, bh);
+			deepPong = Target.resize(deepPong, bw, bh);
+		}
+		GlStateManager.matrixMode(GL11.GL_PROJECTION);
+		GlStateManager.pushMatrix();
+		GlStateManager.loadIdentity();
+		GlStateManager.ortho(0, 1, 0, 1, -1, 1);
+		GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+		GlStateManager.pushMatrix();
+		GlStateManager.loadIdentity();
+		GlStateManager.disableDepth();
+		GlStateManager.disableAlpha();
+		GlStateManager.disableCull();
+		GlStateManager.enableTexture2D();
+		GlStateManager.enableBlend();
+		GlStateManager.blendFunc(CONSTANT_ALPHA, ONE_MINUS_CONSTANT_ALPHA);
+
+		pass(result.tex, result.w, result.h, deepPing, 1f);
+		Target src = deepPing;
+		Target dst = deepPong;
+		for (float off : DEEP_OFFSETS) {
+			pass(src.tex, bw, bh, dst, off);
+			Target t = src;
+			src = dst;
+			dst = t;
+		}
+		deep = src;
+
+		GL14.glBlendColor(0, 0, 0, 0);
+		GlStateManager.colorMask(true, true, true, true);
+		GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+		GlStateManager.matrixMode(GL11.GL_PROJECTION);
+		GlStateManager.popMatrix();
+		GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+		GlStateManager.popMatrix();
+		OpenGlHelper.glBindFramebuffer(OpenGlHelper.GL_FRAMEBUFFER, previous);
+		GlStateManager.viewport(VIEWPORT.get(0), VIEWPORT.get(1), VIEWPORT.get(2), VIEWPORT.get(3));
+		if (scissor) {
+			GL11.glEnable(GL11.GL_SCISSOR_TEST);
+		}
+		GlStateManager.resetColor();
+		return true;
+	}
+
+	/** Lays the strong blur ({@link #deepen}) over the whole screen, {@code w} x {@code h} as drawn. */
+	static void drawDeep(float w, float h, float alpha) {
+		if (deep == null) {
+			return;
+		}
+		GlStateManager.enableTexture2D();
+		GlStateManager.enableBlend();
+		GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+		GlStateManager.bindTexture(deep.tex);
+		GL11.glColor4f(1, 1, 1, alpha);
+		GL11.glBegin(GL11.GL_QUADS);
+		GL11.glTexCoord2f(0, 0);
+		GL11.glVertex2f(0, h);
+		GL11.glTexCoord2f(1, 0);
+		GL11.glVertex2f(w, h);
+		GL11.glTexCoord2f(1, 1);
+		GL11.glVertex2f(w, 0);
+		GL11.glTexCoord2f(0, 1);
+		GL11.glVertex2f(0, 0);
+		GL11.glEnd();
+		GlStateManager.resetColor();
 	}
 
 	private static void copyScreen(int dw, int dh) {
