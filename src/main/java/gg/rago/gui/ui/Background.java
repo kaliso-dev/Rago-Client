@@ -16,22 +16,32 @@ import java.io.File;
 import java.nio.file.Path;
 
 /**
- * The menus' background, chosen on the home screen: the night desert video; a neon grid, a starry
- * night or plain dark with soft lights, drawn and moved by Rago as the menu is drawn (no video to
- * decode, nothing to load: a few hundred shapes in a handful of draw calls); or an image of the
- * player's own (config/rago-background.png or .jpg). Changing it fades the new one in over the old one.
+ * The menus' background, chosen on the home screen: one of Rago's looping videos (Minecraft
+ * landscapes, each a few seconds cross-faded into themselves, decoded only while a menu shows it),
+ * or the player's own video (JPEG frames in config/rago-background-video) or image
+ * (config/rago-background.png or .jpg). Changing it fades the new one in over the old one; while a
+ * video loads, its first frame shows as a still picture.
  */
 public final class Background {
 	public static final int NIGHT_DESERT = 0;
-	public static final int NEON = 1;
-	public static final int STARS = 2;
-	public static final int DARK = 3;
 	public static final int OWN_IMAGE = 4;
-	/** The names of the backgrounds, in the order of their ids. */
-	public static final String[] KEYS = {"rago.value.bg_night_desert", "rago.value.bg_neon", "rago.value.bg_stars",
-		"rago.value.bg_dark", "rago.value.bg_own"};
+	/**
+	 * The names of the backgrounds, in the order of their ids. Ids 1 to 3 were drawn backgrounds
+	 * until 1.10.11 and are videos now; 4 stays the player's own, so a saved choice keeps meaning it.
+	 */
+	public static final String[] KEYS = {"rago.value.bg_night_desert", "rago.value.bg_lake_sunset", "rago.value.bg_oak",
+		"rago.value.bg_golden_peak", "rago.value.bg_own", "rago.value.bg_coast", "rago.value.bg_valley", "rago.value.bg_seabed",
+		"rago.value.bg_meadow", "rago.value.bg_mountain_flower", "rago.value.bg_dusk", "rago.value.bg_campfire",
+		"rago.value.bg_night_peaks"};
+	/** Each background's clip in assets/rago/video, by id; null for the player's own. */
+	static final String[] CLIPS = {"night_desert", "lake_sunset", "oak", "golden_peak", null, "coast", "valley", "seabed",
+		"meadow", "mountain_flower", "dusk", "campfire", "night_peaks"};
+	/** The order of the home screen's menu: Rago's videos, then the player's own. */
+	public static final int[] ORDER = {0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 4};
 	/** The names the player's own image may have, in the config folder. */
 	public static final String[] OWN_NAMES = {"rago-background.png", "rago-background.jpg", "rago-background.jpeg"};
+	/** The folder, in the config folder, of the player's own video as JPEG frames. */
+	public static final String OWN_VIDEO = "rago-background-video";
 	/** Own images are scaled down to this width at most: the background is blurred and darkened anyway. */
 	private static final int OWN_MAX_WIDTH = 1920;
 	private static final float FADE_MS = 450;
@@ -43,6 +53,11 @@ public final class Background {
 	private static long changedNs;
 	private static Path configDir;
 
+	/** Each video, made the first time it is shown; and each one's first frame, as a still picture. */
+	private static final VideoBackdrop[] VIDEOS = new VideoBackdrop[CLIPS.length];
+	private static final StaticTexture[] POSTERS = new StaticTexture[CLIPS.length];
+	private static final boolean[] NO_POSTER = new boolean[CLIPS.length];
+
 	/** The player's image: its texture once loaded, the file and its date it was read from. */
 	private static StaticTexture own;
 	private static float ownAspect = 16 / 9f;
@@ -51,6 +66,9 @@ public final class Background {
 	private static long ownCheckedNs;
 	private static volatile BufferedImage ownLoaded;
 	private static volatile boolean ownLoading;
+	/** The player's video, and the date of its folder when it was made. */
+	private static VideoBackdrop ownVideo;
+	private static long ownVideoModified;
 
 	private Background() {
 	}
@@ -88,6 +106,11 @@ public final class Background {
 		return id < 0 || id >= KEYS.length ? NIGHT_DESERT : id;
 	}
 
+	/** Whether a background is a video (the player's own counts when it is a video). */
+	public static boolean isVideo(int id) {
+		return CLIPS[clamp(id)] != null || id == OWN_IMAGE && ownVideo != null;
+	}
+
 	/** The player's own image file, or null when there is none. */
 	public static File ownFile() {
 		if (configDir == null) {
@@ -102,10 +125,10 @@ public final class Background {
 		return null;
 	}
 
-	/** Whether the player's own image is there to show (looked for again every few seconds). */
+	/** Whether the player's own video or image is there to show (looked for again every few seconds). */
 	public static boolean hasOwnImage() {
 		checkOwn();
-		return own != null || ownLoading || ownLoaded != null;
+		return ownVideo != null || own != null || ownLoading || ownLoaded != null;
 	}
 
 	/**
@@ -114,13 +137,14 @@ public final class Background {
 	 * over the old one.
 	 */
 	static void drawScreen(float w, float h, float dx, float dy, float zoom, float dim) {
+		VideoBackdrop.releaseIdle();
 		float fade = previous >= 0 ? Math.min(1, (System.nanoTime() - changedNs) / (FADE_MS * 1_000_000f)) : 1;
 		if (fade < 1) {
-			draw(previous, 0, 0, w, h, dx, dy, zoom, 1, dim);
-			draw(current, 0, 0, w, h, dx, dy, zoom, Anim.easeOut(fade), dim);
+			draw(previous, 0, 0, w, h, dx, dy, zoom, 1, dim, true);
+			draw(current, 0, 0, w, h, dx, dy, zoom, Anim.easeOut(fade), dim, true);
 		} else {
 			previous = -1;
-			draw(current, 0, 0, w, h, dx, dy, zoom, 1, dim);
+			draw(current, 0, 0, w, h, dx, dy, zoom, 1, dim, true);
 		}
 	}
 
@@ -129,61 +153,103 @@ public final class Background {
 	 * the box is drawn too, so a box smaller than the screen needs a {@link Ui#scissor}.
 	 */
 	public static void draw(int id, float x, float y, float w, float h, float dx, float dy, float zoom, float alpha) {
-		draw(id, x, y, w, h, dx, dy, zoom, alpha, 0);
+		draw(id, x, y, w, h, dx, dy, zoom, alpha, 0, true);
+	}
+
+	/**
+	 * A small preview of background {@code id} (the home screen's menu): the video playing when
+	 * {@code live}, else its first frame, so a menu of them decodes one video at most.
+	 */
+	public static void preview(int id, float x, float y, float w, float h, float alpha, boolean live) {
+		draw(id, x, y, w, h, 0, 0, 1, alpha, 0, live);
 	}
 
 	/**
 	 * {@link #draw} darkened by {@code dim}: the video and the image are drawn darker (their colour
-	 * multiplied, no extra layer over the whole screen), the drawn ones get a dark layer.
+	 * multiplied, no extra layer over the whole screen).
 	 */
-	private static void draw(int id, float x, float y, float w, float h, float dx, float dy, float zoom, float alpha, float dim) {
+	private static void draw(int id, float x, float y, float w, float h, float dx, float dy, float zoom, float alpha, float dim,
+		boolean live) {
+		id = clamp(id);
 		int shade = Math.round(255 * (1 - Math.max(0, Math.min(1, dim))));
 		int argb = Ui.alpha(0xFF000000 | shade << 16 | shade << 8 | shade, alpha);
-		double t = System.nanoTime() / 1e9;
-		// the drawn backgrounds move, and the image drifts slowly, while the menu video is allowed to move
-		boolean drift = VideoBackdrop.isPlaying() && Anim.enabled();
-		if (!drift) {
-			t = 0;
-		}
-		switch (id) {
-			case NIGHT_DESERT: {
-				int video = VideoBackdrop.textureId();
-				if (video < 0) {
-					// until its first frame is ready (or when it cannot play)
-					dark(x, y, w, h, alpha, t);
-					break;
-				}
-				float[] box = cover(VideoBackdrop.aspect(), x, y, w, h, dx, dy, zoom);
-				int before = VideoBackdrop.previousTextureId();
-				float mix = before >= 0 ? VideoBackdrop.mix() : 1;
-				if (mix < 1) {
-					// the frame before, with the current one fading in over it: smooth at any frame rate
-					Ui.texturedQuad(before, box[0], box[1], box[2], box[3], argb);
-					Ui.texturedQuad(video, box[0], box[1], box[2], box[3], Ui.alpha(argb, mix * alpha));
-				} else {
-					Ui.texturedQuad(video, box[0], box[1], box[2], box[3], argb);
+		if (id == OWN_IMAGE) {
+			checkOwn();
+			if (ownVideo != null && (!live || video(ownVideo, x, y, w, h, dx, dy, zoom, argb, alpha))) {
+				if (!live) {
+					dark(x, y, w, h, alpha, 0);
+					Ui.icon("film", x + w / 2 - 12, y + h / 2 - 12, 24, Ui.alpha(0xFFD4D2D9, alpha));
 				}
 				return;
 			}
-			case OWN_IMAGE:
-				if (ownTexture() >= 0) {
-					image(own.getGlTextureId(), ownAspect, x, y, w, h, dx, dy, zoom, argb, t);
-					return;
+			if (ownTexture() >= 0) {
+				// the picture drifts slowly, while the menus are allowed to move
+				double t = VideoBackdrop.isPlaying() && Anim.enabled() ? System.nanoTime() / 1e9 : 0;
+				image(own.getGlTextureId(), ownAspect, x, y, w, h, dx, dy, zoom, argb, t);
+				return;
+			}
+			dark(x, y, w, h, alpha, 0);
+			return;
+		}
+		if (live) {
+			if (VIDEOS[id] == null) {
+				VIDEOS[id] = VideoBackdrop.builtIn(CLIPS[id]);
+			}
+			if (video(VIDEOS[id], x, y, w, h, dx, dy, zoom, argb, alpha)) {
+				return;
+			}
+		}
+		// until its first frame is decoded, or not playing here: the first frame as a still picture
+		int poster = poster(id);
+		if (poster >= 0) {
+			float[] box = cover(16 / 9f, x, y, w, h, dx, dy, zoom);
+			Ui.texturedQuad(poster, box[0], box[1], box[2], box[3], argb);
+		} else {
+			dark(x, y, w, h, alpha, 0);
+		}
+	}
+
+	/** Draws a video's frame due now; false while it has none (loading, or it cannot play). */
+	private static boolean video(VideoBackdrop v, float x, float y, float w, float h, float dx, float dy, float zoom, int argb,
+		float alpha) {
+		int frame = v.textureId();
+		if (frame < 0) {
+			return false;
+		}
+		float[] box = cover(v.aspect(), x, y, w, h, dx, dy, zoom);
+		int before = v.previousTextureId();
+		float mix = before >= 0 ? v.mix() : 1;
+		if (mix < 1) {
+			// the frame before, with the current one fading in over it: smooth at any frame rate
+			Ui.texturedQuad(before, box[0], box[1], box[2], box[3], argb);
+			Ui.texturedQuad(frame, box[0], box[1], box[2], box[3], Ui.alpha(argb, mix * alpha));
+		} else {
+			Ui.texturedQuad(frame, box[0], box[1], box[2], box[3], argb);
+		}
+		return true;
+	}
+
+	/** The texture of a video's first frame (320x180, read once from the jar), or -1. */
+	private static int poster(int id) {
+		if (POSTERS[id] == null && !NO_POSTER[id]) {
+			String path = "/assets/rago/video/" + CLIPS[id] + ".jpg";
+			try (java.io.InputStream in = Background.class.getResourceAsStream(path)) {
+				BufferedImage img = in == null ? null : ImageIO.read(in);
+				if (img == null) {
+					throw new java.io.IOException("missing " + path);
 				}
-				dark(x, y, w, h, alpha, t);
-				break;
-			case NEON:
-				neon(x, y, w, h, dx, alpha, t);
-				break;
-			case STARS:
-				stars(x, y, w, h, dx, dy, alpha, t);
-				break;
-			default:
-				dark(x, y, w, h, alpha, t);
+				POSTERS[id] = new StaticTexture(img);
+				GlStateManager.bindTexture(POSTERS[id].getGlTextureId());
+				GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+				GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+				GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+				GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+			} catch (Exception | LinkageError e) {
+				LOG.warn("No still picture for background {}", CLIPS[id], e);
+				NO_POSTER[id] = true;
+			}
 		}
-		if (dim > 0) {
-			Ui.rect(x, y, w, h, Ui.alpha(0xFF050406, dim * alpha));
-		}
+		return POSTERS[id] == null ? -1 : POSTERS[id].getGlTextureId();
 	}
 
 	/** A picture slowly moving and zooming in and out (by a few percent), for some life. */
@@ -196,7 +262,7 @@ public final class Background {
 		Ui.texturedQuad(texture, box[0], box[1], box[2], box[3], argb);
 	}
 
-	/** Plain dark with soft lights, Rago's red and a cold blue, drifting slowly. */
+	/** Plain dark with soft lights, Rago's red and a cold blue (while a background loads). */
 	private static void dark(float x, float y, float w, float h, float alpha, double t) {
 		Ui.rect(x, y, w, h, Ui.alpha(0xFF0A090C, alpha));
 		float a = (float) Math.sin(t * 0.11);
@@ -207,136 +273,6 @@ public final class Background {
 		Ui.batchGlow(r, x + w * (0.82f - 0.04f * b), y + h * (0.78f + 0.05f * a), big * 0.55f, Ui.alpha(0xFF2A4BD8, 0.15f * alpha));
 		Ui.batchGlow(r, x + w * 0.5f, y + h * 0.5f, big * 0.4f, Ui.alpha(0xFF3A1F4A, 0.10f * alpha));
 		Ui.endBatch();
-	}
-
-	// ---- neon grid --------------------------------------------------------------------------------
-
-	/** Lines of the grid going away (each side of the middle one) and across. */
-	private static final int NEON_COLUMNS = 14;
-	private static final int NEON_ROWS = 16;
-
-	/**
-	 * A grid of Rago-red light on dark ground running towards a glowing horizon, under a dusk sky:
-	 * the lines across come slowly closer; the vanishing point follows the mouse a little.
-	 */
-	private static void neon(float x, float y, float w, float h, float dx, float alpha, double t) {
-		float horizon = y + h * 0.6f;
-		float cx = x + w / 2 + dx * 1.5f;
-		float big = Math.max(w, h);
-		float u = w / 1280f;
-		Ui.gradient(x, y, w, horizon - y, Ui.alpha(0xFF050409, alpha), Ui.alpha(0xFF1C0712, alpha));
-		Ui.gradient(x, horizon, w, y + h - horizon, Ui.alpha(0xFF0C0509, alpha), Ui.alpha(0xFF050306, alpha));
-
-		WorldRenderer r = Ui.beginGlows();
-		// the sun behind the horizon and the haze over it
-		Ui.batchGlow(r, cx, horizon, h * 0.5f, Ui.alpha(0xFFE0262F, 0.6f * alpha));
-		Ui.batchGlow(r, cx, horizon, big * 0.6f, Ui.alpha(0xFF8A1D4F, 0.3f * alpha));
-		Ui.endBatch();
-
-		float bottom = y + h;
-		float depth = bottom - horizon;
-		r = Ui.beginShapes();
-		// lines going away, meeting at the vanishing point
-		float spread = w * 0.16f;
-		for (int i = -NEON_COLUMNS; i <= NEON_COLUMNS; i++) {
-			float xb = cx + i * spread;
-			float xt = cx + i * spread * 0.035f;
-			float half = 1.5f * u;
-			Ui.batchQuad(r, xt - half * 0.2f, horizon, xt + half * 0.2f, horizon, xb + half, bottom, xb - half, bottom,
-				Ui.alpha(0xFFE0262F, 0.1f * alpha), Ui.alpha(0xFFFF4A55, 0.9f * alpha));
-		}
-		// lines across, closer as time goes
-		float scroll = (float) (t * 0.35 % 1);
-		for (int k = 0; k < NEON_ROWS; k++) {
-			float z = 1 + (k + 1 - scroll) * 0.9f;
-			float ly = horizon + depth / z;
-			float near = 1 / z;
-			float half = (0.5f + 1.8f * near) * u;
-			int c = Ui.alpha(0xFFFF3B47, (0.12f + 0.85f * near) * alpha);
-			Ui.batchQuad(r, x, ly - half, x + w, ly - half, x + w, ly + half, x, ly + half, c, c);
-		}
-		// the horizon, bright
-		float hl = 1.2f * u;
-		Ui.batchQuad(r, x, horizon - hl, x + w, horizon - hl, x + w, horizon + hl, x, horizon + hl,
-			Ui.alpha(0xFFFF6A72, 0.9f * alpha), Ui.alpha(0xFFFF6A72, 0.9f * alpha));
-		Ui.endBatch();
-		// the ground fades into the dark at the bottom, the sky glows a little at the horizon
-		Ui.gradient(x, bottom - depth * 0.3f, w, depth * 0.3f, 0x00050306, Ui.alpha(0xFF050306, 0.7f * alpha));
-		Ui.gradient(x, horizon - h * 0.14f, w, h * 0.14f, 0x00E0262F, Ui.alpha(0xFFE0262F, 0.16f * alpha));
-	}
-
-	// ---- starry night -----------------------------------------------------------------------------
-
-	private static final int STAR_COUNT = 170;
-	/** Each star: x, y (0..1 of the box), size, twinkle speed, phase and how far it is (parallax). */
-	private static final float[] STAR = new float[STAR_COUNT * 6];
-
-	static {
-		long seed = 0x5EED_5A60L;
-		for (int i = 0; i < STAR.length; i++) {
-			seed = seed * 6364136223846793005L + 1442695040888963407L;
-			STAR[i] = (seed >>> 40) / (float) (1 << 24);
-		}
-	}
-
-	/**
-	 * Deep blue night with a red and violet glow, and stars twinkling and drifting slowly, the near
-	 * ones faster (parallax with the mouse too); now and then a shooting star.
-	 */
-	private static void stars(float x, float y, float w, float h, float dx, float dy, float alpha, double t) {
-		Ui.gradient(x, y, w, h, Ui.alpha(0xFF03040A, alpha), Ui.alpha(0xFF0D0A19, alpha));
-		float big = Math.max(w, h);
-		float u = w / 1280f;
-		float a = (float) Math.sin(t * 0.05);
-		WorldRenderer r = Ui.beginGlows();
-		Ui.batchGlow(r, x + w * (0.28f + 0.04f * a), y + h * 0.36f, big * 0.48f, Ui.alpha(0xFF5B2A86, 0.26f * alpha));
-		Ui.batchGlow(r, x + w * (0.78f - 0.03f * a), y + h * 0.66f, big * 0.42f, Ui.alpha(0xFFE0262F, 0.14f * alpha));
-		Ui.batchGlow(r, x + w * 0.6f, y + h * 0.12f, big * 0.3f, Ui.alpha(0xFF2A4BD8, 0.12f * alpha));
-		for (int i = 0; i < STAR_COUNT; i++) {
-			int o = i * 6;
-			float near = 0.3f + 0.7f * STAR[o + 5];
-			float sx = (float) ((STAR[o] - t * 0.0035 * near) % 1);
-			if (sx < 0) {
-				sx += 1;
-			}
-			float px = x + sx * w + dx * near * 0.6f;
-			float py = y + STAR[o + 1] * h + dy * near * 0.6f;
-			float size = (0.9f + 2.1f * STAR[o + 2] * STAR[o + 2]) * near * u;
-			float twinkle = 0.55f + 0.45f * (float) Math.sin(t * (0.6 + 2.2 * STAR[o + 3]) + STAR[o + 4] * 6.28);
-			Ui.batchGlow(r, px, py, size * 2.6f, Ui.alpha(0xFFDDE4FF, twinkle * (0.35f + 0.65f * near) * alpha));
-			if (STAR[o + 2] > 0.93f) {
-				// the brightest ones get a halo
-				Ui.batchGlow(r, px, py, size * 9, Ui.alpha(0xFF9FB4FF, 0.12f * twinkle * alpha));
-			}
-		}
-		Ui.endBatch();
-		// a shooting star every 11 seconds, across for 0.9 of a second
-		double cycle = t % 11;
-		if (cycle < 0.9 && t > 0) {
-			int n = (int) (t / 11);
-			float p = (float) (cycle / 0.9);
-			float sx = x + w * (0.15f + 0.5f * frac(n * 0.618f));
-			float sy = y + h * (0.08f + 0.25f * frac(n * 0.381f));
-			float len = w * 0.16f;
-			float hx = sx + p * w * 0.3f;
-			float hy = sy + p * w * 0.12f;
-			float fade = (float) Math.sin(p * Math.PI) * alpha;
-			float tx = hx - len * 0.93f;
-			float ty = hy - len * 0.37f;
-			float half = 1.1f * u;
-			int tail = Ui.alpha(0xFFFFFFFF, 0);
-			int head = Ui.alpha(0xFFFFFFFF, 0.85f * fade);
-			r = Ui.beginShapes();
-			Ui.batchQuad(r, tx, ty, tail, hx, hy - half, head, hx, hy + half, head, tx, ty, tail);
-			Ui.endBatch();
-			r = Ui.beginGlows();
-			Ui.batchGlow(r, hx, hy, 6 * u, Ui.alpha(0xFFFFFFFF, 0.8f * fade));
-			Ui.endBatch();
-		}
-	}
-
-	private static float frac(float v) {
-		return v - (float) Math.floor(v);
 	}
 
 	/** Where {@link #cover} puts its box (drawing happens on the render thread only). */
@@ -362,6 +298,7 @@ public final class Background {
 			return;
 		}
 		ownCheckedNs = now;
+		checkOwnVideo();
 		File f = ownFile();
 		if (f == null) {
 			dropOwn();
@@ -388,6 +325,29 @@ public final class Background {
 		}, "Rago background image");
 		loader.setDaemon(true);
 		loader.start();
+	}
+
+	/** The player's video, a folder of JPEG frames: made again when the folder changes, dropped when it goes. */
+	private static void checkOwnVideo() {
+		File dir = configDir == null ? null : configDir.resolve(OWN_VIDEO).toFile();
+		boolean there = dir != null && dir.isDirectory() && hasFrames(dir);
+		long modified = there ? dir.lastModified() : 0;
+		if (ownVideo != null && (!there || modified != ownVideoModified)) {
+			ownVideo.dispose();
+			ownVideo = null;
+		}
+		if (there && ownVideo == null) {
+			ownVideo = VideoBackdrop.folder(dir);
+			ownVideoModified = modified;
+		}
+	}
+
+	private static boolean hasFrames(File dir) {
+		String[] names = dir.list((d, n) -> {
+			String lower = n.toLowerCase(java.util.Locale.ROOT);
+			return lower.endsWith(".jpg") || lower.endsWith(".jpeg");
+		});
+		return names != null && names.length >= 2;
 	}
 
 	/** Reads the image on a thread of its own, scaled down to {@link #OWN_MAX_WIDTH} at most. */

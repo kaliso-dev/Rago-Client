@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.10.10.** What it contains:
+**Current version: 1.10.11.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,33 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.10.11
+  - **11 new menu backgrounds**: Minecraft landscapes filmed with shaders (Lake at sunset, Great
+    oak, Golden peak, Coast from above, Lake valley, Seabed, Meadow, Mountain flower, Dusk,
+    Campfire, Night peaks), beside Night desert. Each is a loop of a few seconds whose end is
+    cross-faded into its start, so it never jumps. Neon grid, Starry night and Dark are gone (a
+    saved choice of one of them now shows a video; "Your image" keeps its place)
+  - the Background menu shows them four across: the chosen one and the one under the mouse play,
+    the others show their first frame, so the menu decodes one or two videos at most. A video
+    shows its first frame while it loads, then plays; it is decoded only while a menu shows it,
+    its frames' memory is given back two seconds after, its textures eight seconds after
+  - **your own video**: put its frames as JPEGs in a folder named `rago-background-video` in the
+    config folder (with ffmpeg: `ffmpeg -i video.mp4 -vf fps=24,scale=1280:-2
+    rago-background-video/%04d.jpg`), and pick "Your video or image". Frames play in name order
+    at 24 a second (or the number in `fps.txt` in the folder), up to 900 frames; wider frames
+    than 1280 are read at half size or less. Your image (rago-background.png or .jpg) still works
+  - the clips come in one file each (JPEG frames) instead of 288 files; the jar is about 107 MB
+  - **two new views of the mods** in the Rago menu, picked at the top right of the window (or with
+    the setting "Mods view"):
+    - **List**: every mod on one line with what it does and its switch, grouped by category with
+      what each category is for; the chosen mod in full on the right: its marks explained (FPS
+      HUNGRY, risky on Hypixel, API key, on screen), its description, a live preview for HUD
+      mods, up to four quick settings (switches and choices, never a risky one) and the way to
+      all of them. Up and down arrows go through the list, Enter turns the chosen mod on or off
+      (after a search, the first result), the right arrow opens its page
+    - **Previews**: each mod as a tile showing what it puts on screen, live (the HUD itself), or
+      its icon, with what it does in two lines, its settings button and its switch
+    - Cards stays the default
 - new in 1.10.10
   - the Game Debrief picture comes in **four styles**, picked at the top of the debrief screen (or
     with the mod's new "Picture style" option); Copy and Save take the style shown:
@@ -921,7 +948,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.10.10+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.10.11+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

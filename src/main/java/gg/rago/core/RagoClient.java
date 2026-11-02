@@ -208,6 +208,7 @@ public final class RagoClient {
 	private static BooleanOption chatCopy;
 	private static IntOption uiTheme;
 	private static IntOption homeLayout;
+	private static IntOption modsLayout;
 	private static IntOption homeBlur;
 	private static BooleanOption smoothVideo;
 	private static IntOption homeBackground;
@@ -434,6 +435,17 @@ public final class RagoClient {
 	}
 
 	/** The home screen's layout: {@link #HOME_CENTRED}, {@link #HOME_LEFT} or {@link #HOME_CLASSIC}. */
+	/** How the Rago menu shows the mods: 0 cards, 1 a list with a detail panel, 2 live previews. */
+	public static int modsLayout() {
+		return modsLayout == null ? 0 : modsLayout.get();
+	}
+
+	public static void setModsLayout(int layout) {
+		if (modsLayout != null) {
+			modsLayout.set(layout);
+		}
+	}
+
 	public static int homeLayout() {
 		return homeLayout == null ? HOME_CENTRED : homeLayout.get();
 	}
@@ -563,6 +575,7 @@ public final class RagoClient {
 			"rago.value.rago", "rago.value.vanilla");
 		homeLayout = SETTINGS.choice(g, ui, "home_layout", HOME_CENTRED, null,
 			"rago.value.home_centred", "rago.value.home_left", "rago.value.home_classic");
+		modsLayout = SETTINGS.choice(g, ui, "mods_layout", 0, null, "rago.value.mods_cards", "rago.value.mods_list", "rago.value.mods_gallery");
 		homeBlur = SETTINGS.choice(g, ui, "home_blur", 1, null, "rago.value.blur_off", "rago.value.blur_light", "rago.value.blur_strong");
 		smoothVideo = SETTINGS.bool(g, ui, "smooth_video", true, Ui::setSmoothVideo);
 		homeBackground = SETTINGS.choice(g, ui, "home_background", Background.NIGHT_DESERT, Background::set, Background.KEYS);
