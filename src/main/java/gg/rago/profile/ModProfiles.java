@@ -29,8 +29,20 @@ public final class ModProfiles {
 		{"qRago Official", "official:qrago", "/assets/rago/profiles/qrago_official.txt"}
 	};
 
+	/**
+	 * Changes made to a built-in profile after it first came out, oldest first: {name, revision,
+	 * share code resource holding only what changed}. A player who already has the profile gets each
+	 * one once, on top of their own settings in it; the full code in {@link #BUILT_IN} holds them all.
+	 */
+	static final String[][] UPDATES = {
+		// 1.10.7: Generator Timers on, shown in the tab list
+		{"qRago Official", "2", "/assets/rago/profiles/qrago_official_r2.txt"}
+	};
+
 	/** Built-in profiles already offered to this player. */
 	private final java.util.Set<String> offered = new java.util.LinkedHashSet<>();
+	/** The revision of each built-in profile this player has; one offered without a revision has the first. */
+	private final Map<String, Integer> revisions = new LinkedHashMap<>();
 
 	private final Map<String, Entry> profiles = new LinkedHashMap<>();
 	private String active = "Default";
@@ -68,6 +80,50 @@ public final class ModProfiles {
 		for (String[] b : BUILT_IN) {
 			offer(registry, b[0], b[1], resource(b[2]));
 		}
+		for (String[] u : UPDATES) {
+			update(registry, u[0], Integer.parseInt(u[1]), resource(u[2]));
+		}
+	}
+
+	/** The newest revision of a built-in profile: the full code holds every update up to it. */
+	static int latestRevision(String name) {
+		int r = 1;
+		for (String[] u : UPDATES) {
+			if (u[0].equals(name)) {
+				r = Math.max(r, Integer.parseInt(u[1]));
+			}
+		}
+		return r;
+	}
+
+	/**
+	 * Brings a built-in profile this player already has up to {@code revision}, once: only the mods
+	 * and options in {@code code} change, the rest stays as the player set it. A deleted profile is
+	 * not brought back, and a profile of the player's own with the same name is left alone. Returns
+	 * false only when the code cannot be read: the update is then tried again by a later Rago.
+	 */
+	boolean update(ModuleRegistry registry, String name, int revision, String code) {
+		if (!offered.contains(name) || revisions.getOrDefault(name, 1) >= revision) {
+			return true;
+		}
+		ProfileShare.Shared shared = ProfileShare.decode(code);
+		if (shared == null) {
+			return false;
+		}
+		revisions.put(name, revision);
+		Entry e = profiles.get(name);
+		if (e == null || !isPicture(e.icon)) {
+			return true;
+		}
+		boolean live = name.equals(active);
+		if (live) {
+			capture(registry);
+		}
+		ProfileShare.apply(e.modules, shared.changes, ConfigStore.defaultsToJson(registry));
+		if (live) {
+			ConfigStore.modulesFromJson(registry, e.modules);
+		}
+		return true;
 	}
 
 	/**
@@ -83,6 +139,7 @@ public final class ModProfiles {
 			return false;
 		}
 		offered.add(name);
+		revisions.put(name, latestRevision(name));
 		if (!profiles.containsKey(name)) {
 			capture(registry);
 			JsonObject modules = ProfileShare.merge(ConfigStore.defaultsToJson(registry),
@@ -242,17 +299,32 @@ public final class ModProfiles {
 			given.add(new com.google.gson.JsonPrimitive(name));
 		}
 		o.add("offered", given);
+		JsonObject revs = new JsonObject();
+		for (Map.Entry<String, Integer> e : revisions.entrySet()) {
+			revs.addProperty(e.getKey(), e.getValue());
+		}
+		o.add("revisions", revs);
 		return o;
 	}
 
 	public void fromJson(JsonObject o) {
 		profiles.clear();
 		offered.clear();
+		revisions.clear();
 		JsonElement given = o.get("offered");
 		if (given != null && given.isJsonArray()) {
 			for (JsonElement e : given.getAsJsonArray()) {
 				if (e.isJsonPrimitive()) {
 					offered.add(e.getAsString());
+				}
+			}
+		}
+		JsonElement revs = o.get("revisions");
+		if (revs != null && revs.isJsonObject()) {
+			for (Map.Entry<String, JsonElement> e : revs.getAsJsonObject().entrySet()) {
+				JsonElement v = e.getValue();
+				if (v.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber()) {
+					revisions.put(e.getKey(), v.getAsInt());
 				}
 			}
 		}

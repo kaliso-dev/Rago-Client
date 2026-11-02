@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.10.6.** What it contains:
+**Current version: 1.10.7.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,17 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.10.7
+  - the qRago Official profile turns Generator Timers on, shown in the tab list. Players who
+    already have the profile get this change once, on top of their own settings in it; nothing
+    else in the profile changes, and a deleted profile does not come back
+  - Phosphor (a rewrite of the light engine) was measured and is not included: PolyPatcher's
+    Fullbright, on by default, already skips the client's light updates (every light reads as
+    full), and Phosphor runs them again. In a test world (software renderer, median of rounds 2
+    to 10), building a 245-block cube cost 0.55 ms of light work per round with Fullbright alone
+    and 3.3 ms with Phosphor; placing and removing 30 glowstone blocks, 0.06 ms against 42 ms.
+    With Fullbright off, Phosphor beats the game's own engine (the cube 13.7 ms to 4.4 ms, the
+    glowstone 329 ms to 48 ms)
 - new in 1.10.6
   - the vanilla sidebar's text goes out in one draw call: the lines the Minecraft font draws from
     its ASCII page (most lines, and every red score number) are laid out glyph by glyph as the font
@@ -864,7 +875,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.10.6+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.10.7+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

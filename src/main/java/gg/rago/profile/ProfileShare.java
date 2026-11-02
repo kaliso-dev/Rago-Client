@@ -197,27 +197,62 @@ public final class ProfileShare {
 			JsonObject m = copy(object(e.getValue()));
 			JsonObject d = PERSONAL.contains(id) ? null : object(changes.get(id));
 			if (d != null) {
-				JsonElement enabled = d.get("enabled");
-				if (enabled != null && enabled.isJsonPrimitive() && enabled.getAsJsonPrimitive().isBoolean()) {
-					m.add("enabled", enabled);
-				}
-				JsonObject options = object(d.get("options"));
-				JsonObject into = object(m.get("options"));
-				if (options != null && into != null) {
-					for (Map.Entry<String, JsonElement> o : options.entrySet()) {
-						if (into.has(o.getKey())) {
-							into.add(o.getKey(), o.getValue());
-						}
-					}
-				}
-				JsonObject hud = object(d.get("hud"));
-				if (hud != null && m.has("hud")) {
-					m.add("hud", hud);
-				}
+				change(m, d, object(m.get("options")));
 			}
 			out.add(id, m);
 		}
 		return out;
+	}
+
+	/**
+	 * Puts a code's changes onto a profile's full mod states: only the mods and options the code
+	 * names change, everything else in the profile stays. A mod the profile has no state for yet
+	 * starts from its {@code defaults}; personal mods and mods or options this Rago does not have
+	 * are left out.
+	 */
+	public static void apply(JsonObject modules, JsonObject changes, JsonObject defaults) {
+		for (Map.Entry<String, JsonElement> e : changes.entrySet()) {
+			String id = e.getKey();
+			JsonObject d = object(e.getValue());
+			JsonObject base = object(defaults.get(id));
+			if (d == null || base == null || PERSONAL.contains(id)) {
+				continue;
+			}
+			JsonObject m = object(modules.get(id));
+			if (m == null) {
+				m = copy(base);
+				modules.add(id, m);
+			}
+			change(m, d, object(base.get("options")));
+		}
+	}
+
+	/**
+	 * One mod's state {@code m} with the code's changes {@code d}: on or off, the options among
+	 * {@code known} (the mod's options), its HUD place.
+	 */
+	private static void change(JsonObject m, JsonObject d, JsonObject known) {
+		JsonElement enabled = d.get("enabled");
+		if (enabled != null && enabled.isJsonPrimitive() && enabled.getAsJsonPrimitive().isBoolean()) {
+			m.add("enabled", enabled);
+		}
+		JsonObject options = object(d.get("options"));
+		if (options != null && known != null) {
+			JsonObject into = object(m.get("options"));
+			if (into == null) {
+				into = new JsonObject();
+				m.add("options", into);
+			}
+			for (Map.Entry<String, JsonElement> o : options.entrySet()) {
+				if (known.has(o.getKey())) {
+					into.add(o.getKey(), o.getValue());
+				}
+			}
+		}
+		JsonObject hud = object(d.get("hud"));
+		if (hud != null && m.has("hud")) {
+			m.add("hud", hud);
+		}
 	}
 
 	/** A name fit for the profile list: no colour codes or control characters, at most 24 characters. */
