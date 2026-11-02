@@ -1,5 +1,8 @@
-"""SQLite storage: players, their sign-in sessions (only a hash of each token is kept), and what they
-have won: Rago Points, cosmetics, fragments, the chests opened and every change of points."""
+"""Storage: players, their sign-in sessions (only a hash of each token is kept), and what they have
+won: Rago Points, cosmetics, fragments, the chests opened, time played and every change of points.
+
+In SQLite (a file, or ":memory:" for the tests) or in PostgreSQL ("postgresql://..." as the database,
+for example a free Neon database, so that nothing is lost when the server restarts)."""
 
 import hashlib
 import json
@@ -14,14 +17,14 @@ CREATE TABLE IF NOT EXISTS users (
     visible INTEGER NOT NULL DEFAULT 1,
     loadout TEXT NOT NULL DEFAULT '{}',
     version TEXT,
-    first_seen INTEGER NOT NULL,
-    last_seen INTEGER NOT NULL
+    first_seen BIGINT NOT NULL,
+    last_seen BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS users_last_seen ON users(last_seen);
 CREATE TABLE IF NOT EXISTS sessions (
     token_hash TEXT PRIMARY KEY,
     uuid TEXT NOT NULL,
-    expires INTEGER NOT NULL
+    expires BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sessions_uuid ON sessions(uuid);
 CREATE TABLE IF NOT EXISTS wallets (
@@ -37,7 +40,7 @@ CREATE TABLE IF NOT EXISTS owned (
     uuid TEXT NOT NULL,
     item TEXT NOT NULL,
     source TEXT NOT NULL,
-    at INTEGER NOT NULL,
+    at BIGINT NOT NULL,
     PRIMARY KEY (uuid, item)
 );
 CREATE TABLE IF NOT EXISTS fragments (
@@ -50,25 +53,107 @@ CREATE TABLE IF NOT EXISTS chests (
     uuid TEXT NOT NULL,
     day INTEGER NOT NULL,
     cards TEXT NOT NULL,
-    at INTEGER NOT NULL,
+    at BIGINT NOT NULL,
     PRIMARY KEY (uuid, day)
 );
 CREATE TABLE IF NOT EXISTS ledger (
+    id {serial},
     uuid TEXT NOT NULL,
     delta INTEGER NOT NULL,
     reason TEXT NOT NULL,
     ref TEXT,
-    at INTEGER NOT NULL
+    at BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ledger_uuid ON ledger(uuid, at);
 CREATE TABLE IF NOT EXISTS purchases (
     uuid TEXT NOT NULL,
     key TEXT NOT NULL,
     result TEXT NOT NULL,
-    at INTEGER NOT NULL,
+    at BIGINT NOT NULL,
     PRIMARY KEY (uuid, key)
 );
+CREATE TABLE IF NOT EXISTS playtime (
+    uuid TEXT NOT NULL,
+    season TEXT NOT NULL,
+    minutes INTEGER NOT NULL DEFAULT 0,
+    day INTEGER,
+    day_minutes INTEGER NOT NULL DEFAULT 0,
+    last_credit BIGINT NOT NULL DEFAULT 0,
+    tier INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (uuid, season)
+);
 """
+
+ECONOMY_TABLES = ("wallets", "owned", "fragments", "chests", "ledger", "purchases", "playtime")
+
+
+class _Db:
+    """One connection, to SQLite or PostgreSQL, used the same way: "?" placeholders, execute() giving
+    something to fetch from, begin/commit/rollback. A PostgreSQL connection that was dropped (a free
+    database sleeps when nobody uses it) is opened again on the next statement outside a transaction."""
+
+    def __init__(self, target):
+        self.pg = target.startswith(("postgres://", "postgresql://"))
+        self.target = target
+        self.in_transaction = False
+        self._conn = None
+        self._open()
+
+    def _open(self):
+        if self.pg:
+            import psycopg  # only needed with PostgreSQL
+            self._conn = psycopg.connect(self.target, autocommit=True, connect_timeout=15)
+        else:
+            self._conn = sqlite3.connect(self.target, check_same_thread=False, isolation_level=None)
+            if self.target != ":memory:":
+                self._conn.execute("PRAGMA journal_mode=WAL")
+                # with WAL, NORMAL never corrupts the database; it only skips a disk flush per write,
+                # so a presence (one small UPDATE) does not wait for the disk
+                self._conn.execute("PRAGMA synchronous=NORMAL")
+
+    def execute(self, sql, params=()):
+        if not self.pg:
+            return self._conn.execute(sql, params)
+        import psycopg
+        sql = sql.replace("?", "%s")
+        try:
+            return self._conn.execute(sql, params)
+        except psycopg.OperationalError:
+            if self.in_transaction:
+                raise
+            self._conn.close()
+            self._open()
+            return self._conn.execute(sql, params)
+
+    def script(self, schema):
+        schema = schema.replace("{serial}", "BIGSERIAL PRIMARY KEY" if self.pg else "INTEGER PRIMARY KEY AUTOINCREMENT")
+        if self.pg:
+            for statement in schema.split(";"):
+                if statement.strip():
+                    self.execute(statement)
+        else:
+            self._conn.executescript(schema)
+
+    def begin(self):
+        self.execute("BEGIN" if self.pg else "BEGIN IMMEDIATE")
+        self.in_transaction = True
+
+    def close(self):
+        self._conn.close()
+
+    def commit(self):
+        self.in_transaction = False
+        self.execute("COMMIT")
+
+    def rollback(self):
+        self.in_transaction = False
+        try:
+            self.execute("ROLLBACK")
+        except Exception:
+            # the connection is gone with the transaction: open it again on the next statement
+            if self.pg:
+                self._conn.close()
+                self._open()
 
 NEW_WALLET = {"points": 0, "streak": 0, "last_day": None, "joker_day": None, "since_epic": 0, "since_legendary": 0}
 
@@ -79,15 +164,14 @@ def token_hash(token):
 
 class Store:
     def __init__(self, path):
-        self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
+        self._db = _Db(path)
         self._lock = threading.Lock()
         with self._lock:
-            if path != ":memory:":
-                self._db.execute("PRAGMA journal_mode=WAL")
-                # with WAL, NORMAL never corrupts the database; it only skips a disk flush per write,
-                # so a presence (one small UPDATE) does not wait for the disk
-                self._db.execute("PRAGMA synchronous=NORMAL")
-            self._db.executescript(SCHEMA)
+            self._db.script(SCHEMA)
+
+    def close(self):
+        with self._lock:
+            self._db.close()
 
     def sign_in(self, uuid, name, role, token, expires, now):
         """Records the player (name and role as of now) and a new session for them."""
@@ -142,7 +226,7 @@ class Store:
         """Forgets the player: their sessions and everything they won."""
         with self._lock:
             self._db.execute("DELETE FROM sessions WHERE uuid = ?", (uuid,))
-            for table in ("wallets", "owned", "fragments", "chests", "ledger", "purchases"):
+            for table in ECONOMY_TABLES:
                 self._db.execute(f"DELETE FROM {table} WHERE uuid = ?", (uuid,))
             return self._db.execute("DELETE FROM users WHERE uuid = ?", (uuid,)).rowcount
 
@@ -162,13 +246,13 @@ class Store:
     def _transaction(self, work):
         """Runs work() (which uses self._db) in one transaction, under the lock: all of it or none."""
         with self._lock:
-            self._db.execute("BEGIN IMMEDIATE")
+            self._db.begin()
             try:
                 result = work()
             except BaseException:
-                self._db.execute("ROLLBACK")
+                self._db.rollback()
                 raise
-            self._db.execute("COMMIT")
+            self._db.commit()
             return result
 
     def _wallet(self, uuid):
@@ -292,4 +376,4 @@ class Store:
         """The player's latest changes of points, newest first: (delta, reason, ref, at)."""
         with self._lock:
             return self._db.execute("SELECT delta, reason, ref, at FROM ledger WHERE uuid = ? ORDER BY at DESC, "
-                                    "rowid DESC LIMIT ?", (uuid, limit)).fetchall()
+                                    "id DESC LIMIT ?", (uuid, limit)).fetchall()

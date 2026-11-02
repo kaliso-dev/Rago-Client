@@ -9,6 +9,11 @@ services:
     dockerfilePath: ./server/Dockerfile
     dockerContext: ./server
     healthCheckPath: /v1/health
+    envVars:
+      # the address of the free Neon database that keeps players' points and cosmetics; Render asks
+      # for it on the first Apply and keeps it secret (Environment tab). Empty: SQLite, lost on restart
+      - key: DATABASE_URL
+        sync: false
     # only changes to the server redeploy it
     buildFilter:
       paths:

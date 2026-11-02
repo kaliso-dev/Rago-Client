@@ -63,7 +63,9 @@ Copy `config.example.json` to `config.json` and edit it:
 | --- | --- | --- |
 | `host`, `port` | `0.0.0.0`, `8080` | where to listen (the `PORT` environment variable, set by hosts such as Render, wins over `port`) |
 | `trust_proxy` | `false` | use `X-Forwarded-For` from the reverse proxy for rate limits |
-| `database` | `rago-network.db` | SQLite file |
+| `database` | `rago-network.db` | SQLite file, or a `postgresql://` address (the `DATABASE_URL` environment variable wins) |
+| `catalogue` | | path to `catalogue.json`: every cosmetic, its rarity and how it is won |
+| `founder_until` | | time (Unix seconds) before which players who sign in get the founder badge |
 | `cosmetics` | | path to `cosmetics.json` |
 | `session_ttl` | `86400` | session length, seconds |
 | `online_window` | `150` | how long a presence counts, seconds |
@@ -124,12 +126,26 @@ What the free plan means here:
   plays, their presence every minute keeps it awake.
 - 750 free instance hours a month per Render workspace, enough for one service all month; past
   them Render suspends the workspace's free services until the next month.
-- The disk is not kept: when the server sleeps, restarts or is redeployed, the database starts
-  empty. Players sign in again on their own (the client does it on the 401), their cosmetics come
-  back with their next presence (every minute) and roles given in `role_names` come back when
-  those players sign in. Roles given with the `role` command are lost: put them in `role_names`
-  (or `roles`) in `config.example.json`, which the Docker image uses as its config.
+- The disk is not kept: when the server sleeps, restarts or is redeployed, a SQLite database starts
+  empty, and Rago Points, chests and cosmetics won are lost with it. Give the server a free
+  PostgreSQL database instead (next section). Without one, players sign in again on their own (the
+  client does it on the 401), their loadout comes back with their next presence (every minute) and
+  roles given in `role_names` come back when those players sign in. Roles given with the `role`
+  command are lost: put them in `role_names` (or `roles`) in `config.example.json`, which the
+  Docker image uses as its config.
 - `PORT`, which Render sets, wins over `port` in the config.
+
+### Keeping points and cosmetics (free Neon database)
+
+1. Sign in on [neon.tech](https://neon.tech) and create a project (the free plan, a region near
+   Frankfurt).
+2. On the project's dashboard, **Connect**, and copy the connection string
+   (`postgresql://...?sslmode=require`).
+3. On Render, the `rago-network` service, **Environment**, add `DATABASE_URL` with that string,
+   then **Save**: Render redeploys and the server creates its tables on its own.
+
+The connection string is a password: keep it in Render's settings, never in the repository or a
+chat. A free Neon database sleeps when unused; the server opens its connection again when it wakes.
 
 When Rago has many players, the same Docker image runs on any small server with a disk (see
 "Running it" above), and only the address in the client changes.

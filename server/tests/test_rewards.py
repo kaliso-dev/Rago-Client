@@ -8,7 +8,7 @@ from rago_network.app import Network
 from rago_network.rewards import Catalogue, day_of, next_reset, open_chest
 from rago_network.store import NEW_WALLET, Store
 
-from test_network import COSMETICS, FakeMojang, sign_in
+from test_network import COSMETICS, FakeMojang, fresh_store, sign_in
 
 CATALOGUE = os.path.join(os.path.dirname(__file__), "..", "catalogue.json")
 
@@ -47,7 +47,7 @@ def network(catalogue=None, now=None, founder_until=None):
     config = {"cosmetics": COSMETICS, "catalogue": catalogue or small_catalogue(), "role_names": {"qRago": "creator"}}
     if founder_until:
         config["founder_until"] = founder_until
-    return Network(config, store=Store(":memory:"), session_server=FakeMojang(),
+    return Network(config, store=fresh_store(), session_server=FakeMojang(),
                    clock=Clock(now or ts(2026, 11, 2, 18)), rng=random.Random(7))
 
 

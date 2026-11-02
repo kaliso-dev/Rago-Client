@@ -31,6 +31,25 @@ class FakeMojang:
         return self.players[name], name
 
 
+def fresh_store():
+    """An empty store: in memory, or in the PostgreSQL database named by RAGO_TEST_DATABASE (emptied
+    first), so that the same tests check both."""
+    target = os.environ.get("RAGO_TEST_DATABASE", ":memory:")
+    if target != ":memory:":
+        import psycopg
+        while _open_stores:
+            _open_stores.pop().close()
+        with psycopg.connect(target, autocommit=True) as conn:
+            for (table,) in conn.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'").fetchall():
+                conn.execute(f'DROP TABLE "{table}"')
+    store = Store(target)
+    _open_stores.append(store)
+    return store
+
+
+_open_stores = []
+
+
 class Clock:
     def __init__(self):
         self.now = 1_000_000.0
@@ -41,7 +60,7 @@ class Clock:
 
 def network(clock=None, mojang=None):
     config = {"cosmetics": COSMETICS, "role_names": {"qRago": "creator"}}
-    return Network(config, store=Store(":memory:"), session_server=mojang or FakeMojang(), clock=clock or Clock())
+    return Network(config, store=fresh_store(), session_server=mojang or FakeMojang(), clock=clock or Clock())
 
 
 def sign_in(n, name="qRago", ip="1.2.3.4"):
