@@ -1688,4 +1688,3 @@ rago.option.misclick_delay.format=%d ms
 rago.option.misclick_delay.help=La même épée recliquée moins de ce temps après le dernier clic dessus n'est pas achetée. Le blocage tient tant que tu continues de cliquer dessus, et s'arrête après ce temps sans clic.
 rago.option.misclick_sound=Son quand un clic est bloqué
 rago.misclick.again=Pas racheté : tu viens d'acheter %s§c
-rago.notice.patcher_fullbright=Le Fullbright de Patcher est maintenant coupé par défaut : le jeu éclaire le monde lui-même, avec les ombres, et Phosphor, inclus dans Rago, rend ça léger. Pour tout voir éclairé comme avant, active Fullbright dans les mods Rago.

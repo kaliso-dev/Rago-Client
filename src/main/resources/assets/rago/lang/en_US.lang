@@ -1688,4 +1688,3 @@ rago.option.misclick_delay.format=%d ms
 rago.option.misclick_delay.help=The same sword clicked again within this time of the last click on it is not bought. The block holds while you keep clicking it, and stops after this long without a click.
 rago.option.misclick_sound=Sound when a click is blocked
 rago.misclick.again=Not bought again: you just bought %s§c
-rago.notice.patcher_fullbright=Patcher's Fullbright is now off by default: the game lights the world itself, with shadows, and the bundled Phosphor keeps that cheap. To see everything lit up again, turn on Fullbright in Rago's mods.

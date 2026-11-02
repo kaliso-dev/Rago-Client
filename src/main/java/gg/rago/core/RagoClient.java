@@ -147,7 +147,6 @@ import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.ModContainer;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.InputEvent;
@@ -427,15 +426,6 @@ public final class RagoClient {
 			MinecraftForge.EVENT_BUS.register(m);
 		}
 		LOG.info("Rago {} loaded with {} modules", version(), MODULES.all().size());
-	}
-
-	/** Whether Patcher's Fullbright was just turned off, to be said once in chat. */
-	private static boolean patcherFullbrightOff;
-
-	@Mod.EventHandler
-	public void postInit(FMLPostInitializationEvent event) {
-		// every mod has read its settings by now, and no world has been lit yet
-		patcherFullbrightOff = PatcherFullbright.offOnce(configDir, PatcherFullbright.PATCHER_CONFIG);
 	}
 
 	/** Opens a screen on the next tick, for a command typed in chat. */
@@ -909,10 +899,6 @@ public final class RagoClient {
 			mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText(
 				net.minecraft.util.EnumChatFormatting.RED + "[Rago] " + net.minecraft.util.EnumChatFormatting.RESET
 					+ I18n.format("rago.conflict.oneconfig_key", Keyboard.getKeyName(OneConfigKey.NEW_KEY), Keyboard.getKeyName(menuKey.getKeyCode()))));
-		}
-		if (patcherFullbrightOff) {
-			patcherFullbrightOff = false;
-			mc.thePlayer.addChatMessage(new net.minecraft.util.ChatComponentText("§c§lRago §8» §f" + I18n.format("rago.notice.patcher_fullbright")));
 		}
 		if (net.minecraftforge.fml.common.Loader.isModLoaded("ragonohitdelay")) {
 			LOG.warn("The separate Rago NoHitDelay mod is loaded; its NoUseDelay cancels eating on servers");

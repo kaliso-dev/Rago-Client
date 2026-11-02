@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.10.8.** What it contains:
+**Current version: 1.10.7.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -12,8 +12,7 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   OptiFine's Fast Render), with a switch to use solid panels instead
 - OptiFine inside the Rago jar for builds that bundle it (see [Bundling OptiFine](#bundling-optifine))
 - [PolyPatcher](#patcher) (Patcher's fixes and optimisations) inside the Rago jar; its settings open
-  with `/patcher`. Its Fullbright starts off, like in other PvP clients
-- [Phosphor](#phosphor), a rewrite of the game's light engine, inside the Rago jar
+  with `/patcher`
 - an **Accounts** screen in Rago's style (top right of the home screen, or the head button in the
   server list): add Microsoft accounts and switch between them in one click. The sign-in itself is
   done by [In-Game Account Switcher](#account-switcher), which is bundled
@@ -500,28 +499,17 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
-- new in 1.10.8
-  - Patcher's Fullbright is off by default, like in other PvP clients: the game lights the world
-    itself, with shadows. Rago turns it off once per installation, after Patcher has read its
-    settings and before a world is loaded, and says so once in chat; turning it back on (Rago's
-    Fullbright mod, or Patcher's setting in `/patcher`) is kept from then on
-  - [Phosphor](#phosphor) Legacy Forge 7, a rewrite of the light engine, is inside the Rago jar, so
-    that light costs less now that the game works it out again. In a test world (software
-    renderer, median of rounds 2 to 10, Fullbright off), building a 245-block cube cost 13.7 ms of
-    light work per round with the game's own engine and 4.4 ms with Phosphor; placing and removing
-    30 glowstone blocks, 329 ms against 48 ms, and the memory that creates went from 2,115 MB to
-    1.7 MB. Patcher's Fullbright skipped that work entirely (0.55 ms and 0.06 ms in the same test),
-    so light costs a little more than in 1.10.7, for the shadows. In the test game, a closed room
-    with a torch, the same room with a hole in its roof, and the underside of a platform in the sky
-    look the same with Phosphor as without it: the same light values in F3, and screenshots that
-    differ in under 0.2 % of their pixels (the clouds move)
 - new in 1.10.7
   - the qRago Official profile turns Generator Timers on, shown in the tab list. Players who
     already have the profile get this change once, on top of their own settings in it; nothing
     else in the profile changes, and a deleted profile does not come back
-  - Phosphor (a rewrite of the light engine) was measured and left out while PolyPatcher's
-    Fullbright, on by default, skipped the client's light updates; 1.10.8 turns that Fullbright
-    off and includes Phosphor
+  - Phosphor (a rewrite of the light engine) was measured and is not included: PolyPatcher's
+    Fullbright, on by default, already skips the client's light updates (every light reads as
+    full), and Phosphor runs them again. In a test world (software renderer, median of rounds 2
+    to 10), building a 245-block cube cost 0.55 ms of light work per round with Fullbright alone
+    and 3.3 ms with Phosphor; placing and removing 30 glowstone blocks, 0.06 ms against 42 ms.
+    With Fullbright off, Phosphor beats the game's own engine (the cube 13.7 ms to 4.4 ms, the
+    glowstone 329 ms to 48 ms)
 - new in 1.10.6
   - the vanilla sidebar's text goes out in one draw call: the lines the Minecraft font draws from
     its ASCII page (most lines, and every red score number) are laid out glyph by glyph as the font
@@ -887,7 +875,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.10.8+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.10.7+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.
@@ -938,23 +926,6 @@ The build downloads it from Modrinth and checks its SHA-512, so the repository n
 settings library. Rago turns off Forge's loading screen (`config/splash.properties`), which can crash
 while Patcher starts. Right Shift still opens Rago's window; Patcher's settings open with `/patcher`.
 If Patcher or PolyPatcher is already in your mods folder, Rago uses that copy.
-
-Patcher's Fullbright (every block at full light, and no light worked out at all) is on by default
-in Patcher. Rago turns it off once per installation, right after Patcher has read its settings, and
-writes `config/rago-patcher-fullbright.txt` so that it never does it again: a player who turns it
-back on in `/patcher` keeps it. Rago's own Fullbright mod brightens the picture instead.
-
-### Phosphor
-
-[Phosphor Legacy Forge](https://github.com/HowardZHY/Phosphor-Legacy-Forge) version 7, by
-JellySquid (Phosphor) and HowardZHY (the Forge 1.8.9 port), rewrites the game's light engine: light
-changes are queued and worked out in batches, just before light is read, with far less memory. It is licensed under
-the GPL-3.0 and bundled unmodified; see `libs/phosphor/README.md`. The build downloads it from
-Modrinth and checks its SHA-512, so the repository never stores it; `./gradlew build -PnoPhosphor`
-leaves it out. It is packed outside `ContainedDeps`: Rago copies it to `rago/bundled/` in the game
-folder when that copy is missing or different, and starts it itself on every launch, so a Phosphor
-you installed in your mods folder is used instead and never loaded twice. With it, OptiFine writes
-"Error finding Chunk.hasEntities" in the log once; that is harmless.
 
 ### Bundling OptiFine
 
@@ -1012,4 +983,4 @@ spends per frame on occlusion culling, the HUD, name tags and its tick, and the 
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE). The bundled In-Game Account Switcher is LGPL-3.0 (see
-`libs/ias/`), the bundled PolyPatcher is CC BY-NC-SA 4.0 (see `libs/patcher/`), the bundled Phosphor Legacy Forge is GPL-3.0 (see `libs/phosphor/`), the Poppins font is under the SIL Open Font License (see `Poppins-OFL.txt` next to it). The voxel hats (by VoxelBear) are under CC BY 4.0, see `tools/models/CREDITS.md`.
+`libs/ias/`), the bundled PolyPatcher is CC BY-NC-SA 4.0 (see `libs/patcher/`), the Poppins font is under the SIL Open Font License (see `Poppins-OFL.txt` next to it). The voxel hats (by VoxelBear) are under CC BY 4.0, see `tools/models/CREDITS.md`.
