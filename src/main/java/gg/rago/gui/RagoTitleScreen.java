@@ -692,12 +692,12 @@ public final class RagoTitleScreen extends GuiScreen {
 	}
 
 	/** The dock's buttons, with the OptiFine helper's when OptiFine is missing; their tips and animation keys. */
-	private static final String[] DOCK_ICONS = {"logo", "gift", "ticket", "shirt", "store", "sliders-horizontal", "settings", "globe", "power"};
-	private static final String[] DOCK_ICONS_OPTIFINE_HELP = {"logo", "gift", "ticket", "shirt", "store", "sliders-horizontal", "settings", "globe", "zap", "power"};
+	private static final String[] DOCK_ICONS = {"logo", "gift", "ticket", "shirt", "store", "sliders-horizontal", "settings", "power"};
+	private static final String[] DOCK_ICONS_OPTIFINE_HELP = {"logo", "gift", "ticket", "shirt", "store", "sliders-horizontal", "settings", "zap", "power"};
 	private static final String[] DOCK_TIPS = {"rago.dock.mods", "rago.dock.rewards", "rago.dock.pass", "rago.dock.locker", "rago.dock.shop",
-		"rago.dock.rago_settings", "rago.dock.options", "rago.dock.servers", "rago.dock.quit"};
+		"rago.dock.rago_settings", "rago.dock.options", "rago.dock.quit"};
 	private static final String[] DOCK_TIPS_OPTIFINE_HELP = {"rago.dock.mods", "rago.dock.rewards", "rago.dock.pass", "rago.dock.locker", "rago.dock.shop",
-		"rago.dock.rago_settings", "rago.dock.options", "rago.dock.servers", "rago.dock.optifine", "rago.dock.quit"};
+		"rago.dock.rago_settings", "rago.dock.options", "rago.dock.optifine", "rago.dock.quit"};
 	private static final String[] DOCK_KEYS = keys("dock:", DOCK_ICONS);
 	private static final String[] DOCK_KEYS_OPTIFINE_HELP = keys("dock:", DOCK_ICONS_OPTIFINE_HELP);
 	private Runnable[] dockActions;
@@ -726,8 +726,6 @@ public final class RagoTitleScreen extends GuiScreen {
 				return () -> mc.displayGuiScreen(RagoMenuScreen.settings(this));
 			case "settings":
 				return () -> mc.displayGuiScreen(new GuiOptions(this, mc.gameSettings));
-			case "globe":
-				return () -> mc.displayGuiScreen(new GuiMultiplayer(this));
 			case "zap":
 				return () -> {
 					optifineHelp = true;
