@@ -27,7 +27,8 @@ EMOTE_FOR = 600
 KEY = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 ITEM = re.compile(r"^[a-z]{1,16}:[a-z0-9_]{1,32}$")
 # the loadout fields whose values are cosmetics a player must own, and their catalogue type
-OWNED_FIELDS = {"cape": "cape", "hat": "hat", "wings": "wings", "shield": "shield"}
+OWNED_FIELDS = {"cape": "cape", "hat": "hat", "wings": "wings", "shield": "shield", "name_color": "name",
+                "name_icon": "icon"}
 
 
 def join_id(challenge):
@@ -132,12 +133,22 @@ class Network:
             return 429, {"error": "slow_down"}
         visible = body.get("visible", True)
         version = body.get("version")
-        if not isinstance(visible, bool) or (version is not None and (not isinstance(version, str) or len(version) > 32)):
+        playing = body.get("playing", False)
+        if not isinstance(visible, bool) or not isinstance(playing, bool) \
+                or (version is not None and (not isinstance(version, str) or len(version) > 32)):
             return 400, {"error": "bad_request"}
-        loadout = self.whitelist.clean(body.get("cosmetics"), self.store.role(uuid), uuid, self._owns(uuid))
+        role = self.store.role(uuid)
+        loadout = self.whitelist.clean(body.get("cosmetics"), role, uuid, self._owns(uuid, role))
         now = int(self.clock())
         self.store.presence(uuid, visible, loadout, version, now)
-        return 200, {"online": self._counts(now)["online"], "cosmetics": loadout}
+        answer = {"online": self._counts(now)["online"], "cosmetics": loadout}
+        play_pass = self.catalogue.play_pass
+        if playing and play_pass:
+            # the client says "playing" while in a world and not away from the keyboard
+            row, given = self.store.play(uuid, play_pass.season,
+                                         lambda r: rewards.play_minute(r, day_of(now), now, play_pass), self.catalogue, now)
+            answer["pass"] = {"minutes": row["minutes"], "tier": row["tier"], "given": given}
+        return 200, answer
 
     def lookup(self, uuid, body):
         if not self.limits.allow("lookup", uuid, 30, 10):
@@ -187,14 +198,17 @@ class Network:
 
     # --- the daily chest, Rago Points, the shop and the forge ---
 
-    def _owns(self, uuid):
+    def _owns(self, uuid, role=None):
         """owns(field, value): whether the player has that cosmetic. A value the catalogue does not
-        know (none, a colour) or one kept for a role (the creator's capes) is the whitelist's call."""
+        know (none, a colour) or one kept for a role (the creator's capes) is the whitelist's call.
+        Rago's creator has everything (to show it and try it)."""
         cache = []
+        if role is None:
+            role = self.store.role(uuid)
 
         def owns(field, value):
             kind = OWNED_FIELDS.get(field, "dance" if field == "dance" else None)
-            if kind is None or not isinstance(value, str):
+            if kind is None or not isinstance(value, str) or role == "creator":
                 return True
             spec = self.catalogue.items.get(f"{kind}:{value}")
             if spec is None or "creator" in spec["sources"]:
@@ -247,8 +261,23 @@ class Network:
             return 429, {"error": "slow_down"}
         w = self.store.wallet(uuid)
         owned = w["owned"] | self.catalogue.starter
+        if self.store.role(uuid) == "creator":
+            owned |= set(self.catalogue.items)
         return 200, {"points": w["points"], "owned": sorted(owned), "fragments": w["fragments"],
                      "streak": w["streak"]}
+
+    def play_pass(self, uuid, body):
+        """The play pass: the season's tiers, the minutes the player has played and today's."""
+        if not self.limits.allow("pass", uuid, 30, 10):
+            return 429, {"error": "slow_down"}
+        play_pass = self.catalogue.play_pass
+        if play_pass is None:
+            return 404, {"error": "no_pass"}
+        now = self.clock()
+        row = self.store.playtime(uuid, play_pass.season) or dict(rewards.NEW_PLAY)
+        today = row["day_minutes"] if row["day"] == day_of(now) else 0
+        return 200, {**play_pass.public(), "minutes": row["minutes"], "tier": row["tier"], "today": today,
+                     "nextReset": int(next_reset(now) - now)}
 
     def shop(self, uuid, body):
         """Today's shop, with what the player already has and the bundle's price for them."""
@@ -405,7 +434,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         signed_in = {"/v1/presence": n.presence, "/v1/lookup": n.lookup, "/v1/emote": n.emote, "/v1/emotes": n.emotes,
                      "/v1/rewards": n.rewards, "/v1/rewards/open": n.open_chest, "/v1/inventory": n.inventory,
-                     "/v1/shop": n.shop, "/v1/shop/buy": n.buy, "/v1/forge": n.forge}
+                     "/v1/shop": n.shop, "/v1/shop/buy": n.buy, "/v1/forge": n.forge, "/v1/pass": n.play_pass}
         handle = signed_in.get(self.path)
         if handle is None:
             self._send(404, {"error": "not_found"})

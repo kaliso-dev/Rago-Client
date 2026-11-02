@@ -155,6 +155,12 @@ class _Db:
                 self._conn.close()
                 self._open()
 
+def rewards_duplicate(catalogue, item):
+    """What a cosmetic one already has is worth in points (the chest's duplicates)."""
+    from .rewards import DUPLICATE_POINTS
+    return DUPLICATE_POINTS[catalogue.rarity(item)]
+
+
 NEW_WALLET = {"points": 0, "streak": 0, "last_day": None, "joker_day": None, "since_epic": 0, "since_legendary": 0}
 
 
@@ -371,6 +377,49 @@ class Store:
             return had is None
 
         return self._transaction(work)
+
+    def play(self, uuid, season, step, catalogue, now):
+        """A presence while playing, for the play pass: step(row) gives (row after, tiers reached), the
+        row saved and each reached tier's reward given (a cosmetic already owned turns into its
+        duplicate points). Returns (row, [rewards given])."""
+
+        def work():
+            found = self._db.execute("SELECT minutes, day, day_minutes, last_credit, tier FROM playtime "
+                                     "WHERE uuid = ? AND season = ?", (uuid, season)).fetchone()
+            row = dict(zip(("minutes", "day", "day_minutes", "last_credit", "tier"), found)) if found \
+                else {"minutes": 0, "day": None, "day_minutes": 0, "last_credit": 0, "tier": 0}
+            row, reached = step(row)
+            self._db.execute(
+                "INSERT INTO playtime(uuid, season, minutes, day, day_minutes, last_credit, tier) VALUES(?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(uuid, season) DO UPDATE SET minutes = excluded.minutes, day = excluded.day, "
+                "day_minutes = excluded.day_minutes, last_credit = excluded.last_credit, tier = excluded.tier",
+                (uuid, season, row["minutes"], row["day"], row["day_minutes"], row["last_credit"], row["tier"]))
+            given = []
+            if reached:
+                w = self._wallet(uuid)
+                owned = self._owned(uuid) | catalogue.starter
+                for n in reached:
+                    tier = catalogue.play_pass.tiers[n - 1]
+                    item = tier.get("item")
+                    if item is not None and item not in owned:
+                        self._give(uuid, item, "pass", now)
+                        owned.add(item)
+                        given.append({"tier": n, "item": item})
+                        continue
+                    points = tier["points"] if item is None else rewards_duplicate(catalogue, item)
+                    w["points"] += points
+                    self._log(uuid, points, "pass", f"{season}:{n}", now)
+                    given.append({"tier": n, "points": points, **({"item": item, "duplicate": True} if item else {})})
+                self._put_wallet(uuid, w)
+            return row, given
+
+        return self._transaction(work)
+
+    def playtime(self, uuid, season):
+        with self._lock:
+            found = self._db.execute("SELECT minutes, day, day_minutes, last_credit, tier FROM playtime "
+                                     "WHERE uuid = ? AND season = ?", (uuid, season)).fetchone()
+        return dict(zip(("minutes", "day", "day_minutes", "last_credit", "tier"), found)) if found else None
 
     def ledger(self, uuid, limit=50):
         """The player's latest changes of points, newest first: (delta, reason, ref, at)."""

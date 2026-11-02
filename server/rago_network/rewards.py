@@ -29,7 +29,10 @@ CARDS = 3
 SHOP_DAILY = 4
 SHOP_BUNDLE_DISCOUNT = 20
 ITEM_TYPES = ("cape", "wings", "hat", "shield", "dance", "name", "icon", "title", "card", "badge")
-SOURCES = ("starter", "chest", "shop", "streak", "event", "founder", "creator")
+SOURCES = ("starter", "chest", "shop", "pass", "streak", "event", "founder", "creator")
+# the play pass: a presence sent while playing adds one minute when the last minute counted is at
+# least this many seconds old (presences come every minute)
+PASS_STEP = 50
 
 
 def rank(rarity):
@@ -89,6 +92,7 @@ class Catalogue:
         self.pools = {r: sorted(i for i, s in self.items.items() if "chest" in s["sources"] and s["rarity"] == r)
                       for r in RARITIES}
         self.shop = sorted(i for i, s in self.items.items() if "shop" in s["sources"])
+        self.play_pass = PlayPass(data["pass"], self) if data.get("pass") else None
 
     @classmethod
     def load(cls, path):
@@ -106,9 +110,65 @@ class Catalogue:
 
     def public(self):
         """What the client is told about the catalogue."""
-        return {"items": {i: {"rarity": s["rarity"], "sources": list(s["sources"])} for i, s in self.items.items()},
-                "odds": dict(zip(RARITIES, CARD_ODDS)), "prices": PRICES, "pieces": PIECES,
-                "duplicates": DUPLICATE_POINTS, "cards": CARDS}
+        out = {"items": {i: {"rarity": s["rarity"], "sources": list(s["sources"])} for i, s in self.items.items()},
+               "odds": dict(zip(RARITIES, CARD_ODDS)), "prices": PRICES, "pieces": PIECES,
+               "duplicates": DUPLICATE_POINTS, "cards": CARDS}
+        if self.play_pass:
+            out["pass"] = self.play_pass.public()
+        return out
+
+
+# --- the play pass: the more one plays, the more one wins ---
+
+class PlayPass:
+    """A season of tiers, one every `minutes_per_tier` minutes played (at most `daily_cap` minutes a
+    day count), each giving points or a cosmetic. Free: time played is all it asks."""
+
+    def __init__(self, data, catalogue):
+        self.season = data["season"]
+        self.minutes_per_tier = int(data["minutes_per_tier"])
+        self.daily_cap = int(data["daily_cap"])
+        self.tiers = []
+        for tier in data["tiers"]:
+            item, points = tier.get("item"), tier.get("points")
+            if item is not None:
+                if item not in catalogue.items or "pass" not in catalogue.items[item]["sources"]:
+                    raise ValueError("a pass tier gives an item that does not come from the pass: " + str(item))
+                self.tiers.append({"item": item})
+            elif isinstance(points, int) and points > 0:
+                self.tiers.append({"points": points})
+            else:
+                raise ValueError("a pass tier gives an item or points: " + json.dumps(tier))
+        if not self.season or self.minutes_per_tier <= 0 or self.daily_cap <= 0 or not self.tiers:
+            raise ValueError("bad pass")
+
+    def tier_of(self, minutes):
+        """How many tiers `minutes` played have reached."""
+        return min(len(self.tiers), minutes // self.minutes_per_tier)
+
+    def public(self):
+        return {"season": self.season, "minutesPerTier": self.minutes_per_tier, "dailyCap": self.daily_cap,
+                "tiers": self.tiers}
+
+
+NEW_PLAY = {"minutes": 0, "day": None, "day_minutes": 0, "last_credit": 0, "tier": 0}
+
+
+def play_minute(row, day, now, play_pass):
+    """A presence while playing: the season's row ({minutes, day, day_minutes, last_credit, tier})
+    with one more minute when one is due, and the tiers it reached ([tier numbers], from 1)."""
+    row = dict(row)
+    if row["day"] != day:
+        row["day"], row["day_minutes"] = day, 0
+    if now - row["last_credit"] < PASS_STEP or row["day_minutes"] >= play_pass.daily_cap:
+        return row, []
+    row["minutes"] += 1
+    row["day_minutes"] += 1
+    row["last_credit"] = now
+    reached = play_pass.tier_of(row["minutes"])
+    new = list(range(row["tier"] + 1, reached + 1))
+    row["tier"] = max(row["tier"], reached)
+    return row, new
 
 
 # --- streaks ---

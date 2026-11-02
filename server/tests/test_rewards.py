@@ -309,11 +309,111 @@ class OwnershipTest(unittest.TestCase):
         n = network(now=ts(2026, 12, 2), founder_until=ts(2026, 12, 1))
         self.assertNotIn("badge:founder", n.store.owned(uuid_of(n)))
 
-    def test_the_real_catalogue_is_valid_and_keeps_the_starter_pack(self):
+    def test_the_real_catalogue_gives_one_free_cape_hat_wings_and_dance(self):
         cat = Catalogue.load(CATALOGUE)
-        self.assertEqual(len(cat.starter), 27)
+        self.assertEqual(cat.starter, {"cape:rago", "hat:rago_cap", "wings:dragon_small", "dance:clap"})
         self.assertEqual({i for i, s in cat.items.items() if "creator" in s["sources"]},
                          {"cape:black_cat", "cape:qrago", "cape:pink_r"})
+        self.assertEqual(len(cat.play_pass.tiers), 30)
+
+    def test_every_cosmetic_a_loadout_can_show_is_in_the_catalogue(self):
+        import json
+        cat = Catalogue.load(CATALOGUE)
+        with open(COSMETICS, encoding="utf-8") as f:
+            fields = json.load(f)["fields"]
+        kinds = {"cape": "cape", "hat": "hat", "wings": "wings", "shield": "shield", "name_color": "name",
+                 "name_icon": "icon"}
+        for field, kind in kinds.items():
+            shown = {v for v in fields[field]["values"] if v != "none"}
+            known = {i.split(":")[1] for i in cat.items if i.startswith(kind + ":")}
+            self.assertEqual(shown, known, field)
+
+    def test_rago_creator_has_everything(self):
+        n = network()
+        creator = sign_in(n, "qRago")["uuid"]
+        status, body = n.presence(creator, {"cosmetics": {"hat": "crown", "name_color": "aurora"}})
+        self.assertEqual((body["cosmetics"]["hat"], body["cosmetics"]["name_color"]), ("crown", "aurora"))
+        self.assertEqual(set(n.inventory(creator, {})[1]["owned"]), set(n.catalogue.items))
+        self.assertEqual(n.emote(creator, {"emote": "rare_dance"})[0], 200)
+
+    def test_a_name_colour_and_icon_are_shown_once_owned(self):
+        import json
+        with open(CATALOGUE, encoding="utf-8") as f:
+            n = network(json.load(f))
+        u = uuid_of(n)
+        status, body = n.presence(u, {"cosmetics": {"name_color": "mint", "name_icon": "heart"}})
+        self.assertEqual((body["cosmetics"]["name_color"], body["cosmetics"]["name_icon"]), ("none", "none"))
+        n.store.grant(u, "name:mint", "shop", 1)
+        n.store.grant(u, "icon:heart", "shop", 1)
+        status, body = n.presence(u, {"cosmetics": {"name_color": "mint", "name_icon": "heart"}})
+        self.assertEqual((body["cosmetics"]["name_color"], body["cosmetics"]["name_icon"]), ("mint", "heart"))
+
+
+def pass_catalogue():
+    cat = small_catalogue()
+    cat["items"]["hat:pass_hat"] = {"rarity": "rare", "sources": ["pass"]}
+    cat["items"]["hat:common_hat"]["sources"] = ["chest", "shop", "pass"]
+    cat["pass"] = {"season": "s1", "minutes_per_tier": 2, "daily_cap": 5,
+                   "tiers": [{"points": 50}, {"item": "hat:pass_hat"}, {"item": "hat:common_hat"}, {"points": 70}]}
+    return cat
+
+
+class PlayPassTest(unittest.TestCase):
+    def play(self, n, u, seconds=60, playing=True):
+        # one presence a minute, as the client sends them (the rate limiter uses the real time)
+        n.limits.allow = lambda *args: True
+        n.clock.now += seconds
+        return n.presence(u, {"playing": playing})[1].get("pass")
+
+    def test_a_minute_counts_when_playing_once_a_minute(self):
+        n = network(pass_catalogue())
+        u = uuid_of(n)
+        self.assertIsNone(self.play(n, u, playing=False), "in the menus")
+        self.assertEqual(self.play(n, u)["minutes"], 1)
+        self.assertEqual(self.play(n, u, 10)["minutes"], 1, "two presences ten seconds apart count once")
+        self.assertEqual(self.play(n, u)["minutes"], 2)
+        status, body = n.play_pass(u, {})
+        self.assertEqual((body["minutes"], body["today"], body["tier"], len(body["tiers"])), (2, 2, 1, 4))
+
+    def test_tiers_give_their_rewards_once(self):
+        n = network(pass_catalogue())
+        u = uuid_of(n)
+        given = []
+        for _ in range(4):
+            given += self.play(n, u)["given"]
+        self.assertEqual(given, [{"tier": 1, "points": 50}, {"tier": 2, "item": "hat:pass_hat"}])
+        self.assertIn("hat:pass_hat", n.store.owned(u))
+        self.assertEqual(n.store.wallet(u)["points"], 50)
+        self.assertEqual(n.store.ledger(u)[0][:3], (50, "pass", "s1:1"))
+
+    def test_a_tier_item_already_owned_gives_its_duplicate_points(self):
+        n = network(pass_catalogue())
+        u = uuid_of(n)
+        n.store.grant(u, "hat:common_hat", "shop", 1)
+        n.clock.now = ts(2026, 11, 2, 1)
+        given = []
+        for _ in range(5):
+            given += self.play(n, u)["given"]
+        n.clock.now = ts(2026, 11, 3, 1)
+        given += self.play(n, u)["given"]
+        self.assertEqual(given[-1], {"tier": 3, "points": rewards.DUPLICATE_POINTS["common"], "item": "hat:common_hat",
+                                     "duplicate": True})
+
+    def test_only_so_many_minutes_count_a_day(self):
+        n = network(pass_catalogue())
+        u = uuid_of(n)
+        n.clock.now = ts(2026, 11, 2, 1)
+        for _ in range(8):
+            last = self.play(n, u)
+        self.assertEqual(last["minutes"], 5, "the daily cap")
+        n.clock.now = ts(2026, 11, 3, 1)
+        self.assertEqual(self.play(n, u)["minutes"], 6, "a new day")
+
+    def test_a_pass_tier_must_give_a_pass_item(self):
+        cat = pass_catalogue()
+        cat["pass"]["tiers"].append({"item": "hat:rare_hat"})
+        with self.assertRaises(ValueError):
+            Catalogue(cat)
 
 
 if __name__ == "__main__":

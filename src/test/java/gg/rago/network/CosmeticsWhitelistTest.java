@@ -37,6 +37,10 @@ class CosmeticsWhitelistTest {
 				return Loadout.WINGS;
 			case "shield":
 				return Loadout.SHIELDS;
+			case "name_color":
+				return Loadout.NAME_COLORS;
+			case "name_icon":
+				return Loadout.NAME_ICONS;
 			default:
 				return Loadout.NEON;
 		}

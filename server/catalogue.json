@@ -1,215 +1,107 @@
 {
- "_comment": "Every cosmetic Rago Network knows, by type:name, with its rarity and where it comes from: starter (every player has it), chest (the daily chest), shop (bought with Rago Points), streak, event, founder (players who joined before the rewards), creator (see exclusive in cosmetics.json). Mythics are never sold; badges are never drawn or sold. The client's copy must match (checked by its tests).",
+ "_comment": "Every cosmetic Rago Network knows, by type:name, with its rarity and where it comes from: starter (every player has it), chest (the daily chest), shop (bought with Rago Points), pass (a tier of the play pass), streak, event, founder (players who joined before the rewards), creator (see exclusive in cosmetics.json). Mythics are never sold; badges are never drawn or sold. The client gets this file in its jar (build.gradle.kts).",
  "items": {
-  "cape:rago": {
-   "rarity": "rare",
-   "sources": [
-    "starter"
-   ]
-  },
-  "cape:pixel_cat": {
-   "rarity": "rare",
-   "sources": [
-    "starter"
-   ]
-  },
-  "cape:night_cat": {
-   "rarity": "rare",
-   "sources": [
-    "starter"
-   ]
-  },
-  "cape:mfga": {
-   "rarity": "rare",
-   "sources": [
-    "starter"
-   ]
-  },
-  "cape:primal": {
-   "rarity": "epic",
-   "sources": [
-    "starter"
-   ]
-  },
-  "cape:black_cat": {
-   "rarity": "mythic",
-   "sources": [
-    "creator"
-   ]
-  },
-  "cape:qrago": {
-   "rarity": "mythic",
-   "sources": [
-    "creator"
-   ]
-  },
-  "cape:pink_r": {
-   "rarity": "mythic",
-   "sources": [
-    "creator"
-   ]
-  },
-  "hat:rago_cap": {
-   "rarity": "common",
-   "sources": [
-    "starter"
-   ]
-  },
-  "hat:rago_beanie": {
-   "rarity": "common",
-   "sources": [
-    "starter"
-   ]
-  },
-  "hat:top_hat": {
-   "rarity": "uncommon",
-   "sources": [
-    "starter"
-   ]
-  },
-  "hat:wizard_hat": {
-   "rarity": "rare",
-   "sources": [
-    "starter"
-   ]
-  },
-  "hat:crown": {
-   "rarity": "epic",
-   "sources": [
-    "starter"
-   ]
-  },
-  "hat:halo": {
-   "rarity": "epic",
-   "sources": [
-    "starter"
-   ]
-  },
-  "wings:dragon_small": {
-   "rarity": "epic",
-   "sources": [
-    "starter"
-   ]
-  },
-  "wings:dragon": {
-   "rarity": "legendary",
-   "sources": [
-    "starter"
-   ]
-  },
-  "shield:rago": {
-   "rarity": "common",
-   "sources": [
-    "starter"
-   ]
-  },
-  "shield:crimson": {
-   "rarity": "uncommon",
-   "sources": [
-    "starter"
-   ]
-  },
-  "shield:gold": {
-   "rarity": "rare",
-   "sources": [
-    "starter"
-   ]
-  },
-  "shield:frost": {
-   "rarity": "rare",
-   "sources": [
-    "starter"
-   ]
-  },
-  "shield:void": {
-   "rarity": "epic",
-   "sources": [
-    "starter"
-   ]
-  },
-  "dance:wave": {
-   "rarity": "common",
-   "sources": [
-    "starter"
-   ]
-  },
-  "dance:clap": {
-   "rarity": "common",
-   "sources": [
-    "starter"
-   ]
-  },
-  "dance:dab": {
-   "rarity": "common",
-   "sources": [
-    "starter"
-   ]
-  },
-  "dance:zombie": {
-   "rarity": "uncommon",
-   "sources": [
-    "starter"
-   ]
-  },
-  "dance:disco": {
-   "rarity": "uncommon",
-   "sources": [
-    "starter"
-   ]
-  },
-  "dance:twerk": {
-   "rarity": "uncommon",
-   "sources": [
-    "starter"
-   ]
-  },
-  "dance:groove": {
-   "rarity": "rare",
-   "sources": [
-    "starter"
-   ]
-  },
-  "dance:griddy": {
-   "rarity": "rare",
-   "sources": [
-    "starter"
-   ]
-  },
-  "dance:macarena": {
-   "rarity": "rare",
-   "sources": [
-    "starter"
-   ]
-  },
-  "badge:founder": {
-   "rarity": "legendary",
-   "sources": [
-    "founder"
-   ]
-  },
-  "badge:streak_7": {
-   "rarity": "uncommon",
-   "sources": [
-    "streak"
-   ]
-  },
-  "badge:streak_30": {
-   "rarity": "epic",
-   "sources": [
-    "streak"
-   ]
-  },
-  "badge:streak_100": {
-   "rarity": "legendary",
-   "sources": [
-    "streak"
-   ]
-  },
-  "cape:streak_100": {
-   "rarity": "legendary",
-   "sources": [
-    "streak"
-   ]
-  }
+  "cape:rago": {"rarity": "rare", "sources": ["starter"]},
+  "cape:pixel_cat": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "cape:night_cat": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "cape:mfga": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "cape:sakura": {"rarity": "rare", "sources": ["chest", "shop", "pass"]},
+  "cape:circuit": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "cape:primal": {"rarity": "epic", "sources": ["chest", "shop"]},
+  "cape:inferno": {"rarity": "epic", "sources": ["chest", "shop"]},
+  "cape:galaxy": {"rarity": "mythic", "sources": ["chest"]},
+  "cape:black_cat": {"rarity": "mythic", "sources": ["creator"]},
+  "cape:qrago": {"rarity": "mythic", "sources": ["creator"]},
+  "cape:pink_r": {"rarity": "mythic", "sources": ["creator"]},
+  "cape:streak_100": {"rarity": "legendary", "sources": ["streak"]},
+  "hat:rago_cap": {"rarity": "common", "sources": ["starter"]},
+  "hat:rago_beanie": {"rarity": "common", "sources": ["chest", "shop"]},
+  "hat:cat_ears": {"rarity": "uncommon", "sources": ["chest", "shop", "pass"]},
+  "hat:top_hat": {"rarity": "uncommon", "sources": ["chest", "shop"]},
+  "hat:wizard_hat": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "hat:devil_horns": {"rarity": "rare", "sources": ["chest", "shop", "pass"]},
+  "hat:headphones": {"rarity": "rare", "sources": ["chest", "shop", "pass"]},
+  "hat:crown": {"rarity": "epic", "sources": ["chest", "shop"]},
+  "hat:halo": {"rarity": "epic", "sources": ["chest", "shop"]},
+  "hat:kitsune": {"rarity": "epic", "sources": ["chest", "shop"]},
+  "wings:dragon_small": {"rarity": "rare", "sources": ["starter"]},
+  "wings:frost": {"rarity": "epic", "sources": ["chest", "shop"]},
+  "wings:dragon": {"rarity": "legendary", "sources": ["chest", "shop"]},
+  "wings:angel": {"rarity": "legendary", "sources": ["chest", "shop"]},
+  "wings:mecha": {"rarity": "legendary", "sources": ["pass"]},
+  "shield:rago": {"rarity": "common", "sources": ["chest", "shop", "pass"]},
+  "shield:crimson": {"rarity": "uncommon", "sources": ["chest", "shop", "pass"]},
+  "shield:gold": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "shield:frost": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "shield:void": {"rarity": "epic", "sources": ["chest", "shop"]},
+  "dance:clap": {"rarity": "common", "sources": ["starter"]},
+  "dance:wave": {"rarity": "common", "sources": ["chest", "shop", "pass"]},
+  "dance:twerk": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "dance:griddy": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "dance:moonwalk": {"rarity": "epic", "sources": ["chest", "shop"]},
+  "name:mint": {"rarity": "common", "sources": ["chest", "shop", "pass"]},
+  "name:sky": {"rarity": "common", "sources": ["chest", "shop", "pass"]},
+  "name:peach": {"rarity": "common", "sources": ["chest", "shop"]},
+  "name:lilac": {"rarity": "common", "sources": ["chest", "shop"]},
+  "name:lemon": {"rarity": "common", "sources": ["chest", "shop"]},
+  "name:rago_red": {"rarity": "uncommon", "sources": ["chest", "shop"]},
+  "name:sakura": {"rarity": "uncommon", "sources": ["chest", "shop"]},
+  "name:sunset": {"rarity": "rare", "sources": ["chest", "shop", "pass"]},
+  "name:ocean": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "name:toxic": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "name:aurora": {"rarity": "epic", "sources": ["chest", "shop", "pass"]},
+  "name:inferno": {"rarity": "epic", "sources": ["chest", "shop"]},
+  "name:rainbow": {"rarity": "mythic", "sources": ["chest"]},
+  "name:gold_rush": {"rarity": "legendary", "sources": ["pass"]},
+  "icon:heart": {"rarity": "common", "sources": ["chest", "shop"]},
+  "icon:star": {"rarity": "common", "sources": ["chest", "shop", "pass"]},
+  "icon:note": {"rarity": "common", "sources": ["chest", "shop"]},
+  "icon:flame": {"rarity": "uncommon", "sources": ["chest", "shop", "pass"]},
+  "icon:bolt": {"rarity": "uncommon", "sources": ["chest", "shop"]},
+  "icon:paw": {"rarity": "rare", "sources": ["chest", "shop", "pass"]},
+  "icon:sword": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "icon:gem": {"rarity": "rare", "sources": ["chest", "shop"]},
+  "icon:sakura": {"rarity": "epic", "sources": ["chest", "shop"]},
+  "icon:skull": {"rarity": "epic", "sources": ["chest", "shop"]},
+  "icon:hourglass": {"rarity": "rare", "sources": ["pass"]},
+  "badge:founder": {"rarity": "legendary", "sources": ["founder"]},
+  "badge:streak_7": {"rarity": "uncommon", "sources": ["streak"]},
+  "badge:streak_30": {"rarity": "epic", "sources": ["streak"]},
+  "badge:streak_100": {"rarity": "legendary", "sources": ["streak"]}
+ },
+ "pass": {
+  "season": "s1", "minutes_per_tier": 60, "daily_cap": 240,
+  "tiers": [
+   {"points": 50},
+   {"item": "name:mint"},
+   {"points": 60},
+   {"item": "icon:star"},
+   {"item": "hat:cat_ears"},
+   {"points": 80},
+   {"item": "dance:wave"},
+   {"points": 80},
+   {"item": "name:sky"},
+   {"item": "icon:hourglass"},
+   {"points": 100},
+   {"item": "shield:rago"},
+   {"points": 100},
+   {"item": "icon:flame"},
+   {"item": "hat:devil_horns"},
+   {"points": 120},
+   {"item": "name:sunset"},
+   {"points": 120},
+   {"item": "shield:crimson"},
+   {"item": "name:gold_rush"},
+   {"points": 150},
+   {"item": "icon:paw"},
+   {"points": 150},
+   {"item": "hat:headphones"},
+   {"item": "cape:sakura"},
+   {"points": 200},
+   {"item": "name:aurora"},
+   {"points": 200},
+   {"points": 300},
+   {"item": "wings:mecha"}
+  ]
  }
 }
