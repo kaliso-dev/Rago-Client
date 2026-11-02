@@ -129,7 +129,7 @@ public final class BentModel {
 			return;
 		}
 		Frame f = FRAME.on(r.cubeList.get(0), b);
-		float[] end = f.centre(ZONE, new float[3]);
+		float[] end = f.centre(ZONE, END);
 		float[] k = f.axis;
 		GlStateManager.translate(end[0] * scale, end[1] * scale, end[2] * scale);
 		GlStateManager.rotate(f.angle * DEG, k[0], k[1], k[2]);
@@ -141,11 +141,24 @@ public final class BentModel {
 	 * the joint and the far end move, the near end stays. Used to hang the head and arms on a bent body.
 	 */
 	public static float[] move(ModelRenderer part, Bend b, float x, float y, float z) {
-		if (part.cubeList.isEmpty() || b == null || Math.abs(b.angle) < 1e-3f) {
-			return new float[] {x, y, z};
-		}
-		return new Frame().on(part.cubeList.get(0), b).apply(x, y, z, new float[3]);
+		return move(part, b, x, y, z, new float[3]);
 	}
+
+	/** {@link #move} into {@code out} (returned), with no allocation: on the render thread only. */
+	public static float[] move(ModelRenderer part, Bend b, float x, float y, float z, float[] out) {
+		if (part.cubeList.isEmpty() || b == null || Math.abs(b.angle) < 1e-3f) {
+			out[0] = x;
+			out[1] = y;
+			out[2] = z;
+			return out;
+		}
+		return MOVE_FRAME.on(part.cubeList.get(0), b).apply(x, y, z, out);
+	}
+
+	/** The frame {@link #move} works in, apart from the one parts are drawn with. */
+	private static final Frame MOVE_FRAME = new Frame();
+	/** Where a bent part's end goes, worked out on the render thread. */
+	private static final float[] END = new float[3];
 
 	/** The frame, the corners and the cut heights of the part being drawn: one at a time, on the render thread. */
 	private static final Frame FRAME = new Frame();

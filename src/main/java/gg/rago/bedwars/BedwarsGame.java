@@ -71,6 +71,42 @@ public final class BedwarsGame {
 		return sidebarBedwars;
 	}
 
+	/** What a sidebar line says, worked out once for each different line rather than at each reading. */
+	static final class Line {
+		final String text;
+		/** The team's bed: true standing, false gone, null for a line that is not a team's. */
+		final Boolean bed;
+		final boolean alive;
+		final boolean countdown;
+		final boolean waiting;
+
+		Line(String raw) {
+			text = clean(raw);
+			bed = bed(text);
+			alive = bed != null && BedwarsGame.alive(text);
+			countdown = GameEvents.hasCountdown(text);
+			waiting = waitingLine(text);
+		}
+	}
+
+	/** Lines already read, by their text as sent; the sidebar is read 5 times a second and its lines change once a second at most. */
+	private static final Map<String, Line> LINES = new java.util.HashMap<>();
+
+	static Line line(String raw) {
+		String key = raw == null ? "" : raw;
+		synchronized (LINES) {
+			Line l = LINES.get(key);
+			if (l == null) {
+				if (LINES.size() >= 256) {
+					LINES.clear(); // a new game's lines: the old ones are not shown again
+				}
+				l = new Line(key);
+				LINES.put(key, l);
+			}
+			return l;
+		}
+	}
+
 	/**
 	 * A sidebar line as Rago reads it: no colours, and none of the characters Hypixel mixes into
 	 * its sidebar lines (emoji and other symbols the 1.8.9 font does not draw, private-use and
@@ -122,14 +158,13 @@ public final class BedwarsGame {
 			ScoreObjective o = board.getObjectiveInDisplaySlot(1);
 			for (Score score : board.getSortedScores(o)) {
 				ScorePlayerTeam team = board.getPlayersTeam(score.getPlayerName());
-				String line = clean(ScorePlayerTeam.formatPlayerName(team, score.getPlayerName()));
-				Boolean bed = bed(line);
-				if (bed != null) {
-					out.put(line.charAt(0), bed);
-					teamsAlive.put(line.charAt(0), alive(line));
-				} else if (event == null && GameEvents.hasCountdown(line)) {
-					event = line;
-				} else if (waitingLine(line)) {
+				Line line = line(ScorePlayerTeam.formatPlayerName(team, score.getPlayerName()));
+				if (line.bed != null) {
+					out.put(line.text.charAt(0), line.bed);
+					teamsAlive.put(line.text.charAt(0), line.alive);
+				} else if (event == null && line.countdown) {
+					event = line.text;
+				} else if (line.waiting) {
 					wait = true;
 				}
 			}
@@ -299,7 +334,7 @@ public final class BedwarsGame {
 		ScoreObjective o = board.getObjectiveInDisplaySlot(1);
 		List<String> out = new ArrayList<>();
 		for (Score score : board.getSortedScores(o)) {
-			out.add(clean(ScorePlayerTeam.formatPlayerName(board.getPlayersTeam(score.getPlayerName()), score.getPlayerName())));
+			out.add(line(ScorePlayerTeam.formatPlayerName(board.getPlayersTeam(score.getPlayerName()), score.getPlayerName())).text);
 		}
 		return out;
 	}

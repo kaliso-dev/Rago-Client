@@ -74,6 +74,8 @@ import gg.rago.modules.Emotes;
 import gg.rago.modules.RagoBadge;
 import gg.rago.modules.AntiArmor;
 import gg.rago.modules.F5Crosshair;
+import gg.rago.modules.InventoryBlur;
+import gg.rago.modules.NoF5Bobbing;
 import gg.rago.modules.Fullbright;
 import gg.rago.modules.GlintColor;
 import gg.rago.modules.HideAchievements;
@@ -206,6 +208,7 @@ public final class RagoClient {
 	private static BooleanOption chatCopy;
 	private static IntOption uiTheme;
 	private static IntOption homeLayout;
+	private static IntOption modsLayout;
 	private static IntOption homeBlur;
 	private static BooleanOption smoothVideo;
 	private static IntOption homeBackground;
@@ -278,8 +281,8 @@ public final class RagoClient {
 		MODULES.register(new HeightLimitHud(configDir));
 		MODULES.register(new BlockCounterHud());
 		MODULES.register(new ItemCounterHud());
-		MODULES.register(new GeneratorTimersHud());
-		MODULES.register(new EventTimersHud());
+		Hooks.genTimers = MODULES.register(new GeneratorTimersHud());
+		Hooks.eventTimers = MODULES.register(new EventTimersHud());
 		MODULES.register(new UpgradesHud());
 		MODULES.register(new DirectionHud());
 		MODULES.register(new PackDisplayHud());
@@ -325,10 +328,12 @@ public final class RagoClient {
 		MODULES.register(new NoWaterOverlay());
 		MODULES.register(new HideAchievements());
 		MODULES.register(new F5Crosshair());
+		Hooks.noF5Bobbing = MODULES.register(new NoF5Bobbing());
 		MODULES.register(new WeatherChanger());
 		MODULES.register(new TimeChanger());
 		Hooks.overlays = MODULES.register(new Overlays());
 		MODULES.register(new MotionBlur(zoom));
+		Hooks.inventoryBlur = MODULES.register(new InventoryBlur());
 		MODULES.register(new ColorGrading());
 		MODULES.register(new Vignette());
 		RagoCape cape = MODULES.register(new RagoCape());
@@ -374,6 +379,7 @@ public final class RagoClient {
 		}
 		profile.markReady();
 		PROFILES.ensureDefaults(MODULES);
+		PROFILES.ensureBuiltIn(MODULES);
 		Anim.setEnabled(menuAnimations.get());
 		Ui.setGlass(glassEffect.get());
 		Ui.setMenuVideo(menuVideo.get());
@@ -429,6 +435,17 @@ public final class RagoClient {
 	}
 
 	/** The home screen's layout: {@link #HOME_CENTRED}, {@link #HOME_LEFT} or {@link #HOME_CLASSIC}. */
+	/** How the Rago menu shows the mods: 0 cards, 1 a list with a detail panel, 2 live previews. */
+	public static int modsLayout() {
+		return modsLayout == null ? 0 : modsLayout.get();
+	}
+
+	public static void setModsLayout(int layout) {
+		if (modsLayout != null) {
+			modsLayout.set(layout);
+		}
+	}
+
 	public static int homeLayout() {
 		return homeLayout == null ? HOME_CENTRED : homeLayout.get();
 	}
@@ -558,6 +575,7 @@ public final class RagoClient {
 			"rago.value.rago", "rago.value.vanilla");
 		homeLayout = SETTINGS.choice(g, ui, "home_layout", HOME_CENTRED, null,
 			"rago.value.home_centred", "rago.value.home_left", "rago.value.home_classic");
+		modsLayout = SETTINGS.choice(g, ui, "mods_layout", 0, null, "rago.value.mods_cards", "rago.value.mods_list", "rago.value.mods_gallery");
 		homeBlur = SETTINGS.choice(g, ui, "home_blur", 1, null, "rago.value.blur_off", "rago.value.blur_light", "rago.value.blur_strong");
 		smoothVideo = SETTINGS.bool(g, ui, "smooth_video", true, Ui::setSmoothVideo);
 		homeBackground = SETTINGS.choice(g, ui, "home_background", Background.NIGHT_DESERT, Background::set, Background.KEYS);

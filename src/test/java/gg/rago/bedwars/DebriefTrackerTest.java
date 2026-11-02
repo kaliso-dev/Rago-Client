@@ -117,4 +117,85 @@ class DebriefTrackerTest {
 		tracker.sidebar(Collections.singletonList("Kills: 3"));
 		assertNull(tracker.end(Debrief.Result.LEFT, 0));
 	}
+
+	@Test
+	void theGamesKillLeaderboard() {
+		Set<String> tab = new HashSet<>(Arrays.asList(ME, "Steve", "Alex_99", "Notch", "Jeb_"));
+		java.util.Map<String, Character> colors = new java.util.HashMap<>();
+		colors.put("Alex_99", '9');
+		colors.put(ME, 'c');
+		DebriefTracker tracker = new DebriefTracker();
+		long t0 = 1_700_000_000_000L;
+		tracker.start(ME, t0, 0, 4);
+		tracker.teams('c', 16);
+		tracker.chat("Steve was killed by Alex_99.", ME, tab, colors, t0 + 10_000);
+		tracker.chat("Notch was knocked into the void by Alex_99. FINAL KILL!", ME, tab, colors, t0 + 20_000);
+		tracker.chat("Jeb_ a été tué par Alex_99. ÉLIMINATION FINALE !", ME, tab, colors, t0 + 25_000);
+		tracker.chat("Steve was killed by RagoTest.", ME, tab, colors, t0 + 30_000);
+		tracker.chat("Steve fell into the void.", ME, tab, colors, t0 + 35_000);
+		tracker.chat("Steve: Alex_99 is hacking.", ME, tab, colors, t0 + 36_000);
+		tracker.chat("Notch purchased Sharpened Swords", ME, tab, colors, t0 + 37_000);
+		tracker.chat("RagoTest was killed by Jeb_.", ME, tab, colors, t0 + 40_000);
+		Debrief d = tracker.current();
+		assertEquals(5, d.version(), "each kill draws the picture again");
+		java.util.List<Debrief.Killer> board = d.board();
+		assertEquals("Alex_99", board.get(0).name);
+		assertEquals(3, board.get(0).kills());
+		assertEquals(2, board.get(0).finals());
+		assertEquals('9', board.get(0).color());
+		assertEquals(ME, board.get(1).name, "you before the others with as many kills");
+		assertEquals('c', board.get(1).color());
+		assertEquals(2, d.rank());
+		assertFalse(d.firstBlood(), "Alex_99 killed first");
+		assertEquals(16, d.players());
+
+		// the sidebar says more than the chat did: your count is the larger one
+		tracker.sidebar(Arrays.asList("Kills: 3", "Final Kills: 1"));
+		assertEquals(4, d.board().get(0).kills());
+		assertEquals(ME, d.board().get(0).name);
+		assertEquals(1, d.rank());
+
+		// after your final death the others' kills still count, then Hypixel's top killers
+		Debrief over = tracker.end(Debrief.Result.ELIMINATED, t0 + 60_000);
+		assertTrue(DebriefTracker.countKill(over, "Notch was killed by Alex_99. FINAL KILL!", tab, colors));
+		assertEquals(4, over.board().get(0).kills(), "a tie: you stay first");
+		assertTrue(DebriefTracker.topKiller(over, "1st Killer - [MVP+] Alex_99 - 7"));
+		assertTrue(DebriefTracker.topKiller(over, "2nd Killer - RagoTest - 4"));
+		assertTrue(DebriefTracker.topKiller(over, "3e Tueur - [VIP] Jeb_ - 2"));
+		assertFalse(DebriefTracker.topKiller(over, "Alex_99: 1st Killer - me - 99"));
+		assertFalse(DebriefTracker.topKiller(over, "Bed Wars"));
+		assertEquals("Alex_99", over.board().get(0).name);
+		assertEquals(7, over.board().get(0).kills());
+		assertEquals(2, over.rank());
+	}
+
+	@Test
+	void firstBloodIsTheGamesFirstKill() {
+		DebriefTracker tracker = new DebriefTracker();
+		long t0 = 1_700_000_000_000L;
+		tracker.start(ME, t0, 0, 4);
+		tracker.chat("Steve was killed by RagoTest.", ME, TAB, t0 + 10_000);
+		tracker.chat("Notch was killed by Alex_99.", ME, TAB, t0 + 20_000);
+		assertTrue(tracker.current().firstBlood());
+		assertEquals(1, tracker.current().rank());
+	}
+
+	@Test
+	void careerBeforeAndAfter() {
+		DebriefTracker tracker = new DebriefTracker();
+		long t0 = 1_700_000_000_000L;
+		tracker.start(ME, t0, 0, 4);
+		tracker.statsBefore(new Debrief.Career(312, 1_512_800, 400, 100, 50, 20, 90, 30, 900, 500, 70, 3, "§a[VIP]"));
+		Debrief d = tracker.end(Debrief.Result.WIN, t0 + 600_000);
+		assertEquals(4.0, d.fkdrBefore(), 1e-9);
+		assertEquals(312, d.starBefore());
+		assertEquals(-1, d.xpGained(), "not saved by Hypixel yet");
+		DebriefTracker.statsAfter(d, new Debrief.Career(313, 1_513_370, 403, 100, 51, 20, 90, 30, 904, 500, 71, 4, "§a[VIP]"));
+		assertEquals(570, d.xpGained());
+		assertEquals(4.03, d.fkdrAfter(), 1e-9);
+		assertEquals(3.0, d.careerAfter().bblr(), 1e-9);
+		assertEquals(900 / 70.0, d.careerBefore().perGame(900), 1e-9);
+		assertEquals(600 / 70.0, d.careerBefore().deathsPerGame(), 1e-9);
+		assertEquals(1, d.version());
+	}
 }

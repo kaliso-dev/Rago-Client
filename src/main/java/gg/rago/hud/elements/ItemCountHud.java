@@ -109,7 +109,7 @@ abstract class ItemCountHud extends HudElement {
 	}
 
 	private String text(int i, boolean placeholder) {
-		String c = Integer.toString(count(i, placeholder));
+		String c = gg.rago.hud.Shown.of(count(i, placeholder)); // made once per number, not per frame
 		return showIcons.get() ? c : name(i) + ": " + c;
 	}
 

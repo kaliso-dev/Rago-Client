@@ -25,11 +25,10 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 /**
  * Hitboxes like F3+B, but configurable: which kinds of entities, colour, line width, the eye
- * height line and the look direction. Shows the same boxes vanilla's debug view shows.
+ * height line and the look direction. Shows the same boxes vanilla's debug view shows: one on every
+ * entity the game draws, as far as it draws them (entity distances included), hidden by walls.
  */
 public final class Hitboxes extends Module {
-	private static final double MAX_DISTANCE_SQ = 64 * 64;
-
 	private final BooleanOption players = addOption(new BooleanOption("hitbox_players", true));
 	private final BooleanOption mobs = addOption(new BooleanOption("hitbox_mobs", false));
 	private final BooleanOption items = addOption(new BooleanOption("hitbox_items", false));
@@ -71,7 +70,8 @@ public final class Hitboxes extends Module {
 		// every box, eye line and look line in one batch: one draw call for the whole frame
 		for (Entity e : mc.theWorld.loadedEntityList) {
 			if (e == viewer && mc.gameSettings.thirdPersonView == 0 || e.isInvisible() || !wanted(e)
-				|| e.getDistanceSqToEntity(viewer) > MAX_DISTANCE_SQ || !frustum.isBoundingBoxInFrustum(e.getEntityBoundingBox())
+				|| !e.isInRangeToRender3d(rm.viewerPosX, rm.viewerPosY, rm.viewerPosZ)
+				|| !e.ignoreFrustumCheck && !frustum.isBoundingBoxInFrustum(e.getEntityBoundingBox())
 				|| Hooks.skipEntity(e)) {
 				continue;
 			}

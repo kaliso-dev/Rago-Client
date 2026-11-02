@@ -64,7 +64,30 @@ class HypixelTest {
 		assertEquals("§7[5✫]", Hypixel.bedwarsStar(5));
 		assertEquals("§6[250✫]", Hypixel.bedwarsStar(250));
 		assertEquals("§5[999✫]", Hypixel.bedwarsStar(999));
-		assertTrue(Hypixel.bedwarsStar(1200).startsWith("§c["));
+		// the rainbow
+		assertEquals("§c[§61§e0§a0§b0§d✫§5]", Hypixel.bedwarsStar(1000));
+	}
+
+	@Test
+	void eachPrestigeAfter1000HasItsOwnColours() {
+		// as on Hypixel's list: 1100 to 1900 grey brackets, the digits in the prestige's colour, its own star
+		assertEquals("§7[§f1100§7✪]", Hypixel.bedwarsStar(1100));
+		assertEquals("§7[§e1234§6✪§7]", Hypixel.bedwarsStar(1234));
+		assertEquals("§7[§31500§9✪§7]", Hypixel.bedwarsStar(1500));
+		assertEquals("§7[§51999§8✪§7]", Hypixel.bedwarsStar(1999));
+		assertEquals("§8[§72§f00§70✪§8]", Hypixel.bedwarsStar(2000));
+		assertEquals("§f[2§e10§60⚝]", Hypixel.bedwarsStar(2100));
+		assertEquals("§b[2§f40§70⚝§8]", Hypixel.bedwarsStar(2400));
+		assertEquals("§b[2§399§91⚝§1]", Hypixel.bedwarsStar(2991));
+		assertEquals("§e[3§600§c0⚝§4]", Hypixel.bedwarsStar(3000));
+		assertEquals('✥', Hypixel.starSymbol(3100));
+		// every 100 stars a different tag colouring, up to 10000
+		java.util.Set<String> seen = new java.util.HashSet<>();
+		for (int p = 1000; p <= 3000; p += 100) {
+			assertTrue(seen.add(Hypixel.bedwarsStar(p).replaceAll("(?<!§)\\d", "")), "prestige " + p);
+		}
+		assertEquals(Hypixel.bedwarsStar(1234), Hypixel.bedwarsStar(1234));
+		assertEquals("[12345✭]", Hypixel.bedwarsStar(12345).replaceAll("§.", ""));
 	}
 
 	@Test
@@ -81,6 +104,38 @@ class HypixelTest {
 		HypixelApi.Stats none = HypixelApi.parse(new JsonParser().parse("{\"player\":{}}"), 0);
 		assertTrue(none.found);
 		assertEquals(0, none.fkdr(), 1e-9);
+	}
+
+	@Test
+	void ranksAsHypixelShowsThem() {
+		assertEquals("§b[MVP§c+§b]", rank("{\"newPackageRank\":\"MVP_PLUS\"}"), "the plus is red unless chosen");
+		assertEquals("§b[MVP§2+§b]", rank("{\"newPackageRank\":\"MVP_PLUS\",\"rankPlusColor\":\"DARK_GREEN\"}"));
+		assertEquals("§6[MVP§c++§6]", rank("{\"newPackageRank\":\"MVP_PLUS\",\"monthlyPackageRank\":\"SUPERSTAR\"}"));
+		assertEquals("§b[MVP§d++§b]", rank("{\"monthlyPackageRank\":\"SUPERSTAR\",\"monthlyRankColor\":\"AQUA\",\"rankPlusColor\":\"LIGHT_PURPLE\"}"));
+		assertEquals("§b[MVP§c+§b]", rank("{\"newPackageRank\":\"MVP_PLUS\",\"monthlyPackageRank\":\"NONE\"}"), "MVP++ ran out");
+		assertEquals("§a[VIP§6+§a]", rank("{\"newPackageRank\":\"VIP_PLUS\"}"));
+		assertEquals("§a[VIP]", rank("{\"packageRank\":\"VIP\"}"), "an old account");
+		assertEquals("§c[§fYOUTUBE§c]", rank("{\"rank\":\"YOUTUBER\",\"newPackageRank\":\"MVP_PLUS\"}"));
+		assertEquals("§c[OWNER]", rank("{\"prefix\":\"§c[OWNER]\",\"rank\":\"ADMIN\"}"));
+		assertEquals("", rank("{\"rank\":\"NORMAL\"}"));
+		assertEquals("", rank("{}"));
+	}
+
+	private static String rank(String player) {
+		return HypixelApi.parse(new JsonParser().parse("{\"player\":" + player + "}"), 0).rank();
+	}
+
+	@Test
+	void careerNumbersForTheDebrief() {
+		HypixelApi.Stats s = HypixelApi.parse(new JsonParser().parse("{\"player\":{\"stats\":{\"Bedwars\":{\"Experience\":1512800.0,"
+			+ "\"beds_lost_bedwars\":30,\"beds_broken_bedwars\":45,\"kills_bedwars\":900,\"deaths_bedwars\":700,\"games_played_bedwars\":200}}}}"), 0);
+		assertEquals(1_512_800, s.xp);
+		assertEquals(1.5, s.bblr(), 1e-9);
+		assertEquals(900, s.kills);
+		assertEquals(700, s.deaths);
+		assertEquals(200, s.games);
+		assertTrue(s.career());
+		assertTrue(Double.isNaN(new HypixelApi.Stats(0, 1, true, 0, 0, 0, 0, 0, -1, 0, false).bblr()), "stats from an older Rago");
 	}
 
 	@Test

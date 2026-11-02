@@ -100,6 +100,7 @@ public final class PlayPreset {
 			.row("unfocused_cap", 1)
 			.row("disable_fog", 1)
 			.row("fast_world_switch", 1)
+			.row("nearby_chunks_only", 1)
 			.row("of_fast_render", 1)
 			.row("of_fast_math", 1)
 			.row("of_smooth_fps", 0)

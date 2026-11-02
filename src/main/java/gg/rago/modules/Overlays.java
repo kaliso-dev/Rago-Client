@@ -72,7 +72,10 @@ public final class Overlays extends Module {
 	private PackSky packSky = PackSky.NONE;
 	/** Counts resource reloads: a new atlas has the pack's pictures again. */
 	private int reloads;
-	private String painted = "";
+	/** What the atlas was last painted for (styles, team colours, palette, reload), compared every tick without making a string. */
+	private BlockArt.Style paintedWool;
+	private BlockArt.Style paintedClay;
+	private int paintedKey = Integer.MIN_VALUE;
 	/** Whether Rago's wool or clay is in the atlas now (so off must put the pack's back). */
 	private boolean paintedAny;
 	/** The swing passed to the block pose this frame, and whether the next held-item transform is it. */
@@ -167,11 +170,13 @@ public final class Overlays extends Module {
 
 	private void paintBlocks(BlockArt.Style w, BlockArt.Style c) {
 		boolean colors = teamColors.get();
-		String want = w + "|" + c + "|" + colors + "|" + TextColors.palette() + "|" + reloads;
-		if (want.equals(painted)) {
+		int key = (reloads * 31 + TextColors.palette()) * 2 + (colors ? 1 : 0);
+		if (w == paintedWool && c == paintedClay && key == paintedKey) {
 			return;
 		}
-		painted = want;
+		paintedWool = w;
+		paintedClay = c;
+		paintedKey = key;
 		if (w == null && c == null && !paintedAny) {
 			return; // the atlas already holds the packs' pictures
 		}

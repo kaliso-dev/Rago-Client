@@ -21,6 +21,29 @@ public final class ModProfiles {
 		{"Default", "user"}, {"Bedwars", "bed"}, {"Practice", "swords"}, {"Skywars", "cloud"}
 	};
 
+	/**
+	 * Profiles that come with Rago, offered once to every player (new or not) without being
+	 * switched to: {name, icon, share code resource}. A player who deletes one does not get it back.
+	 */
+	static final String[][] BUILT_IN = {
+		{"qRago Official", "official:qrago", "/assets/rago/profiles/qrago_official.txt"}
+	};
+
+	/**
+	 * Changes made to a built-in profile after it first came out, oldest first: {name, revision,
+	 * share code resource holding only what changed}. A player who already has the profile gets each
+	 * one once, on top of their own settings in it; the full code in {@link #BUILT_IN} holds them all.
+	 */
+	static final String[][] UPDATES = {
+		// 1.10.7: Generator Timers on, shown in the tab list
+		{"qRago Official", "2", "/assets/rago/profiles/qrago_official_r2.txt"}
+	};
+
+	/** Built-in profiles already offered to this player. */
+	private final java.util.Set<String> offered = new java.util.LinkedHashSet<>();
+	/** The revision of each built-in profile this player has; one offered without a revision has the first. */
+	private final Map<String, Integer> revisions = new LinkedHashMap<>();
+
 	private final Map<String, Entry> profiles = new LinkedHashMap<>();
 	private String active = "Default";
 
@@ -47,6 +70,109 @@ public final class ModProfiles {
 			profiles.put(d[0], new Entry(d[1], copy(now)));
 		}
 		active = DEFAULTS[0][0];
+	}
+
+	/**
+	 * Adds each built-in profile not yet offered to this player, after the others, keeping the
+	 * active one: Rago's defaults with the code's changes, the personal mods as the player has them.
+	 */
+	public void ensureBuiltIn(ModuleRegistry registry) {
+		for (String[] b : BUILT_IN) {
+			offer(registry, b[0], b[1], resource(b[2]));
+		}
+		for (String[] u : UPDATES) {
+			update(registry, u[0], Integer.parseInt(u[1]), resource(u[2]));
+		}
+	}
+
+	/** The newest revision of a built-in profile: the full code holds every update up to it. */
+	static int latestRevision(String name) {
+		int r = 1;
+		for (String[] u : UPDATES) {
+			if (u[0].equals(name)) {
+				r = Math.max(r, Integer.parseInt(u[1]));
+			}
+		}
+		return r;
+	}
+
+	/**
+	 * Brings a built-in profile this player already has up to {@code revision}, once: only the mods
+	 * and options in {@code code} change, the rest stays as the player set it. A deleted profile is
+	 * not brought back, and a profile of the player's own with the same name is left alone. Returns
+	 * false only when the code cannot be read: the update is then tried again by a later Rago.
+	 */
+	boolean update(ModuleRegistry registry, String name, int revision, String code) {
+		if (!offered.contains(name) || revisions.getOrDefault(name, 1) >= revision) {
+			return true;
+		}
+		ProfileShare.Shared shared = ProfileShare.decode(code);
+		if (shared == null) {
+			return false;
+		}
+		revisions.put(name, revision);
+		Entry e = profiles.get(name);
+		if (e == null || !isPicture(e.icon)) {
+			return true;
+		}
+		boolean live = name.equals(active);
+		if (live) {
+			capture(registry);
+		}
+		ProfileShare.apply(e.modules, shared.changes, ConfigStore.defaultsToJson(registry));
+		if (live) {
+			ConfigStore.modulesFromJson(registry, e.modules);
+		}
+		return true;
+	}
+
+	/**
+	 * Adds one built-in profile unless this player was already offered it. Returns false only
+	 * when the code cannot be read: the profile is then offered again by a later Rago.
+	 */
+	boolean offer(ModuleRegistry registry, String name, String icon, String code) {
+		if (offered.contains(name)) {
+			return true;
+		}
+		ProfileShare.Shared shared = ProfileShare.decode(code);
+		if (shared == null) {
+			return false;
+		}
+		offered.add(name);
+		revisions.put(name, latestRevision(name));
+		if (!profiles.containsKey(name)) {
+			capture(registry);
+			JsonObject modules = ProfileShare.merge(ConfigStore.defaultsToJson(registry),
+				ConfigStore.modulesToJson(registry), shared.changes);
+			profiles.put(name, new Entry(icon, modules));
+		}
+		return true;
+	}
+
+	/** Whether a profile's icon is a picture that comes with Rago rather than a drawn icon. */
+	public static boolean isPicture(String icon) {
+		for (String[] b : BUILT_IN) {
+			if (b[1].equals(icon)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	static String resource(String path) {
+		try (java.io.InputStream in = ModProfiles.class.getResourceAsStream(path)) {
+			if (in == null) {
+				return null;
+			}
+			java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+			byte[] buf = new byte[4096];
+			for (int n; (n = in.read(buf)) > 0; ) {
+				out.write(buf, 0, n);
+			}
+			return new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+		} catch (java.io.IOException e) {
+			return null;
+		}
 	}
 
 	public List<String> names() {
@@ -168,11 +294,40 @@ public final class ModProfiles {
 			list.add(e.getKey(), p);
 		}
 		o.add("list", list);
+		com.google.gson.JsonArray given = new com.google.gson.JsonArray();
+		for (String name : offered) {
+			given.add(new com.google.gson.JsonPrimitive(name));
+		}
+		o.add("offered", given);
+		JsonObject revs = new JsonObject();
+		for (Map.Entry<String, Integer> e : revisions.entrySet()) {
+			revs.addProperty(e.getKey(), e.getValue());
+		}
+		o.add("revisions", revs);
 		return o;
 	}
 
 	public void fromJson(JsonObject o) {
 		profiles.clear();
+		offered.clear();
+		revisions.clear();
+		JsonElement given = o.get("offered");
+		if (given != null && given.isJsonArray()) {
+			for (JsonElement e : given.getAsJsonArray()) {
+				if (e.isJsonPrimitive()) {
+					offered.add(e.getAsString());
+				}
+			}
+		}
+		JsonElement revs = o.get("revisions");
+		if (revs != null && revs.isJsonObject()) {
+			for (Map.Entry<String, JsonElement> e : revs.getAsJsonObject().entrySet()) {
+				JsonElement v = e.getValue();
+				if (v.isJsonPrimitive() && v.getAsJsonPrimitive().isNumber()) {
+					revisions.put(e.getKey(), v.getAsInt());
+				}
+			}
+		}
 		JsonElement list = o.get("list");
 		if (list != null && list.isJsonObject()) {
 			for (Map.Entry<String, JsonElement> e : list.getAsJsonObject().entrySet()) {

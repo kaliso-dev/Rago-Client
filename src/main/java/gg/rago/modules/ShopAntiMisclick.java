@@ -22,7 +22,8 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
  * again (sword, blocks, sword is two swords), and so does a pause: the block holds while the
  * clicks on it keep coming, then stops after a moment without one, so you can buy your sword back
  * after a death. A blocked click plays a low note and says why above the shop. Shift-clicks
- * (Hypixel's quick buy editing) are left alone; nothing else is sent. Input class, off by default.
+ * (Hypixel's quick buy editing) are left alone; nothing else is sent. Team upgrades (priced in
+ * diamonds; Sharpened Swords shows an iron sword) are never stopped. Input class, off by default.
  */
 public final class ShopAntiMisclick extends Module {
 	private final IntOption delay = addOption(new IntOption("misclick_delay", 1000, 300, 5000));
@@ -54,6 +55,9 @@ public final class ShopAntiMisclick extends Module {
 		}
 		long now = System.currentTimeMillis();
 		boolean shop = FastShop.isShopSlot(gui, slot);
+		if (shop && FastShop.isTeamUpgrade(slot.getStack())) {
+			return false;
+		}
 		// until the server puts the item back, the place of the sword just bought looks empty: a
 		// click there would still buy it again
 		boolean samePlace = gui.inventorySlots.windowId == lastWindow && slot.slotNumber == lastSlot;

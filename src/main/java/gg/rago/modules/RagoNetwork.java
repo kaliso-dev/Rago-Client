@@ -29,8 +29,9 @@ import java.util.concurrent.Executors;
  * when it is empty), never to the Minecraft server: you sign in the way Minecraft servers check a player, so your
  * Minecraft token goes to Mojang only. It sends your name, your cosmetics and Rago's version, and,
  * to know who uses Rago, the Minecraft IDs of the players in your tab list; the server keeps none
- * of the IDs asked about. "Show that I use Rago" off hides you from the others; "See other Rago
- * players" off sends nothing about the players around you.
+ * of the IDs asked about. Your emotes are shared too (which one, from when), and you see the other
+ * Rago players' emotes. "Show that I use Rago" off hides you from the others, your emotes included;
+ * "See other Rago players" off sends nothing about the players around you.
  */
 public final class RagoNetwork extends Module {
 	/** The logo's colour for the creator of Rago, partners and staff (everyone else: Rago's red). */
@@ -77,6 +78,23 @@ public final class RagoNetwork extends Module {
 	/** What Rago Network says about the player {@code id}; null for someone not using Rago, or when off. */
 	public NetworkClient.Player player(UUID id) {
 		return isEnabled() && others.get() ? client.player(id) : null;
+	}
+
+	/** Shares the emote you start ({@code dance}) or stop (null) with the other Rago players. */
+	public void shareEmote(String dance, int speed) {
+		if (isEnabled()) {
+			client.emote(dance, speed);
+		}
+	}
+
+	/** The emote the player {@code id} plays now; null for none, or when off. */
+	public NetworkClient.Emote emoteOf(UUID id) {
+		return isEnabled() && others.get() ? client.emoteOf(id) : null;
+	}
+
+	/** Whether a Rago player around plays an emote now. */
+	public boolean anyEmote() {
+		return isEnabled() && others.get() && client.anyEmote();
 	}
 
 	/** Your role (user, partner, staff, creator) once signed in, else null. */

@@ -11,6 +11,8 @@ import gg.rago.modules.HitColor;
 import gg.rago.modules.HitDelayFix;
 import gg.rago.modules.BlockEditFix;
 import gg.rago.modules.NoHurtCam;
+import gg.rago.modules.NoF5Bobbing;
+import gg.rago.modules.InventoryBlur;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.Overlays;
 import gg.rago.modules.HitParticles;
@@ -50,6 +52,9 @@ import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3;
+import net.minecraft.world.World;
+
+import java.util.List;
 
 /**
  * What the patched game methods call (see {@code gg.rago.asm.RagoTransformer}). Each method returns
@@ -63,10 +68,15 @@ public final class Hooks {
 	public static volatile OcclusionCuller culler;
 	public static volatile gg.rago.optimize.HologramBatch holograms;
 	public static volatile NoHurtCam noHurtCam;
+	public static volatile NoF5Bobbing noF5Bobbing;
+	public static volatile InventoryBlur inventoryBlur;
 	public static volatile OldAnimations animations;
 	public static volatile Overlays overlays;
 	public static volatile TabPing tabPing;
 	public static volatile TabList tabList;
+	public static volatile gg.rago.hud.elements.EventTimersHud eventTimers;
+	public static volatile gg.rago.hud.elements.GeneratorTimersHud genTimers;
+	private static final gg.rago.hud.TabTimers TAB_TIMERS = new gg.rago.hud.TabTimers();
 	public static volatile HitParticles hitParticles;
 	public static volatile ItemScale itemScale;
 	public static volatile ItemPhysics itemPhysics;
@@ -132,6 +142,27 @@ public final class Hooks {
 	public static float hurtShake(float vanilla) {
 		NoHurtCam m = noHurtCam;
 		return m != null && m.isEnabled() ? vanilla * m.strength() : vanilla;
+	}
+
+	/**
+	 * EntityRenderer.setupCameraTransform, where it reads gameSettings.viewBobbing: no bobbing in
+	 * third person with "No F5 Bobbing" on. The hand (first person) reads the setting elsewhere.
+	 */
+	public static boolean cameraBobbing(boolean vanilla) {
+		NoF5Bobbing m = noF5Bobbing;
+		return vanilla && (m == null || !m.isEnabled() || Minecraft.getMinecraft().gameSettings.thirdPersonView == 0);
+	}
+
+	/** GuiScreen.drawWorldBackground: the colours of the dark gradient behind menus in a world. */
+	public static int menuShade(int vanilla) {
+		InventoryBlur b = inventoryBlur;
+		return b != null ? b.shade(vanilla) : vanilla;
+	}
+
+	/** Gui.drawGradientRect, first thing: one of its two colours ({@code start} the top one). */
+	public static int menuGradient(int left, int top, int right, int bottom, int color, boolean start) {
+		InventoryBlur b = inventoryBlur;
+		return b != null ? b.gradient(left, top, right, bottom, color, start) : color;
 	}
 
 	/** LayerArmorBase.shouldCombineTextures: true tints armour red with the player, as in 1.7. */
@@ -293,6 +324,92 @@ public final class Hooks {
 		}
 	}
 
+	/** How the current client tick lists the chunks around the players (see {@link #chunkListStart}). */
+	private static final int CHUNKS_VANILLA = 0;
+	private static final int CHUNKS_AROUND_YOU = 1;
+	private static final int CHUNKS_KEPT = 2;
+	private static int chunkListMode;
+	/** With {@code -Drago.debug.chunks=true}, each time the list is built again goes to the log. */
+	private static final boolean DEBUG_CHUNKS = Boolean.getBoolean("rago.debug.chunks");
+	private static final gg.rago.optimize.ChunkListKeeper CHUNK_LIST = new gg.rago.optimize.ChunkListKeeper();
+
+	/**
+	 * World.setActivePlayerChunksAndCheckLight, first thing, with the world's list of active chunks:
+	 * decides how a client world lists the chunks this tick (see {@link EngineTweaks#nearbyChunksOnly}).
+	 * Around the local player alone, and not at all while the list built last tick is still right
+	 * (same world, chunk and render distance). Only the client thread ticks a client world.
+	 */
+	public static void chunkListStart(World world, java.util.Set<?> list) {
+		if (!world.isRemote) {
+			return; // the integrated server's worlds
+		}
+		EngineTweaks e = engine;
+		Minecraft mc = Minecraft.getMinecraft();
+		EntityPlayer me = mc.thePlayer;
+		if (e == null || me == null || me.worldObj != world || !e.nearbyChunksOnly()) {
+			chunkListMode = CHUNKS_VANILLA;
+			CHUNK_LIST.forget();
+			return;
+		}
+		if (!world.getPersistentChunks().isEmpty()) {
+			// chunks kept loaded by a mod (never on a server you join): listed as the game does, every tick
+			chunkListMode = CHUNKS_AROUND_YOU;
+			CHUNK_LIST.forget();
+			return;
+		}
+		boolean same = CHUNK_LIST.same(world, net.minecraft.util.MathHelper.floor_double(me.posX / 16.0),
+			net.minecraft.util.MathHelper.floor_double(me.posZ / 16.0), mc.gameSettings.renderDistanceChunks, list.size());
+		chunkListMode = same ? CHUNKS_KEPT : CHUNKS_AROUND_YOU;
+		if (!same && DEBUG_CHUNKS) {
+			gg.rago.core.RagoClient.LOG.info("[debug] chunk list built again around chunk {} {}, {} chunks before",
+				net.minecraft.util.MathHelper.floor_double(me.posX / 16.0), net.minecraft.util.MathHelper.floor_double(me.posZ / 16.0), list.size());
+		}
+	}
+
+	/** The same method, each read of the active chunk list while it is built: a list that keeps nothing while last tick's is kept. */
+	public static java.util.Set<?> chunkSet(java.util.Set<?> list, World world) {
+		return world.isRemote && chunkListMode == CHUNKS_KEPT ? IGNORED_CHUNKS : list;
+	}
+
+	/** The same method, each read of the player list while the chunks around each are listed. */
+	public static List<?> chunkPlayers(List<?> players, World world) {
+		if (!world.isRemote || chunkListMode == CHUNKS_VANILLA) {
+			return players;
+		}
+		return chunkListMode == CHUNKS_KEPT ? java.util.Collections.emptyList() : LOCAL_PLAYER;
+	}
+
+	/** The local player alone, read when asked, so the list keeps no player or world once the world changes. */
+	private static final List<EntityPlayer> LOCAL_PLAYER = new java.util.AbstractList<EntityPlayer>() {
+		@Override
+		public EntityPlayer get(int index) {
+			return Minecraft.getMinecraft().thePlayer;
+		}
+
+		@Override
+		public int size() {
+			return 1;
+		}
+	};
+
+	/** Takes nothing in: what the game would empty and fill again stays as it is. */
+	private static final java.util.Set<Object> IGNORED_CHUNKS = new java.util.AbstractSet<Object>() {
+		@Override
+		public boolean add(Object o) {
+			return false;
+		}
+
+		@Override
+		public java.util.Iterator<Object> iterator() {
+			return java.util.Collections.emptyIterator();
+		}
+
+		@Override
+		public int size() {
+			return 0;
+		}
+	};
+
 	/** Minecraft.toggleFullscreen: true when Rago switched to or from borderless fullscreen itself. */
 	public static boolean toggleFullscreen() {
 		GameplayFixes f = fixes;
@@ -379,14 +496,14 @@ public final class Hooks {
 		return h != null && h.isEnabled() && h.hideBlockBreak();
 	}
 
-	/** ModelBiped.setRotationAngles, at its end: 1.7's blocking arm, then the pose of a dance on your own player. */
+	/** ModelBiped.setRotationAngles, at its end: 1.7's blocking arm, then the pose of a dance (yours, or a Rago player's). */
 	public static void emotePose(ModelBiped model, Entity entity) {
 		OldAnimations a = animations;
 		if (a != null && a.isEnabled()) {
 			a.blockArm(model);
 		}
 		Emotes e = emotes;
-		if (e != null && (e.playing() != null || e.posed())) {
+		if (e != null && e.active()) {
 			e.pose(model, entity);
 		}
 	}
@@ -443,10 +560,19 @@ public final class Hooks {
 		return t != null && t.isEnabled() ? t.rectColor(vanilla) : vanilla;
 	}
 
-	/** GuiPlayerTabOverlay.renderPlayerlist: the header ({@code first}) or footer, null to hide it. */
+	/**
+	 * GuiPlayerTabOverlay.renderPlayerlist: the header ({@code first}) or footer, null to hide it.
+	 * The Bed Wars timers set to show in the tab list go under the header.
+	 */
 	public static IChatComponent tabHeaderFooter(IChatComponent text, boolean first) {
 		TabList t = tabList;
-		return t != null && t.isEnabled() ? t.headerFooter(text, first) : text;
+		IChatComponent shown = t != null && t.isEnabled() ? t.headerFooter(text, first) : text;
+		if (!first) {
+			return shown;
+		}
+		gg.rago.hud.elements.EventTimersHud events = eventTimers;
+		gg.rago.hud.elements.GeneratorTimersHud gens = genTimers;
+		return TAB_TIMERS.header(shown, events == null ? null : events.tabLine(), gens == null ? null : gens.tabLine());
 	}
 
 	/** GuiPlayerTabOverlay.renderPlayerlist: draws a name, header or footer line. */

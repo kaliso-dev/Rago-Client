@@ -38,7 +38,8 @@ import java.util.regex.Pattern;
  * signs in the way Minecraft servers check a player (the client tells Mojang it joins a server id the
  * Rago server gave, and the Rago server asks Mojang; the Minecraft token goes to Mojang only), sends
  * the player's presence every minute and asks, in batches, which of the players around use Rago.
- * Everything it learns is kept in memory only. {@link #tick} is called on the game thread and never
+ * Emotes: yours is sent when it starts and when it stops, and while Rago players are in your tab
+ * list it asks every second which of them play one. Everything it learns is kept in memory only. {@link #tick} is called on the game thread and never
  * waits for the network.
  */
 public final class NetworkClient {
@@ -60,6 +61,19 @@ public final class NetworkClient {
 		public Player(String role, Loadout loadout) {
 			this.role = role;
 			this.loadout = loadout;
+		}
+	}
+
+	/** An emote another Rago player plays: since {@code startedAt}, on the clock given to the client. */
+	public static final class Emote {
+		public final String dance;
+		public final int speed;
+		public final long startedAt;
+
+		Emote(String dance, int speed, long startedAt) {
+			this.dance = dance;
+			this.speed = speed;
+			this.startedAt = startedAt;
 		}
 	}
 
@@ -96,6 +110,8 @@ public final class NetworkClient {
 	/** Someone not (yet) on Rago Network is asked about again sooner: a friend who just signed in shows within 30 s. */
 	static final long UNKNOWN_FOR = 30_000;
 	static final int BATCH = 100;
+	/** How often the emotes of the Rago players around are asked for, while there are some. */
+	static final long EMOTE_POLL = 1_000;
 	static final long FIRST_RETRY = 30_000;
 	static final long LAST_RETRY = 15 * 60_000;
 	private static final int MAX_KNOWN = 4096;
@@ -109,6 +125,11 @@ public final class NetworkClient {
 	private final Supplier<String> version;
 	private final Consumer<String> log;
 	private final ConcurrentHashMap<UUID, Known> known = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<UUID, Emote> emotes = new ConcurrentHashMap<>();
+	/** Your emote to send ("none" to stop it), null when there is nothing to send. */
+	private volatile String emoteOut;
+	private volatile int emoteOutSpeed;
+	private volatile long nextEmotePoll;
 	private final AtomicBoolean busy = new AtomicBoolean();
 
 	private volatile String base = "";
@@ -161,6 +182,16 @@ public final class NetworkClient {
 			}
 			return;
 		}
+		String out = emoteOut;
+		if (out != null) {
+			// sent first: the others see it start a second later at most
+			emoteOut = null;
+			if (visible) {
+				int speed = emoteOutSpeed;
+				run(() -> sendEmote(b, out, speed));
+				return;
+			}
+		}
 		if (now >= nextPresence || signature != sentSignature && now >= lastPresence + PRESENCE_SOONEST) {
 			Loadout loadout = own.get();
 			run(() -> presence(b, visible, loadout, signature));
@@ -172,6 +203,17 @@ public final class NetworkClient {
 				nextLookup = now + LOOKUP_IDLE;
 			} else {
 				run(() -> lookup(b, due));
+				return;
+			}
+		}
+		// after the lookups (a few seconds apart at most), so a slow answer cannot hold them back
+		if (others && now >= nextEmotePoll) {
+			nextEmotePoll = now + EMOTE_POLL;
+			List<UUID> rago = ragoPlayers(around.get(), account.id());
+			if (!rago.isEmpty()) {
+				run(() -> pollEmotes(b, rago));
+			} else if (!emotes.isEmpty()) {
+				emotes.clear();
 			}
 		}
 	}
@@ -180,6 +222,22 @@ public final class NetworkClient {
 	public Player player(UUID id) {
 		Known k = id == null ? null : known.get(id);
 		return k == null ? null : k.player;
+	}
+
+	/** Shares your emote ({@code dance}, or null when it stops); sent on a coming tick. */
+	public void emote(String dance, int speed) {
+		emoteOutSpeed = speed;
+		emoteOut = dance == null ? "none" : dance;
+	}
+
+	/** The emote {@code id} plays now, as last asked; null for none. */
+	public Emote emoteOf(UUID id) {
+		return id == null || emotes.isEmpty() ? null : emotes.get(id);
+	}
+
+	/** Whether any player around plays an emote. */
+	public boolean anyEmote() {
+		return !emotes.isEmpty();
 	}
 
 	/** Your role once signed in (user, partner, staff or creator), else null. */
@@ -208,6 +266,9 @@ public final class NetworkClient {
 		role = null;
 		online = -1;
 		known.clear();
+		emotes.clear();
+		emoteOut = null;
+		nextEmotePoll = 0;
 		nextSignIn = 0;
 		nextPresence = 0;
 		nextLookup = 0;
@@ -264,6 +325,22 @@ public final class NetworkClient {
 		}
 		if (known.size() > MAX_KNOWN) {
 			known.values().removeIf(k -> k.until <= now);
+		}
+		return out;
+	}
+
+	/** The players of {@code around} known to use Rago (and to show it), not you. */
+	List<UUID> ragoPlayers(Collection<UUID> around, UUID self) {
+		List<UUID> out = new ArrayList<>();
+		if (around != null) {
+			for (UUID u : around) {
+				if (u != null && !u.equals(self) && player(u) != null && !out.contains(u)) {
+					out.add(u);
+					if (out.size() == BATCH) {
+						break;
+					}
+				}
+			}
 		}
 		return out;
 	}
@@ -383,6 +460,76 @@ public final class NetworkClient {
 			nextLookup = now + FIRST_RETRY;
 			problem("lookup: " + e.getMessage());
 		}
+	}
+
+	private void sendEmote(String b, String dance, int speed) {
+		JsonObject body = new JsonObject();
+		body.addProperty("emote", dance);
+		body.addProperty("speed", speed);
+		try {
+			call(b, "POST", "/v1/emote", body, token);
+		} catch (StatusException e) {
+			failed(e, clock.getAsLong());
+		} catch (IOException e) {
+			problem("emote: " + e.getMessage());
+		}
+	}
+
+	private void pollEmotes(String b, List<UUID> ids) {
+		long now = clock.getAsLong();
+		JsonObject body = new JsonObject();
+		JsonArray list = new JsonArray();
+		for (UUID u : ids) {
+			list.add(new JsonPrimitive(u.toString()));
+		}
+		body.add("uuids", list);
+		try {
+			JsonElement playing = call(b, "POST", "/v1/emotes", body, token).get("emotes");
+			Map<UUID, Emote> found = new HashMap<>();
+			if (playing != null && playing.isJsonObject()) {
+				for (Map.Entry<String, JsonElement> e : playing.getAsJsonObject().entrySet()) {
+					UUID id = uuid(e.getKey());
+					Emote emote = e.getValue().isJsonObject() ? parseEmote(e.getValue().getAsJsonObject(), now) : null;
+					if (id != null && emote != null) {
+						found.put(id, emote);
+					}
+				}
+			}
+			if (!b.equals(base)) {
+				return;
+			}
+			for (UUID u : ids) {
+				Emote e = found.get(u);
+				Emote old = emotes.get(u);
+				if (e == null) {
+					emotes.remove(u);
+				} else if (old == null || !old.dance.equals(e.dance) || old.speed != e.speed
+					|| Math.abs(old.startedAt - e.startedAt) > 1_500) {
+					// the same dance keeps its start: the time each answer takes would make it jump
+					emotes.put(u, e);
+				}
+			}
+			emotes.keySet().retainAll(ids);
+		} catch (StatusException e) {
+			failed(e, now);
+			nextEmotePoll = now + (e.status == 429 ? 10_000 : FIRST_RETRY);
+		} catch (IOException e) {
+			nextEmotePoll = now + FIRST_RETRY;
+			problem("emotes: " + e.getMessage());
+		}
+	}
+
+	/** An emote from the server's answer, or null when it is not one. */
+	static Emote parseEmote(JsonObject o, long now) {
+		JsonElement dance = o.get("emote");
+		JsonElement speed = o.get("speed");
+		JsonElement elapsed = o.get("elapsed");
+		if (dance == null || !dance.isJsonPrimitive() || !dance.getAsJsonPrimitive().isString()
+			|| elapsed == null || !elapsed.isJsonPrimitive() || !elapsed.getAsJsonPrimitive().isNumber()) {
+			return null;
+		}
+		int sp = speed != null && speed.isJsonPrimitive() && speed.getAsJsonPrimitive().isNumber() ? speed.getAsInt() : 100;
+		return new Emote(dance.getAsString(), Math.max(50, Math.min(200, sp)), now - Math.max(0, elapsed.getAsLong()));
 	}
 
 	/** A signed-in call refused: 401 means the session is over, so sign in again. */

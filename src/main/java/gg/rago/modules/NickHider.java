@@ -50,6 +50,11 @@ public final class NickHider extends Module {
 		skin.select("locker");
 	}
 
+	/** The skin the nick wears: "own", "steve", "alex" or "locker". */
+	public String skinChoice() {
+		return skin.get();
+	}
+
 	/** The locker skin the nick wears, or null when it wears another. */
 	public String lockerSkinName() {
 		return skin.is("locker") ? lockerSkin.get() : null;

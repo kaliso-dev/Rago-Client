@@ -416,7 +416,7 @@ public final class LockerScreen extends GuiScreen {
 			cy = section(x, cy, w, "shield", t("rago.locker.shield"), choice(cos, "cosmetic_shield"), cos, false);
 			cy = neon(x, cy, w, choice(cos, "cosmetic_shield_neon"), cos);
 		}
-		// the neon glow can be turned off here; colours, sizes and the rest stay in the mod's own settings
+		// the neon glow can be turned off here; sizes and the rest stay in the mod's own settings
 		BooleanOption glow = cos == null ? null : bool(cos, "cosmetic_neon_glow");
 		if (glow != null && glow.visible() && cos.isEnabled()) {
 			Widgets.toggle(x, cy, glow.get());

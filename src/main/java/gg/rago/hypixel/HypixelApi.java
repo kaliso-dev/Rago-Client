@@ -74,10 +74,19 @@ public final class HypixelApi {
 		public final int bedsBroken;
 		/** -1 when the player hides it. */
 		public final int winstreak;
+		/** Bed Wars experience, -1 when unknown (stats saved by an older Rago). */
+		public final long xp;
+		/** Beds lost, kills, deaths and games played in Bed Wars; -1 when unknown. */
+		public final int bedsLost;
+		public final int kills;
+		public final int deaths;
+		public final int games;
 		final long time;
 		final boolean failed;
 		/** Bed Wars quests by id; only filled for players Hypixel knows. */
 		Map<String, Quest> quests = Collections.emptyMap();
+		/** The rank Hypixel shows before the name, with its colour codes ("§b[MVP§c+§b]"); "" for none or unknown. */
+		String rank = "";
 		/** Read back from the disk after a restart: no quests in it. */
 		boolean saved;
 
@@ -87,6 +96,11 @@ public final class HypixelApi {
 
 		Stats(double level, int star, boolean found, int finalKills, int finalDeaths, int wins, int losses, int bedsBroken,
 			int winstreak, long time, boolean failed) {
+			this(level, star, found, finalKills, finalDeaths, wins, losses, bedsBroken, winstreak, -1, -1, -1, -1, -1, time, failed);
+		}
+
+		Stats(double level, int star, boolean found, int finalKills, int finalDeaths, int wins, int losses, int bedsBroken,
+			int winstreak, long xp, int bedsLost, int kills, int deaths, int games, long time, boolean failed) {
 			this.level = level;
 			this.star = star;
 			this.found = found;
@@ -96,6 +110,11 @@ public final class HypixelApi {
 			this.losses = losses;
 			this.bedsBroken = bedsBroken;
 			this.winstreak = winstreak;
+			this.xp = xp;
+			this.bedsLost = bedsLost;
+			this.kills = kills;
+			this.deaths = deaths;
+			this.games = games;
 			this.time = time;
 			this.failed = failed;
 		}
@@ -109,8 +128,22 @@ public final class HypixelApi {
 			return wins / (double) Math.max(1, losses);
 		}
 
+		/** Beds broken per bed lost; NaN when unknown. */
+		public double bblr() {
+			return bedsLost < 0 ? Double.NaN : bedsBroken / (double) Math.max(1, bedsLost);
+		}
+
+		/** Whether the career numbers beyond the final kills are known (not stats saved by an older Rago). */
+		public boolean career() {
+			return found && games >= 0 && xp >= 0;
+		}
+
 		public Map<String, Quest> quests() {
 			return quests;
+		}
+
+		public String rank() {
+			return rank;
 		}
 
 		/** Whether these come from an earlier session (they have no quests), not from Hypixel in this one. */
@@ -555,15 +588,22 @@ public final class HypixelApi {
 				return;
 			}
 			for (Map.Entry<String, JsonElement> e : json.getAsJsonObject().entrySet()) {
-				if (!e.getValue().isJsonArray() || e.getValue().getAsJsonArray().size() != 10) {
+				// 10 values up to 1.10.8; then experience, beds lost, kills, deaths, games and the rank after them
+				int size = e.getValue().isJsonArray() ? e.getValue().getAsJsonArray().size() : 0;
+				if (size != 10 && size < 15) {
 					continue;
 				}
 				JsonArray a = e.getValue().getAsJsonArray();
 				long time = a.get(9).getAsLong();
 				if (now - time < KEEP_ON_DISK_MS && time <= now) {
+					boolean more = a.size() >= 15;
 					Stats st = new Stats(a.get(0).getAsDouble(), a.get(1).getAsInt(), a.get(2).getAsBoolean(),
 						a.get(3).getAsInt(), a.get(4).getAsInt(), a.get(5).getAsInt(), a.get(6).getAsInt(), a.get(7).getAsInt(),
-						a.get(8).getAsInt(), time, false);
+						a.get(8).getAsInt(), more ? a.get(10).getAsLong() : -1, more ? a.get(11).getAsInt() : -1,
+						more ? a.get(12).getAsInt() : -1, more ? a.get(13).getAsInt() : -1, more ? a.get(14).getAsInt() : -1, time, false);
+					if (a.size() >= 16) {
+						st.rank = a.get(15).getAsString();
+					}
 					st.saved = true;
 					cache.put(UUID.fromString(e.getKey()), st);
 				}
@@ -592,9 +632,11 @@ public final class HypixelApi {
 				a.add(new JsonPrimitive(n));
 			}
 			a.add(new JsonPrimitive(st.found));
-			for (Number n : new Number[] {st.finalKills, st.finalDeaths, st.wins, st.losses, st.bedsBroken, st.winstreak, st.time}) {
+			for (Number n : new Number[] {st.finalKills, st.finalDeaths, st.wins, st.losses, st.bedsBroken, st.winstreak, st.time,
+				st.xp, st.bedsLost, st.kills, st.deaths, st.games}) {
 				a.add(new JsonPrimitive(n));
 			}
+			a.add(new JsonPrimitive(st.rank));
 			out.add(e.getKey().toString(), a);
 		}
 		try {
@@ -656,6 +698,11 @@ public final class HypixelApi {
 		int losses = 0;
 		int beds = 0;
 		int ws = -1;
+		long xp = 0;
+		int bedsLost = 0;
+		int kills = 0;
+		int deaths = 0;
+		int games = 0;
 		if (p.has("stats") && p.get("stats").isJsonObject() && p.getAsJsonObject("stats").has("Bedwars")
 			&& p.getAsJsonObject("stats").get("Bedwars").isJsonObject()) {
 			JsonObject b = p.getAsJsonObject("stats").getAsJsonObject("Bedwars");
@@ -665,12 +712,90 @@ public final class HypixelApi {
 			losses = number(b, "losses_bedwars", 0);
 			beds = number(b, "beds_broken_bedwars", 0);
 			ws = number(b, "winstreak", -1);
+			JsonElement e = b.get("Experience");
+			xp = e != null && e.isJsonPrimitive() && e.getAsJsonPrimitive().isNumber() ? (long) e.getAsDouble() : 0;
+			bedsLost = number(b, "beds_lost_bedwars", 0);
+			kills = number(b, "kills_bedwars", 0);
+			deaths = number(b, "deaths_bedwars", 0);
+			games = number(b, "games_played_bedwars", 0);
 		}
-		Stats stats = new Stats(networkLevel(exp), star, true, fk, fd, wins, losses, beds, ws, now, false);
+		Stats stats = new Stats(networkLevel(exp), star, true, fk, fd, wins, losses, beds, ws, xp, bedsLost, kills, deaths, games, now, false);
 		if (p.has("quests") && p.get("quests").isJsonObject()) {
 			stats.quests = quests(p.getAsJsonObject("quests"));
 		}
+		stats.rank = rank(p);
 		return stats;
+	}
+
+	/** Hypixel's colour names, as in "rankPlusColor", by their colour code. */
+	private static final String[] COLOR_NAMES = {"BLACK", "DARK_BLUE", "DARK_GREEN", "DARK_AQUA", "DARK_RED", "DARK_PURPLE", "GOLD",
+		"GRAY", "DARK_GRAY", "BLUE", "GREEN", "AQUA", "RED", "LIGHT_PURPLE", "YELLOW", "WHITE"};
+
+	private static char color(String name, char fallback) {
+		for (int i = 0; i < COLOR_NAMES.length; i++) {
+			if (COLOR_NAMES[i].equals(name)) {
+				return "0123456789abcdef".charAt(i);
+			}
+		}
+		return fallback;
+	}
+
+	private static String string(JsonObject o, String key) {
+		JsonElement e = o.get(key);
+		return e != null && e.isJsonPrimitive() ? e.getAsString() : null;
+	}
+
+	/**
+	 * The rank Hypixel shows before a player's name, with its colour codes: "§b[MVP§c+§b]" (the plus
+	 * in the player's colour), "§6[MVP§c++§6]", a staff or YouTube rank, a special prefix; "" for none.
+	 */
+	static String rank(JsonObject p) {
+		String prefix = string(p, "prefix");
+		if (prefix != null && !prefix.trim().isEmpty()) {
+			String t = prefix.trim();
+			return t.length() > 40 ? t.substring(0, 40) : t;
+		}
+		String staff = string(p, "rank");
+		if (staff != null) {
+			switch (staff) {
+				case "ADMIN":
+					return "§c[ADMIN]";
+				case "GAME_MASTER":
+					return "§2[GM]";
+				case "MODERATOR":
+					return "§2[MOD]";
+				case "HELPER":
+					return "§9[HELPER]";
+				case "YOUTUBER":
+					return "§c[§fYOUTUBE§c]";
+				default:
+					break;
+			}
+		}
+		char plus = color(string(p, "rankPlusColor"), 'c');
+		if ("SUPERSTAR".equals(string(p, "monthlyPackageRank"))) {
+			char bracket = color(string(p, "monthlyRankColor"), '6');
+			return "§" + bracket + "[MVP§" + plus + "++§" + bracket + "]";
+		}
+		String rank = string(p, "newPackageRank");
+		if (rank == null || "NONE".equals(rank)) {
+			rank = string(p, "packageRank");
+		}
+		if (rank == null) {
+			return "";
+		}
+		switch (rank) {
+			case "MVP_PLUS":
+				return "§b[MVP§" + plus + "+§b]";
+			case "MVP":
+				return "§b[MVP]";
+			case "VIP_PLUS":
+				return "§a[VIP§6+§a]";
+			case "VIP":
+				return "§a[VIP]";
+			default:
+				return "";
+		}
 	}
 
 	/** The Bed Wars entries of a player's "quests" object. */

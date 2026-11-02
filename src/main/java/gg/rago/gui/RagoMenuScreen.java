@@ -107,6 +107,15 @@ public final class RagoMenuScreen extends GuiScreen {
 	private float bodyW;
 	private float bodyH;
 	private float contentH;
+	/** The list view's detail panel of the last frame, scrolled on its own; null when not shown. */
+	private String detailKey;
+	private float detailX;
+	private float detailY;
+	private float detailW;
+	private float detailH;
+	private float detailContent;
+	/** The mod shown in the list view's detail panel. */
+	private Module selected;
 
 	private static final class SliderDrag {
 		final float x;
@@ -226,6 +235,7 @@ public final class RagoMenuScreen extends GuiScreen {
 	public void drawScreen(int mouseX, int mouseY, float partialTicks) {
 		Ui.begin();
 		tooltip = null;
+		detailKey = null;
 		if (dragging != null) {
 			if (Mouse.isButtonDown(0)) {
 				dragging.apply();
@@ -309,6 +319,9 @@ public final class RagoMenuScreen extends GuiScreen {
 
 		float cs = 24;
 		float cx = x + w - 14 - cs;
+		if (tab == Tab.MODS) {
+			layoutSwitch(cx - 10, y + 11);
+		}
 		float hv = Widgets.hoverAmount("close", cx, y + 11, cs, cs);
 		Ui.roundBorder(cx, y + 11, cs, cs, cs / 2, Ui.mix(0x00FFFFFF, 0x1AFFFFFF, hv), 0x26FFFFFF);
 		Ui.icon("x", cx + 6, y + 17, 12, Ui.mix(0xFFB4B2B9, Theme.TEXT, hv));
@@ -326,7 +339,15 @@ public final class RagoMenuScreen extends GuiScreen {
 			modulePage(module, mx, y + 10, mw, h - 20, c);
 		} else {
 			chips(mx, y + 10, mw);
-			grid(mx, y + 42 + (1 - c) * 6, mw, h - 52);
+			float gy = y + 42 + (1 - c) * 6;
+			int layout = RagoClient.modsLayout();
+			if (layout == LAYOUT_LIST) {
+				list(mx, gy, mw, h - 52);
+			} else if (layout == LAYOUT_GALLERY) {
+				gallery(mx, gy, mw, h - 52);
+			} else {
+				grid(mx, gy, mw, h - 52);
+			}
 		}
 	}
 
@@ -398,13 +419,24 @@ public final class RagoMenuScreen extends GuiScreen {
 		Ui.click(x + 4, ey, w - 8, eh, () -> mc.displayGuiScreen(new HudEditorScreen(this)));
 	}
 
+	/** The pictures of the profiles that come with Rago, by icon id. */
+	private static final java.util.Map<String, net.minecraft.util.ResourceLocation> PROFILE_PICTURES = new java.util.HashMap<>();
+
 	private void profileRow(ModProfiles profiles, String name, float x, float y, float w) {
 		boolean active = name.equals(profiles.active());
 		float rh = 23;
 		float hv = Widgets.hoverAmount("profile:" + name, x, y, w, rh);
 		int fill = active ? 0x26FFFFFF : Ui.mix(0x0AFFFFFF, 0x16FFFFFF, hv);
 		Ui.roundBorder(x, y, w, rh, 6, fill, active ? 0x33FFFFFF : 0x12FFFFFF);
-		Ui.icon(profiles.icon(name), x + 9, y + 6, 11, active ? Theme.ACCENT : 0xFF9A98A0);
+		String icon = profiles.icon(name);
+		if (ModProfiles.isPicture(icon)) {
+			// a profile that comes with Rago: its picture, a little larger than the drawn icons
+			Ui.texture(PROFILE_PICTURES.computeIfAbsent(icon, ic -> new net.minecraft.util.ResourceLocation("rago",
+				"textures/profiles/" + ic.substring("official:".length()) + "_official.png")),
+				x + 7.5f, y + 4.5f, 14, 14, 0, 0, 1, 1, 0xFFFFFFFF);
+		} else {
+			Ui.icon(icon, x + 9, y + 6, 11, active ? Theme.ACCENT : 0xFF9A98A0);
+		}
 		boolean editing = name.equals(renaming);
 		String label = editing ? renameText + ((System.currentTimeMillis() / 500) % 2 == 0 ? "|" : "") : name;
 		Ui.text(Ui.MEDIUM, label, x + 27, y + (rh - 10 * 1.21f) / 2, 10, editing ? Theme.ACCENT : Theme.TEXT);
@@ -538,7 +570,9 @@ public final class RagoMenuScreen extends GuiScreen {
 		float sx = x + w - sw;
 		searchField(sx, y, sw);
 		float ix = sx - TOGGLES_W + 2;
-		iconToggle("grid-3x3", ix, y, fourColumns, () -> fourColumns = !fourColumns);
+		if (RagoClient.modsLayout() == LAYOUT_CARDS) {
+			iconToggle("grid-3x3", ix, y, fourColumns, () -> fourColumns = !fourColumns);
+		}
 		iconToggle("arrow-up-down", ix + 24, y, sortByName, () -> sortByName = !sortByName);
 	}
 
@@ -641,6 +675,9 @@ public final class RagoMenuScreen extends GuiScreen {
 		Ui.icon(ModuleInfo.icon(m), x + (w - is) / 2, y - lift + topH / 2 - is / 2 - 10, is, iconColor);
 		String name = fit(Ui.REGULAR, t(m.nameKey()), fourColumns ? 11.5f : 13, w - 12);
 		Ui.textCentered(Ui.REGULAR, name, x + w / 2, y - lift + topH / 2 + 14, fourColumns ? 11.5f : 13, Ui.mix(0xFFB4B2B9, Theme.TEXT, on));
+		if (ModuleInfo.fpsHungry(m)) {
+			fpsBadge(m, x + 6, y - lift + 6, inside);
+		}
 		Option<?> riskyOption = ModuleInfo.risky(m) ? null : ModuleInfo.riskyOptionOn(m);
 		if (ModuleInfo.risky(m) || riskyOption != null) {
 			// risky on Hypixel: a warning, never a lock
@@ -682,6 +719,18 @@ public final class RagoMenuScreen extends GuiScreen {
 		}
 	}
 
+	/** The yellow lightning "FPS HUNGRY" mark of a mod that can cost frames, with why on hover. */
+	private void fpsBadge(Module m, float x, float y, boolean inside) {
+		String label = t("rago.fps_hungry.title");
+		float w = 4 + 9 + 3 + Ui.textWidth(Ui.SEMIBOLD, label, 7.5f) + 5;
+		Ui.round(x, y, w, 15, 7.5f, Ui.alpha(Theme.YELLOW, 0.12f));
+		Ui.icon("zap", x + 4, y + 3, 9, Theme.YELLOW);
+		Ui.text(Ui.SEMIBOLD, label, x + 16, y + (15 - 7.5f * 1.21f) / 2, 7.5f, Theme.YELLOW);
+		if (inside && Ui.hover(x, y, w, 15)) {
+			tooltip = t("rago.fps_hungry.tooltip", t(ModuleInfo.fpsKey(m)));
+		}
+	}
+
 	private static String fit(gg.rago.gui.ui.TtfFont font, String s, float size, float max) {
 		if (Ui.textWidth(font, s, size) <= max) {
 			return s;
@@ -691,6 +740,438 @@ public final class RagoMenuScreen extends GuiScreen {
 			r = r.substring(0, r.length() - 1);
 		}
 		return r.trim() + "…";
+	}
+
+	// ---- other views of the mods: a list with a detail panel, and live previews -----------------
+
+	static final int LAYOUT_CARDS = 0;
+	static final int LAYOUT_LIST = 1;
+	static final int LAYOUT_GALLERY = 2;
+	private static final String[] LAYOUT_ICONS = {"layout-grid", "layout-list", "gallery-vertical-end"};
+	private static final String[] LAYOUT_IDS = {"cards", "list", "gallery"};
+
+	/** The switch between the three views, ending at {@code right}; the chosen one shows its name. */
+	private void layoutSwitch(float right, float y) {
+		int current = RagoClient.modsLayout();
+		float h = 24;
+		float seg = 26;
+		String name = t("rago.menu.layout." + LAYOUT_IDS[current]);
+		float named = seg + Ui.textWidth(Ui.MEDIUM, name, 9.5f) + 6;
+		float total = seg * (LAYOUT_IDS.length - 1) + named + 4;
+		float x = right - total;
+		Ui.roundBorder(x, y, total, h, h / 2, 0x0FFFFFFF, 0x1FFFFFFF);
+		float sx = x + 2;
+		for (int i = 0; i < LAYOUT_IDS.length; i++) {
+			int layout = i;
+			boolean active = i == current;
+			float sw = active ? named : seg;
+			float hv = Widgets.hoverAmount("layout:" + i, sx, y + 2, sw, h - 4);
+			if (active) {
+				Ui.round(sx, y + 2, sw, h - 4, (h - 4) / 2, Theme.ACCENT);
+			} else if (hv > 0) {
+				Ui.round(sx, y + 2, sw, h - 4, (h - 4) / 2, Ui.alpha(0x1AFFFFFF, hv));
+			}
+			Ui.icon(LAYOUT_ICONS[i], sx + 7, y + 6, 12, active ? 0xFFFFFFFF : Ui.mix(0xFF9A98A0, Theme.TEXT, hv));
+			if (active) {
+				Ui.text(Ui.MEDIUM, name, sx + 23, y + (h - 9.5f * 1.21f) / 2, 9.5f, 0xFFFFFFFF);
+			}
+			if (Ui.hover(sx, y + 2, sw, h - 4)) {
+				tooltip = t("rago.menu.layout." + LAYOUT_IDS[i] + ".help");
+			}
+			Ui.click(sx, y + 2, sw, h - 4, () -> {
+				if (RagoClient.modsLayout() != layout) {
+					switchContent(() -> {
+						RagoClient.setModsLayout(layout);
+						module = null;
+						scrolls.remove("mods");
+					});
+				}
+			});
+			sx += sw;
+		}
+	}
+
+	private static final float ROW_H = 38;
+	private static final float HEAD_H = 28;
+
+	/** The mods in the list view's order: by category, a header each, or by name when sorted so. */
+	private List<Module> listModules() {
+		List<Module> mods = visibleModules();
+		if (!sortByName) {
+			mods.sort(Comparator.comparingInt(m -> m.category().ordinal()));
+		}
+		return mods;
+	}
+
+	/** Where {@code target} starts in the list view, from the top of its content. */
+	private float listOffset(List<Module> mods, Module target) {
+		float off = 0;
+		Category last = null;
+		for (Module m : mods) {
+			if (!sortByName && m.category() != last) {
+				last = m.category();
+				off += HEAD_H;
+			}
+			if (m == target) {
+				return off;
+			}
+			off += ROW_H + 2;
+		}
+		return off;
+	}
+
+	/**
+	 * The list view: every mod on one line with what it does and its switch, grouped by category
+	 * with what the category is for, and the chosen mod in full on the right.
+	 */
+	private void list(float x, float y, float w, float h) {
+		List<Module> mods = listModules();
+		if (selected == null || !mods.contains(selected)) {
+			selected = mods.isEmpty() ? null : mods.get(0);
+		}
+		float lw = Math.max(230, Math.min(340, w * 0.53f));
+		int[] counts = new int[Category.values().length];
+		for (Module m : mods) {
+			counts[m.category().ordinal()]++;
+		}
+		float total = mods.isEmpty() ? 0 : listOffset(mods, null) - 2;
+		setBody(x, y, lw, h, total);
+		float sc = scroll();
+		Ui.scissor(x - 2, y, lw + 4, h);
+		float ry = y - sc;
+		Category last = null;
+		for (Module m : mods) {
+			if (!sortByName && m.category() != last) {
+				last = m.category();
+				if (ry + HEAD_H > y && ry < y + h) {
+					listHeader(last, counts[last.ordinal()], x, ry, lw - 8);
+				}
+				ry += HEAD_H;
+			}
+			if (ry + ROW_H > y && ry < y + h) {
+				listRow(m, x, ry, lw - 8);
+			}
+			ry += ROW_H + 2;
+		}
+		if (mods.isEmpty()) {
+			Ui.textCentered(Ui.REGULAR, t("rago.menu.no_results"), x + lw / 2, y + 40, 11, Theme.MUTED);
+		}
+		Ui.endScissor();
+		scrollbar(x + lw - 3, y, h, total, sc);
+		if (selected != null) {
+			float px = x + lw + 4;
+			detail(selected, px, y, x + w - px, h);
+		}
+	}
+
+	private void listHeader(Category c, int count, float x, float y, float w) {
+		float ty = y + HEAD_H - 15;
+		float lw = Ui.textSpaced(Ui.SEMIBOLD, t(c.key()).toUpperCase(Locale.ROOT), x + 6, ty, 8.5f, 1.4f, 0xFFB4B2B9);
+		String goal = "rago.menu.goal." + c.name().toLowerCase(Locale.ROOT);
+		if (has(goal)) {
+			float room = w - lw - 6 - 8 - 24;
+			Ui.text(Ui.REGULAR, fit(Ui.REGULAR, t(goal), 8.5f, room), x + 6 + lw + 6, ty - 0.5f, 8.5f, 0xFF6B6970);
+		}
+		Ui.textRight(Ui.MONO, Integer.toString(count), x + w - 6, ty, 8, 0xFF6B6970);
+	}
+
+	/** One mod in the list view: icon, name, marks, what it does in one line, and its switch. */
+	private void listRow(Module m, float x, float y, float w) {
+		boolean sel = m == selected;
+		float hv = Widgets.hoverAmount("row:" + m.id(), x, y, w, ROW_H);
+		float on = Anim.to("cardon:" + m.id(), m.isEnabled() ? 1 : 0, 160);
+		Ui.round(x, y, w, ROW_H, 8, sel ? 0x1CFFFFFF : Ui.alpha(0x0EFFFFFF, hv));
+		if (sel) {
+			Ui.round(x, y + 10, 2.5f, ROW_H - 20, 1.25f, Theme.ACCENT);
+		}
+		float is = 26;
+		Ui.round(x + 8, y + (ROW_H - is) / 2, is, is, 7, Ui.mix(0xFF1C1B1F, 0xFF3A1714, on));
+		Ui.icon(ModuleInfo.icon(m), x + 8 + 6, y + (ROW_H - 14) / 2, 14, Ui.mix(0xFF8A888F, Theme.ACCENT, on));
+		float tx = x + 42;
+		float right = x + w - Widgets.PILL_W - 10;
+		String name = fit(Ui.MEDIUM, t(m.nameKey()), 10.5f, right - tx - 30);
+		float nw = Ui.text(Ui.MEDIUM, name, tx, y + 6, 10.5f, Ui.mix(0xFFC4C2CA, Theme.TEXT, on));
+		float mx = tx + nw + 5;
+		if (ModuleInfo.fpsHungry(m)) {
+			Ui.icon("zap", mx, y + 7.5f, 9, Theme.YELLOW);
+			mx += 12;
+		}
+		if (ModuleInfo.risky(m) || ModuleInfo.riskyOptionOn(m) != null) {
+			Ui.icon("triangle-alert", mx, y + 7.5f, 9, Theme.WARNING);
+		}
+		String desc = Ui.ellipsize(Ui.REGULAR, t(ModuleInfo.descKey(m)), 8.5f, right - tx - 8);
+		Ui.text(Ui.REGULAR, desc, tx, y + 21, 8.5f, 0xFF7C7A82);
+		Ui.click(x, y, w, ROW_H, () -> selected = m);
+		float py = y + (ROW_H - Widgets.PILL_H) / 2;
+		Widgets.pill("rowpill:" + m.id(), x + w - Widgets.PILL_W - 6, py, m.isEnabled());
+		Ui.click(x + w - Widgets.PILL_W - 10, y, Widgets.PILL_W + 10, ROW_H, () -> {
+			selected = m;
+			m.setEnabled(!m.isEnabled());
+		});
+	}
+
+	/**
+	 * The chosen mod in full: what it does, its marks explained, how it looks on screen, its most
+	 * used settings, and the way to all of them. Scrolls on its own when it is long.
+	 */
+	private void detail(Module m, float x, float y, float w, float h) {
+		Ui.glassBorder(x, y, w, h, 10, 0xFF121114, 0x14FFFFFF);
+		String key = "detail:" + m.id();
+		Float stored = scrolls.get(key);
+		float sc = stored == null ? 0 : stored;
+		float cx = x + 14;
+		float cw = w - 28;
+		Ui.scissor(x + 1, y + 1, w - 2, h - 2);
+		float top = y + 14;
+		float cy = top - sc;
+		float on = Anim.to("cardon:" + m.id(), m.isEnabled() ? 1 : 0, 160);
+		Ui.round(cx, cy, 44, 44, 11, Ui.mix(0xFF1C1B1F, 0xFF3A1714, on));
+		if (on > 0) {
+			Ui.glow(cx + 22, cy + 22, 40, Ui.alpha(Theme.ACCENT, 0.22f * on));
+		}
+		Ui.icon(ModuleInfo.icon(m), cx + 11, cy + 11, 22, Ui.mix(0xFF8A888F, Theme.ACCENT, on));
+		float tx = cx + 56;
+		float pillX = cx + cw - Widgets.PILL_W;
+		Ui.text(Ui.SEMIBOLD, fit(Ui.SEMIBOLD, t(m.nameKey()), 14, pillX - tx - 6), tx, cy + 5, 14, Theme.TEXT);
+		float cat = Ui.text(Ui.REGULAR, t(m.category().key()) + "  ·  ", tx, cy + 27, 9, Theme.DIM);
+		Ui.text(Ui.MEDIUM, t(m.isEnabled() ? "rago.menu.enabled" : "rago.menu.disabled"), tx + cat, cy + 27, 9,
+			m.isEnabled() ? Theme.GREEN : Theme.MUTED);
+		Widgets.pill("detailpill:" + m.id(), pillX, cy + 4, m.isEnabled());
+		Ui.click(pillX, cy + 4, Widgets.PILL_W, Widgets.PILL_H, () -> m.setEnabled(!m.isEnabled()));
+		cy += 58;
+
+		float bx = cx;
+		boolean marks = false;
+		if (ModuleInfo.fpsHungry(m)) {
+			bx += mark("zap", Theme.YELLOW, t("rago.fps_hungry.title"), t("rago.fps_hungry.tooltip", t(ModuleInfo.fpsKey(m))), bx, cy) + 6;
+			marks = true;
+		}
+		Option<?> riskyOption = ModuleInfo.risky(m) ? null : ModuleInfo.riskyOptionOn(m);
+		if (ModuleInfo.risky(m) || riskyOption != null) {
+			String why = riskyOption == null ? t("rago.risk.tooltip", t(ModuleInfo.riskKey(m.id())))
+				: t("rago.risk.tooltip_option", t("rago.option." + riskyOption.key()), t(ModuleInfo.riskKey(riskyOption.key())));
+			bx += mark("triangle-alert", Theme.WARNING, t("rago.risk.title"), why, bx, cy) + 6;
+			marks = true;
+		}
+		if (ModuleInfo.usesHypixelKey(m)) {
+			bx += mark("key-round", Theme.BLUE, t("rago.menu.mark.api"), t("rago.menu.mark.api.help"), bx, cy) + 6;
+			marks = true;
+		}
+		if (m instanceof HudElement && bx < cx + cw - 60) {
+			mark("move", Theme.GREEN, t("rago.menu.mark.hud"), t("rago.menu.mark.hud.help"), bx, cy);
+			marks = true;
+		}
+		if (marks) {
+			cy += 26;
+		}
+		for (String line : Ui.wrap(Ui.REGULAR, t(ModuleInfo.descKey(m)), 10, cw)) {
+			Ui.text(Ui.REGULAR, line, cx, cy, 10, 0xFFC4C2CA);
+			cy += 14;
+		}
+		cy += 10;
+		if (m instanceof HudElement) {
+			preview((HudElement) m, cx, cy, cw, 96);
+			cy += 106;
+		}
+		List<Option<?>> quick = quickOptions(m, 4);
+		if (!quick.isEmpty()) {
+			Ui.textSpaced(Ui.SEMIBOLD, t("rago.menu.quick_settings"), cx + 2, cy, 8.5f, 1.4f, 0xFF7C7A82);
+			cy += 16;
+			for (Option<?> o : quick) {
+				cy += optionRow(o, cx, cy, cw, true) + 4;
+			}
+			cy += 6;
+		}
+		int count = 0;
+		for (Option<?> o : m.options()) {
+			if (o.visible()) {
+				count++;
+			}
+		}
+		String all = count > 0 ? t("rago.menu.all_settings", count) : t("rago.menu.open_page");
+		Runnable open = () -> switchContent(() -> module = m);
+		if (m instanceof HudElement) {
+			float half = (cw - 8) / 2;
+			Widgets.button(cx, cy, half, 26, "sliders-horizontal", fit(Ui.SEMIBOLD, all, 9.5f, half - 34), true, 9.5f);
+			Widgets.button(cx + half + 8, cy, half, 26, "move", fit(Ui.SEMIBOLD, t("rago.menu.move"), 9.5f, half - 34), false, 9.5f);
+			Ui.click(cx, cy, half, 26, open);
+			Ui.click(cx + half + 8, cy, half, 26, () -> mc.displayGuiScreen(new HudEditorScreen(this)));
+		} else {
+			Widgets.button(cx, cy, cw, 26, "sliders-horizontal", all, true, 9.5f);
+			Ui.click(cx, cy, cw, 26, open);
+		}
+		cy += 26 + 14;
+		Ui.endScissor();
+		float content = cy + sc - top + 14;
+		detailKey = key;
+		detailX = x;
+		detailY = y;
+		detailW = w;
+		detailH = h;
+		detailContent = content;
+		if (sc > Math.max(0, content - h)) {
+			scrolls.put(key, Math.max(0, content - h));
+		}
+		scrollbar(x + w - 5, y + 4, h - 8, content + 8, sc);
+	}
+
+	/** A small coloured mark (FPS HUNGRY, risky, API key, on screen) with why on hover; returns its width. */
+	private float mark(String icon, int color, String label, String help, float x, float y) {
+		float w = 6 + 10 + 4 + Ui.textWidth(Ui.SEMIBOLD, label, 8) + 7;
+		Ui.round(x, y, w, 18, 9, Ui.alpha(color, 0.13f));
+		Ui.icon(icon, x + 6, y + 4, 10, color);
+		Ui.text(Ui.SEMIBOLD, label, x + 20, y + (18 - 8 * 1.21f) / 2, 8, color);
+		if (Ui.hover(x, y, w, 18)) {
+			tooltip = help;
+		}
+		return w;
+	}
+
+	/**
+	 * The settings shown under a mod in the list view: switches and choices (what players change
+	 * most, and what fits a narrow row), the preset first; never a setting that is risky on Hypixel.
+	 */
+	private static List<Option<?>> quickOptions(Module m, int most) {
+		List<Option<?>> out = new ArrayList<>();
+		for (Option<?> o : m.options()) {
+			if (out.size() >= most) {
+				break;
+			}
+			if (!o.visible() || ModuleInfo.risky(o) || !(o instanceof BooleanOption || o instanceof ChoiceOption)) {
+				continue;
+			}
+			if (o instanceof ChoiceOption && "style".equals(o.key())) {
+				out.add(0, o);
+			} else {
+				out.add(o);
+			}
+		}
+		return out;
+	}
+
+	/** Up and down go through the list view, Enter turns the chosen mod on or off, Right opens its page. */
+	private boolean listKey(int keyCode) {
+		boolean up = keyCode == Keyboard.KEY_UP;
+		boolean down = keyCode == Keyboard.KEY_DOWN;
+		boolean enter = keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER;
+		boolean open = keyCode == Keyboard.KEY_RIGHT;
+		if (!up && !down && !enter && !open) {
+			return false;
+		}
+		List<Module> mods = listModules();
+		if (mods.isEmpty()) {
+			return true;
+		}
+		int i = mods.indexOf(selected);
+		if (up || down) {
+			i = i < 0 ? 0 : Math.max(0, Math.min(mods.size() - 1, i + (down ? 1 : -1)));
+			selected = mods.get(i);
+			float off = listOffset(mods, selected);
+			float sc = scroll();
+			if (off - HEAD_H < sc) {
+				sc = off - HEAD_H;
+			} else if (off + ROW_H > sc + bodyH) {
+				sc = off + ROW_H - bodyH;
+			}
+			scrolls.put("mods", Math.max(0, sc));
+		} else if (selected != null && enter) {
+			selected.setEnabled(!selected.isEnabled());
+		} else if (selected != null) {
+			Module m = selected;
+			switchContent(() -> module = m);
+		}
+		return true;
+	}
+
+	/**
+	 * The previews view: each mod as a tile showing what it puts on screen (the HUD itself, live)
+	 * or its icon, with what it does in two lines and its switch.
+	 */
+	private void gallery(float x, float y, float w, float h) {
+		List<Module> mods = visibleModules();
+		int cols = w >= 540 ? 3 : 2;
+		float gap = 10;
+		float tw = (w - 8 - gap * (cols - 1)) / cols;
+		float th = 182;
+		int rows = (mods.size() + cols - 1) / cols;
+		float total = rows * (th + gap) - gap;
+		setBody(x, y, w, h, total);
+		float sc = scroll();
+		Ui.scissor(x - 2, y, w + 4, h);
+		// one new frame for every element's text, so settings changed here show at once
+		gg.rago.hud.HudManager.nextFrame();
+		for (int i = 0; i < mods.size(); i++) {
+			float tx = x + (i % cols) * (tw + gap);
+			float ty = y + (i / cols) * (th + gap) - sc;
+			if (ty + th < y || ty > y + h) {
+				continue;
+			}
+			tile(mods.get(i), tx, ty, tw, th);
+		}
+		if (mods.isEmpty()) {
+			Ui.textCentered(Ui.REGULAR, t("rago.menu.no_results"), x + w / 2, y + 40, 11, Theme.MUTED);
+		}
+		Ui.endScissor();
+		scrollbar(x + w - 3, y, h, total, sc);
+	}
+
+	private void tile(Module m, float x, float y, float w, float h) {
+		float hv = Widgets.hoverAmount("tile:" + m.id(), x, y, w, h);
+		float on = Anim.to("cardon:" + m.id(), m.isEnabled() ? 1 : 0, 160);
+		float lift = hv * 2;
+		y -= lift;
+		Ui.glassBorder(x, y, w, h, 10, Ui.mix(0xFF141316, 0xFF1A191D, hv),
+			Ui.mix(Ui.mix(0x14FFFFFF, 0x59F2392C, on), 0x33FFFFFF, hv * (1 - on)));
+		// the stage: what the mod shows
+		float sx = x + 6;
+		float sy = y + 6;
+		float sw = w - 12;
+		float sh = 92;
+		Ui.round(sx, sy, sw, sh, 7, 0xFF0D0C0F);
+		if (m instanceof HudElement) {
+			Ui.glow(sx + sw / 2, sy + sh / 2, sw * 0.42f, Ui.alpha(Theme.ACCENT, 0.05f + 0.07f * on));
+			drawHud((HudElement) m, sx + sw / 2, sy + sh / 2, sw - 24, sh - 22, 1.8f);
+		} else {
+			Ui.glow(sx + sw / 2, sy + sh / 2, 46, Ui.alpha(Theme.ACCENT, 0.06f + 0.22f * on));
+			Ui.icon(ModuleInfo.icon(m), sx + sw / 2 - 17, sy + sh / 2 - 17, 34, Ui.mix(0xFF6B6970, Theme.ACCENT, on));
+		}
+		if (ModuleInfo.fpsHungry(m)) {
+			fpsBadge(m, sx + 5, sy + 5, true);
+		}
+		Option<?> riskyOption = ModuleInfo.risky(m) ? null : ModuleInfo.riskyOptionOn(m);
+		if (ModuleInfo.risky(m) || riskyOption != null) {
+			Ui.icon("triangle-alert", sx + sw - 16, sy + 6, 11, Theme.WARNING);
+			if (Ui.hover(sx + sw - 20, sy + 2, 19, 19)) {
+				tooltip = riskyOption == null ? t("rago.risk.tooltip", t(ModuleInfo.riskKey(m.id())))
+					: t("rago.risk.tooltip_option", t("rago.option." + riskyOption.key()), t(ModuleInfo.riskKey(riskyOption.key())));
+			}
+		}
+		float ty = sy + sh + 8;
+		Ui.text(Ui.SEMIBOLD, fit(Ui.SEMIBOLD, t(m.nameKey()), 11.5f, w - 20), x + 10, ty, 11.5f, Ui.mix(0xFFC4C2CA, Theme.TEXT, on));
+		ty += 17;
+		List<String> lines = Ui.wrap(Ui.REGULAR, t(ModuleInfo.descKey(m)), 8.5f, w - 20);
+		for (int i = 0; i < Math.min(2, lines.size()); i++) {
+			String line = lines.get(i);
+			if (i == 1 && lines.size() > 2) {
+				line = Ui.ellipsize(Ui.REGULAR, line + " " + lines.get(2), 8.5f, w - 20);
+			}
+			Ui.text(Ui.REGULAR, line, x + 10, ty, 8.5f, 0xFF7C7A82);
+			ty += 12;
+		}
+		float by = y + h - 30;
+		Ui.textSpaced(Ui.MONO, t(m.category().key()).toUpperCase(Locale.ROOT), x + 10, by + 7, 7.5f, 1.2f, 0xFF6B6970);
+		Runnable open = () -> switchContent(() -> module = m);
+		Ui.click(x, y, w, h, open);
+		float px = x + w - 10 - Widgets.PILL_W;
+		float gx = px - 6 - 22;
+		float gh = Widgets.hoverAmount("tilegear:" + m.id(), gx, by + 1, 22, 22);
+		Ui.roundBorder(gx, by + 1, 22, 22, 11, Ui.mix(0x00FFFFFF, 0x1AFFFFFF, gh), 0x1FFFFFFF);
+		Ui.icon("sliders-horizontal", gx + 5.5f, by + 6.5f, 11, Ui.mix(0xFF9A98A0, Theme.TEXT, gh));
+		if (Ui.hover(gx, by + 1, 22, 22)) {
+			tooltip = t("rago.menu.options");
+		}
+		Widgets.pill("tilepill:" + m.id(), px, by + 2, m.isEnabled());
+		Ui.click(px - 4, by - 2, Widgets.PILL_W + 8, 28, () -> m.setEnabled(!m.isEnabled()));
 	}
 
 	// ---- one mod's options ----------------------------------------------------------------------
@@ -716,6 +1197,10 @@ public final class RagoMenuScreen extends GuiScreen {
 			cy += 14;
 		}
 		cy += 8;
+		if (ModuleInfo.fpsHungry(m)) {
+			cy = noticeBox("zap", Theme.YELLOW, t("rago.fps_hungry.title"),
+				t(ModuleInfo.fpsKey(m)) + " " + t("rago.fps_hungry.note"), x, cy, w - 8) + 10;
+		}
 		if (ModuleInfo.risky(m)) {
 			cy = riskBox(t(ModuleInfo.riskKey(m.id())), x, cy, w - 8) + 10;
 		}
@@ -796,12 +1281,17 @@ public final class RagoMenuScreen extends GuiScreen {
 
 	/** Why a mod is risky on Hypixel, and that Rago leaves the choice to the player. */
 	private static float riskBox(String reason, float x, float y, float w) {
-		List<String> lines = Ui.wrap(Ui.REGULAR, reason + " " + t("rago.risk.note"), 9, w - 46);
+		return noticeBox("triangle-alert", Theme.WARNING, t("rago.risk.title"), reason + " " + t("rago.risk.note"), x, y, w);
+	}
+
+	/** A framed note at the top of a mod's page: an icon and a title in {@code color}, then the text. */
+	private static float noticeBox(String icon, int color, String title, String text, float x, float y, float w) {
+		List<String> lines = Ui.wrap(Ui.REGULAR, text, 9, w - 46);
 		float h = 30 + lines.size() * 12;
-		Ui.round(x, y, w, h, 8, Ui.alpha(Theme.WARNING, 0.07f));
-		Ui.outline(x, y, w, h, 8, Ui.alpha(Theme.WARNING, 0.38f));
-		Ui.icon("triangle-alert", x + 12, y + 10, 14, Theme.WARNING);
-		Ui.text(Ui.MEDIUM, t("rago.risk.title"), x + 34, y + 9, 10, Theme.WARNING);
+		Ui.round(x, y, w, h, 8, Ui.alpha(color, 0.07f));
+		Ui.outline(x, y, w, h, 8, Ui.alpha(color, 0.38f));
+		Ui.icon(icon, x + 12, y + 10, 14, color);
+		Ui.text(Ui.MEDIUM, title, x + 34, y + 9, 10, color);
 		float ly = y + 24;
 		for (String line : lines) {
 			Ui.text(Ui.REGULAR, line, x + 34, ly, 9, 0xFFD4D2D9);
@@ -1235,15 +1725,23 @@ public final class RagoMenuScreen extends GuiScreen {
 			}
 		}
 		Ui.textSpaced(Ui.MONO, t("rago.menu.preview"), x + 12, y + 10, 8, 1.6f, 0xFF6B6970);
-		boolean placeholder = !e.hasContent();
 		// a new frame for the element's text: options changed in this menu show at once
 		gg.rago.hud.HudManager.nextFrame();
+		drawHud(e, x + w / 2, y + 8 + h / 2, w - 40, h - 36, 2.2f);
+	}
+
+	/**
+	 * Draws a HUD element as it shows in game (sample data when there is none), centred on
+	 * {@code cx, cy} and as large as fits {@code w x h}, at most {@code most} times its size.
+	 */
+	private void drawHud(HudElement e, float cx, float cy, float w, float h, float most) {
+		boolean placeholder = !e.hasContent();
 		int ew = Math.max(1, e.width(fontRendererObj, placeholder));
 		int eh = Math.max(1, e.height(fontRendererObj, placeholder));
 		float s = Ui.scale();
-		float k = Math.min(2.2f * s, Math.min((w - 40) * s / ew, (h - 36) * s / eh));
-		float dx = (x + w / 2) * s - ew * k / 2;
-		float dy = (y + 8 + h / 2) * s - eh * k / 2;
+		float k = Math.min(most * s, Math.min(w * s / ew, h * s / eh));
+		float dx = cx * s - ew * k / 2;
+		float dy = cy * s - eh * k / 2;
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(Math.round(dx), Math.round(dy), 0);
 		GlStateManager.scale(k, k, 1);
@@ -1603,6 +2101,13 @@ public final class RagoMenuScreen extends GuiScreen {
 		if (wheel == 0) {
 			return;
 		}
+		if (detailKey != null && Ui.hover(detailX, detailY, detailW, detailH)) {
+			float max = Math.max(0, detailContent - detailH);
+			Float now = scrolls.get(detailKey);
+			float next = (now == null ? 0 : now) - Integer.signum(wheel) * 40;
+			scrolls.put(detailKey, Math.max(0, Math.min(max, next)));
+			return;
+		}
 		float max = Math.max(0, contentH - bodyH);
 		float next = scroll() - Integer.signum(wheel) * 40;
 		scrolls.put(scrollKey(), Math.max(0, Math.min(max, next)));
@@ -1678,6 +2183,9 @@ public final class RagoMenuScreen extends GuiScreen {
 		}
 		if (keyCode == RagoClient.menuKeyCode()) {
 			close();
+			return;
+		}
+		if (tab == Tab.MODS && module == null && RagoClient.modsLayout() == LAYOUT_LIST && listKey(keyCode)) {
 			return;
 		}
 		if (keyCode == Keyboard.KEY_BACK) {

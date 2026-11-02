@@ -37,10 +37,12 @@ public final class Loadout {
 	public final boolean capeOverOwn;
 	public final String hat;
 	public final String hatNeon;
+	/** Sent and read for older clients; Rago no longer offers a colour for the hat or the wings, nor draws one. */
 	public final int hatColor;
 	public final int hatScale;
 	public final String wings;
 	public final String wingsNeon;
+	/** As {@link #hatColor}. */
 	public final int wingsColor;
 	public final int wingsScale;
 	public final boolean wingsFlap;

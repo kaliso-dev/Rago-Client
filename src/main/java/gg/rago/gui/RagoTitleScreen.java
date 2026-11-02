@@ -824,9 +824,9 @@ public final class RagoTitleScreen extends GuiScreen {
 	// ---- background picker ----------------------------------------------------------------------
 
 	private static final String[] CARD_KEYS = keys("bg:card", Background.KEYS);
-	private static final float PICKER_CARD_W = 150;
-	private static final float PICKER_THUMB_H = 84;
-	private static final float PICKER_CARD_H = PICKER_THUMB_H + 30;
+	private static final float PICKER_CARD_W = 132;
+	private static final float PICKER_THUMB_H = 74;
+	private static final float PICKER_CARD_H = PICKER_THUMB_H + 28;
 	/** Whether the background menu is open, and where its right edge is (that of its button). */
 	private boolean pickerOpen;
 	private float pickerRight;
@@ -856,8 +856,9 @@ public final class RagoTitleScreen extends GuiScreen {
 	}
 
 	/**
-	 * The background menu under its button: each background in a small live preview, the chosen
-	 * one marked; a click shows and saves it. A click anywhere else closes the menu.
+	 * The background menu under its button: each background in a small preview (the one chosen and
+	 * the one under the mouse play, the others show their first frame, so one or two videos decode
+	 * at most), the chosen one marked; a click shows and saves it. A click anywhere else closes it.
 	 */
 	private void backgroundPicker(float w, float h) {
 		float p = Anim.to("bg:picker", pickerOpen && leaving == null ? 1 : 0, 160);
@@ -869,9 +870,9 @@ public final class RagoTitleScreen extends GuiScreen {
 			Ui.click(0, 0, w, h, () -> pickerOpen = false);
 		}
 		float pad = 12;
-		float gap = 10;
-		int columns = 3;
-		int rows = (Background.KEYS.length + columns - 1) / columns;
+		float gap = 8;
+		int columns = 4;
+		int rows = (Background.ORDER.length + columns - 1) / columns;
 		float pw = PICKER_CARD_W * columns + gap * (columns - 1) + pad * 2;
 		float ph = pad + 22 + PICKER_CARD_H * rows + gap * (rows - 1) + pad;
 		float x = Math.max(8, pickerRight - pw);
@@ -884,10 +885,11 @@ public final class RagoTitleScreen extends GuiScreen {
 		Ui.icon("image", x + pad, y + pad + 1, 12, Theme.ACCENT);
 		Ui.text(Ui.SEMIBOLD, t("rago.home.background"), x + pad + 18, y + pad, 11, Theme.TEXT);
 		int chosen = Background.get();
-		for (int i = 0; i < Background.KEYS.length; i++) {
+		for (int i = 0; i < Background.ORDER.length; i++) {
+			int id = Background.ORDER[i];
 			float cx = x + pad + (i % columns) * (PICKER_CARD_W + gap);
 			float cy = y + pad + 22 + (i / columns) * (PICKER_CARD_H + gap);
-			pickerCard(i, cx, cy, i == chosen, p);
+			pickerCard(id, cx, cy, id == chosen, p);
 		}
 		Ui.opacity(1);
 	}
@@ -913,7 +915,7 @@ public final class RagoTitleScreen extends GuiScreen {
 			}
 		} else {
 			Ui.scissor(tx, ty, tw, th);
-			Background.draw(id, tx, ty, tw, th, 0, 0, 1, alpha);
+			Background.preview(id, tx, ty, tw, th, alpha, chosen || over);
 			Ui.endScissor();
 			Ui.outline(tx, ty, tw, th, 7, 0x22FFFFFF);
 		}
@@ -924,12 +926,8 @@ public final class RagoTitleScreen extends GuiScreen {
 		}
 		// its name, and what it costs
 		float ny = y + PICKER_THUMB_H + 8;
-		Ui.text(Ui.MEDIUM, t(Background.KEYS[id]), x + 9, ny, 10, chosen ? Theme.TEXT : 0xFFD4D2D9);
-		String tag = id == Background.NIGHT_DESERT ? t("rago.home.background_video")
-			: id == Background.OWN_IMAGE ? null : t("rago.home.background_light");
-		if (tag != null) {
-			Ui.textRight(Ui.REGULAR, tag, x + PICKER_CARD_W - 9, ny + 1.5f, 8, id == Background.NIGHT_DESERT ? 0xFF8A888F : 0xFF6FCF7F);
-		}
+		Ui.text(Ui.MEDIUM, ellipsized(Ui.MEDIUM, t(Background.KEYS[id]), 9.5f, PICKER_CARD_W - 18), x + 9, ny, 9.5f,
+			chosen ? Theme.TEXT : 0xFFD4D2D9);
 		if (pickerOpen) {
 			Ui.click(x, y, PICKER_CARD_W, PICKER_CARD_H, () -> {
 				if (missing) {

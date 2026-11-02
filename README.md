@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.9.6.** What it contains:
+**Current version: 1.10.11.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,178 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.10.11
+  - **11 new menu backgrounds**: Minecraft landscapes filmed with shaders (Lake at sunset, Great
+    oak, Golden peak, Coast from above, Lake valley, Seabed, Meadow, Mountain flower, Dusk,
+    Campfire, Night peaks), beside Night desert. Each is a loop of a few seconds whose end is
+    cross-faded into its start, so it never jumps. Neon grid, Starry night and Dark are gone (a
+    saved choice of one of them now shows a video; "Your image" keeps its place)
+  - the Background menu shows them four across: the chosen one and the one under the mouse play,
+    the others show their first frame, so the menu decodes one or two videos at most. A video
+    shows its first frame while it loads, then plays; it is decoded only while a menu shows it,
+    its frames' memory is given back two seconds after, its textures eight seconds after
+  - **your own video**: put its frames as JPEGs in a folder named `rago-background-video` in the
+    config folder (with ffmpeg: `ffmpeg -i video.mp4 -vf fps=24,scale=1280:-2
+    rago-background-video/%04d.jpg`), and pick "Your video or image". Frames play in name order
+    at 24 a second (or the number in `fps.txt` in the folder), up to 900 frames; wider frames
+    than 1280 are read at half size or less. Your image (rago-background.png or .jpg) still works
+  - the clips come in one file each (JPEG frames) instead of 288 files; the jar is about 107 MB
+  - **two new views of the mods** in the Rago menu, picked at the top right of the window (or with
+    the setting "Mods view"):
+    - **List**: every mod on one line with what it does and its switch, grouped by category with
+      what each category is for; the chosen mod in full on the right: its marks explained (FPS
+      HUNGRY, risky on Hypixel, API key, on screen), its description, a live preview for HUD
+      mods, up to four quick settings (switches and choices, never a risky one) and the way to
+      all of them. Up and down arrows go through the list, Enter turns the chosen mod on or off
+      (after a search, the first result), the right arrow opens its page
+    - **Previews**: each mod as a tile showing what it puts on screen, live (the HUD itself), or
+      its icon, with what it does in two lines, its settings button and its switch
+    - Cards stays the default
+- new in 1.10.10
+  - the Game Debrief picture comes in **four styles**, picked at the top of the debrief screen (or
+    with the mod's new "Picture style" option); Copy and Save take the style shown:
+    - **Classic**: the 1600x900 picture of 1.10.9, for Discord, unchanged
+    - **Story** (1080x1920, for TikTok, Instagram or Snapchat): the result, you large in the middle
+      with your grade and your place in the game's kills as stickers around you, two highlights,
+      your star and the experience bar to the next one, your four counts and your FKDR, BBLR and
+      WLR. After a grade of A or better, the foot challenges whoever sees it to beat it with Rago
+      Client. What phones cover (the top, the reply bar at the foot) is kept clear
+    - **Player card** (1080x1512): you as a collectible card, drawn as one of Minecraft's item
+      tooltips. Its rarity follows your star (common under 100, uncommon from 100, rare from 300,
+      epic from 500, legendary from 1000, mythic from 2000, in Hypixel's rarity colours), you
+      stand on your prestige's colours with an overall rating (1 to 99, from your FKDR, WLR, BBLR
+      and star) and a talent worked out from what your stats are best at (Finisher, Bed Breaker,
+      Born Winner, Rusher, Veteran or All-Rounder), your stats written as the item's lines, and the
+      last game's grade as a stamp. A game graded S+ makes the card holographic, with the shine of
+      enchanted items read from your game; the others say how to get it
+    - **Session recap** (1600x900): the title your session earned (Unbeaten, Final Kill Machine,
+      Bed Destroyer, Untouchable, Wild Rusher, On Fire, Marathoner or Warming Up), your totals in
+      big numbers (wins, final kills, kills, beds, deaths, experience gained), each game as a tile
+      with its grade (the best one crowned), and on the right you, the stars you gained, your MVPs,
+      your best run of wins, your nemesis and your lucky map
+  - all four are drawn beside the game, as before: the game never waits for them
+- new in 1.10.9
+  - 1.10.8 is withdrawn: 1.10.9 is 1.10.7 with the new Game Debrief picture below. In 1.10.8, with
+    the bundled Phosphor, Patcher's Fullbright no longer stopped the game's light work (Phosphor
+    answers the game's light checks before Patcher can), and OptiFine could not find which chunks
+    hold entities, so it went through every chunk section in view to draw entities, every frame
+    (303 to 425 sections in a test world, against 5 to 22 without Phosphor). 1.10.8 also turned
+    Patcher's Fullbright off once; 1.10.9 leaves it as it is, so if yours is off, turn it back on
+    in `/patcher`
+  - the **Game Debrief picture** is drawn again, to be shared: 1600x900, in Minecraft's own font,
+    item icons and experience bar (read from your game, so your resource pack's), with the Rago
+    logo and the Rago Client line at the bottom. On the right, your skin in 3D (the one you wear,
+    Nick Hider's when it is on), your name with your Hypixel rank, your Bed Wars star in its
+    prestige colours, the experience bar to the next star (what is left, and the XP the game gave
+    you) and your FKDR, BBLR and WLR with what the game changed in them. On the left, the result
+    in big letters, the mode with your team's wool, the map, the length of the game and the number
+    of players, a Rago grade from S+ to D, your final kills, kills, beds and deaths rated Elite,
+    Good, Average or Poor against your own average per game, the game's kill leaderboard with
+    your place in it (team colours, kills and final kills, from every kill line of the chat and
+    Hypixel's top killers at the end), and the highlights: badges (level up, MVP, flawless, kill
+    spree, final boss, bed breaker, clutch, speedrun, first blood) and facts (who eliminated you,
+    your nemesis, your favourite victim, your first final kill). Your star, ratios and averages
+    come from Hypixel with your own API key, as before; without one the picture shows your session
+    instead. The picture is drawn beside the game, which never waits for it
+- new in 1.10.7
+  - the qRago Official profile turns Generator Timers on, shown in the tab list. Players who
+    already have the profile get this change once, on top of their own settings in it; nothing
+    else in the profile changes, and a deleted profile does not come back
+  - Phosphor (a rewrite of the light engine) was measured and is not included: PolyPatcher's
+    Fullbright, on by default, already skips the client's light updates (every light reads as
+    full), and Phosphor runs them again. In a test world (software renderer, median of rounds 2
+    to 10), building a 245-block cube cost 0.55 ms of light work per round with Fullbright alone
+    and 3.3 ms with Phosphor; placing and removing 30 glowstone blocks, 0.06 ms against 42 ms.
+    With Fullbright off, Phosphor beats the game's own engine (the cube 13.7 ms to 4.4 ms, the
+    glowstone 329 ms to 48 ms)
+- new in 1.10.6
+  - the vanilla sidebar's text goes out in one draw call: the lines the Minecraft font draws from
+    its ASCII page (most lines, and every red score number) are laid out glyph by glyph as the font
+    lays them out, all together; bold titles and symbols (the bed marks) are drawn by the font as
+    before. Same pixels: screenshots of the Bed Wars test sidebar are identical to 1.10.5's, pixel
+    for pixel. In that test (software renderer), the sidebar went from 377 to 231 µs a frame, and
+    the memory it creates from 2.07 MB to 0.47 MB in 45 seconds
+  - with an OptiFine font whose characters have fractional widths (HD fonts, or widths set by a
+    resource pack), Rago's own copies of the game's text drawing (HUD text in the Minecraft font,
+    name tags, holograms) now leave that text to the game, which spaces it exactly
+- new in 1.10.5
+  - "Chunk list around you only" goes further: the list is not even made again while you stay in
+    the same chunk (same world and render distance), only when you cross into another chunk. In
+    the same 20-player test, the game thread's memory went from 85 MB to 70 MB in 45 seconds, and
+    the chunk list no longer shows among what creates memory. Checked in game: the list is made
+    again on a teleport and when walking into the next chunk, and not while 20 players move around
+  - the Bed Wars sidebar (beds, teams left, next event, waiting room) is read 5 times a second as
+    before, but each line is now worked out once, the first time it shows, instead of at each
+    reading
+- new in 1.10.4 (performance pass)
+  - new Engine setting "Chunk list around you only", on by default: every tick Minecraft listed the
+    chunks around every player it can see (625 per player with the render distance at 12) to check
+    their light again; a client only needs the ones around you. In a test world with 20 players
+    (software renderer, 45 seconds), the memory the game thread created went from 206 MB to 85 MB,
+    the chunk list's share from 129 MB to 5 MB. Less memory to clean up means fewer clean-up
+    pauses
+  - less made per frame: Emotes (the pose is worked out in reused arrays), Generator Timers (each
+    row's text is made again only when its second changes), the occlusion culling's ray test, the
+    Item Counter's numbers, the Scoreboard HUD (the sidebar is read once a tick instead of several
+    times a frame, with the score's red text made with the line), the entity distance check and
+    the Overlays' paint check (no text made each tick)
+  - a new test applies each of Rago's patches to the game's own classes and checks the changed
+    code is still valid, so a patch that stops fitting is caught before a release
+- new in 1.10.3
+  - Inventory Blur: "Background updates: Frozen" is gone (the world behind stopped moving, which
+    is not playable when someone attacks you); a saved Frozen becomes 60. The blur is remade 60
+    times a second by default (30 if chosen), and a new "Quality: Light" works it out on a quarter
+    size copy: a little less smooth, much less work for the graphics card
+- new in 1.10.2
+  - a "qRago Official" profile comes with Rago: it is added to everyone's profile list (after
+    their own profiles, with qRago's skin as its picture) but never switched to on its own. Your
+    personal mods (cape, cosmetics, messages) stay yours when you switch to it, and a deleted one
+    does not come back. Only this built-in profile shows the picture: a shared code cannot bring it
+  - mods that can cost frames (Inventory Blur, Motion Blur, Colour Grading) carry a yellow
+    lightning "FPS HUNGRY" mark in the menu, with why on hover, and their page says why and how to
+    make them lighter
+  - Event Timers and Generator Timers have "Show in: HUD, Tab list or Both". In the tab list the
+    timers show at the top of the player list while you hold Tab, with nothing on the screen; the
+    lines are made again at most once a second, never per frame
+- new in 1.10.1
+  - Inventory Blur is now a true Gaussian blur worked out by the graphics card (a shader, two
+    passes on a picture half the size), smooth and without the blocky look of the first version.
+    Its strength is a radius in pixels of a 1080p screen (default 20), following your resolution;
+    without OpenGL 2.0 the first version's blur stands in
+  - Inventory Blur says it can cost a few FPS while a window is open, and is lighter: the half-size
+    copy is one blit by the graphics card (no full-size copy, even with Fast Render), the blur is
+    remade 30 times a second by default, and a new "Background updates: Frozen" works it out once
+    when the window opens and then only lays it over the screen
+- new in 1.10.0
+  - fixed: with Shop Anti-Misclick or Fast Shop's "no duplicates", Sharpened Swords could not be
+    bought in the team upgrades window while you held an iron sword (its icon is an iron sword).
+    Team upgrades and traps, the only things priced in diamonds, are never stopped now
+  - Bed Wars stars: each prestige has its own colours, as on Hypixel (1100 to 2000 and the 2100+
+    ones were all drawn like 1000's rainbow), with the right star symbol per range (from 1100 ✪,
+    from 2100 ⚝, from 3100 ✥)
+  - far entities: the Entities distances can now be raised past the game's (up to 512 blocks or
+    Unlimited for players); players default to Unlimited, NPCs and floating names follow "Passive
+    mobs and NPCs", the hidden armour stands are decoration only (floating names stay), "Max
+    performance" never shows fewer players or NPCs, and hitboxes show as far as the entity is
+    drawn. Name tags stay at Minecraft's 64 blocks, since they show through walls
+  - emotes are shared through Rago Network: other Rago players see yours and you see theirs
+    (option "See other players' emotes")
+  - new mod **No F5 Bobbing**: no camera sway in third person, first person keeps it
+  - new mod **Inventory Blur**: the world behind inventories, chests and Hypixel's menus is
+    blurred and less dark, with a fade as they open; the HUD stays sharp. Worked out on a picture a
+    sixteenth of the size, at most 60 times per second, only while such a window is open
+- new in 1.9.9
+  - the hat's and the wings' colour settings are gone: they tinted the whole piece, could not be
+    put back to the piece's own colours and fought with the neon colour. The neon colour stays the
+    only colour to choose, and colours other players still send from older versions are not drawn
+- new in 1.9.8
+  - fixed: after switching accounts, the home screen and the locker still showed the first
+    account's skin (it was looked up once per game); each account's skin is now looked up once, and
+    a skin applied to the account from the locker shows at once
+- new in 1.9.7
+  - fixed: after switching accounts, the player on the home screen and in the locker lost its cape
+    and cosmetics (it kept the old account's UUID, and they are drawn only on you); it is now made
+    again for the new account
 - new in 1.9.6: the home screen, third version
   - Singleplayer, Multiplayer, then the server you play the most drawn as the multiplayer list
     draws it (its icon, name, message of the day, players and ping bars, in Minecraft's font); a
@@ -776,7 +948,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.9.6+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.10.11+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

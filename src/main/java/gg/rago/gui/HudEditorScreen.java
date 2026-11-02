@@ -46,7 +46,7 @@ public final class HudEditorScreen extends GuiScreen {
 	}
 
 	private List<HudElement> elements() {
-		return RagoClient.hud().elements().stream().filter(HudElement::isEnabled).collect(Collectors.toList());
+		return RagoClient.hud().elements().stream().filter(e -> e.isEnabled() && e.onScreen()).collect(Collectors.toList());
 	}
 
 	/** Live data when there is some, otherwise a sample value, so every element can be placed. */

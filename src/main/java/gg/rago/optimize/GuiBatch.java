@@ -2,9 +2,12 @@ package gg.rago.optimize;
 
 import gg.rago.core.RagoClient;
 import gg.rago.debug.FrameProfile;
+import gg.rago.render.VanillaText;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
@@ -24,8 +27,11 @@ import java.util.function.BooleanSupplier;
  *
  * <p>Sidebar: GuiIngame.renderScoreboard draws a dark rectangle under each line and the line's text
  * on it, rectangle, text, rectangle, text (17 rectangles for a full Hypixel sidebar). Here the
- * rectangles all go in one draw call first, then the text in the order the game drew it, with the
- * state each would have had. No rectangle covers another line's text, so nothing changes on screen.
+ * rectangles all go in one draw call first, then the text, with the state each would have had. No
+ * rectangle covers another line's text, so nothing changes on screen. The text the Minecraft font
+ * draws exactly from its ASCII page ({@link VanillaText}: most lines and every score number) goes
+ * out in one more draw call, laid out glyph by glyph as the font lays it out; the rest (bold
+ * titles, symbols such as the bed marks) is drawn by the font as before.
  *
  * <p>Both are reached from the game's code through {@code Hooks}; with the setting off, or anything
  * missing, each call goes straight to the game's own method.
@@ -200,10 +206,37 @@ public final class GuiBatch {
 		}
 		int n = textCount;
 		textCount = 0;
+		// the lines the Minecraft font's ASCII page draws exactly (most of them, and every red score
+		// number) go out together in one draw call; the others (bold, symbols) as before
+		FontRenderer main = Minecraft.getMinecraft().fontRendererObj;
+		WorldRenderer batch = null;
+		int batchTexture = -1;
 		for (int i = 0; i < n; i++) {
-			fonts[i].drawString(texts[i], textX[i], textY[i], textColor[i]);
+			if (fonts[i] != main || !VanillaText.batchable(texts[i])) {
+				continue;
+			}
+			if (batch == null) {
+				batchTexture = VanillaText.textureId();
+				batch = Tessellator.getInstance().getWorldRenderer();
+				batch.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+			}
+			VanillaText.append(batch, texts[i], textX[i], textY[i], textColor[i], false);
 			fonts[i] = null;
 			texts[i] = null;
+		}
+		if (batch != null) {
+			// as FontRenderer.drawString: the alpha test keeps the glyphs' empty pixels out (blending is off here)
+			GlStateManager.enableAlpha();
+			GlStateManager.enableTexture2D();
+			GlStateManager.bindTexture(batchTexture);
+			Tessellator.getInstance().draw();
+		}
+		for (int i = 0; i < n; i++) {
+			if (texts[i] != null) {
+				fonts[i].drawString(texts[i], textX[i], textY[i], textColor[i]);
+				fonts[i] = null;
+				texts[i] = null;
+			}
 		}
 	}
 }
