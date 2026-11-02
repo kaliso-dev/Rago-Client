@@ -504,6 +504,12 @@ public final class Hooks {
 		}
 		Emotes e = emotes;
 		if (e != null && e.active()) {
+			if (gg.rago.debug.FrameProfile.ON) {
+				long t = gg.rago.debug.FrameProfile.start();
+				e.pose(model, entity);
+				gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.EMOTES, System.nanoTime() - t);
+				return;
+			}
 			e.pose(model, entity);
 		}
 	}
@@ -580,7 +586,14 @@ public final class Hooks {
 		TabList t = tabList;
 		boolean custom = t != null && t.isEnabled();
 		RagoBadge r = ragoBadge;
-		if (r != null && r.tabLine(font, text, x, y, color, !custom || t.shadow())) {
+		if (gg.rago.debug.FrameProfile.ON && r != null) {
+			long time = gg.rago.debug.FrameProfile.start();
+			boolean drawn = r.tabLine(font, text, x, y, color, !custom || t.shadow());
+			gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.TAB, System.nanoTime() - time);
+			if (drawn) {
+				return 0;
+			}
+		} else if (r != null && r.tabLine(font, text, x, y, color, !custom || t.shadow())) {
 			return 0; // the game does not use what this returns
 		}
 		return custom ? t.drawText(font, text, x, y, color) : font.drawStringWithShadow(text, x, y, color);
@@ -651,6 +664,12 @@ public final class Hooks {
 		BedwarsStats s = bedwarsStats;
 		String name = s != null && s.isEnabled() ? s.tabName(vanilla, info) : vanilla;
 		RagoBadge r = ragoBadge;
+		if (gg.rago.debug.FrameProfile.ON && r != null) {
+			long t = gg.rago.debug.FrameProfile.start();
+			String line = r.tabName(name, info);
+			gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.TAB, System.nanoTime() - t);
+			return line;
+		}
 		return r != null ? r.tabName(name, info) : name;
 	}
 

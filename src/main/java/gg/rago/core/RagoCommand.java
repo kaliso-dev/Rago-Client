@@ -85,7 +85,8 @@ final class RagoCommand extends CommandBase {
 			return;
 		}
 		if (args[0].equalsIgnoreCase("testplayers") && gg.rago.debug.FakeBedwars.ON) {
-			gg.rago.debug.FakeBedwars.players(args.length > 1 ? Integer.parseInt(args[1]) : 16, args.length > 2 && args[2].equals("armor"));
+			gg.rago.debug.FakeBedwars.players(args.length > 1 ? Integer.parseInt(args[1]) : 16, args.length > 2 && args[2].equals("armor"),
+				args.length > 2 && args[args.length - 1].equals("styled"));
 			return;
 		}
 		if (args[0].equalsIgnoreCase("testholo") && gg.rago.debug.FakeBedwars.ON) {
@@ -93,7 +94,7 @@ final class RagoCommand extends CommandBase {
 			return;
 		}
 		if (args[0].equalsIgnoreCase("testgame") && gg.rago.debug.FakeBedwars.ON) {
-			gg.rago.debug.FakeBedwars.game(args.length > 1 ? Integer.parseInt(args[1]) : 12);
+			gg.rago.debug.FakeBedwars.game(args.length > 1 ? Integer.parseInt(args[1]) : 12, args.length > 2 && args[2].equals("styled"));
 			return;
 		}
 		if (args[0].equalsIgnoreCase("testmod") && args.length >= 3 && gg.rago.debug.FakeBedwars.ON) {

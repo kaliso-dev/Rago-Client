@@ -131,9 +131,27 @@ public final class RewardsScreen extends GuiScreen {
 		}
 	}
 
+	private static final int[] NUMBER_KEYS = new int[64];
+	private static final String[] NUMBERS = new String[64];
+
+	/**
+	 * {@code n} with a space every three digits ("12 500"), kept for the next frames: the screens
+	 * show the same points and prices every frame, and formatting each again made a Formatter each time.
+	 */
+	static String number(int n) {
+		int slot = (n ^ n >>> 6 ^ n >>> 12) & 63;
+		String s = NUMBERS[slot];
+		if (s == null || NUMBER_KEYS[slot] != n) {
+			s = String.format("%,d", n).replace(',', ' ').replace('\u00a0', ' ').replace('\u202f', ' ');
+			NUMBERS[slot] = s;
+			NUMBER_KEYS[slot] = n;
+		}
+		return s;
+	}
+
 	/** The player's points, right-aligned at {@code right}. */
 	static float pointsPill(float right, float y, int points, boolean alignRight) {
-		String n = String.format("%,d", points).replace(',', ' ');
+		String n = number(points);
 		float tw = Ui.textWidth(Ui.SEMIBOLD, n, 11) + 40;
 		float x = alignRight ? right - tw : right;
 		Ui.glassBorder(x, y, tw, 24, 12, 0xFF1A1714, 0x40FFAA00);

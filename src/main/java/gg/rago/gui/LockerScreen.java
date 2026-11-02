@@ -502,7 +502,7 @@ public final class LockerScreen extends GuiScreen {
 			if (!owned) {
 				Ui.icon("lock", cx + 11, y + (chipH - 10) / 2, 10, selected ? 0xFF1A0605 : Theme.MUTED);
 			} else if (iconChip) {
-				Ui.texture(new ResourceLocation("rago", "textures/name_icons/" + id + ".png"), cx + 10, y + (chipH - 11) / 2, 11, 11, 0, 0, 1, 1, 0xFFFFFFFF);
+				Ui.texture(gg.rago.modules.RagoBadge.iconLocation(id), cx + 10, y + (chipH - 11) / 2, 11, 11, 0, 0, 1, 1, 0xFFFFFFFF);
 			}
 			Ui.textCentered(Ui.MEDIUM, label, tx, y + (chipH - 9.5f * 1.21f) / 2, 9.5f, text);
 			Ui.click(cx, y, cw, chipH, () -> {

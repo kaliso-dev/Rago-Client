@@ -15,13 +15,34 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
  * {@code /rago testplayers [n]} puts other players around you to measure name tags and hitboxes,
  * {@code /rago testholo [n]} floating texts like the ones over Hypixel's generators, and
  * {@code /rago testgame [n]} fills the tab list with players in four teams and two bots, and
- * {@code /rago testchat [seconds]} adds a Bed Wars chat line every second.
+ * {@code /rago testchat [seconds]} adds a Bed Wars chat line every second. With {@code styled}, the
+ * players of {@code testplayers} and {@code testgame} show Rago, with a name colour and icon, a cape,
+ * a hat and wings, to measure what the cosmetics and styled names cost.
  */
 public final class FakeBedwars {
 	public static final boolean ON = Boolean.getBoolean("rago.test.hypixel");
 	private static final String OBJECTIVE = "rago_test";
 
 	private static FakeBedwars running;
+	/** The fake players shown as Rago players ({@code styled}), with what they wear. */
+	private static final java.util.Map<java.util.UUID, gg.rago.network.NetworkClient.Player> RAGO = new java.util.HashMap<>();
+	private static final String[] COLORS = {"aurora", "rainbow", "sakura", "mint", "inferno", "gold_rush"};
+	private static final String[] ICONS = {"flame", "heart", "star", "skull", "gem", "bolt"};
+	private static final String[] CAPES = {"galaxy", "sakura", "circuit", "inferno"};
+	private static final String[] HATS = {"cat_ears", "devil_horns", "headphones", "kitsune"};
+	private static final String[] WINGS = {"mecha", "angel", "frost", "dragon_small"};
+
+	/** The fake Rago player {@code id} ({@code styled}); null for any other. */
+	public static gg.rago.network.NetworkClient.Player ragoPlayer(java.util.UUID id) {
+		return id == null || RAGO.isEmpty() ? null : RAGO.get(id);
+	}
+
+	private static void rago(java.util.UUID id, int i) {
+		gg.rago.network.Loadout l = new gg.rago.network.Loadout(CAPES[i % CAPES.length], "red", true, HATS[i % HATS.length], "red",
+			gg.rago.network.Loadout.NO_TINT, 100, WINGS[i % WINGS.length], "red", gg.rago.network.Loadout.NO_TINT, 100, true, 100,
+			"none", "red", 100, true, COLORS[i % COLORS.length], ICONS[i % ICONS.length]);
+		RAGO.put(id, new gg.rago.network.NetworkClient.Player("player", l));
+	}
 	private int left;
 	private int ticks;
 
@@ -43,6 +64,10 @@ public final class FakeBedwars {
 	 * hitboxes; with {@code armor}, in enchanted diamond armour, to measure the glint.
 	 */
 	public static void players(int n, boolean armor) {
+		players(n, armor, false);
+	}
+
+	public static void players(int n, boolean armor, boolean styled) {
 		Minecraft mc = Minecraft.getMinecraft();
 		if (mc.theWorld == null || mc.thePlayer == null) {
 			return;
@@ -61,6 +86,9 @@ public final class FakeBedwars {
 					stack.addEnchantment(net.minecraft.enchantment.Enchantment.protection, 2);
 					e.setCurrentItemOrArmor(slot + 1, stack);
 				}
+			}
+			if (styled) {
+				rago(profile.getId(), i);
 			}
 			mc.theWorld.addEntityToWorld(-1000 - i, e);
 		}
@@ -106,6 +134,10 @@ public final class FakeBedwars {
 	 */
 	@SuppressWarnings("unchecked")
 	public static void game(int n) {
+		game(n, false);
+	}
+
+	public static void game(int n, boolean styled) {
 		Minecraft mc = Minecraft.getMinecraft();
 		net.minecraft.client.network.NetHandlerPlayClient net = mc.getNetHandler();
 		if (mc.theWorld == null || mc.thePlayer == null || net == null) {
@@ -139,6 +171,9 @@ public final class FakeBedwars {
 			String name = "Enemy" + i;
 			players.put(id, new net.minecraft.client.network.NetworkPlayerInfo(new com.mojang.authlib.GameProfile(id, name)));
 			join(board, name, teams[i % teams.length]);
+			if (styled && i < n - 1) {
+				rago(id, i);
+			}
 		}
 		// two of Hypixel's bots, with no team: a version 2 id, and a name like theirs
 		java.util.UUID npc = new java.util.UUID(random.nextLong() & ~0xF000L | 0x2000L, random.nextLong() & 0x3FFFFFFFFFFFFFFFL | 0x8000000000000000L);

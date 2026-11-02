@@ -882,7 +882,7 @@ public final class RagoTitleScreen extends GuiScreen {
 		}
 		if (s.points != pointsShown) {
 			pointsShown = s.points;
-			pointsText = String.format("%,d", s.points).replace(',', ' ');
+			pointsText = RewardsScreen.number(s.points);
 		}
 		float size = 11;
 		float cw = Ui.textWidth(Ui.SEMIBOLD, pointsText, size) + 44;

@@ -164,7 +164,7 @@ public final class ShopScreen extends GuiScreen {
 			Ui.text(Ui.MEDIUM, t("rago.shop.owned"), x + w / 2 - 8, y + h - 24, 9, Theme.GREEN);
 			return;
 		}
-		String n = String.format("%,d", price).replace(',', ' ');
+		String n = RewardsScreen.number(price);
 		float pw = Ui.textWidth(Ui.SEMIBOLD, n, 10) + 18;
 		Ui.icon("coins", x + (w - pw) / 2, y + h - 25, 11, 0xFFFFC14D);
 		Ui.text(Ui.SEMIBOLD, n, x + (w - pw) / 2 + 16, y + h - 25, 10, 0xFFFFE2A8);
@@ -212,8 +212,8 @@ public final class ShopScreen extends GuiScreen {
 			String owned = t("rago.shop.owned");
 			Ui.text(Ui.MEDIUM, owned, rx - Ui.textWidth(Ui.MEDIUM, owned, 9.5f), y + 26, 9.5f, Theme.GREEN);
 		} else {
-			String n = String.format("%,d", shop.bundlePrice).replace(',', ' ');
-			String was = String.format("%,d", full).replace(',', ' ');
+			String n = RewardsScreen.number(shop.bundlePrice);
+			String was = RewardsScreen.number(full);
 			float nw = Ui.textWidth(Ui.SEMIBOLD, n, 11);
 			Ui.text(Ui.SEMIBOLD, n, rx - nw, y + 18, 11, 0xFFFFE2A8);
 			Ui.icon("coins", rx - nw - 16, y + 18, 12, 0xFFFFC14D);

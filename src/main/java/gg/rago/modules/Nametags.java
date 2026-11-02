@@ -262,11 +262,12 @@ public final class Nametags extends Module implements Styled {
 		RagoBadge badge = gg.rago.hooks.Hooks.ragoBadge;
 		int logo = badge != null && badge.onNametag() ? badge.logoColor(p.getUniqueID()) : 0;
 		if (logo == 0) {
-			label(name, x, top, z, 0, throughWalls.get(), 0xFF);
+			label(name, x, top, z, 0, throughWalls.get(), 0xFF, 0, 0, n, null, null);
 			return;
 		}
 		RagoBadge.Style style = badge.style(p.getUniqueID());
-		label(name, x, top, z, 0, throughWalls.get(), 0xFF, badge.texture(p.getUniqueID()), logo, style != null ? p.getName() : null, style);
+		label(name, x, top, z, 0, throughWalls.get(), 0xFF, badge.texture(p.getUniqueID()), logo, n, style != null ? p.getName() : null,
+			style);
 	}
 
 	/** A player's name as the game shows it, what it was made from, and the tick it was made. */
@@ -281,7 +282,36 @@ public final class Nametags extends Module implements Styled {
 		int belowPoints;
 		String belowObjective;
 		String belowText;
+		/** The name tag's text as last laid out. */
+		final Layout layout = new Layout();
 	}
+
+	/**
+	 * A name tag's text laid out: for a player whose name has a style, split around the name (the
+	 * text before it, the name, the text after it with the codes in force) with each letter, and
+	 * the widths. Made again when the text, the player's name, the font or its size change, and
+	 * when the name is made again (at least once a second), so a nick or a font change shows.
+	 */
+	private static final class Layout {
+		int tick = Integer.MIN_VALUE;
+		String shown;
+		String player;
+		TtfFont ttf;
+		float em;
+		boolean styled;
+		String before = "";
+		String name = "";
+		String after = "";
+		String whole = "";
+		String[] letters = new String[0];
+		float[] letterW = new float[0];
+		float beforeW;
+		float nameW;
+		float afterW;
+	}
+
+	/** The layout of a label drawn without a {@link Name} (the line under a name, a sneaking name). */
+	private final Layout scratch = new Layout();
 
 	/** Names are made again at least this often, for mods that change them without a team change. */
 	private static final int NAME_REFRESH_TICKS = 20;
@@ -327,7 +357,7 @@ public final class Nametags extends Module implements Styled {
 	 * all together after the world (see {@link LabelBatch}).
 	 */
 	public void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha) {
-		label(text, x, anchorY, z, drop, seeThrough, alpha, 0, 0, null, null);
+		label(text, x, anchorY, z, drop, seeThrough, alpha, 0, 0, null, null, null);
 	}
 
 	/**
@@ -336,7 +366,7 @@ public final class Nametags extends Module implements Styled {
 	 * in its colours and its icon after it.
 	 */
 	private void label(String text, double x, double anchorY, double z, float drop, boolean seeThrough, int alpha,
-		int logoTexture, int logo, String player, RagoBadge.Style style) {
+		int logoTexture, int logo, Name named, String player, RagoBadge.Style style) {
 		String shown = colorMode.is("custom") ? stripped(text) : text;
 		int color = colorMode.is("custom") ? nameColor.get() : 0xFFFFFFFF;
 		float s = WorldDraw.LABEL_SCALE * scale.get() / 100f;
@@ -345,31 +375,19 @@ public final class Nametags extends Module implements Styled {
 		float em = HudText.em(font.get());
 		float logoW = logoTexture != 0 ? RagoBadge.LOGO_SIZE + 2 : 0;
 		RagoBadge badge = player != null && style != null ? gg.rago.hooks.Hooks.ragoBadge : null;
-		String nicked = badge != null ? gg.rago.hooks.Hooks.nick(shown) : shown;
+		Layout lay = layout(named, shown, badge != null ? player : null, ttf, em);
 		// a styled name is drawn by Rago unless the vanilla font draws the label (characters outside its ASCII page)
-		boolean styled = badge != null && LabelBatch.canDraw(ttf, nicked);
+		boolean styled = lay.styled;
 		int icons = styled ? badge.iconTexture(style.icon) : 0;
 		// the player's name split from the text before and after it, the icon in between
-		String before = shown;
-		String name = "";
-		String after = "";
-		if (styled) {
-			int at = RagoBadge.nameAt(nicked, player) >= 0 ? RagoBadge.nameAt(shown, player) : -1;
-			if (at >= 0) {
-				before = shown.substring(0, at);
-				name = shown.substring(at, at + player.length());
-				after = RagoBadge.codesAt(shown.substring(0, at)) + shown.substring(at + player.length());
-			}
-		}
-		// the styles in force before the player's name; worked out only when there is one (this runs
-		// for every name tag, every frame)
-		String codes = name.isEmpty() ? "" : RagoBadge.stylesAt(before);
-		String whole = name.isEmpty() ? before : before + name;
-		float beforeW = LabelBatch.width(ttf, em, WORLD_SHARPNESS, before);
-		float nameW = name.isEmpty() ? 0 : LabelBatch.width(ttf, em, WORLD_SHARPNESS, codes + name);
+		String before = lay.before;
+		String name = lay.name;
+		String after = lay.after;
+		String whole = lay.whole;
+		float beforeW = lay.beforeW;
+		float nameW = lay.nameW;
 		float iconsW = icons != 0 ? style.iconSpace : 0;
-		float afterW = after.isEmpty() ? 0 : LabelBatch.width(ttf, em, WORLD_SHARPNESS, after);
-		float w = logoW + beforeW + nameW + iconsW + afterW;
+		float w = logoW + beforeW + nameW + iconsW + lay.afterW;
 		float half = w / 2f;
 		// keep the bottom of the text where vanilla's is, so a bigger tag grows upwards, away from the head
 		batch.flat(mode.is("2d"));
@@ -410,9 +428,9 @@ public final class Nametags extends Module implements Styled {
 			float cx = tx + beforeW;
 			long now = Minecraft.getSystemTime();
 			for (int i = 0; ok && i < name.length(); i++) {
-				String ch = codes + name.charAt(i);
-				ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, ch, cx, 0, a << 24 | style.shade(i, name.length(), now), shadow.get());
-				cx += LabelBatch.width(ttf, em, WORLD_SHARPNESS, ch);
+				ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, lay.letters[i], cx, 0, a << 24 | style.shade(i, name.length(), now),
+					shadow.get());
+				cx += lay.letterW[i];
 			}
 		} else if (ok) {
 			ok = batch.text(layer, ttf, em, WORLD_SHARPNESS, whole, tx, 0, a << 24 | color & 0xFFFFFF, shadow.get());
@@ -431,6 +449,58 @@ public final class Nametags extends Module implements Styled {
 			// characters outside the Minecraft font's ASCII page (or the Unicode font): vanilla draws it
 			WorldDraw.label(shown, x, anchorY - (drop + 8) * WorldDraw.LABEL_SCALE + (8 + pad) * s, z, false);
 		}
+	}
+
+	/**
+	 * The layout of {@code shown} for {@code named} (null: worked out for this label only), split
+	 * around {@code player}'s name when it is given (a styled name).
+	 */
+	private Layout layout(Name named, String shown, String player, TtfFont ttf, float em) {
+		Layout l = named != null ? named.layout : scratch;
+		if (named != null && l.tick == named.tick && l.shown == shown && l.ttf == ttf && l.em == em
+			&& (player == null ? l.player == null : player.equals(l.player))) {
+			return l;
+		}
+		l.tick = named != null ? named.tick : Integer.MIN_VALUE;
+		l.shown = shown;
+		l.player = player;
+		l.ttf = ttf;
+		l.em = em;
+		l.before = shown;
+		l.name = "";
+		l.after = "";
+		l.styled = false;
+		if (player != null) {
+			String nicked = gg.rago.hooks.Hooks.nick(shown);
+			l.styled = LabelBatch.canDraw(ttf, nicked);
+			int at = l.styled && RagoBadge.nameAt(nicked, player) >= 0 ? RagoBadge.nameAt(shown, player) : -1;
+			if (at >= 0) {
+				l.before = shown.substring(0, at);
+				l.name = shown.substring(at, at + player.length());
+				l.after = RagoBadge.codesAt(l.before) + shown.substring(at + player.length());
+			}
+		}
+		l.whole = l.name.isEmpty() ? l.before : l.before + l.name;
+		l.beforeW = LabelBatch.width(ttf, em, WORLD_SHARPNESS, l.before);
+		l.afterW = l.after.isEmpty() ? 0 : LabelBatch.width(ttf, em, WORLD_SHARPNESS, l.after);
+		if (l.name.isEmpty()) {
+			l.nameW = 0;
+			if (l.letters.length != 0) {
+				l.letters = new String[0];
+				l.letterW = new float[0];
+			}
+			return l;
+		}
+		// the styles in force before the player's name, on each letter
+		String codes = RagoBadge.stylesAt(l.before);
+		l.nameW = LabelBatch.width(ttf, em, WORLD_SHARPNESS, codes + l.name);
+		l.letters = new String[l.name.length()];
+		l.letterW = new float[l.name.length()];
+		for (int i = 0; i < l.letters.length; i++) {
+			l.letters[i] = codes + l.name.charAt(i);
+			l.letterW[i] = LabelBatch.width(ttf, em, WORLD_SHARPNESS, l.letters[i]);
+		}
+		return l;
 	}
 
 	/** Texts without their § codes, for the custom colour: the same names are drawn every frame. */

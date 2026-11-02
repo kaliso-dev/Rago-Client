@@ -530,6 +530,8 @@ public final class LabelBatch {
 	}
 
 	private static final class Layer {
+		/** Clears (two a frame at most) a texture may go unused before its list is let go. */
+		static final int FORGET_AFTER = 600;
 		final FloatList shapes = new FloatList();
 		/**
 		 * Textured quads by GL texture id, in the order the textures were first used: a handful of
@@ -537,6 +539,8 @@ public final class LabelBatch {
 		 */
 		int[] textures = new int[4];
 		FloatList[] lists = new FloatList[4];
+		/** For each texture, how many clears in a row it went unused. */
+		int[] idle = new int[4];
 		int count;
 
 		FloatList textured(int texture) {
@@ -548,10 +552,12 @@ public final class LabelBatch {
 			if (count == textures.length) {
 				textures = java.util.Arrays.copyOf(textures, count * 2);
 				lists = java.util.Arrays.copyOf(lists, count * 2);
+				idle = java.util.Arrays.copyOf(idle, count * 2);
 			}
 			FloatList f = new FloatList();
 			textures[count] = texture;
 			lists[count] = f;
+			idle[count] = 0;
 			count++;
 			return f;
 		}
@@ -572,12 +578,15 @@ public final class LabelBatch {
 			shapes.size = 0;
 			int kept = 0;
 			for (int i = 0; i < count; i++) {
-				// textures not used since the last clear are forgotten once there are many (fonts
-				// remade at other sizes leave old ids behind)
-				if (count <= 8 || lists[i].size > 0) {
+				// textures unused for a while are forgotten once there are many (fonts remade at other
+				// sizes leave old ids behind); one missing from a single flush is kept, or a label
+				// seen only some frames (a name icon, a logo) would make its list again and again
+				int unused = lists[i].size > 0 ? 0 : idle[i] + 1;
+				if (count <= 8 || unused < FORGET_AFTER) {
 					lists[i].size = 0;
 					textures[kept] = textures[i];
 					lists[kept] = lists[i];
+					idle[kept] = unused;
 					kept++;
 				}
 			}

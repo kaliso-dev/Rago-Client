@@ -9,6 +9,7 @@ import gg.rago.core.Module;
 import gg.rago.gui.Theme;
 import gg.rago.hooks.Hooks;
 import gg.rago.network.NetworkClient;
+import gg.rago.render.VanillaText;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.network.NetworkPlayerInfo;
@@ -67,6 +68,14 @@ public final class RagoBadge extends Module {
 	private final ColorOption color = addOption(new ColorOption("badge_color", Theme.ACCENT).fixedAlpha(0xFF));
 	/** The tab lines given a logo lately, with what to draw, to know them again when they are drawn. */
 	private final Map<String, TabLine> tabLines = new HashMap<>();
+	/**
+	 * The tab line last made for each player, given again while their name, logo and style are the
+	 * same: the game asks for every name twice a frame while the tab list is open, each time a new
+	 * string, and the line drawn is then found by the same string.
+	 */
+	private final Map<UUID, TabLine> tabOf = new HashMap<>();
+	/** The colours of a styled name's letters this frame, kept for the next. */
+	private int[] shades = new int[16];
 
 	public RagoBadge() {
 		super("rago_badge", FeatureClass.VISUAL, true);
@@ -201,10 +210,12 @@ public final class RagoBadge extends Module {
 		final String gap;
 		private final int[] stops;
 		private final boolean moving;
+		private final boolean creator;
 
 		private Style(String color, String icon) {
 			this.color = color;
 			this.icon = icon;
+			creator = color.equals(CREATOR);
 			boolean creatorIcon = icon.equals(CREATOR);
 			iconW = icon.equals("none") ? 0 : creatorIcon ? ICONS_W : ICON_SIZE;
 			iconSpace = icon.equals("none") ? 0 : 1.5f + iconW + 1;
@@ -224,7 +235,7 @@ public final class RagoBadge extends Module {
 
 		/** The colour (RGB) of letter {@code i} of an {@code n} letter name at {@code time} (milliseconds). */
 		public int shade(int i, int n, long time) {
-			if (color.equals(CREATOR)) {
+			if (creator) {
 				return creatorShade(i, n, time);
 			}
 			return NameColors.shade(stops, moving, i, n, time);
@@ -245,8 +256,12 @@ public final class RagoBadge extends Module {
 		if (icon.equals(Style.CREATOR)) {
 			return iconsTexture();
 		}
-		ResourceLocation tex = ICON_TEXTURES.computeIfAbsent(icon, i -> new ResourceLocation("rago", "textures/name_icons/" + i + ".png"));
-		return texture(tex);
+		return texture(iconLocation(icon));
+	}
+
+	/** The texture of a name icon won with Rago Points, made once per icon. */
+	public static ResourceLocation iconLocation(String icon) {
+		return ICON_TEXTURES.computeIfAbsent(icon, i -> new ResourceLocation("rago", "textures/name_icons/" + i + ".png"));
 	}
 
 	/**
@@ -262,29 +277,40 @@ public final class RagoBadge extends Module {
 		if (c == 0) {
 			return name;
 		}
-		TabLine tab;
-		String line;
 		Style style = style(id);
+		boolean creator = creator(id);
+		// your name replaced by the Nick Hider: drawn whole (the font puts the nick in), never letter by letter
+		boolean hidden = Hooks.nick(name) != name;
+		TabLine last = tabOf.get(id);
+		if (last != null && last.color == c && last.style == style && last.creator == creator && last.hidden == hidden
+			&& last.from.equals(name)) {
+			return last.line;
+		}
+		TabLine tab;
 		if (style != null) {
 			String player = info.getGameProfile().getName();
-			int at = nameAt(name, player);
+			int at = hidden ? -1 : nameAt(name, player);
 			int end = at < 0 ? name.length() : at + player.length();
-			line = TAB_GAP + name.substring(0, end) + style.gap + name.substring(end);
-			tab = new TabLine(c, creator(id), style, at < 0 ? null : player, at, end);
+			tab = new TabLine(name, name.substring(0, end) + style.gap + name.substring(end), c, creator, style, at < 0 ? null : player, at,
+				end);
 		} else {
-			line = TAB_GAP + name;
-			tab = new TabLine(c, creator(id), null, null, -1, -1);
+			tab = new TabLine(name, name, c, creator, null, null, -1, -1);
 		}
+		tab.hidden = hidden;
 		if (tabLines.size() > 512) {
 			tabLines.clear();
 		}
-		tabLines.put(line, tab);
-		return line;
+		if (tabOf.size() > 512) {
+			tabOf.clear();
+		}
+		tabLines.put(tab.line, tab);
+		tabOf.put(id, tab);
+		return tab.line;
 	}
 
 	/**
-	 * Draws {@code text} if it is a tab line with the logo: the logo, the line, and for the creator
-	 * the name in pink and the crown and sparkle. False for other lines, left to the caller.
+	 * Draws {@code text} if it is a tab line with the logo: the logo, the line, and for a styled name
+	 * the name in its colours and its icon. False for other lines, left to the caller.
 	 */
 	public boolean tabLine(FontRenderer font, String text, float x, float y, int color, boolean shadow) {
 		TabLine tab = tabLines.get(text);
@@ -293,61 +319,107 @@ public final class RagoBadge extends Module {
 			return false;
 		}
 		quad(logo, x, y, LOGO_SIZE, LOGO_SIZE, tab.color);
-		text = text.substring(TAB_GAP.length());
 		x += LOGO_SIZE + 2;
 		Style style = tab.style;
 		if (style == null) {
-			font.drawString(text, x, y, color, shadow);
+			font.drawString(tab.text, x, y, color, shadow);
 			return true;
 		}
-		String before = text.substring(0, tab.end);
-		String after = codesAt(before) + text.substring(tab.end + style.gap.length());
 		float nameEnd;
 		if (tab.name != null && style.colours()) {
-			String start = text.substring(0, tab.at);
-			if (!start.isEmpty()) {
-				font.drawString(start, x, y, color, shadow);
+			if (!tab.start.isEmpty()) {
+				font.drawString(tab.start, x, y, color, shadow);
 			}
-			float cx = x + font.getStringWidth(start);
-			String styles = stylesAt(start);
-			long now = Minecraft.getSystemTime();
-			for (int i = 0; i < tab.name.length(); i++) {
-				String ch = styles + tab.name.charAt(i);
-				font.drawString(ch, cx, y, color & 0xFF000000 | style.shade(i, tab.name.length(), now), shadow);
-				cx += font.getStringWidth(ch);
-			}
-			nameEnd = cx;
+			float cx = x + font.getStringWidth(tab.start);
+			nameEnd = letters(font, tab, style, cx, y, color, shadow);
 		} else {
-			font.drawString(before, x, y, color, shadow);
-			nameEnd = x + font.getStringWidth(before);
+			font.drawString(tab.before, x, y, color, shadow);
+			nameEnd = x + font.getStringWidth(tab.before);
 		}
 		int icon = iconTexture(style.icon);
 		if (icon != 0) {
 			quad(icon, nameEnd + 1.5f, y - 0.5f, style.iconW, style.icon.equals(Style.CREATOR) ? ICONS_H : ICON_SIZE, 0xFFFFFFFF);
 		}
-		font.drawString(after, x + font.getStringWidth(before + style.gap), y, color, shadow);
+		font.drawString(tab.after, x + font.getStringWidth(tab.beforeGap), y, color, shadow);
 		return true;
 	}
 
-	/** One tab line with the logo: its colour, and for a styled name where the name is. */
+	/**
+	 * The player's name letter by letter in its colours, from {@code x}; where it ends. In the
+	 * Minecraft font all the letters go out in one draw call, laid out as the font lays them out (a
+	 * letter at a time through the font would also be a new text for every letter and colour, which
+	 * text caches such as Patcher's would keep making and throwing away); otherwise each letter is
+	 * drawn by the font.
+	 */
+	private float letters(FontRenderer font, TabLine tab, Style style, float x, float y, int color, boolean shadow) {
+		int n = tab.name.length();
+		long now = Minecraft.getSystemTime();
+		if (font == Minecraft.getMinecraft().fontRendererObj && tab.plainName && VanillaText.batchable(tab.name)) {
+			if (shades.length < n) {
+				shades = new int[n];
+			}
+			for (int i = 0; i < n; i++) {
+				shades[i] = color & 0xFF000000 | style.shade(i, n, now);
+			}
+			return VanillaText.drawShaded(tab.name, x, y, shades, shadow);
+		}
+		float cx = x;
+		for (int i = 0; i < n; i++) {
+			font.drawString(tab.letters[i], cx, y, color & 0xFF000000 | style.shade(i, n, now), shadow);
+			cx += font.getStringWidth(tab.letters[i]);
+		}
+		return cx;
+	}
+
+	/** One tab line with the logo: its colour, and for a styled name its parts, made once. */
 	private static final class TabLine {
+		/** The game's line it was made from, and the line given back (the logo's room before it). */
+		final String from;
+		final String line;
+		/** The line without the logo's room. */
+		final String text;
 		final int color;
 		final boolean creator;
 		/** The name's colour and icon, null for the game's way. */
 		final Style style;
 		/** The player's name, null when it is not in the line as it is (a nick). */
 		final String name;
-		/** Where the name starts and ends in the line without the logo's room (end: the icon's place). */
-		final int at;
-		final int end;
+		/** The text before the name, the text up to the icon's place, the text after it with the codes in force. */
+		final String start;
+		final String before;
+		final String beforeGap;
+		final String after;
+		/** Each letter of the name with the styles in force (bold...), for the font. */
+		final String[] letters;
+		/** Whether no style (bold...) is in force on the name, so its letters can go out together. */
+		final boolean plainName;
+		/** Whether the line held your name, replaced by the Nick Hider. */
+		boolean hidden;
 
-		TabLine(int color, boolean creator, Style style, String name, int at, int end) {
+		TabLine(String from, String text, int color, boolean creator, Style style, String name, int at, int end) {
+			this.from = from;
+			this.text = text;
+			this.line = TAB_GAP + text;
 			this.color = color;
 			this.creator = creator;
 			this.style = style;
 			this.name = name;
-			this.at = at;
-			this.end = end;
+			if (style == null) {
+				start = before = beforeGap = after = "";
+				letters = new String[0];
+				plainName = false;
+				return;
+			}
+			before = text.substring(0, end);
+			beforeGap = before + style.gap;
+			after = codesAt(before) + text.substring(end + style.gap.length());
+			start = name != null ? text.substring(0, at) : "";
+			String styles = name != null ? stylesAt(start) : "";
+			plainName = styles.isEmpty();
+			letters = new String[name != null ? name.length() : 0];
+			for (int i = 0; i < letters.length; i++) {
+				letters[i] = styles + name.charAt(i);
+			}
 		}
 	}
 

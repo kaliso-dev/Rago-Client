@@ -201,21 +201,33 @@ public final class Cosmetics extends Module {
 	 * Draws {@code pass} once more over what is there, added at full brightness whatever the light:
 	 * the faint glow of the neon pieces. Nothing when the loadout's glow is turned off.
 	 */
-	private static void glow(Loadout l, Runnable pass) {
+	/** The light the glow pass replaced, given back by {@link #glowEnd}. */
+	private static float glowLightX;
+	private static float glowLightY;
+
+	/**
+	 * Starts the glow pass of a piece (full brightness, added over it) when the loadout shows the
+	 * glow; false otherwise. Call {@link #glowEnd} after drawing it. Not a lambda per piece: this runs
+	 * for every player every frame.
+	 */
+	private static boolean glowStart(Loadout l) {
 		if (!l.neonGlow) {
-			return;
+			return false;
 		}
-		float lx = OpenGlHelper.lastBrightnessX;
-		float ly = OpenGlHelper.lastBrightnessY;
+		glowLightX = OpenGlHelper.lastBrightnessX;
+		glowLightY = OpenGlHelper.lastBrightnessY;
 		OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240, 240);
 		GlStateManager.enableBlend();
 		GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
 		GlStateManager.depthMask(false);
-		pass.run();
+		return true;
+	}
+
+	private static void glowEnd() {
 		GlStateManager.depthMask(true);
 		GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 		GlStateManager.disableBlend();
-		OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, lx, ly);
+		OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, glowLightX, glowLightY);
 	}
 
 	@SubscribeEvent
@@ -239,6 +251,16 @@ public final class Cosmetics extends Module {
 		@Override
 		public void doRenderLayer(AbstractClientPlayer player, float limbSwing, float limbSwingAmount, float partialTicks,
 			float ageInTicks, float netHeadYaw, float headPitch, float scale) {
+			if (gg.rago.debug.FrameProfile.ON) {
+				long t = gg.rago.debug.FrameProfile.start();
+				draw(player, ageInTicks);
+				gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.COSMETICS, System.nanoTime() - t);
+				return;
+			}
+			draw(player, ageInTicks);
+		}
+
+		private void draw(AbstractClientPlayer player, float ageInTicks) {
 			if (player.isInvisible()) {
 				return;
 			}
@@ -482,11 +504,12 @@ public final class Cosmetics extends Module {
 		box(-1.7f * PX, -7.1f * PX, 4.5f * PX, 1.7f * PX, -5.7f * PX, 4.55f * PX, 0xFF0B0B0E);
 		box(-2.8f * PX, -5.7f * PX, 4.5f * PX, 2.8f * PX, -4.95f * PX, 4.7f * PX, neon);
 		box(1.3f * PX, -5.85f * PX, 4.7f * PX, 2.2f * PX, -4.8f * PX, 4.8f * PX, 0xFFC9C9D0);
-		glow(l, () -> {
+		if (glowStart(l)) {
 			logoGlow(-1.6f, -8.3f, 3.2f, -4.56f, neon);
 			untextured();
 			box(-2.9f * PX, -5.8f * PX, 4.5f * PX, 2.9f * PX, -4.85f * PX, 4.74f * PX, 0x55000000 | neon & 0xFFFFFF);
-		});
+			glowEnd();
+		}
 		GlStateManager.popMatrix();
 		untextured();
 	}
@@ -501,7 +524,10 @@ public final class Cosmetics extends Module {
 		texBox(-4.8f, -5.75f, -4.8f, 4.8f, -3.9f, 4.8f, 0, 14, 9, 2, 9, 64, 32, c);
 		texBox(-1.5f, -11.6f, -1.5f, 1.5f, -9.1f, 1.5f, 40, 0, 3, 3, 3, 64, 32, neon);
 		logo(-0.9f, -5.65f, 1.8f, -4.83f, neon);
-		glow(l, () -> logoGlow(-0.9f, -5.65f, 1.8f, -4.86f, neon));
+		if (glowStart(l)) {
+			logoGlow(-0.9f, -5.65f, 1.8f, -4.86f, neon);
+			glowEnd();
+		}
 		GlStateManager.popMatrix();
 		untextured();
 	}
@@ -624,13 +650,15 @@ public final class Cosmetics extends Module {
 		if (m == DRAGON_SMALL) {
 			m.render("wing", c, NeonColors.texture(m.texture(), l.wingsNeon));
 			ResourceLocation lit = l.neonGlow ? NeonColors.glow(m.texture(), l.wingsNeon) : null;
-			if (lit != null) {
-				glow(l, () -> m.render("wing", c, lit));
+			if (lit != null && glowStart(l)) {
+				m.renderGlow("wing", c, lit);
+				glowEnd();
 			}
 		} else {
 			m.render("wing", c);
-			if (l.wings.equals("mecha")) {
-				glow(l, () -> m.render("wing", c, MECHA_GLOW));
+			if (l.wings.equals("mecha") && glowStart(l)) {
+				m.renderGlow("wing", c, MECHA_GLOW);
+				glowEnd();
 			}
 		}
 		GlStateManager.popMatrix();
@@ -659,8 +687,9 @@ public final class Cosmetics extends Module {
 		if (l.shield.equals("rago")) {
 			m.render("shield", 0xFFFFFFFF, NeonColors.texture(m.texture(), l.shieldNeon));
 			ResourceLocation lit = l.neonGlow ? NeonColors.glow(m.texture(), l.shieldNeon) : null;
-			if (lit != null) {
-				glow(l, () -> m.render("shield", 0xFFFFFFFF, lit));
+			if (lit != null && glowStart(l)) {
+				m.renderGlow("shield", 0xFFFFFFFF, lit);
+				glowEnd();
 			}
 		} else {
 			m.render("shield", 0xFFFFFFFF);

@@ -68,6 +68,47 @@ public final class VanillaText {
 		return true;
 	}
 
+	/**
+	 * Draws a {@link #batchable} string without § codes, each character in its own colour
+	 * ({@code argb[i]} for character {@code i}), as the font would draw it a character at a time: all
+	 * the shadows, then the characters, in one draw call. Returns where the text ends.
+	 */
+	public static float drawShaded(String s, float x, float y, int[] argb, boolean shadow) {
+		s = Hooks.nick(s);
+		FontRenderer fr = Minecraft.getMinecraft().fontRendererObj;
+		GlStateManager.enableAlpha();
+		GlStateManager.enableTexture2D();
+		GlStateManager.bindTexture(textureId());
+		Tessellator t = Tessellator.getInstance();
+		WorldRenderer b = t.getWorldRenderer();
+		b.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+		float end = x;
+		for (int pass = shadow ? 0 : 1; pass < 2; pass++) {
+			boolean under = pass == 0;
+			float cx = under ? x + 1 : x;
+			float cy = under ? y + 1 : y;
+			for (int i = 0; i < s.length(); i++) {
+				char c = s.charAt(i);
+				if (c == '\u00a7') {
+					i++; // a colour code: each character has its own colour here
+					continue;
+				}
+				int width = fr.getCharWidth(c);
+				if (c != ' ') {
+					int color = i < argb.length ? argb[i] : argb[argb.length - 1];
+					if ((color & 0xFC000000) == 0) {
+						color |= 0xFF000000;
+					}
+					glyph(b, c, width, cx, cy, under ? color & 0xFF000000 | (color & 0xFCFCFC) >> 2 : color);
+				}
+				cx += width;
+			}
+			end = cx;
+		}
+		t.draw();
+		return end;
+	}
+
 	/** Adds the glyphs of a {@link #batchable} string to a batch begun with the ASCII page bound. */
 	public static void append(WorldRenderer b, String s, float x, float y, int argb, boolean shadow) {
 		s = Hooks.nick(s);
@@ -94,22 +135,26 @@ public final class VanillaText {
 			}
 			int width = fr.getCharWidth(c);
 			if (c != ' ') {
-				int shown = shadow ? alpha | (color & 0xFCFCFC) >> 2 : color;
-				int a = shown >>> 24;
-				int r = shown >> 16 & 0xFF;
-				int g = shown >> 8 & 0xFF;
-				int bl = shown & 0xFF;
-				float u = (c % 16) * 8 / 128f;
-				float v = (c / 16) * 8 / 128f;
-				float gw = width - 1.01f;
-				float u1 = u + gw / 128f;
-				float v1 = v + 7.99f / 128f;
-				b.pos(cx, y, 0).tex(u, v).color(r, g, bl, a).endVertex();
-				b.pos(cx, y + 7.99f, 0).tex(u, v1).color(r, g, bl, a).endVertex();
-				b.pos(cx + gw, y + 7.99f, 0).tex(u1, v1).color(r, g, bl, a).endVertex();
-				b.pos(cx + gw, y, 0).tex(u1, v).color(r, g, bl, a).endVertex();
+				glyph(b, c, width, cx, y, shadow ? alpha | (color & 0xFCFCFC) >> 2 : color);
 			}
 			cx += width;
 		}
+	}
+
+	/** One character of the ASCII page at (x, y), {@code width} wide as the font advances, in {@code shown}. */
+	private static void glyph(WorldRenderer b, char c, int width, float x, float y, int shown) {
+		int a = shown >>> 24;
+		int r = shown >> 16 & 0xFF;
+		int g = shown >> 8 & 0xFF;
+		int bl = shown & 0xFF;
+		float u = (c % 16) * 8 / 128f;
+		float v = (c / 16) * 8 / 128f;
+		float gw = width - 1.01f;
+		float u1 = u + gw / 128f;
+		float v1 = v + 7.99f / 128f;
+		b.pos(x, y, 0).tex(u, v).color(r, g, bl, a).endVertex();
+		b.pos(x, y + 7.99f, 0).tex(u, v1).color(r, g, bl, a).endVertex();
+		b.pos(x + gw, y + 7.99f, 0).tex(u1, v1).color(r, g, bl, a).endVertex();
+		b.pos(x + gw, y, 0).tex(u1, v).color(r, g, bl, a).endVertex();
 	}
 }

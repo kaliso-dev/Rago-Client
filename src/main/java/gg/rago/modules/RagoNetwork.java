@@ -96,9 +96,15 @@ public final class RagoNetwork extends Module {
 		boolean show = visible.get();
 		int signature = (show ? 1 : 0) + 31 * (cosmetics != null ? cosmetics.sharedSignature(cape) : 0);
 		client.playing(playing());
-		client.tick(url.get(), account(), show, others.get(), signature,
-			() -> cosmetics != null ? cosmetics.shared(cape) : Loadout.NONE, this::around);
+		client.tick(url.get(), account(), show, others.get(), signature, sharedLoadout, aroundPlayers);
 	}
+
+	/** What you wear, as shared; made once, not every tick. */
+	private final java.util.function.Supplier<Loadout> sharedLoadout = () -> {
+		Cosmetics c = Hooks.cosmetics;
+		return c != null ? c.shared(Hooks.cape) : Loadout.NONE;
+	};
+	private final java.util.function.Supplier<Collection<UUID>> aroundPlayers = this::around;
 
 	@Override
 	protected void onDisable() {
@@ -107,6 +113,12 @@ public final class RagoNetwork extends Module {
 
 	/** What Rago Network says about the player {@code id}; null for someone not using Rago, or when off. */
 	public NetworkClient.Player player(UUID id) {
+		if (gg.rago.debug.FakeBedwars.ON) {
+			NetworkClient.Player fake = gg.rago.debug.FakeBedwars.ragoPlayer(id);
+			if (fake != null) {
+				return fake;
+			}
+		}
 		return isEnabled() && others.get() ? client.player(id) : null;
 	}
 
