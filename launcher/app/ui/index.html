@@ -29,56 +29,261 @@
   <button id="update-go" class="secondary small">Mettre à jour</button>
 </div>
 
-<main>
-  <section class="hero">
-    <p class="eyebrow" id="eyebrow">Minecraft 1.8.9 · Forge</p>
-    <h1>Rago Client</h1>
-    <p class="lede">Le client PvP léger, fait pour Hypixel Bed Wars.</p>
-    <button id="play" class="play">Jouer</button>
-    <div class="status" aria-live="polite">
-      <div class="track" id="track" hidden><div class="fill" id="fill"></div></div>
-      <p id="status-text"></p>
-      <div class="row" id="after-crash" hidden>
-        <button id="open-crash" class="link">Voir le rapport de crash</button>
-        <button id="open-logs" class="link">Ouvrir les journaux</button>
-      </div>
-    </div>
-  </section>
+<div class="shell">
+  <nav class="rail" aria-label="Pages">
+    <button class="tab" data-page="home" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
+      <span>Jouer</span>
+    </button>
+    <button class="tab" data-page="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+      <span>Paramètres</span>
+    </button>
+    <button class="tab" data-page="console">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>
+      <span>Console</span>
+      <i class="dot" id="console-dot" hidden></i>
+    </button>
+    <p class="machine" id="machine"></p>
+  </nav>
 
-  <section class="cards">
-    <article class="card">
-      <h2>OptiFine</h2>
-      <p id="optifine-text"></p>
-      <div class="row">
-        <button id="optifine-page" class="secondary">Ouvrir le site</button>
-        <button id="optifine-add" class="secondary">Ajouter le fichier</button>
+  <main>
+    <section class="page home" id="page-home">
+      <div class="hero">
+        <p class="eyebrow" id="eyebrow">Minecraft 1.8.9 · Forge</p>
+        <h1>Rago Client</h1>
+        <p class="lede">Le client PvP léger, fait pour Hypixel Bed Wars.</p>
+        <button id="play" class="play">Jouer</button>
+        <div class="status" aria-live="polite">
+          <div class="track" id="track" hidden><div class="fill" id="fill"></div></div>
+          <p id="status-text"></p>
+          <div class="row" id="after-crash" hidden>
+            <button id="open-crash" class="link">Voir le rapport de crash</button>
+            <button id="open-console" class="link">Voir la console</button>
+          </div>
+        </div>
       </div>
-      <button id="optifine-remove" class="link" hidden>Retirer OptiFine</button>
-    </article>
-    <article class="card">
-      <h2>Jeu</h2>
-      <label for="memory" class="field"><span id="memory-value">2 Go</span> de mémoire pour le jeu</label>
-      <input id="memory" type="range" min="1024" max="8192" step="512" value="2048">
-      <label for="on-launch" class="field">Quand le jeu démarre</label>
-      <select id="on-launch">
-        <option value="minimize">Réduire le launcher</option>
-        <option value="close">Fermer le launcher</option>
-        <option value="keep">Garder le launcher ouvert</option>
-      </select>
-    </article>
-    <article class="card">
-      <h2>Outils</h2>
-      <button id="import" class="secondary">Importer depuis .minecraft</button>
-      <p class="hint">Copie tes options, tes serveurs et tes resource packs, sans rien écraser.</p>
-      <div class="links">
-        <button class="link" data-folder="game">Dossier du jeu</button>
-        <button class="link" data-folder="resourcepacks">Resource packs</button>
-        <button class="link" data-folder="screenshots">Captures</button>
-        <button class="link" data-folder="logs">Journaux</button>
-        <button id="repair" class="link">Réparer l'installation</button>
+
+      <div class="cards">
+        <article class="card">
+          <h2>Mémoire</h2>
+          <p class="big" id="home-memory"></p>
+          <p class="hint" id="home-memory-hint"></p>
+          <button class="link" data-goto="perf">Régler la mémoire</button>
+        </article>
+        <article class="card">
+          <h2>Graphismes</h2>
+          <div class="segmented" role="group" aria-label="Préréglage graphique">
+            <button data-preset="performance">FPS max</button>
+            <button data-preset="balanced">Équilibré</button>
+            <button data-preset="quality">Qualité</button>
+          </div>
+          <p class="hint">Écrit ces réglages dans les options du jeu. Tu peux les changer en jeu ensuite.</p>
+        </article>
+        <article class="card">
+          <h2>OptiFine</h2>
+          <p id="optifine-text"></p>
+          <div class="row">
+            <button id="optifine-page" class="secondary">Ouvrir le site</button>
+            <button id="optifine-add" class="secondary">Ajouter</button>
+          </div>
+          <button id="optifine-remove" class="link" hidden>Retirer OptiFine</button>
+        </article>
       </div>
-    </article>
-  </section>
-</main>
+    </section>
+
+    <section class="page settings" id="page-settings" hidden>
+      <nav class="subnav" aria-label="Sections">
+        <button data-goto="perf">Performance</button>
+        <button data-goto="game">Jeu</button>
+        <button data-goto="java">Java</button>
+        <button data-goto="launcher">Launcher</button>
+        <button data-goto="tools">Outils</button>
+      </nav>
+      <div class="scroll" id="settings-scroll">
+        <section class="group" id="perf">
+          <h2>Performance</h2>
+          <div class="setting">
+            <div class="label">
+              <h3>Mémoire du jeu</h3>
+              <p id="memory-hint"></p>
+            </div>
+            <div class="control wide">
+              <input id="memory" type="range" min="1024" max="8192" step="512" value="2048" aria-label="Mémoire du jeu">
+              <output id="memory-value" for="memory">2 Go</output>
+            </div>
+          </div>
+          <div class="setting">
+            <div class="label">
+              <h3>Préréglage graphique</h3>
+              <p>Distance de vue, nuages, particules, ombres et mipmaps, écrits dans les options du jeu. VSync coupée et FPS illimités dans les trois.</p>
+            </div>
+            <div class="control">
+              <div class="segmented" role="group" aria-label="Préréglage graphique">
+                <button data-preset="performance">FPS max</button>
+                <button data-preset="balanced">Équilibré</button>
+                <button data-preset="quality">Qualité</button>
+              </div>
+            </div>
+          </div>
+          <div class="setting">
+            <div class="label">
+              <h3>Réglages Java optimisés</h3>
+              <p>Ramasse-miettes G1 réglé pour des pauses courtes, pas de pause complète quand un mod en demande une, démarrage de Forge sans revérifier le jeu.</p>
+            </div>
+            <div class="control"><input type="checkbox" class="switch" id="tuned-jvm" aria-label="Réglages Java optimisés"></div>
+          </div>
+          <div class="setting" data-windows>
+            <div class="label">
+              <h3>Priorité haute</h3>
+              <p>Windows donne le processeur au jeu avant les programmes en arrière-plan.</p>
+            </div>
+            <div class="control"><input type="checkbox" class="switch" id="high-priority" aria-label="Priorité haute"></div>
+          </div>
+          <div class="setting" data-windows>
+            <div class="label">
+              <h3>Carte graphique dédiée</h3>
+              <p>Sur un portable avec deux cartes graphiques, demande à Windows de lancer le jeu sur la plus puissante.</p>
+            </div>
+            <div class="control"><input type="checkbox" class="switch" id="dedicated-gpu" aria-label="Carte graphique dédiée"></div>
+          </div>
+        </section>
+
+        <section class="group" id="game">
+          <h2>Jeu</h2>
+          <div class="setting">
+            <div class="label">
+              <h3>Taille de la fenêtre</h3>
+              <p>La taille du jeu à son ouverture.</p>
+            </div>
+            <div class="control">
+              <select id="size-preset" aria-label="Taille de la fenêtre">
+                <option value="">Par défaut (854 × 480)</option>
+                <option value="1280x720">1280 × 720</option>
+                <option value="1600x900">1600 × 900</option>
+                <option value="1920x1080">1920 × 1080</option>
+                <option value="custom">Personnalisée</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting" id="custom-size" hidden>
+            <div class="label">
+              <h3>Taille personnalisée</h3>
+              <p>En pixels, de 320 à 7680.</p>
+            </div>
+            <div class="control">
+              <input id="width" type="number" min="320" max="7680" aria-label="Largeur">
+              <span class="times">×</span>
+              <input id="height" type="number" min="320" max="7680" aria-label="Hauteur">
+            </div>
+          </div>
+          <div class="setting">
+            <div class="label">
+              <h3>Plein écran au démarrage</h3>
+              <p>F11 en jeu passe aussi du plein écran à la fenêtre.</p>
+            </div>
+            <div class="control"><input type="checkbox" class="switch" id="fullscreen" aria-label="Plein écran au démarrage"></div>
+          </div>
+          <div class="setting">
+            <div class="label">
+              <h3>Mettre Rago à jour</h3>
+              <p>Installe la dernière version de Rago à chaque lancement.</p>
+            </div>
+            <div class="control"><input type="checkbox" class="switch" id="auto-update" aria-label="Mettre Rago à jour"></div>
+          </div>
+        </section>
+
+        <section class="group" id="java">
+          <h2>Java</h2>
+          <div class="setting">
+            <div class="label">
+              <h3>Java utilisé</h3>
+              <p id="java-text"></p>
+            </div>
+            <div class="control">
+              <button id="java-reset" class="secondary" hidden>Rétablir</button>
+              <button id="java-pick" class="secondary">Choisir…</button>
+            </div>
+          </div>
+          <div class="setting column">
+            <div class="label">
+              <h3>Arguments Java supplémentaires</h3>
+              <p>Ajoutés après ceux du launcher, qu'ils remplacent en cas de doublon. Entrée pour enregistrer.</p>
+            </div>
+            <input id="jvm-args" type="text" spellcheck="false" autocomplete="off" placeholder="-XX:+UseStringDeduplication" aria-label="Arguments Java supplémentaires">
+            <p class="field-error" id="jvm-error" hidden></p>
+          </div>
+        </section>
+
+        <section class="group" id="launcher">
+          <h2>Launcher</h2>
+          <div class="setting">
+            <div class="label">
+              <h3>Quand le jeu démarre</h3>
+              <p>Fermer le launcher libère sa mémoire, mais la console s'arrête avec lui.</p>
+            </div>
+            <div class="control">
+              <select id="on-launch" aria-label="Quand le jeu démarre">
+                <option value="minimize">Réduire le launcher</option>
+                <option value="close">Fermer le launcher</option>
+                <option value="keep">Garder le launcher ouvert</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting">
+            <div class="label">
+              <h3>Ouvrir la console au lancement</h3>
+              <p>Affiche ce que le jeu écrit pendant qu'il démarre.</p>
+            </div>
+            <div class="control"><input type="checkbox" class="switch" id="show-console" aria-label="Ouvrir la console au lancement"></div>
+          </div>
+        </section>
+
+        <section class="group" id="tools">
+          <h2>Outils</h2>
+          <div class="setting">
+            <div class="label">
+              <h3>Importer depuis .minecraft</h3>
+              <p>Copie tes options, tes serveurs et tes resource packs, sans rien écraser.</p>
+            </div>
+            <div class="control"><button id="import" class="secondary">Importer</button></div>
+          </div>
+          <div class="setting">
+            <div class="label">
+              <h3>Dossiers</h3>
+              <p id="game-dir" class="path"></p>
+            </div>
+            <div class="control links">
+              <button class="link" data-folder="game">Jeu</button>
+              <button class="link" data-folder="resourcepacks">Packs</button>
+              <button class="link" data-folder="screenshots">Captures</button>
+              <button class="link" data-folder="logs">Journaux</button>
+            </div>
+          </div>
+          <div class="setting">
+            <div class="label">
+              <h3>Réparer l'installation</h3>
+              <p>Retélécharge le jeu et Java au prochain lancement. Tes mondes, options et mods restent.</p>
+            </div>
+            <div class="control"><button id="repair" class="secondary">Réparer</button></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="page console" id="page-console" hidden>
+      <div class="toolbar">
+        <input id="console-filter" type="search" placeholder="Filtrer" aria-label="Filtrer la console" spellcheck="false">
+        <label class="check"><input type="checkbox" id="console-follow" checked> Suivre</label>
+        <button id="console-copy" class="secondary small">Copier</button>
+        <button class="secondary small" data-folder="logs">Ouvrir les journaux</button>
+      </div>
+      <div class="log" id="console-out" tabindex="0"></div>
+      <p class="empty" id="console-empty">La console se remplit quand le jeu démarre.</p>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
 </body>
 </html>

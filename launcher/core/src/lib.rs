@@ -13,9 +13,11 @@ pub mod install;
 pub mod java;
 pub mod launch;
 pub mod mojang;
+pub mod options;
 pub mod os;
 pub mod rago;
 pub mod skin;
+pub mod system;
 pub mod updates;
 
 pub use install::{install, Installed, Layout, Step};
