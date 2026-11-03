@@ -3,7 +3,9 @@
 The launcher installs and starts Minecraft 1.8.9 with Forge and Rago, signed in with the player's own Microsoft account.
 
 - `core/` is the engine. It has no window and is tested on its own.
-- The window (Tauri) comes next.
+- `app/` is the window, built with Tauri: a Rust program with an HTML page in `app/ui/` (no framework, no build step). CI builds the Windows installer (`rago-launcher-windows` artifact).
+
+To build the window on Linux, install the WebKitGTK headers first (`libwebkit2gtk-4.1-dev`, `libsoup-3.0-dev`), then run `cargo run -p rago-launcher`.
 
 ## Where each file comes from
 

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rago</title>
+<link rel="stylesheet" href="style.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="bar">
+  <div class="brand"><img src="logo.png" alt="" width="28" height="28"><span>Rago</span></div>
+  <div id="account" class="account" hidden>
+    <span class="avatar" id="avatar" aria-hidden="true"></span>
+    <span id="account-name"></span>
+    <button id="sign-out" class="link">Se déconnecter</button>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <p class="eyebrow">Minecraft 1.8.9 · Forge</p>
+    <h1>Rago Client</h1>
+    <p class="lede">Le client PvP léger, fait pour Hypixel Bed Wars.</p>
+    <button id="play" class="play">Jouer</button>
+    <div class="status" aria-live="polite">
+      <div class="track" id="track" hidden><div class="fill" id="fill"></div></div>
+      <p id="status-text"></p>
+    </div>
+  </section>
+
+  <section class="cards">
+    <article class="card" id="card-account">
+      <h2>Compte Microsoft</h2>
+      <p id="account-text">Connecte-toi avec le compte qui possède Minecraft. Ton mot de passe reste chez Microsoft.</p>
+      <button id="sign-in" class="secondary">Se connecter</button>
+    </article>
+    <article class="card">
+      <h2>OptiFine</h2>
+      <p id="optifine-text">OptiFine ne peut pas être livré avec Rago. Télécharge-le sur son site, puis ajoute le fichier ici.</p>
+      <div class="row">
+        <button id="optifine-page" class="secondary">Ouvrir le site</button>
+        <button id="optifine-add" class="secondary">Ajouter le fichier</button>
+      </div>
+    </article>
+    <article class="card">
+      <h2>Mémoire</h2>
+      <label for="memory" class="memory-label"><span id="memory-value">2 Go</span> pour le jeu</label>
+      <input id="memory" type="range" min="1024" max="8192" step="512" value="2048">
+      <button id="folder" class="link">Ouvrir le dossier du jeu</button>
+    </article>
+  </section>
+</main>
+</body>
+</html>
