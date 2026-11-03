@@ -27,3 +27,17 @@ jobs:
           name: rago-jar
           path: build/libs/*.jar
           if-no-files-found: error
+
+  launcher:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: launcher
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: launcher
+      - name: Test the launcher engine
+        run: cargo test --locked
