@@ -60,6 +60,7 @@ import gg.rago.hud.elements.ToggleSprintHud;
 import gg.rago.hypixel.HypixelApi;
 import gg.rago.input.InputState;
 import gg.rago.modules.BlockOverlay;
+import gg.rago.modules.ClearInventory;
 import gg.rago.modules.ActionSounds;
 import gg.rago.modules.AutoMessages;
 import gg.rago.modules.AutoText;
@@ -334,6 +335,7 @@ public final class RagoClient {
 		Hooks.overlays = MODULES.register(new Overlays());
 		MODULES.register(new MotionBlur(zoom));
 		Hooks.inventoryBlur = MODULES.register(new InventoryBlur());
+		Hooks.clearInventory = MODULES.register(new ClearInventory());
 		MODULES.register(new ColorGrading());
 		MODULES.register(new Vignette());
 		RagoCape cape = MODULES.register(new RagoCape());

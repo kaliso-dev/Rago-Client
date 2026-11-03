@@ -21,7 +21,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * The Rago cape on your own player, on by default, in one of eight designs; the Rago design comes in the
+ * The Rago cape on your own player, on by default, in one of its designs; the Rago design comes in the
  * {@link NeonColors}. The other designs are big pictures shown smooth ({@link HdTexture}), read the
  * first time they are worn. A cape you already own (Minecraft or OptiFine) is kept unless you choose to show
  * Rago's instead. Minecraft servers do not send cosmetics: other Rago players see your cape through
@@ -31,11 +31,13 @@ import java.util.Set;
 public final class RagoCape extends Module {
 	public static final ResourceLocation TEXTURE = new ResourceLocation("rago", "textures/cape.png");
 	/**
-	 * The designs (Rago Network's capes but "none"); the others than Rago's are drawn by tools/hd_capes.py
-	 * and, for the ones won with Rago Points, tools/reward_capes.py.
+	 * The designs (Rago Network's capes but "none"); the others than Rago's are drawn by tools/hd_capes.py,
+	 * for the ones won with Rago Points tools/reward_capes.py, and for the flags
+	 * tools/flag_capes.py.
 	 */
 	static final String[] DESIGNS = {"rago", "black_cat", "pixel_cat", "night_cat", "qrago", "pink_r", "primal", "mfga", "sakura",
-		"circuit", "inferno", "galaxy", "streak_100"};
+		"circuit", "inferno", "galaxy", "streak_100",
+		"flag_fr", "flag_be", "flag_ch", "flag_ca", "flag_ma", "flag_dz", "flag_tn", "flag_us", "flag_gb", "flag_de", "flag_es", "flag_it", "flag_pt", "flag_br", "flag_tr"};
 	/**
 	 * The designs only the creator of Rago wears: their Discord picture, their photo and the R in the
 	 * pink of their name. Rago Network shows them only on the creator (server/cosmetics.json,

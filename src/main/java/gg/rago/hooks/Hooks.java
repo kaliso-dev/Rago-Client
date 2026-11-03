@@ -12,6 +12,7 @@ import gg.rago.modules.HitDelayFix;
 import gg.rago.modules.BlockEditFix;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.NoF5Bobbing;
+import gg.rago.modules.ClearInventory;
 import gg.rago.modules.InventoryBlur;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.Overlays;
@@ -70,6 +71,7 @@ public final class Hooks {
 	public static volatile NoHurtCam noHurtCam;
 	public static volatile NoF5Bobbing noF5Bobbing;
 	public static volatile InventoryBlur inventoryBlur;
+	public static volatile ClearInventory clearInventory;
 	public static volatile OldAnimations animations;
 	public static volatile Overlays overlays;
 	public static volatile TabPing tabPing;
@@ -155,14 +157,33 @@ public final class Hooks {
 
 	/** GuiScreen.drawWorldBackground: the colours of the dark gradient behind menus in a world. */
 	public static int menuShade(int vanilla) {
+		if (clear()) {
+			return 0;
+		}
 		InventoryBlur b = inventoryBlur;
 		return b != null ? b.shade(vanilla) : vanilla;
 	}
 
-	/** Gui.drawGradientRect, first thing: one of its two colours ({@code start} the top one). */
+	/**
+	 * Gui.drawGradientRect, first thing: one of its two colours ({@code start} the top one). Behind a
+	 * window Clear Inventory clears, the shade over the whole screen stays see-through, whatever
+	 * colour another mod gave it (PolyPatcher's container background opacity).
+	 */
 	public static int menuGradient(int left, int top, int right, int bottom, int color, boolean start) {
+		if (left == 0 && top == 0 && clear()) {
+			net.minecraft.client.gui.GuiScreen screen = Minecraft.getMinecraft().currentScreen;
+			if (right == screen.width && bottom == screen.height) {
+				return 0;
+			}
+		}
 		InventoryBlur b = inventoryBlur;
 		return b != null ? b.gradient(left, top, right, bottom, color, start) : color;
+	}
+
+	/** Whether the window open now is one Clear Inventory leaves see-through. */
+	public static boolean clear() {
+		ClearInventory c = clearInventory;
+		return c != null && c.clears(Minecraft.getMinecraft().currentScreen);
 	}
 
 	/** LayerArmorBase.shouldCombineTextures: true tints armour red with the player, as in 1.7. */

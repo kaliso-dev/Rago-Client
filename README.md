@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.11.0.** What it contains:
+**Current version: 1.11.1.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,18 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.11.1
+  - **Clear Inventory** (Visual): behind your inventory (E) the world stays as it is, with no blur
+    and no dark shade, only a light vignette at the edges (0 to 100 %, 25 % by default; 0 for
+    none). It can also apply to every window (chests, Hypixel's menus and shops). It costs less than
+    Minecraft's own background: the shade is made see-through, the vignette is one quad with the
+    game's vignette texture, drawn only while such a window is open; Inventory Blur steps aside
+  - **15 flag capes** in 4K: France, Belgium, Switzerland, Canada, Morocco, Algeria, Tunisia, the
+    United States, the United Kingdom, Germany, Spain, Italy, Portugal, Brazil and Turkey, drawn from
+    the official flags (public domain, `tools/flags`) by `tools/flag_capes.py`: the field continued
+    above and below, stripes made taller with emblems kept at their proportions, the stars and the
+    Union Jack drawn again at the cape's shape. Common cosmetics, sold in the shop; flat colours,
+    so each file is small, read only when someone wears it
 - new in 1.11.0
   - **Daily chest**: free every day (dock, gift button), three cards drawn by Rago Network: Rago
     Points, cosmetics or fragments of one. Day 7 of a streak gives a card more, day 14 a rare card,

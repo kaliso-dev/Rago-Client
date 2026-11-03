@@ -115,6 +115,7 @@ final class ModuleInfo {
 		ICONS.put("game_debrief", "image");
 		ICONS.put("overlays", "paintbrush");
 		ICONS.put("inventory_blur", "droplet");
+		ICONS.put("clear_inventory", "eye");
 		ICONS.put("no_f5_bobbing", "camera");
 	}
 

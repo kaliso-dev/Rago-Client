@@ -28,7 +28,7 @@ public final class FakeBedwars {
 	private static final java.util.Map<java.util.UUID, gg.rago.network.NetworkClient.Player> RAGO = new java.util.HashMap<>();
 	private static final String[] COLORS = {"aurora", "rainbow", "sakura", "mint", "inferno", "gold_rush"};
 	private static final String[] ICONS = {"flame", "heart", "star", "skull", "gem", "bolt"};
-	private static final String[] CAPES = {"galaxy", "sakura", "circuit", "inferno"};
+	private static final String[] CAPES = {"galaxy", "sakura", "circuit", "inferno", "flag_fr", "flag_br"};
 	private static final String[] HATS = {"cat_ears", "devil_horns", "headphones", "kitsune"};
 	private static final String[] WINGS = {"mecha", "angel", "frost", "dragon_small"};
 
@@ -89,8 +89,23 @@ public final class FakeBedwars {
 			}
 			if (styled) {
 				rago(profile.getId(), i);
+				// as on a server: every skin layer and the cape shown, and a tab list entry (capes need one)
+				e.getDataWatcher().updateObject(10, (byte) 0x7F);
+				listed(mc, profile);
 			}
 			mc.theWorld.addEntityToWorld(-1000 - i, e);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void listed(Minecraft mc, com.mojang.authlib.GameProfile profile) {
+		try {
+			java.lang.reflect.Field f = net.minecraftforge.fml.relauncher.ReflectionHelper.findField(
+				net.minecraft.client.network.NetHandlerPlayClient.class, "playerInfoMap", "field_147310_i");
+			((java.util.Map<java.util.UUID, net.minecraft.client.network.NetworkPlayerInfo>) f.get(mc.getNetHandler()))
+				.put(profile.getId(), new net.minecraft.client.network.NetworkPlayerInfo(profile));
+		} catch (ReflectiveOperationException | RuntimeException e) {
+			gg.rago.core.RagoClient.LOG.warn("Test players: no tab list entry", e);
 		}
 	}
 
