@@ -124,3 +124,12 @@ jobs:
           RAGO_E2E_DIR="$RUNNER_TEMP\\rago" RAGO_E2E_JAR="$GITHUB_WORKSPACE\\rago-jar\\$jar" \
             RAGO_LOADER_JAR="$GITHUB_WORKSPACE\\rago-loader-jar\\$loader" \
             cargo test --locked -p rago-launcher-core --test end_to_end -- --ignored --nocapture --test-threads=1
+      - name: Try the loader's setup for the official launcher on that install
+        # loader/windows/essai-chargeur.ps1, as players run it, in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP "rago"
+          .\loader\windows\essai-chargeur.ps1 -Minecraft $root -Mods (Join-Path $root "game\mods") -Java $env:JAVA_HOME_21_X64
+          $v = Get-Content (Join-Path $root "versions\1.8.9-rago\1.8.9-rago.json") -Raw | ConvertFrom-Json
+          if ($v.mainClass -ne "gg.rago.loader.Main" -or $v.minecraftArguments -notlike "launch --game *--username *") { throw "bad version file" }
+          if (-not (Test-Path (Join-Path $root "libraries\gg\rago\rago-loader\0.1.0\rago-loader-0.1.0.jar"))) { throw "loader jar missing" }
