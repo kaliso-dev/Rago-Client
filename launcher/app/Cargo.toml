@@ -10,6 +10,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 anyhow = "1"
+base64 = "0.22"
 keyring = { version = "3", features = ["windows-native", "apple-native", "sync-secret-service", "crypto-rust"] }
 rago-launcher-core = { path = "../core" }
 serde = { version = "1", features = ["derive"] }

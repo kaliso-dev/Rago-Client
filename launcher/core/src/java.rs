@@ -177,7 +177,7 @@ fn untar_stripped(archive: &Path, dest: &Path) -> Result<()> {
         if kind.is_symlink() || kind.is_hard_link() {
             // the JRE needs no links outside its own tree; refuse any that would escape
             let target = entry.link_name()?.map(|t| t.into_owned());
-            if target.as_ref().map_or(true, |t| t.is_absolute() || t.components().any(|c| c == Component::ParentDir)) {
+            if target.as_ref().is_none_or(|t| t.is_absolute() || t.components().any(|c| c == Component::ParentDir)) {
                 continue;
             }
         }

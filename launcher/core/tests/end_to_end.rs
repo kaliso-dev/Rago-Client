@@ -1,6 +1,6 @@
 //! Installs everything for real and starts the game until Forge has loaded Rago.
 //! Slow and online, so ignored by default:
-//! RAGO_E2E_DIR=/tmp/rago RAGO_E2E_JAR=../../build/libs/rago-x+1.8.9.jar DISPLAY=:99 cargo test -- --ignored
+//! RAGO_E2E_DIR=/tmp/rago RAGO_E2E_JAR=../build/libs/rago-x+1.8.9.jar DISPLAY=:99 cargo test -- --ignored
 
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -37,17 +37,23 @@ fn installs_and_starts_the_game() {
     let mut child = command(&inst, &account, &Options::default()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap();
     let out = BufReader::new(child.stdout.take().unwrap());
     let deadline = Instant::now() + Duration::from_secs(240);
-    let (mut lwjgl, mut rago) = (false, false);
+    let (mut fml, mut rago, mut loaded) = (false, false, false);
     for line in out.lines() {
-        let line = line.unwrap();
+        let Ok(line) = line else { break };
         eprintln!("{line}");
-        lwjgl |= line.contains("LWJGL Version");
-        rago |= line.contains("Rago") && (line.contains("Mod") || line.contains("rago"));
-        if line.contains("Forge Mod Loader has successfully loaded") || Instant::now() > deadline {
+        fml |= line.contains("Forge Mod Loader version");
+        // Rago's coremod logs each hook it puts into Minecraft's classes
+        rago |= line.contains("logger=\"Rago\"") || line.contains("Hook installed");
+        loaded |= line.contains("Forge Mod Loader has successfully loaded");
+        if loaded || Instant::now() > deadline {
             break;
         }
     }
     let _ = child.kill();
-    assert!(lwjgl, "the game window never opened");
+    let _ = child.wait();
+    // a machine without a graphics card (CI on Windows) stops at the window; Forge and Rago
+    // have run by then
+    assert!(fml, "Forge never started");
     assert!(rago || matches!(source, RagoSource::Keep), "Rago was not loaded");
+    eprintln!("mods loaded: {loaded}");
 }

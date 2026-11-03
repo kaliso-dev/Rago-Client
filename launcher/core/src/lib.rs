@@ -8,12 +8,15 @@
 pub mod auth;
 pub mod forge;
 pub mod http;
+pub mod import;
 pub mod install;
 pub mod java;
 pub mod launch;
 pub mod mojang;
 pub mod os;
 pub mod rago;
+pub mod skin;
+pub mod updates;
 
 pub use install::{install, Installed, Layout, Step};
 pub use launch::{command, Account, Options};

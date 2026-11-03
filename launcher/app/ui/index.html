@@ -9,13 +9,25 @@
 </head>
 <body>
 <header class="bar">
-  <div class="brand"><img src="logo.png" alt="" width="28" height="28"><span>Rago</span></div>
-  <div id="account" class="account" hidden>
-    <span class="avatar" id="avatar" aria-hidden="true"></span>
-    <span id="account-name"></span>
-    <button id="sign-out" class="link">Se déconnecter</button>
+  <div class="brand"><img src="logo.png" alt="" width="28" height="28"><span>Rago</span><span class="version" id="version"></span></div>
+  <div class="right">
+    <button id="sign-in" class="secondary small">Se connecter avec Microsoft</button>
+    <details id="accounts" class="accounts" hidden>
+      <summary>
+        <img id="face" class="face" alt="" width="28" height="28" hidden>
+        <span id="face-letter" class="face letter" aria-hidden="true"></span>
+        <span id="account-name"></span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </summary>
+      <div class="menu" id="account-menu"></div>
+    </details>
   </div>
 </header>
+
+<div id="update" class="update" hidden>
+  <span id="update-text"></span>
+  <button id="update-go" class="secondary small">Mettre à jour</button>
+</div>
 
 <main>
   <section class="hero">
@@ -26,28 +38,46 @@
     <div class="status" aria-live="polite">
       <div class="track" id="track" hidden><div class="fill" id="fill"></div></div>
       <p id="status-text"></p>
+      <div class="row" id="after-crash" hidden>
+        <button id="open-crash" class="link">Voir le rapport de crash</button>
+        <button id="open-logs" class="link">Ouvrir les journaux</button>
+      </div>
     </div>
+    <p class="installed" id="installed"></p>
   </section>
 
   <section class="cards">
-    <article class="card" id="card-account">
-      <h2>Compte Microsoft</h2>
-      <p id="account-text">Connecte-toi avec le compte qui possède Minecraft. Ton mot de passe reste chez Microsoft.</p>
-      <button id="sign-in" class="secondary">Se connecter</button>
-    </article>
     <article class="card">
       <h2>OptiFine</h2>
-      <p id="optifine-text">OptiFine ne peut pas être livré avec Rago. Télécharge-le sur son site, puis ajoute le fichier ici.</p>
+      <p id="optifine-text"></p>
       <div class="row">
         <button id="optifine-page" class="secondary">Ouvrir le site</button>
         <button id="optifine-add" class="secondary">Ajouter le fichier</button>
       </div>
+      <button id="optifine-remove" class="link" hidden>Retirer OptiFine</button>
     </article>
     <article class="card">
-      <h2>Mémoire</h2>
-      <label for="memory" class="memory-label"><span id="memory-value">2 Go</span> pour le jeu</label>
+      <h2>Jeu</h2>
+      <label for="memory" class="field"><span id="memory-value">2 Go</span> de mémoire pour le jeu</label>
       <input id="memory" type="range" min="1024" max="8192" step="512" value="2048">
-      <button id="folder" class="link">Ouvrir le dossier du jeu</button>
+      <label for="on-launch" class="field">Quand le jeu démarre</label>
+      <select id="on-launch">
+        <option value="minimize">Réduire le launcher</option>
+        <option value="close">Fermer le launcher</option>
+        <option value="keep">Garder le launcher ouvert</option>
+      </select>
+    </article>
+    <article class="card">
+      <h2>Outils</h2>
+      <button id="import" class="secondary">Importer depuis .minecraft</button>
+      <p class="hint">Copie tes options, tes serveurs et tes resource packs, sans rien écraser.</p>
+      <div class="links">
+        <button class="link" data-folder="game">Dossier du jeu</button>
+        <button class="link" data-folder="resourcepacks">Resource packs</button>
+        <button class="link" data-folder="screenshots">Captures</button>
+        <button class="link" data-folder="logs">Journaux</button>
+        <button id="repair" class="link">Réparer l'installation</button>
+      </div>
     </article>
   </section>
 </main>

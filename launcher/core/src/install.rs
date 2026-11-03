@@ -89,7 +89,7 @@ pub struct Installed {
 
 fn json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
     let data = fs::read(path).with_context(|| path.display().to_string())?;
-    Ok(serde_json::from_slice(&data).with_context(|| path.display().to_string())?)
+    serde_json::from_slice(&data).with_context(|| path.display().to_string())
 }
 
 /// Downloads and checks everything for Minecraft 1.8.9 with Forge and Rago, then unpacks the natives.
@@ -182,6 +182,17 @@ pub fn install(client: &Client, layout: &Layout, source: &RagoSource, progress: 
         log_argument,
         rago,
     })
+}
+
+/// Forgets the game's own files and Java so the next install fetches them again (libraries and
+/// assets are checked at every install anyway). Worlds, options and mods are kept.
+pub fn repair(layout: &Layout) -> Result<()> {
+    for dir in [layout.root.join("versions"), layout.runtime()] {
+        if dir.exists() {
+            fs::remove_dir_all(&dir).with_context(|| dir.display().to_string())?;
+        }
+    }
+    Ok(())
 }
 
 /// Unpacks the native libraries into a fresh folder, without the paths each jar excludes.

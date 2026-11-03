@@ -119,7 +119,7 @@ pub fn allowed(rules: Option<&[Rule]>, os: Os) -> bool {
     for rule in rules {
         let applies = match &rule.os {
             None => true,
-            Some(r) => r.name.as_deref().map_or(true, |n| n == os.mojang()),
+            Some(r) => r.name.as_deref().is_none_or(|n| n == os.mojang()),
         };
         if applies {
             allow = rule.action == "allow";
@@ -210,7 +210,7 @@ pub fn asset_downloads(index: &AssetIndex, assets: &Path) -> Vec<Download> {
             size: Some(object.size),
         });
     }
-    out.sort_by(|a, b| b.size.cmp(&a.size));
+    out.sort_by_key(|d| std::cmp::Reverse(d.size));
     out
 }
 
