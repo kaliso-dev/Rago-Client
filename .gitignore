@@ -13,3 +13,5 @@ logs/
 rago-dump/
 server/config.json
 server/*.db
+/loader/build/
+/loader/.gradle/
