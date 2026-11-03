@@ -7,7 +7,6 @@ import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.gui.inventory.GuiContainerCreative;
 import net.minecraft.client.gui.inventory.GuiInventory;
@@ -81,33 +80,49 @@ public final class ClearInventory extends Module {
 		lastDrawn = now;
 		float k = vignette.get() / 100f * InventoryBlur.fadeIn(now - openedAt, FADE_MS);
 		if (k > 0) {
-			draw(mc, event.resolution, k);
+			draw(mc, k);
 		}
 	}
 
-	/** The game's vignette texture over the screen: each colour kept at 1 - k x the texture's brightness. */
-	private static void draw(Minecraft mc, ScaledResolution res, float k) {
+	/**
+	 * The game's vignette texture over the whole screen: each colour kept at 1 - k x the texture's
+	 * brightness. Drawn in the screen's own coordinates (-1 to 1) with matrices of its own, so it
+	 * does not depend on what another effect drawn before it (the Vignette mod) left set.
+	 */
+	private static void draw(Minecraft mc, float k) {
+		GlStateManager.matrixMode(GL11.GL_PROJECTION);
+		GlStateManager.pushMatrix();
+		GlStateManager.loadIdentity();
+		GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+		GlStateManager.pushMatrix();
+		GlStateManager.loadIdentity();
 		GlStateManager.disableDepth();
 		GlStateManager.depthMask(false);
 		GlStateManager.disableAlpha();
+		GlStateManager.enableTexture2D();
 		GlStateManager.enableBlend();
 		GlStateManager.tryBlendFuncSeparate(GL11.GL_ZERO, GL11.GL_ONE_MINUS_SRC_COLOR, GL11.GL_ZERO, GL11.GL_ONE);
 		GlStateManager.color(k, k, k, 1);
 		mc.getTextureManager().bindTexture(VIGNETTE);
-		double w = res.getScaledWidth_double();
-		double h = res.getScaledHeight_double();
-		Tessellator t = Tessellator.getInstance();
-		WorldRenderer r = t.getWorldRenderer();
-		r.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
-		r.pos(0, h, -90).tex(0, 1).endVertex();
-		r.pos(w, h, -90).tex(1, 1).endVertex();
-		r.pos(w, 0, -90).tex(1, 0).endVertex();
-		r.pos(0, 0, -90).tex(0, 0).endVertex();
-		t.draw();
-		GlStateManager.color(1, 1, 1, 1);
-		GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
-		GlStateManager.enableAlpha();
-		GlStateManager.depthMask(true);
-		GlStateManager.enableDepth();
+		try {
+			Tessellator t = Tessellator.getInstance();
+			WorldRenderer r = t.getWorldRenderer();
+			r.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
+			r.pos(-1, -1, 0).tex(0, 1).endVertex();
+			r.pos(1, -1, 0).tex(1, 1).endVertex();
+			r.pos(1, 1, 0).tex(1, 0).endVertex();
+			r.pos(-1, 1, 0).tex(0, 0).endVertex();
+			t.draw();
+		} finally {
+			GlStateManager.color(1, 1, 1, 1);
+			GlStateManager.matrixMode(GL11.GL_PROJECTION);
+			GlStateManager.popMatrix();
+			GlStateManager.matrixMode(GL11.GL_MODELVIEW);
+			GlStateManager.popMatrix();
+			GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+			GlStateManager.enableAlpha();
+			GlStateManager.depthMask(true);
+			GlStateManager.enableDepth();
+		}
 	}
 }
