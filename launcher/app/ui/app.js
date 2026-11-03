@@ -85,7 +85,9 @@ function render() {
   if (!signedIn && !$("status-text").textContent) {
     setStatus(view.signInReady ? "Connecte-toi pour jouer." : "La connexion Microsoft arrive bientôt : Mojang doit encore autoriser l'application Rago.");
   }
-  $("installed").textContent = view.rago ? `Installé : ${view.rago.replace(/\.jar$/, "")}` : "";
+  // the Rago version installed, next to the game version
+  const rago = view.rago?.match(/^rago-(.+?)\+/);
+  $("eyebrow").textContent = `Minecraft 1.8.9 · Forge${rago ? ` · Rago ${rago[1]}` : ""}`;
   $("optifine-text").textContent = view.optifine
     ? `${view.optifine} est installé.`
     : "OptiFine ne peut pas être livré avec Rago. Télécharge-le sur son site, puis ajoute le fichier ici.";
@@ -128,6 +130,7 @@ $("sign-in").addEventListener("click", () => signIn($("sign-in")));
 $("play").addEventListener("click", () => {
   $("after-crash").hidden = true;
   $("play").dataset.running = "1";
+  $("play").textContent = "Lancement…";
   run($("play"), async () => {
     setStatus("Connexion…");
     try {
