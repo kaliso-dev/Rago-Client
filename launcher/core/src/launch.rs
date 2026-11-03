@@ -1,4 +1,4 @@
-//! The command line that starts Minecraft with Forge and Rago.
+//! The command line that starts Minecraft with Forge and Rago, or with Rago's own loader.
 
 use std::collections::HashMap;
 use std::process::Command;
@@ -120,6 +120,7 @@ pub fn game_arguments(inst: &Installed, account: &Account, opts: &Options) -> Ve
         ("user_type", "msa".into()),
     ]
     .into_iter()
+    .chain(inst.vars.iter().map(|(k, v)| (k.as_str(), v.clone())))
     .collect();
     let mut args = substitute(&inst.minecraft_arguments, &vars);
     if let Some((w, h)) = opts.size {
@@ -165,6 +166,13 @@ mod tests {
             version_name: "1.8.9-forge".into(),
             log_argument: Some("-Dlog4j.configurationFile=client-1.7.xml".into()),
             rago: None,
+            vars: Vec::new(),
+            vanilla: crate::install::Vanilla {
+                classpath: vec![PathBuf::from("b.jar")],
+                client_jar: PathBuf::from("1.8.9.jar"),
+                arguments: "--username ${auth_player_name}".into(),
+                forge_jar: PathBuf::from("forge.jar"),
+            },
         }
     }
 

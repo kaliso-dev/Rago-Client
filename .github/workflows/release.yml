@@ -35,8 +35,27 @@ jobs:
           jar=$(ls build/libs/rago-*+1.8.9.jar | grep -v -- '-sources' | head -1)
           gh release create "$GITHUB_REF_NAME" "$jar" --title "Rago $GITHUB_REF_NAME" --generate-notes
 
+  loader:
+    if: startsWith(github.ref_name, 'launcher-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and test Rago's loader (put inside the launcher)
+        run: bash loader/ci/build.sh "$RUNNER_TEMP/game"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rago-loader-jar
+          path: loader/build/libs/rago-loader-*.jar
+          if-no-files-found: error
+
   launcher:
     if: startsWith(github.ref_name, 'launcher-v')
+    needs: loader
     runs-on: windows-latest
     defaults:
       run:
@@ -44,6 +63,10 @@ jobs:
         working-directory: launcher/app
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: rago-loader-jar
+          path: rago-loader-jar
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -58,7 +81,9 @@ jobs:
       - name: Build the installer
         env:
           RAGO_MS_CLIENT_ID: ${{ vars.RAGO_MS_CLIENT_ID }}
-        run: npx --yes @tauri-apps/cli@2.12.4 build --ci
+        run: |
+          export RAGO_LOADER_JAR="$GITHUB_WORKSPACE\\rago-loader-jar\\$(ls ../../rago-loader-jar | head -1)"
+          npx --yes @tauri-apps/cli@2.12.4 build --ci
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}

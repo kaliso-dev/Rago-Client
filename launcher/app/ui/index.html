@@ -232,6 +232,18 @@
           <h1>Performance</h1>
           <p>Tout ce que le launcher règle pour donner le plus d'images par seconde à ton PC.</p>
         </header>
+        <div class="setting" id="engine-setting" hidden>
+          <div class="label">
+            <h3>Moteur du jeu <span class="tag">Expérimental</span></h3>
+            <p>Forge sur Java 8, comme avant, ou notre propre chargeur : Minecraft sur Java 21, sans Forge. Avec le chargeur Rago, seul Rago est lancé : OptiFine et tes autres mods restent dans le dossier mais ne sont pas chargés pour l'instant.</p>
+          </div>
+          <div class="control">
+            <div class="profiles" role="group" aria-label="Moteur du jeu">
+              <button data-engine="forge"><svg class="i sm"><use href="#i-cube"/></svg>Forge · Java 8</button>
+              <button data-engine="rago"><svg class="i sm"><use href="#i-bolt"/></svg>Rago · Java 21</button>
+            </div>
+          </div>
+        </div>
         <div class="setting">
           <div class="label">
             <h3>Mémoire du jeu</h3>

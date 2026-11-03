@@ -85,6 +85,21 @@ pub struct Installed {
     /// the JVM argument that points log4j at Mojang's patched configuration
     pub log_argument: Option<String>,
     pub rago: Option<PathBuf>,
+    /// more `${name}` values for the argument line
+    pub vars: Vec<(String, String)>,
+    /// what Rago's own loader starts from instead of Forge (see [`crate::loader`])
+    pub vanilla: Vanilla,
+}
+
+/// Minecraft as Mojang ships it, next to the Forge install.
+#[derive(Clone, Debug)]
+pub struct Vanilla {
+    /// Minecraft's libraries, without Forge's and without the game jar
+    pub classpath: Vec<PathBuf>,
+    pub client_jar: PathBuf,
+    pub arguments: String,
+    /// Forge's jar, only read: the names the game's classes and members are given come from it
+    pub forge_jar: PathBuf,
 }
 
 fn json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
@@ -146,7 +161,7 @@ pub fn install(client: &Client, layout: &Layout, source: &RagoSource, progress: 
     unpack_natives(&vanilla.natives, &layout.natives())?;
 
     progress(Step::Java);
-    let java = java::ensure(client, &layout.runtime(), os)?;
+    let java = java::ensure(client, &layout.runtime(), os, 8)?;
 
     progress(Step::Rago);
     fs::create_dir_all(layout.mods())?;
@@ -159,6 +174,14 @@ pub fn install(client: &Client, layout: &Layout, source: &RagoSource, progress: 
         RagoSource::Keep => rago::installed(&layout.mods()),
     };
 
+    let forge_jar = forge
+        .libraries
+        .iter()
+        .find(|l| l.name.starts_with("net.minecraftforge:forge:"))
+        .map(|l| libraries.join(&l.path))
+        .context("Forge manque dans data/forge-1.8.9.json")?;
+    let vanilla_classpath: Vec<PathBuf> = vanilla.classpath.iter().map(|(_, p)| p.clone()).collect();
+
     // Forge's libraries first, then Minecraft's that Forge does not already bring, then the game
     let mut seen = HashSet::new();
     let mut classpath = Vec::new();
@@ -167,7 +190,7 @@ pub fn install(client: &Client, layout: &Layout, source: &RagoSource, progress: 
             classpath.push(path);
         }
     }
-    classpath.push(client_jar);
+    classpath.push(client_jar.clone());
 
     Ok(Installed {
         java,
@@ -181,6 +204,8 @@ pub fn install(client: &Client, layout: &Layout, source: &RagoSource, progress: 
         version_name: forge.id,
         log_argument,
         rago,
+        vars: Vec::new(),
+        vanilla: Vanilla { classpath: vanilla_classpath, client_jar, arguments: version.minecraft_arguments.clone(), forge_jar },
     })
 }
 

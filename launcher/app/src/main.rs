@@ -18,7 +18,7 @@ use rago_launcher_core::os::Os;
 use rago_launcher_core::options::{self as presets, Preset};
 use rago_launcher_core::net::{self, Latency, Status};
 use rago_launcher_core::news::{self, News};
-use rago_launcher_core::{command, http, import, java, rago, servers, skin, system, updates, Options};
+use rago_launcher_core::{command, http, import, java, loader, rago, servers, skin, system, updates, Options};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
@@ -92,6 +92,15 @@ struct Settings {
     preset: Option<String>,
     /// the server Play joins directly; none opens the main menu
     join: Option<String>,
+    /// "forge" (Forge on Java 8, the default) or "rago" (Rago's own loader on Java 21)
+    engine: Option<String>,
+}
+
+impl Settings {
+    /// Rago's own loader, when chosen and this launcher can run it.
+    fn own_loader(&self) -> bool {
+        self.engine.as_deref() == Some("rago") && loader::available() && loader::supported(Os::current())
+    }
 }
 
 impl Settings {
@@ -171,6 +180,9 @@ struct View {
     forge: String,
     /// the frame cap in the game's options (260 means none)
     max_fps: Option<u32>,
+    engine: String,
+    /// this launcher can start the game with Rago's own loader
+    loader: bool,
 }
 
 /// "maxFps" from the game's options.txt.
@@ -193,6 +205,7 @@ fn state(state: State<'_, AppState>) -> View {
     let l = layout();
     let total = system::total_memory_mb();
     let selected = s.selected.clone().filter(|u| s.accounts.iter().any(|a| &a.uuid == u)).or_else(|| s.accounts.first().map(|a| a.uuid.clone()));
+    let engine = if s.own_loader() { "rago" } else { "forge" };
     View {
         selected,
         accounts: s.accounts,
@@ -224,6 +237,8 @@ fn state(state: State<'_, AppState>) -> View {
         join: s.join.clone(),
         forge: FORGE_VERSION.into(),
         max_fps: max_fps(&l.game()),
+        engine: engine.into(),
+        loader: loader::available() && loader::supported(Os::current()),
     }
 }
 
@@ -537,6 +552,12 @@ fn set_setting(key: String, value: serde_json::Value) -> Result<(), String> {
             s.on_launch = Some(v.into());
         }
         "tunedJvm" => s.tuned_jvm = Some(flag()?),
+        "engine" => match value.as_str() {
+            Some("forge") => s.engine = None,
+            Some("rago") if loader::available() && loader::supported(Os::current()) => s.engine = Some("rago".into()),
+            Some("rago") => return Err("Le chargeur Rago ne marche que sur Windows pour l'instant.".into()),
+            _ => return Err("Valeur invalide.".into()),
+        },
         "jvmArgs" => {
             let text = value.as_str().ok_or("Valeur invalide.")?.trim().to_string();
             parse_jvm_arguments(&text)?;
@@ -776,7 +797,11 @@ async fn play(app: AppHandle, server: Option<String>) -> Result<(), String> {
             Step::Rago => emit("rago", 0, 0, 0),
         })
         .map_err(err_chain)?;
-        if let Some(own) = settings.java_path.as_deref().map(PathBuf::from) {
+        if settings.own_loader() {
+            // Java 21 and the game renamed once; the player's own Java is a Java 8, for Forge
+            emit("loader", 0, 0, 0);
+            installed = loader::prepare(&client, &layout, &installed).map_err(err_chain)?;
+        } else if let Some(own) = settings.java_path.as_deref().map(PathBuf::from) {
             if !own.is_file() {
                 return Err(format!("Le Java choisi n'existe plus : {}. Remets celui du launcher dans les paramètres.", own.display()));
             }

@@ -1,5 +1,6 @@
-//! Java 8 for Forge 1.8.9: Eclipse Temurin's JRE from the Adoptium API, checked by SHA-256 and
-//! unpacked under `runtime/<release>`. Without the network, the last one unpacked is used.
+//! Java for the game: 8 for Forge 1.8.9, 21 for Rago's own loader. Eclipse Temurin's JRE from the
+//! Adoptium API, checked by SHA-256 and unpacked under `runtime/<release>` (Java 8) or
+//! `runtime/java-21/<release>`. Without the network, the last one unpacked is used.
 
 use std::fs::{self, File};
 use std::io;
@@ -33,7 +34,7 @@ struct Package {
     name: String,
 }
 
-/// The newest Temurin 8 JRE for this machine.
+/// The newest Temurin JRE of one Java version for this machine.
 #[derive(Clone, Debug)]
 pub struct Jre {
     pub release: String,
@@ -43,15 +44,15 @@ pub struct Jre {
     pub file: String,
 }
 
-pub fn latest(client: &Client, os: Os) -> Result<Jre> {
+pub fn latest(client: &Client, os: Os, feature: u8) -> Result<Jre> {
     let url = format!(
-        "https://api.adoptium.net/v3/assets/latest/8/hotspot?architecture={}&image_type=jre&os={}&vendor=eclipse",
+        "https://api.adoptium.net/v3/assets/latest/{feature}/hotspot?architecture={}&image_type=jre&os={}&vendor=eclipse",
         adoptium_arch(),
         os.adoptium()
     );
     let assets: Vec<Asset> = client.get(url).send()?.error_for_status()?.json()?;
     let Some(a) = assets.into_iter().next() else {
-        bail!("Adoptium n'a pas de Java 8 pour ce système");
+        bail!("Adoptium n'a pas de Java {feature} pour ce système");
     };
     if a.release_name.contains(['/', '\\']) || a.release_name.contains("..") {
         bail!("nom de version Java inattendu : {}", a.release_name);
@@ -97,12 +98,12 @@ pub fn is_java_8(version: &str) -> bool {
     version.starts_with("1.8.")
 }
 
-/// Java 8 ready to run, from `runtime_dir`: the newest release, or the last one unpacked when
-/// Adoptium cannot be reached.
-pub fn ensure(client: &Client, runtime_dir: &Path, os: Os) -> Result<PathBuf> {
-    match latest(client, os) {
+/// Java `feature` (8 or 21) ready to run, from `runtime_dir`: the newest release, or the last one
+/// unpacked when Adoptium cannot be reached.
+pub fn ensure(client: &Client, runtime_dir: &Path, os: Os, feature: u8) -> Result<PathBuf> {
+    match latest(client, os, feature) {
         Ok(jre) => install(client, &jre, runtime_dir, os),
-        Err(e) => installed(runtime_dir, os).ok_or(e).context("Java 8 introuvable et Adoptium injoignable"),
+        Err(e) => installed(runtime_dir, os).ok_or(e).with_context(|| format!("Java {feature} introuvable et Adoptium injoignable")),
     }
 }
 
@@ -118,6 +119,7 @@ pub fn installed(runtime_dir: &Path, os: Os) -> Option<PathBuf> {
 }
 
 pub fn install(client: &Client, jre: &Jre, runtime_dir: &Path, os: Os) -> Result<PathBuf> {
+    fs::create_dir_all(runtime_dir)?;
     let home = runtime_dir.join(&jre.release);
     if home.join(DONE).is_file() && executable(&home, os).is_file() {
         return Ok(executable(&home, os));

@@ -9,6 +9,7 @@ const STAGES = {
   natives: "Préparation du jeu…",
   java: "Vérification de Java…",
   rago: "Mise à jour de Rago…",
+  loader: "Préparation de Java 21…",
 };
 const SIZES = ["1280x720", "1600x900", "1920x1080"];
 const MAX_LINES = 4000;
@@ -246,11 +247,14 @@ function render() {
   }
   const rago = view.rago?.match(/^rago-(.+?)\+/);
   const versions = $("versions");
-  versions.replaceChildren(el("span", "", "Minecraft 1.8.9"), el("span", "", `Forge ${view.forge}`));
+  const engine = view.engine === "rago" ? "Chargeur Rago · Java 21" : `Forge ${view.forge}`;
+  versions.replaceChildren(el("span", "", "Minecraft 1.8.9"), el("span", "", engine));
   if (rago) versions.append(el("span", "", `Rago ${rago[1]}`));
 
   // performance card and page
   for (const b of document.querySelectorAll("[data-preset]")) b.classList.toggle("current", b.dataset.preset === view.preset);
+  $("engine-setting").hidden = !view.loader;
+  for (const b of document.querySelectorAll("[data-engine]")) b.classList.toggle("current", b.dataset.engine === view.engine);
   $("stat-fps").textContent = view.maxFps == null ? "120" : view.maxFps >= 260 ? "Illimité" : String(view.maxFps);
   $("memory").max = view.maxMemoryMb;
   $("memory").value = view.memoryMb;
@@ -588,6 +592,13 @@ for (const [id, key] of [["tuned-jvm", "tunedJvm"], ["high-priority", "highPrior
   $(id).addEventListener("change", (e) => save(key, e.target.checked));
 }
 $("on-launch").addEventListener("change", (e) => save("onLaunch", e.target.value));
+for (const b of document.querySelectorAll("[data-engine]")) {
+  b.addEventListener("click", async () => {
+    if (b.dataset.engine === view.engine) return;
+    await save("engine", b.dataset.engine);
+    if (view.engine === b.dataset.engine) toast(b.dataset.engine === "rago" ? "Chargeur Rago choisi : le prochain lancement prépare Java 21." : "Forge choisi pour le prochain lancement.");
+  });
+}
 
 $("size-preset").addEventListener("change", (e) => {
   const v = e.target.value;
