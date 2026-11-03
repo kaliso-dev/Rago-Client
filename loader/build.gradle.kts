@@ -15,6 +15,21 @@ repositories {
 val shade: Configuration by configurations.creating
 configurations.implementation { extendsFrom(shade) }
 
+// The Forge-compatible API that mods call, and the hooks the game calls. It is compiled against the
+// game renamed once by the loader's own `remap` command (MCP class names, SRG member names) and its
+// libraries, which cannot be published: pass -PgameJar=<renamed jar> -PgameLibs=<libraries folder>.
+// None of those classes end up in the loader jar, only the compatibility classes.
+val gameJar = providers.gradleProperty("gameJar")
+val gameLibs = providers.gradleProperty("gameLibs")
+val compat: SourceSet = sourceSets.create("compat")
+
+dependencies {
+    if (gameJar.isPresent) {
+        "compatCompileOnly"(files(gameJar.get()))
+        "compatCompileOnly"(fileTree(gameLibs.get()) { include("**/*.jar") })
+    }
+}
+
 dependencies {
     // BSD-3-Clause (ASM) and public domain (XZ for Java): both bundled in the loader jar
     shade("org.ow2.asm:asm:9.6")
@@ -38,7 +53,16 @@ tasks.test {
     useJUnitPlatform()
 }
 
+tasks.named<JavaCompile>("compileCompatJava") {
+    onlyIf("needs -PgameJar and -PgameLibs") { gameJar.isPresent && gameLibs.isPresent }
+}
+
 tasks.jar {
+    if (gameJar.isPresent) {
+        from(compat.output)
+    } else {
+        doFirst { logger.warn("Built without the compatibility classes: the jar can rename the game, not start it (-PgameJar)") }
+    }
     manifest.attributes("Main-Class" to "gg.rago.loader.Main", "Implementation-Version" to project.version)
     from(shade.map { if (it.isDirectory) it else zipTree(it) }) {
         exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "module-info.class", "META-INF/versions/**")

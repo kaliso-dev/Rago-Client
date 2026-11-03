@@ -98,8 +98,44 @@ public final class ForgeOnly {
 				return true;
 			}
 		}
-		// declared in a JDK or library parent (Object.equals, a guava interface): not Forge's
-		return m.superName != null && !vanilla.containsKey(m.superName) && !field;
+		if (field) {
+			return false;
+		}
+		// declared in a JDK parent (Object.equals, Comparable.compareTo): not Forge's
+		for (String parent : parents(m)) {
+			if (!vanilla.containsKey(parent) && (!parent.startsWith("java/") || jdkHas(parent, member))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static java.util.List<String> parents(Members m) {
+		java.util.List<String> out = new java.util.ArrayList<>(java.util.Arrays.asList(m.interfaces));
+		if (m.superName != null) {
+			out.add(m.superName);
+		}
+		return out;
+	}
+
+	private static boolean jdkHas(String owner, String member) {
+		try {
+			for (Class<?> c = Class.forName(owner.replace('/', '.')); c != null; c = c.getSuperclass()) {
+				for (java.lang.reflect.Method x : c.getDeclaredMethods()) {
+					if (member.equals(x.getName() + org.objectweb.asm.Type.getMethodDescriptor(x))) {
+						return true;
+					}
+				}
+				for (Class<?> i : c.getInterfaces()) {
+					if (jdkHas(i.getName().replace('.', '/'), member)) {
+						return true;
+					}
+				}
+			}
+		} catch (ClassNotFoundException e) {
+			return true;
+		}
+		return false;
 	}
 
 	private ForgeOnly() {
