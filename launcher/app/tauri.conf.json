@@ -12,12 +12,13 @@
       {
         "label": "main",
         "title": "Rago",
-        "width": 1040,
-        "height": 640,
-        "minWidth": 900,
-        "minHeight": 560,
+        "width": 1240,
+        "height": 720,
+        "minWidth": 1080,
+        "minHeight": 640,
         "backgroundColor": "#0B0A0D",
-        "center": true
+        "center": true,
+        "decorations": false
       }
     ],
     "security": {
@@ -26,14 +27,23 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
     "publisher": "Rago",
     "shortDescription": "Launcher de Rago Client",
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["French"]
+        "languages": [
+          "French"
+        ]
       }
     }
   }

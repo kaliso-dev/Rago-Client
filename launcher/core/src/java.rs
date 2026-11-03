@@ -74,6 +74,29 @@ pub fn executable(home: &Path, os: Os) -> PathBuf {
     }
 }
 
+/// The version a Java prints with `-version` ("1.8.0_402"), for a Java the player picked.
+pub fn version(java: &Path) -> Result<String> {
+    // java.exe and javaw.exe answer the same; javaw opens no console window
+    let mut cmd = std::process::Command::new(java);
+    cmd.arg("-version");
+    crate::system::hide_window(&mut cmd);
+    let out = cmd.output().with_context(|| format!("{} ne démarre pas", java.display()))?;
+    let text = String::from_utf8_lossy(&out.stderr);
+    parse_version(&text).ok_or_else(|| anyhow::anyhow!("{} n'est pas Java", java.display()))
+}
+
+fn parse_version(text: &str) -> Option<String> {
+    let line = text.lines().find(|l| l.contains(" version \""))?;
+    let start = line.find('"')? + 1;
+    let end = start + line[start..].find('"')?;
+    Some(line[start..end].to_string())
+}
+
+/// Forge 1.8.9 runs on Java 8 only.
+pub fn is_java_8(version: &str) -> bool {
+    version.starts_with("1.8.")
+}
+
 /// Java 8 ready to run, from `runtime_dir`: the newest release, or the last one unpacked when
 /// Adoptium cannot be reached.
 pub fn ensure(client: &Client, runtime_dir: &Path, os: Os) -> Result<PathBuf> {
@@ -193,6 +216,15 @@ fn untar_stripped(archive: &Path, dest: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_java_versions() {
+        let v = parse_version("openjdk version \"1.8.0_402\"\nOpenJDK Runtime Environment (Temurin)(build 1.8.0_402-b06)\n").unwrap();
+        assert_eq!(v, "1.8.0_402");
+        assert!(is_java_8(&v));
+        assert!(!is_java_8(&parse_version("openjdk version \"21.0.5\" 2024-10-15\n").unwrap()));
+        assert_eq!(parse_version("bash: java: not found"), None);
+    }
 
     #[test]
     fn strips_the_top_folder_safely() {
