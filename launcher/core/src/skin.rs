@@ -1,4 +1,4 @@
-//! The player's face from their Minecraft skin, for the account button.
+//! The player's Minecraft skin: its face for the account button, the whole skin for the 3D view.
 
 use anyhow::{anyhow, Result};
 use base64::engine::general_purpose::STANDARD;
@@ -8,6 +8,11 @@ use reqwest::blocking::Client;
 
 /// The skin's address from Mojang's public profile (no token needed).
 pub fn skin_url(client: &Client, uuid: &str) -> Result<String> {
+    skin_info(client, uuid).map(|(url, _)| url)
+}
+
+/// The skin's address, and whether it uses the slim arms.
+pub fn skin_info(client: &Client, uuid: &str) -> Result<(String, bool)> {
     if uuid.len() != 32 || !uuid.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(anyhow!("identifiant de joueur invalide"));
     }
@@ -22,12 +27,25 @@ pub fn skin_url(client: &Client, uuid: &str) -> Result<String> {
         .and_then(|x| x["value"].as_str())
         .ok_or_else(|| anyhow!("profil sans skin"))?;
     let textures: serde_json::Value = serde_json::from_slice(&STANDARD.decode(value)?)?;
-    let url = textures["textures"]["SKIN"]["url"].as_str().ok_or_else(|| anyhow!("profil sans skin"))?;
+    let skin = &textures["textures"]["SKIN"];
+    let slim = skin["metadata"]["model"] == "slim";
+    let url = skin["url"].as_str().ok_or_else(|| anyhow!("profil sans skin"))?;
     let url = url.replacen("http://", "https://", 1);
     if !url.starts_with("https://textures.minecraft.net/") {
         return Err(anyhow!("adresse de skin inattendue"));
     }
-    Ok(url)
+    Ok((url, slim))
+}
+
+/// The whole skin (a 64×64 or 64×32 PNG, checked) and whether its arms are slim.
+pub fn skin_png(client: &Client, uuid: &str) -> Result<(Vec<u8>, bool)> {
+    let (url, slim) = skin_info(client, uuid)?;
+    let png = client.get(url).send()?.error_for_status()?.bytes()?.to_vec();
+    let img = image::load_from_memory_with_format(&png, image::ImageFormat::Png)?;
+    if img.width() != 64 || !(img.height() == 64 || img.height() == 32) {
+        return Err(anyhow!("skin d'une taille inattendue"));
+    }
+    Ok((png, slim))
 }
 
 /// The face (with the hat layer over it) of a 64×64 or 64×32 skin, scaled up to `size` pixels.

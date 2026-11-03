@@ -6,7 +6,7 @@ use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::sync::{mpsc, Mutex};
+use std::sync::{mpsc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 
 use base64::engine::general_purpose::STANDARD;
@@ -16,7 +16,9 @@ use rago_launcher_core::install::{install, repair as repair_install, Layout, Rag
 use rago_launcher_core::launch::parse_jvm_arguments;
 use rago_launcher_core::os::Os;
 use rago_launcher_core::options::{self as presets, Preset};
-use rago_launcher_core::{command, http, import, java, rago, skin, system, updates, Options};
+use rago_launcher_core::net::{self, Latency, Status};
+use rago_launcher_core::news::{self, News};
+use rago_launcher_core::{command, http, import, java, rago, servers, skin, system, updates, Options};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
@@ -25,6 +27,7 @@ use tauri_plugin_opener::OpenerExt;
 const KEYRING_SERVICE: &str = "gg.rago.launcher";
 const OPTIFINE_PAGE: &str = "https://optifine.net/downloads";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const FORGE_VERSION: &str = "11.15.1.2318";
 
 /// The launcher's folder: %APPDATA%\.rago on Windows, ~/.rago elsewhere.
 fn root() -> PathBuf {
@@ -85,6 +88,10 @@ struct Settings {
     /// the console page opens when the game starts
     #[serde(default)]
     show_console: bool,
+    /// the graphics preset last applied ("performance", "balanced", "quality")
+    preset: Option<String>,
+    /// the server Play joins directly; none opens the main menu
+    join: Option<String>,
 }
 
 impl Settings {
@@ -96,6 +103,7 @@ impl Settings {
             size: self.width.zip(self.height),
             fullscreen: self.fullscreen,
             high_priority: self.high_priority,
+            server: None,
         })
     }
 }
@@ -158,6 +166,17 @@ struct View {
     game_dir: String,
     windows: bool,
     playing: bool,
+    preset: Option<String>,
+    join: Option<String>,
+    forge: String,
+    /// the frame cap in the game's options (260 means none)
+    max_fps: Option<u32>,
+}
+
+/// "maxFps" from the game's options.txt.
+fn max_fps(game: &Path) -> Option<u32> {
+    let text = fs::read_to_string(game.join("options.txt")).ok()?;
+    text.lines().find_map(|l| l.strip_prefix("maxFps:")).and_then(|v| v.trim().parse().ok())
 }
 
 fn optifine_in(mods: &Path) -> Option<String> {
@@ -201,6 +220,10 @@ fn state(state: State<'_, AppState>) -> View {
         game_dir: l.game().to_string_lossy().into_owned(),
         windows: cfg!(windows),
         playing: *state.busy.lock().unwrap(),
+        preset: s.preset.clone(),
+        join: s.join.clone(),
+        forge: FORGE_VERSION.into(),
+        max_fps: max_fps(&l.game()),
     }
 }
 
@@ -283,6 +306,216 @@ async fn skin_face(uuid: String) -> Result<Option<String>, String> {
 }
 
 /// Changes one setting from the settings page, checked here.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SkinView {
+    png: String,
+    slim: bool,
+}
+
+/// The account's whole skin as a data: URL for the 3D view, cached for a day.
+#[tauri::command]
+async fn skin(uuid: String) -> Result<Option<SkinView>, String> {
+    if uuid.len() != 32 || !uuid.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Ok(None);
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir = root().join("cache").join("skins");
+        let png_path = dir.join(format!("{uuid}.png"));
+        let slim_path = dir.join(format!("{uuid}.slim"));
+        let fresh = fs::metadata(&png_path).and_then(|m| m.modified()).ok().and_then(|t| SystemTime::now().duration_since(t).ok()).is_some_and(|age| age < Duration::from_secs(86400));
+        let got = if fresh {
+            None
+        } else {
+            http::client().ok().and_then(|c| skin::skin_png(&c, &uuid).ok())
+        };
+        if let Some((png, slim)) = &got {
+            let _ = fs::create_dir_all(&dir).and_then(|_| fs::write(&png_path, png));
+            let _ = if *slim { fs::write(&slim_path, b"") } else { fs::remove_file(&slim_path).or(Ok(())) };
+        }
+        let (png, slim) = match got {
+            Some(g) => g,
+            None => match fs::read(&png_path) {
+                Ok(p) => (p, slim_path.exists()),
+                Err(_) => return Ok(None),
+            },
+        };
+        Ok(Some(SkinView { png: format!("data:image/png;base64,{}", STANDARD.encode(png)), slim }))
+    })
+    .await
+    .map_err(err)?
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Stats {
+    cpu: Option<u32>,
+    ram: Option<u32>,
+    gpu: Option<String>,
+    gpu_full: Option<String>,
+}
+
+/// The computer's load right now and its graphics card, for the performance card.
+#[tauri::command]
+async fn stats() -> Result<Stats, String> {
+    static GPU: OnceLock<Option<String>> = OnceLock::new();
+    tauri::async_runtime::spawn_blocking(|| {
+        let gpu = GPU.get_or_init(|| system::gpus().into_iter().next()).clone();
+        Stats { cpu: system::cpu_load(), ram: system::memory_load(), gpu: gpu.as_deref().map(system::short_gpu_name), gpu_full: gpu }
+    })
+    .await
+    .map_err(err)
+}
+
+/// The connection to a server: a few TCP connections, timed.
+#[tauri::command]
+async fn connection(address: String) -> Result<Latency, String> {
+    let (host, port) = net::parse_address(&address).map_err(err)?;
+    tauri::async_runtime::spawn_blocking(move || net::latency(&host, port, 5).map_err(err_chain)).await.map_err(err)?
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ServerView {
+    name: String,
+    address: String,
+    icon: Option<String>,
+    /// not in the player's list: a server the launcher suggests
+    suggested: bool,
+}
+
+/// The servers of the game's multiplayer list, or Hypixel when the list is empty.
+#[tauri::command]
+fn servers() -> Result<Vec<ServerView>, String> {
+    let saved = servers::saved(&layout().game()).map_err(err_chain)?;
+    let mut out: Vec<ServerView> = saved
+        .into_iter()
+        .filter(|s| net::parse_address(&s.address).is_ok())
+        .map(|s| ServerView { name: s.name, address: s.address, icon: s.icon, suggested: false })
+        .collect();
+    if out.is_empty() {
+        out.push(ServerView { name: "Hypixel".into(), address: "mc.hypixel.net".into(), icon: None, suggested: true });
+    }
+    Ok(out)
+}
+
+/// A server's status as its list entry shows it (players, icon, ping).
+#[tauri::command]
+async fn server_status(address: String) -> Result<Status, String> {
+    let (host, port) = net::parse_address(&address).map_err(err)?;
+    tauri::async_runtime::spawn_blocking(move || net::status(&host, port).map_err(err_chain)).await.map_err(err)?
+}
+
+/// Rago's newest release notes, fetched at most every ten minutes.
+#[tauri::command]
+async fn news() -> Result<Vec<News>, String> {
+    static CACHE: Mutex<Option<(Instant, Vec<News>)>> = Mutex::new(None);
+    if let Some((at, n)) = CACHE.lock().unwrap().as_ref() {
+        if at.elapsed() < Duration::from_secs(600) {
+            return Ok(n.clone());
+        }
+    }
+    let got = tauri::async_runtime::spawn_blocking(|| {
+        let client = http::client().map_err(err)?;
+        news::latest(&client, 3).map_err(err_chain)
+    })
+    .await
+    .map_err(err)??;
+    *CACHE.lock().unwrap() = Some((Instant::now(), got.clone()));
+    Ok(got)
+}
+
+/// Opens a Rago release page in the browser (no other address).
+#[tauri::command]
+fn open_release(app: AppHandle, url: String) -> Result<(), String> {
+    if !url.starts_with("https://github.com/kaliso-dev/Rago-Client/releases/") || url.contains(['"', ' ', '\\']) {
+        return Err("Adresse refusée.".into());
+    }
+    app.opener().open_url(url, None::<&str>).map_err(err)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModView {
+    file: String,
+    enabled: bool,
+    /// "rago", "optifine" or "other"
+    kind: &'static str,
+}
+
+fn mod_name(file: &str) -> Option<(&str, bool)> {
+    if file.contains(['/', '\\']) || file.contains("..") {
+        return None;
+    }
+    match file.strip_suffix(".disabled") {
+        Some(jar) if jar.ends_with(".jar") => Some((jar, false)),
+        None if file.ends_with(".jar") => Some((file, true)),
+        _ => None,
+    }
+}
+
+/// The jars in the game's mods folder, turned off ones included.
+#[tauri::command]
+fn mods() -> Result<Vec<ModView>, String> {
+    let dir = layout().mods();
+    let mut out: Vec<ModView> = match fs::read_dir(&dir) {
+        Ok(d) => d
+            .filter_map(|e| e.ok())
+            .filter_map(|e| {
+                let name = e.file_name().to_string_lossy().into_owned();
+                let (jar, enabled) = mod_name(&name)?;
+                let kind = if rago::is_rago_jar(jar) {
+                    "rago"
+                } else if is_optifine(jar) {
+                    "optifine"
+                } else {
+                    "other"
+                };
+                Some(ModView { file: jar.to_string(), enabled, kind })
+            })
+            .collect(),
+        Err(_) => Vec::new(),
+    };
+    out.sort_by_key(|m| (m.kind != "rago", m.kind != "optifine", m.file.to_lowercase()));
+    Ok(out)
+}
+
+/// Turns a mod on or off by renaming it (x.jar and x.jar.disabled). Rago stays on.
+#[tauri::command]
+fn set_mod_enabled(file: String, enabled: bool, state: State<'_, AppState>) -> Result<(), String> {
+    if *state.busy.lock().unwrap() {
+        return Err("Ferme le jeu d'abord.".into());
+    }
+    let Some((jar, _)) = mod_name(&file) else { return Err("Mod inconnu.".into()) };
+    if rago::is_rago_jar(jar) {
+        return Err("Rago reste activé : c'est le client.".into());
+    }
+    let dir = layout().mods();
+    let on = dir.join(jar);
+    let off = dir.join(format!("{jar}.disabled"));
+    let (from, to) = if enabled { (off, on) } else { (on, off) };
+    if !from.is_file() {
+        return Err("Mod introuvable.".into());
+    }
+    fs::rename(from, to).map_err(err)
+}
+
+/// One click for the most frames: the competitive preset, tuned Java and (Windows) high priority.
+#[tauri::command]
+fn optimize(state: State<'_, AppState>) -> Result<(), String> {
+    if *state.busy.lock().unwrap() {
+        return Err("Ferme le jeu d'abord : il réécrit ses options en quittant.".into());
+    }
+    presets::apply(&layout().game(), Preset::Performance).map_err(err_chain)?;
+    let mut s = load_settings();
+    s.preset = Some("performance".into());
+    s.tuned_jvm = Some(true);
+    if cfg!(windows) {
+        s.high_priority = true;
+    }
+    save_settings(&s)
+}
+
 #[tauri::command]
 fn set_setting(key: String, value: serde_json::Value) -> Result<(), String> {
     use serde_json::Value;
@@ -328,6 +561,15 @@ fn set_setting(key: String, value: serde_json::Value) -> Result<(), String> {
         }
         "autoUpdate" => s.auto_update = Some(flag()?),
         "showConsole" => s.show_console = flag()?,
+        "join" => {
+            s.join = match value.as_str().map(str::trim).filter(|v| !v.is_empty()) {
+                Some(a) => {
+                    net::parse_address(a).map_err(err)?;
+                    Some(a.to_string())
+                }
+                None => None,
+            }
+        }
         _ => return Err("Réglage inconnu.".into()),
     }
     save_settings(&s)
@@ -369,7 +611,10 @@ fn apply_preset(name: String, state: State<'_, AppState>) -> Result<(), String> 
     if *state.busy.lock().unwrap() {
         return Err("Ferme le jeu d'abord : il réécrit ses options en quittant.".into());
     }
-    presets::apply(&layout().game(), Preset::parse(&name).map_err(err)?).map_err(err_chain)
+    presets::apply(&layout().game(), Preset::parse(&name).map_err(err)?).map_err(err_chain)?;
+    let mut s = load_settings();
+    s.preset = Some(name);
+    save_settings(&s)
 }
 
 /// The game's output so far, for the console page.
@@ -495,7 +740,12 @@ fn crash_report_since(game: &Path, since: SystemTime) -> Option<PathBuf> {
 
 /// Installs what is missing, then starts the game. Events: "progress", "playing", "closed".
 #[tauri::command]
-async fn play(app: AppHandle) -> Result<(), String> {
+async fn play(app: AppHandle, server: Option<String>) -> Result<(), String> {
+    // the server asked for, else the one chosen to join on Play
+    let target = match server.or_else(|| load_settings().join).filter(|s| !s.trim().is_empty()) {
+        Some(a) => Some(net::parse_address(&a).map_err(err)?),
+        None => None,
+    };
     {
         let state = app.state::<AppState>();
         let mut busy = state.busy.lock().unwrap();
@@ -515,7 +765,8 @@ async fn play(app: AppHandle) -> Result<(), String> {
         let emit = |stage: &'static str, done: usize, total: usize, megabytes: u64| {
             let _ = handle.emit("progress", ProgressEvent { stage, done, total, megabytes });
         };
-        let opts = settings.options()?;
+        let mut opts = settings.options()?;
+        opts.server = target;
         let source = if settings.auto_update.unwrap_or(true) || rago::installed(&layout.mods()).is_none() { RagoSource::Latest } else { RagoSource::Keep };
         let mut installed = install(&client, &layout, &source, &|step| match step {
             Step::Version => emit("version", 0, 0, 0),
@@ -706,6 +957,16 @@ fn main() {
             reset_java,
             apply_preset,
             console,
+            skin,
+            stats,
+            connection,
+            servers,
+            server_status,
+            news,
+            open_release,
+            mods,
+            set_mod_enabled,
+            optimize,
             play,
             open_optifine_page,
             add_optifine,

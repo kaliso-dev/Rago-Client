@@ -34,11 +34,13 @@ pub struct Options {
     pub fullscreen: bool,
     /// Windows' "above normal" priority for the game
     pub high_priority: bool,
+    /// a server to join as soon as the game is up
+    pub server: Option<(String, u16)>,
 }
 
 impl Default for Options {
     fn default() -> Options {
-        Options { memory_mb: 2048, tuned_jvm: true, extra_jvm: Vec::new(), size: None, fullscreen: false, high_priority: false }
+        Options { memory_mb: 2048, tuned_jvm: true, extra_jvm: Vec::new(), size: None, fullscreen: false, high_priority: false, server: None }
     }
 }
 
@@ -125,6 +127,9 @@ pub fn game_arguments(inst: &Installed, account: &Account, opts: &Options) -> Ve
     }
     if opts.fullscreen {
         args.push("--fullscreen".into());
+    }
+    if let Some((host, port)) = &opts.server {
+        args.extend(["--server".into(), host.clone(), "--port".into(), port.to_string()]);
     }
     args
 }
