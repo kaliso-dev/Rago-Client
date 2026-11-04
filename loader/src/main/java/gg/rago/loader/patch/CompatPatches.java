@@ -85,10 +85,14 @@ public final class CompatPatches {
 		if (list == null) {
 			return bytes;
 		}
-		ClassNode c = new ClassNode();
-		new ClassReader(bytes).accept(c, 0);
+		// each change is made on its own copy and kept only when it applies, so one that does not
+		// fit (a class OptiFine replaced, say) leaves the others in place
 		List<String> failed = new ArrayList<>();
+		byte[] out = bytes;
+		int done = 0;
 		for (Named n : list) {
+			ClassNode c = new ClassNode();
+			new ClassReader(out).accept(c, 0);
 			boolean ok;
 			try {
 				ok = n.change.apply(c);
@@ -97,17 +101,26 @@ public final class CompatPatches {
 			}
 			if (!ok) {
 				failed.add(n.what);
+				continue;
 			}
+			// a member the class has already (OptiFine adds some of Forge's) is kept, not added twice
+			java.util.Set<String> seen = new java.util.HashSet<>();
+			c.methods.removeIf(m -> !seen.add(m.name + m.desc));
+			c.fields.removeIf(f -> !seen.add(f.name + ":" + f.desc));
+			FrameWriter w = new FrameWriter(classes);
+			c.accept(w);
+			out = w.toByteArray();
+			done++;
 		}
 		if (!failed.isEmpty()) {
 			missed.addAll(failed);
-			log.accept("not hooked in " + name + ": " + String.join(", ", failed) + "; " + name + " is left as it is");
+			log.accept("not hooked in " + name + ": " + String.join(", ", failed));
+		}
+		if (done == 0) {
 			return bytes;
 		}
-		FrameWriter w = new FrameWriter(classes);
-		c.accept(w);
-		log.accept("hooked " + name + ": " + list.size() + " change(s)");
-		return w.toByteArray();
+		log.accept("hooked " + name + ": " + done + " change(s)");
+		return out;
 	}
 
 	// --- helpers ---

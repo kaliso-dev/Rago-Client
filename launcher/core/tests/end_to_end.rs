@@ -100,7 +100,8 @@ fn starts_rago_with_its_own_loader() {
     eprintln!("Java {} and the renamed game ready in {:?}", loader::JAVA, started.elapsed());
     let (mut found, mut hooked, mut rago, mut running) = (false, false, false, false);
     run(&inst, |line| {
-        found |= line.contains("[RagoLoader] 1 mod(s) found");
+        // Rago, and the Forge mods of the mods folder the loader can start (IAS)
+        found |= line.contains("[RagoLoader] ") && line.contains("mod(s) found") && line.contains("gg.rago.core.RagoClient");
         hooked |= line.contains("[RagoLoader] hooked net.minecraft.client.Minecraft");
         rago |= line.contains("Hook installed");
         running |= line.contains("mod(s) running");

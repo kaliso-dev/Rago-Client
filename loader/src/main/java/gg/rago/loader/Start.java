@@ -71,8 +71,9 @@ final class Start {
 		Args args = Args.parse(raw);
 		List<Path> jars = new ArrayList<>(args.mods);
 		jars.addAll(folderMods(Path.of(args.option("--gameDir", ".")), args.mods));
+		Path gameJar = OptiFine.game(Path.of(args.option("--gameDir", ".")), args.game).orElse(args.game);
 		List<URL> urls = new ArrayList<>();
-		urls.add(args.game.toUri().toURL());
+		urls.add(gameJar.toUri().toURL());
 		for (Path m : jars) {
 			urls.add(m.toUri().toURL());
 		}
@@ -158,6 +159,9 @@ final class Start {
 			}
 			for (Path jar : found) {
 				String name = jar.getFileName().toString();
+				if (OptiFine.is(jar)) {
+					continue;
+				}
 				try (JarFile file = new JarFile(jar.toFile())) {
 					Manifest manifest = file.getManifest();
 					Attributes a = manifest == null ? new Attributes() : manifest.getMainAttributes();
