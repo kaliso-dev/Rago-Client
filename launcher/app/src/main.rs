@@ -26,6 +26,7 @@ use tauri_plugin_opener::OpenerExt;
 
 const KEYRING_SERVICE: &str = "gg.rago.launcher";
 const OPTIFINE_PAGE: &str = "https://optifine.net/downloads";
+const DISCORD: &str = "https://discord.gg/ragooptimizer";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const FORGE_VERSION: &str = "11.15.1.2318";
 
@@ -447,6 +448,12 @@ fn open_release(app: AppHandle, url: String) -> Result<(), String> {
         return Err("Address refused.".into());
     }
     app.opener().open_url(url, None::<&str>).map_err(err)
+}
+
+/// Opens Rago's Discord server in the browser.
+#[tauri::command]
+fn open_discord(app: AppHandle) -> Result<(), String> {
+    app.opener().open_url(DISCORD, None::<&str>).map_err(err)
 }
 
 #[derive(Serialize)]
@@ -989,6 +996,7 @@ fn main() {
             server_status,
             news,
             open_release,
+            open_discord,
             mods,
             set_mod_enabled,
             optimize,

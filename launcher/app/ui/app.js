@@ -482,7 +482,8 @@ async function renderServers() {
 let statsTimer = null;
 async function pollStats() {
   clearTimeout(statsTimer);
-  if (page !== "home" || document.hidden) return;
+  // nothing measured while the game runs: the game gets the processor and the network
+  if (page !== "home" || document.hidden || playing) return;
   const s = await invoke("stats").catch(() => null);
   if (s) {
     setText($("stat-cpu"), s.cpu == null ? "–" : `${s.cpu}%`);
@@ -497,7 +498,7 @@ let connTimer = null;
 let connBusy = false;
 async function pollConnection(now = false) {
   clearTimeout(connTimer);
-  if (page !== "home" || document.hidden || (connBusy && !now)) return;
+  if (page !== "home" || document.hidden || playing || (connBusy && !now)) return;
   const address = view?.join || servers[0]?.address || "mc.hypixel.net";
   $("conn-target").textContent = `to ${serverName(address)}`;
   connBusy = true;
@@ -584,7 +585,7 @@ for (const b of document.querySelectorAll("[data-preset]")) {
 $("optimize").addEventListener("click", async () => {
   try {
     await invoke("optimize");
-    toast(view.windows ? "Optimized: Competitive profile, tuned Java and high priority." : "Optimized: Competitive profile and tuned Java.");
+    toast(view.windows ? "Optimized: Competitive profile with OptiFine's fast settings, tuned Java and high priority." : "Optimized: Competitive profile with OptiFine's fast settings and tuned Java.");
   } catch (e) {
     toast(String(e), true);
   }
@@ -714,6 +715,7 @@ for (const b of document.querySelectorAll("[data-folder]")) {
   b.addEventListener("click", () => invoke("open_folder", { which: b.dataset.folder }).catch((e) => toast(String(e), true)));
 }
 $("open-console").addEventListener("click", () => showPage("console"));
+$("discord").addEventListener("click", () => invoke("open_discord").catch((e) => toast(String(e), true)));
 $("open-crash").addEventListener("click", () => crashReport && invoke("open_crash_report", { path: crashReport }));
 
 $("import").addEventListener("click", () =>
@@ -823,6 +825,7 @@ listen("playing", () => {
 listen("console", ({ payload }) => addLines(payload));
 listen("closed", ({ payload }) => {
   setPlaying(false);
+  pollStats();
   $("play-text").textContent = "Play";
   const ok = payload.code === 0 || payload.code === null;
   crashReport = payload.crashReport;

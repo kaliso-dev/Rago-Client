@@ -70,6 +70,14 @@ summary:focus-visible { outline-offset: 0; }
 .brand .name span { color: var(--muted); font-weight: 600; }
 .pill { padding: 3px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; color: #FF8E86; background: rgba(242, 57, 44, 0.16); }
 .right { display: flex; align-items: center; gap: 6px; height: 100%; }
+.discord {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px 0 10px; border-radius: 10px;
+  border: 1px solid rgba(88, 101, 242, 0.45); background: rgba(88, 101, 242, 0.14); color: #C9CDFB; font-weight: 600;
+}
+.discord .i { width: 18px; height: 18px; transition: transform var(--med) var(--ease); }
+.discord:hover { background: rgba(88, 101, 242, 0.26); color: #FFF; box-shadow: 0 6px 18px rgba(88, 101, 242, 0.25); }
+.discord:hover .i { transform: rotate(-8deg) scale(1.08); }
+.discord:active { transform: scale(0.97); }
 .sep { width: 1px; height: 22px; background: var(--border-strong); margin: 0 6px; }
 .icon-button, .win {
   position: relative; display: grid; place-items: center;
