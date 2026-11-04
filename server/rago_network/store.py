@@ -1,4 +1,4 @@
-"""SQLite storage: players, their sign-in sessions (only a hash of each token is kept), friends."""
+"""SQLite storage: players, their sign-in sessions (only a hash of each token is kept)."""
 
 import hashlib
 import json
@@ -23,25 +23,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sessions_uuid ON sessions(uuid);
-CREATE INDEX IF NOT EXISTS users_name ON users(name COLLATE NOCASE);
--- a friendship is stored once per side, so each player's list is one indexed read
-CREATE TABLE IF NOT EXISTS friends (
-    uuid TEXT NOT NULL,
-    friend TEXT NOT NULL,
-    since INTEGER NOT NULL,
-    PRIMARY KEY (uuid, friend)
-);
-CREATE TABLE IF NOT EXISTS friend_requests (
-    sender TEXT NOT NULL,
-    receiver TEXT NOT NULL,
-    at INTEGER NOT NULL,
-    PRIMARY KEY (sender, receiver)
-);
-CREATE INDEX IF NOT EXISTS friend_requests_receiver ON friend_requests(receiver);
 """
-
-FORGET = ("DELETE FROM sessions WHERE uuid = ?", "DELETE FROM friends WHERE uuid = ?1 OR friend = ?1",
-          "DELETE FROM friend_requests WHERE sender = ?1 OR receiver = ?1", "DELETE FROM users WHERE uuid = ?")
 
 
 def token_hash(token):
@@ -111,84 +93,8 @@ class Store:
 
     def delete(self, uuid):
         with self._lock:
-            return self._forget(uuid)
-
-    def _forget(self, uuid):
-        """Removes the player, their sessions, friends and requests; the lock is held. The count of
-        players removed (0 or 1)."""
-        for sql in FORGET[:-1]:
-            self._db.execute(sql, (uuid,))
-        return self._db.execute(FORGET[-1], (uuid,)).rowcount
-
-    # friends
-
-    def find(self, name):
-        """(uuid, name) of the Rago player with this name (any case), or None."""
-        with self._lock:
-            row = self._db.execute("SELECT uuid, name FROM users WHERE name = ? COLLATE NOCASE "
-                                   "ORDER BY last_seen DESC LIMIT 1", (name,)).fetchone()
-        return tuple(row) if row else None
-
-    def friend_counts(self, uuid):
-        """(friends, requests sent and still waiting)."""
-        with self._lock:
-            friends = self._db.execute("SELECT COUNT(*) FROM friends WHERE uuid = ?", (uuid,)).fetchone()[0]
-            sent = self._db.execute("SELECT COUNT(*) FROM friend_requests WHERE sender = ?", (uuid,)).fetchone()[0]
-        return friends, sent
-
-    def relation(self, uuid, other):
-        """"friends", "sent" (uuid asked other), "received" (other asked uuid) or None."""
-        with self._lock:
-            if self._db.execute("SELECT 1 FROM friends WHERE uuid = ? AND friend = ?", (uuid, other)).fetchone():
-                return "friends"
-            if self._db.execute("SELECT 1 FROM friend_requests WHERE sender = ? AND receiver = ?", (uuid, other)).fetchone():
-                return "sent"
-            if self._db.execute("SELECT 1 FROM friend_requests WHERE sender = ? AND receiver = ?", (other, uuid)).fetchone():
-                return "received"
-        return None
-
-    def ask(self, sender, receiver, now):
-        with self._lock:
-            self._db.execute("INSERT OR IGNORE INTO friend_requests(sender, receiver, at) VALUES(?, ?, ?)",
-                             (sender, receiver, now))
-
-    def befriend(self, a, b, now):
-        """Makes a and b friends and drops the requests between them."""
-        with self._lock:
-            self._db.execute("BEGIN")
-            try:
-                self._db.execute("DELETE FROM friend_requests WHERE (sender = ?1 AND receiver = ?2) OR (sender = ?2 AND receiver = ?1)",
-                                 (a, b))
-                self._db.execute("INSERT OR IGNORE INTO friends(uuid, friend, since) VALUES(?, ?, ?)", (a, b, now))
-                self._db.execute("INSERT OR IGNORE INTO friends(uuid, friend, since) VALUES(?, ?, ?)", (b, a, now))
-                self._db.execute("COMMIT")
-            except BaseException:
-                self._db.execute("ROLLBACK")
-                raise
-
-    def unfriend(self, a, b):
-        """Ends a friendship, a request either way, or both. Whether anything was removed."""
-        with self._lock:
-            n = self._db.execute("DELETE FROM friends WHERE (uuid = ?1 AND friend = ?2) OR (uuid = ?2 AND friend = ?1)",
-                                 (a, b)).rowcount
-            n += self._db.execute("DELETE FROM friend_requests WHERE (sender = ?1 AND receiver = ?2) OR (sender = ?2 AND receiver = ?1)",
-                                  (a, b)).rowcount
-        return n > 0
-
-    def friends(self, uuid, since):
-        """The player's friends as (uuid, name, role, online) with online meaning seen since then and
-        showing they use Rago, and the requests as (uuid, name) received and sent."""
-        with self._lock:
-            friends = self._db.execute(
-                "SELECT u.uuid, u.name, u.role, (u.visible = 1 AND u.last_seen >= ?) FROM friends f "
-                "JOIN users u ON u.uuid = f.friend WHERE f.uuid = ? ORDER BY u.name COLLATE NOCASE", (since, uuid)).fetchall()
-            received = self._db.execute(
-                "SELECT u.uuid, u.name FROM friend_requests r JOIN users u ON u.uuid = r.sender "
-                "WHERE r.receiver = ? ORDER BY r.at DESC", (uuid,)).fetchall()
-            sent = self._db.execute(
-                "SELECT u.uuid, u.name FROM friend_requests r JOIN users u ON u.uuid = r.receiver "
-                "WHERE r.sender = ? ORDER BY r.at DESC", (uuid,)).fetchall()
-        return [(u, n, r, bool(o)) for u, n, r, o in friends], [tuple(x) for x in received], [tuple(x) for x in sent]
+            self._db.execute("DELETE FROM sessions WHERE uuid = ?", (uuid,))
+            return self._db.execute("DELETE FROM users WHERE uuid = ?", (uuid,)).rowcount
 
     def prune(self, now, forget_after):
         """Drops expired sessions and players not seen for `forget_after` seconds."""
@@ -196,5 +102,6 @@ class Store:
             self._db.execute("DELETE FROM sessions WHERE expires <= ?", (now,))
             gone = [r[0] for r in self._db.execute("SELECT uuid FROM users WHERE last_seen < ?", (now - forget_after,))]
             for uuid in gone:
-                self._forget(uuid)
+                self._db.execute("DELETE FROM sessions WHERE uuid = ?", (uuid,))
+                self._db.execute("DELETE FROM users WHERE uuid = ?", (uuid,))
         return len(gone)

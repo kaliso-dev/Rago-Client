@@ -21,8 +21,6 @@ MAX_LOOKUP = 100
 EMOTE = re.compile(r"^[a-z_]{1,24}$")
 # an emote plays until its player moves; one not stopped by then is over after this many seconds
 EMOTE_FOR = 600
-MAX_FRIENDS = 200
-MAX_SENT = 50
 
 
 def join_id(challenge):
@@ -171,76 +169,6 @@ class Network:
                     out[u] = {"emote": e[0], "speed": e[1], "elapsed": int((now - e[2]) * 1000)}
         return 200, {"emotes": out}
 
-    # friends
-
-    def friends(self, uuid, body):
-        """The player's friends (online first) and the friend requests they received and sent."""
-        if not self.limits.allow("friends", uuid, 30, 10):
-            return 429, {"error": "slow_down"}
-        friends, received, sent = self.store.friends(uuid, int(self.clock()) - self.online_window)
-        friends.sort(key=lambda f: not f[3])
-        return 200, {
-            "friends": [{"uuid": u, "name": n, "role": r, "online": o} for u, n, r, o in friends],
-            "received": [{"uuid": u, "name": n} for u, n in received],
-            "sent": [{"uuid": u, "name": n} for u, n in sent],
-        }
-
-    def friend_add(self, uuid, body):
-        """Asks a Rago player, by name, to be friends; if they already asked, they become friends."""
-        if not self.limits.allow("friend_add", uuid, 10, 5):
-            return 429, {"error": "slow_down"}
-        name = body.get("name")
-        if not isinstance(name, str) or not NAME.match(name):
-            return 400, {"error": "bad_name"}
-        found = self.store.find(name)
-        if found is None:
-            return 404, {"error": "not_on_rago"}
-        other = found[0]
-        if other == uuid:
-            return 400, {"error": "yourself"}
-        relation = self.store.relation(uuid, other)
-        if relation == "friends":
-            return 200, {"state": "friends", "name": found[1]}
-        friends, sent = self.store.friend_counts(uuid)
-        if friends >= MAX_FRIENDS or self.store.friend_counts(other)[0] >= MAX_FRIENDS:
-            return 409, {"error": "too_many_friends"}
-        now = int(self.clock())
-        if relation == "received":
-            self.store.befriend(uuid, other, now)
-            return 200, {"state": "friends", "name": found[1]}
-        if relation is None:
-            if sent >= MAX_SENT:
-                return 409, {"error": "too_many_requests"}
-            self.store.ask(uuid, other, now)
-        return 200, {"state": "sent", "name": found[1]}
-
-    def friend_answer(self, uuid, body):
-        """Accepts or declines a friend request the player received."""
-        if not self.limits.allow("friend_answer", uuid, 30, 10):
-            return 429, {"error": "slow_down"}
-        other, accept = undashed(body.get("uuid")), body.get("accept")
-        if other is None or not isinstance(accept, bool):
-            return 400, {"error": "bad_request"}
-        other = dashed(other)
-        if self.store.relation(uuid, other) != "received":
-            return 404, {"error": "no_request"}
-        if accept:
-            if self.store.friend_counts(uuid)[0] >= MAX_FRIENDS or self.store.friend_counts(other)[0] >= MAX_FRIENDS:
-                return 409, {"error": "too_many_friends"}
-            self.store.befriend(uuid, other, int(self.clock()))
-            return 200, {"state": "friends"}
-        self.store.unfriend(uuid, other)
-        return 200, {"state": "declined"}
-
-    def friend_remove(self, uuid, body):
-        """Ends a friendship, or takes back a request the player sent."""
-        if not self.limits.allow("friend_answer", uuid, 30, 10):
-            return 429, {"error": "slow_down"}
-        other = undashed(body.get("uuid"))
-        if other is None:
-            return 400, {"error": "bad_request"}
-        return 200, {"removed": self.store.unfriend(uuid, dashed(other))}
-
     def stats(self, ip):
         if not self.limits.allow("stats", ip, 60, 20):
             return 429, {"error": "slow_down"}
@@ -319,9 +247,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/v1/auth/finish":
             self._send(*n.auth_finish(body, self._ip()))
             return
-        signed_in = {"/v1/presence": n.presence, "/v1/lookup": n.lookup, "/v1/emote": n.emote, "/v1/emotes": n.emotes,
-                     "/v1/friends": n.friends, "/v1/friends/add": n.friend_add, "/v1/friends/answer": n.friend_answer,
-                     "/v1/friends/remove": n.friend_remove}
+        signed_in = {"/v1/presence": n.presence, "/v1/lookup": n.lookup, "/v1/emote": n.emote, "/v1/emotes": n.emotes}
         handle = signed_in.get(self.path)
         if handle is None:
             self._send(404, {"error": "not_found"})
