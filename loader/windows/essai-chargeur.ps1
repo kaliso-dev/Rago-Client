@@ -76,6 +76,7 @@ $json = [ordered]@{
     time = "2026-11-03T00:00:00+00:00"
     releaseTime = "2026-11-03T00:00:00+00:00"
     mainClass = "gg.rago.loader.Main"
+    javaVersion = [ordered]@{ component = "java-runtime-delta"; majorVersion = 21 }
     minecraftArguments = "launch --game $renamed --mod $ragoCopy -- " + $version.minecraftArguments
     libraries = @(@{ name = "gg.rago:rago-loader:0.1.0" })
 } | ConvertTo-Json -Depth 5
@@ -86,4 +87,5 @@ New-Item -ItemType Directory -Force $dir | Out-Null
 Write-Host ""
 Write-Host "C'est prêt, avec $($rago.Name). Dans le launcher Minecraft : Installations > Nouvelle installation"
 Write-Host "  Version : release 1.8.9-rago"
-Write-Host "  Plus d'options > Exécutable Java : $(Join-Path $Java 'bin\javaw.exe')"
+Write-Host "  Le launcher prend Java 21 tout seul. Si tu vois « A JNI error has occurred »,"
+Write-Host "  mets dans Plus d'options > Exécutable Java : $(Join-Path $Java 'bin\javaw.exe')"
