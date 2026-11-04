@@ -179,7 +179,7 @@ pub fn install(client: &Client, layout: &Layout, source: &RagoSource, progress: 
         .iter()
         .find(|l| l.name.starts_with("net.minecraftforge:forge:"))
         .map(|l| libraries.join(&l.path))
-        .context("Forge manque dans data/forge-1.8.9.json")?;
+        .context("Forge is missing from data/forge-1.8.9.json")?;
     let vanilla_classpath: Vec<PathBuf> = vanilla.classpath.iter().map(|(_, p)| p.clone()).collect();
 
     // Forge's libraries first, then Minecraft's that Forge does not already bring, then the game

@@ -96,7 +96,7 @@ pub fn set_dedicated_gpu(java: &Path, on: bool) -> Result<()> {
     let key = r"HKCU\Software\Microsoft\DirectX\UserGpuPreferences";
     let path = java.to_string_lossy().into_owned();
     if path.contains('"') {
-        bail!("chemin de Java invalide");
+        bail!("invalid Java path");
     }
     let mut cmd = Command::new("reg");
     if on {
@@ -108,7 +108,7 @@ pub fn set_dedicated_gpu(java: &Path, on: bool) -> Result<()> {
     let out = cmd.output().context("reg")?;
     // deleting a value that is not there is fine
     if on && !out.status.success() {
-        bail!("Windows a refusé le réglage de la carte graphique");
+        bail!("Windows refused the graphics card setting");
     }
     Ok(())
 }

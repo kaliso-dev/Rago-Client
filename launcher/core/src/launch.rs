@@ -49,10 +49,10 @@ pub fn parse_jvm_arguments(text: &str) -> Result<Vec<String>, String> {
     let args: Vec<String> = text.split_whitespace().map(str::to_string).collect();
     for a in &args {
         if ["-cp", "-classpath", "--class-path", "-jar"].contains(&a.as_str()) || a.starts_with("-Djava.library.path=") {
-            return Err(format!("{a} est géré par le launcher."));
+            return Err(format!("{a} is managed by the launcher."));
         }
         if !a.starts_with('-') {
-            return Err(format!("« {a} » n'est pas un argument de Java (il doit commencer par -)."));
+            return Err(format!("\"{a}\" is not a Java argument (it must start with -)."));
         }
     }
     Ok(args)

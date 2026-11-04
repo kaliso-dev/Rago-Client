@@ -52,10 +52,10 @@ pub fn latest(client: &Client) -> Result<RagoMod> {
         .error_for_status()?
         .json()?;
     let Some(asset) = release.assets.into_iter().find(|a| is_rago_jar(&a.name)) else {
-        bail!("la dernière version de Rago ({}) n'a pas de jar", release.tag_name);
+        bail!("the latest Rago release ({}) has no jar", release.tag_name);
     };
     let Some(sha256) = asset.digest.as_deref().and_then(|d| d.strip_prefix("sha256:")) else {
-        bail!("GitHub ne donne pas l'empreinte de {}", asset.name);
+        bail!("GitHub gives no hash for {}", asset.name);
     };
     Ok(RagoMod { version: release.tag_name, sha256: sha256.to_string(), file: asset.name, url: asset.browser_download_url, size: asset.size })
 }
@@ -72,7 +72,7 @@ pub fn installed(mods: &Path) -> Option<PathBuf> {
 /// Puts `m` in `mods` and takes out every other Rago jar.
 pub fn install(client: &Client, m: &RagoMod, mods: &Path) -> Result<PathBuf> {
     if !is_rago_jar(&m.file) {
-        bail!("nom de fichier Rago inattendu : {}", m.file);
+        bail!("unexpected Rago file name: {}", m.file);
     }
     let path = mods.join(&m.file);
     let download = Download { url: m.url.clone(), path: path.clone(), hash: Hash::Sha256(m.sha256.clone()), size: Some(m.size) };
@@ -86,10 +86,10 @@ pub fn install(client: &Client, m: &RagoMod, mods: &Path) -> Result<PathBuf> {
 /// Copies a jar built locally into `mods` (for testing a build before it is released).
 pub fn install_local(jar: &Path, mods: &Path) -> Result<PathBuf> {
     let Some(name) = jar.file_name().map(|n| n.to_string_lossy().into_owned()) else {
-        bail!("pas un fichier : {}", jar.display());
+        bail!("not a file: {}", jar.display());
     };
     if !is_rago_jar(&name) {
-        bail!("pas un jar Rago : {name}");
+        bail!("not a Rago jar: {name}");
     }
     fs::create_dir_all(mods)?;
     let path = mods.join(&name);

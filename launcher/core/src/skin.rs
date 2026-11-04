@@ -14,7 +14,7 @@ pub fn skin_url(client: &Client, uuid: &str) -> Result<String> {
 /// The skin's address, and whether it uses the slim arms.
 pub fn skin_info(client: &Client, uuid: &str) -> Result<(String, bool)> {
     if uuid.len() != 32 || !uuid.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(anyhow!("identifiant de joueur invalide"));
+        return Err(anyhow!("invalid player id"));
     }
     let profile: serde_json::Value = client
         .get(format!("https://sessionserver.mojang.com/session/minecraft/profile/{uuid}"))
@@ -25,14 +25,14 @@ pub fn skin_info(client: &Client, uuid: &str) -> Result<(String, bool)> {
         .as_array()
         .and_then(|p| p.iter().find(|x| x["name"] == "textures"))
         .and_then(|x| x["value"].as_str())
-        .ok_or_else(|| anyhow!("profil sans skin"))?;
+        .ok_or_else(|| anyhow!("profile without a skin"))?;
     let textures: serde_json::Value = serde_json::from_slice(&STANDARD.decode(value)?)?;
     let skin = &textures["textures"]["SKIN"];
     let slim = skin["metadata"]["model"] == "slim";
-    let url = skin["url"].as_str().ok_or_else(|| anyhow!("profil sans skin"))?;
+    let url = skin["url"].as_str().ok_or_else(|| anyhow!("profile without a skin"))?;
     let url = url.replacen("http://", "https://", 1);
     if !url.starts_with("https://textures.minecraft.net/") {
-        return Err(anyhow!("adresse de skin inattendue"));
+        return Err(anyhow!("unexpected skin address"));
     }
     Ok((url, slim))
 }
@@ -43,7 +43,7 @@ pub fn skin_png(client: &Client, uuid: &str) -> Result<(Vec<u8>, bool)> {
     let png = client.get(url).send()?.error_for_status()?.bytes()?.to_vec();
     let img = image::load_from_memory_with_format(&png, image::ImageFormat::Png)?;
     if img.width() != 64 || !(img.height() == 64 || img.height() == 32) {
-        return Err(anyhow!("skin d'une taille inattendue"));
+        return Err(anyhow!("skin has an unexpected size"));
     }
     Ok((png, slim))
 }
@@ -52,7 +52,7 @@ pub fn skin_png(client: &Client, uuid: &str) -> Result<(Vec<u8>, bool)> {
 pub fn face(skin_png: &[u8], size: u32) -> Result<RgbaImage> {
     let skin = image::load_from_memory_with_format(skin_png, image::ImageFormat::Png)?.to_rgba8();
     if skin.width() < 64 || skin.height() < 16 {
-        return Err(anyhow!("skin trop petit"));
+        return Err(anyhow!("skin is too small"));
     }
     let mut face = imageops::crop_imm(&skin, 8, 8, 8, 8).to_image();
     let hat = imageops::crop_imm(&skin, 40, 8, 8, 8).to_image();

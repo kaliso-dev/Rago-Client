@@ -15,7 +15,7 @@ const PROTOCOL_1_8: i32 = 47;
 pub fn parse_address(address: &str) -> Result<(String, u16)> {
     let address = address.trim();
     let (host, port) = match address.rsplit_once(':') {
-        Some((h, p)) => (h, p.parse::<u16>().map_err(|_| anyhow!("port invalide"))?),
+        Some((h, p)) => (h, p.parse::<u16>().map_err(|_| anyhow!("invalid port"))?),
         None => (address, 25565),
     };
     let ok = !host.is_empty()
@@ -24,13 +24,13 @@ pub fn parse_address(address: &str) -> Result<(String, u16)> {
         && !host.starts_with(['-', '.'])
         && port != 0;
     if !ok {
-        bail!("adresse de serveur invalide : {address}");
+        bail!("invalid server address: {address}");
     }
     Ok((host.to_ascii_lowercase(), port))
 }
 
 fn resolve(host: &str, port: u16) -> Result<SocketAddr> {
-    (host, port).to_socket_addrs().with_context(|| format!("{host} introuvable"))?.next().ok_or_else(|| anyhow!("{host} introuvable"))
+    (host, port).to_socket_addrs().with_context(|| format!("{host} not found"))?.next().ok_or_else(|| anyhow!("{host} not found"))
 }
 
 /// The connection to a server, from a few TCP connections.
@@ -65,7 +65,7 @@ pub fn latency(host: &str, port: u16, tries: u32) -> Result<Latency> {
         }
     }
     if times.is_empty() {
-        bail!("{host} ne répond pas");
+        bail!("{host} does not answer");
     }
     Ok(summarize(&times, lost, tries))
 }
@@ -113,7 +113,7 @@ fn read_varint(r: &mut impl Read) -> Result<i32> {
             return Ok(v);
         }
     }
-    bail!("réponse invalide")
+    bail!("invalid response")
 }
 
 fn packet(id: i32, body: &[u8]) -> Vec<u8> {
@@ -145,18 +145,18 @@ pub fn status(host: &str, port: u16) -> Result<Status> {
     s.write_all(&request)?;
     let len = read_varint(&mut s)?;
     if !(1..=1 << 21).contains(&len) {
-        bail!("réponse invalide");
+        bail!("invalid response");
     }
     let mut body = vec![0u8; len as usize];
     s.read_exact(&mut body)?;
     let ping_ms = start.elapsed().as_millis() as u32;
     let mut cursor = &body[..];
     if read_varint(&mut cursor)? != 0 {
-        bail!("réponse invalide");
+        bail!("invalid response");
     }
     let text_len = read_varint(&mut cursor)?;
     if text_len < 0 || text_len as usize > cursor.len() {
-        bail!("réponse invalide");
+        bail!("invalid response");
     }
     let json: serde_json::Value = serde_json::from_slice(&cursor[..text_len as usize])?;
     Ok(parse_status(&json, ping_ms))

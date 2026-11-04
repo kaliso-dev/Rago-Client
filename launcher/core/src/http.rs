@@ -111,7 +111,7 @@ impl Download {
                 Err(e) => last = Some(e),
             }
         }
-        Err(last.unwrap()).with_context(|| format!("téléchargement de {}", self.url))
+        Err(last.unwrap()).with_context(|| format!("downloading {}", self.url))
     }
 
     fn try_fetch(&self, client: &Client) -> Result<u64> {
@@ -143,7 +143,7 @@ impl Download {
         let got = hasher.finish();
         if self.size.is_some_and(|s| s != total) || !got.eq_ignore_ascii_case(self.hash.expected()) {
             let _ = fs::remove_file(&part);
-            bail!("fichier abîmé ({total} octets, empreinte {got})");
+            bail!("damaged file ({total} bytes, hash {got})");
         }
         fs::rename(&part, &self.path)?;
         Ok(total)

@@ -52,10 +52,10 @@ pub fn latest(client: &Client, os: Os, feature: u8) -> Result<Jre> {
     );
     let assets: Vec<Asset> = client.get(url).send()?.error_for_status()?.json()?;
     let Some(a) = assets.into_iter().next() else {
-        bail!("Adoptium n'a pas de Java {feature} pour ce système");
+        bail!("Adoptium has no Java {feature} for this system");
     };
     if a.release_name.contains(['/', '\\']) || a.release_name.contains("..") {
-        bail!("nom de version Java inattendu : {}", a.release_name);
+        bail!("unexpected Java version name: {}", a.release_name);
     }
     Ok(Jre {
         release: a.release_name,
@@ -81,9 +81,9 @@ pub fn version(java: &Path) -> Result<String> {
     let mut cmd = std::process::Command::new(java);
     cmd.arg("-version");
     crate::system::hide_window(&mut cmd);
-    let out = cmd.output().with_context(|| format!("{} ne démarre pas", java.display()))?;
+    let out = cmd.output().with_context(|| format!("{} does not start", java.display()))?;
     let text = String::from_utf8_lossy(&out.stderr);
-    parse_version(&text).ok_or_else(|| anyhow::anyhow!("{} n'est pas Java", java.display()))
+    parse_version(&text).ok_or_else(|| anyhow::anyhow!("{} is not Java", java.display()))
 }
 
 fn parse_version(text: &str) -> Option<String> {
@@ -103,7 +103,7 @@ pub fn is_java_8(version: &str) -> bool {
 pub fn ensure(client: &Client, runtime_dir: &Path, os: Os, feature: u8) -> Result<PathBuf> {
     match latest(client, os, feature) {
         Ok(jre) => install(client, &jre, runtime_dir, os),
-        Err(e) => installed(runtime_dir, os).ok_or(e).with_context(|| format!("Java {feature} introuvable et Adoptium injoignable")),
+        Err(e) => installed(runtime_dir, os).ok_or(e).with_context(|| format!("Java {feature} not found and Adoptium unreachable")),
     }
 }
 
@@ -138,11 +138,11 @@ pub fn install(client: &Client, jre: &Jre, runtime_dir: &Path, os: Os) -> Result
     } else if jre.file.ends_with(".tar.gz") {
         untar_stripped(&archive, &home)?;
     } else {
-        bail!("archive Java inconnue : {}", jre.file);
+        bail!("unknown Java archive: {}", jre.file);
     }
     let java = executable(&home, os);
     if !java.is_file() {
-        bail!("Java absent de l'archive {}", jre.file);
+        bail!("no Java in archive {}", jre.file);
     }
     File::create(home.join(DONE))?;
     let _ = fs::remove_file(&archive);

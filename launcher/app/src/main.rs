@@ -246,7 +246,7 @@ fn state(state: State<'_, AppState>) -> View {
 #[tauri::command]
 async fn sign_in(app: AppHandle, state: State<'_, AppState>) -> Result<SavedAccount, String> {
     let Some(client_id) = auth::client_id() else {
-        return Err("La connexion Microsoft arrive bientôt : Mojang doit encore autoriser l'application Rago.".into());
+        return Err("Microsoft sign-in is coming soon: Mojang still has to approve the Rago app.".into());
     };
     let pending = auth::begin(client_id).map_err(err)?;
     app.opener().open_url(&pending.url, None::<&str>).map_err(err)?;
@@ -276,7 +276,7 @@ async fn sign_in(app: AppHandle, state: State<'_, AppState>) -> Result<SavedAcco
 fn select_account(uuid: String) -> Result<(), String> {
     let mut s = load_settings();
     if !s.accounts.iter().any(|a| a.uuid == uuid) {
-        return Err("Compte inconnu.".into());
+        return Err("Unknown account.".into());
     }
     s.selected = Some(uuid);
     save_settings(&s)
@@ -444,7 +444,7 @@ async fn news() -> Result<Vec<News>, String> {
 #[tauri::command]
 fn open_release(app: AppHandle, url: String) -> Result<(), String> {
     if !url.starts_with("https://github.com/kaliso-dev/Rago-Client/releases/") || url.contains(['"', ' ', '\\']) {
-        return Err("Adresse refusée.".into());
+        return Err("Address refused.".into());
     }
     app.opener().open_url(url, None::<&str>).map_err(err)
 }
@@ -499,18 +499,18 @@ fn mods() -> Result<Vec<ModView>, String> {
 #[tauri::command]
 fn set_mod_enabled(file: String, enabled: bool, state: State<'_, AppState>) -> Result<(), String> {
     if *state.busy.lock().unwrap() {
-        return Err("Ferme le jeu d'abord.".into());
+        return Err("Close the game first.".into());
     }
-    let Some((jar, _)) = mod_name(&file) else { return Err("Mod inconnu.".into()) };
+    let Some((jar, _)) = mod_name(&file) else { return Err("Unknown mod.".into()) };
     if rago::is_rago_jar(jar) {
-        return Err("Rago reste activé : c'est le client.".into());
+        return Err("Rago stays on: it is the client.".into());
     }
     let dir = layout().mods();
     let on = dir.join(jar);
     let off = dir.join(format!("{jar}.disabled"));
     let (from, to) = if enabled { (off, on) } else { (on, off) };
     if !from.is_file() {
-        return Err("Mod introuvable.".into());
+        return Err("Mod not found.".into());
     }
     fs::rename(from, to).map_err(err)
 }
@@ -519,7 +519,7 @@ fn set_mod_enabled(file: String, enabled: bool, state: State<'_, AppState>) -> R
 #[tauri::command]
 fn optimize(state: State<'_, AppState>) -> Result<(), String> {
     if *state.busy.lock().unwrap() {
-        return Err("Ferme le jeu d'abord : il réécrit ses options en quittant.".into());
+        return Err("Close the game first: it rewrites its options when it quits.".into());
     }
     presets::apply(&layout().game(), Preset::Performance).map_err(err_chain)?;
     let mut s = load_settings();
@@ -535,31 +535,31 @@ fn optimize(state: State<'_, AppState>) -> Result<(), String> {
 fn set_setting(key: String, value: serde_json::Value) -> Result<(), String> {
     use serde_json::Value;
     let mut s = load_settings();
-    let flag = || value.as_bool().ok_or("Valeur invalide.");
+    let flag = || value.as_bool().ok_or("Invalid value.");
     let size = |v: &Value| -> Result<Option<u32>, String> {
         match v {
             Value::Null => Ok(None),
-            v => v.as_u64().filter(|n| (320..=7680).contains(n)).map(|n| Some(n as u32)).ok_or_else(|| "Taille de fenêtre invalide.".to_string()),
+            v => v.as_u64().filter(|n| (320..=7680).contains(n)).map(|n| Some(n as u32)).ok_or_else(|| "Invalid window size.".to_string()),
         }
     };
     match key.as_str() {
         "memoryMb" => {
-            let mb = value.as_u64().ok_or("Valeur invalide.")? as u32;
+            let mb = value.as_u64().ok_or("Invalid value.")? as u32;
             s.memory_mb = Some(mb.clamp(1024, system::max_memory_mb(system::total_memory_mb())));
         }
         "onLaunch" => {
-            let v = value.as_str().filter(|v| ["minimize", "close", "keep"].contains(v)).ok_or("Choix inconnu.")?;
+            let v = value.as_str().filter(|v| ["minimize", "close", "keep"].contains(v)).ok_or("Unknown choice.")?;
             s.on_launch = Some(v.into());
         }
         "tunedJvm" => s.tuned_jvm = Some(flag()?),
         "engine" => match value.as_str() {
             Some("forge") => s.engine = None,
             Some("rago") if loader::available() && loader::supported(Os::current()) => s.engine = Some("rago".into()),
-            Some("rago") => return Err("Le chargeur Rago ne marche que sur Windows pour l'instant.".into()),
-            _ => return Err("Valeur invalide.".into()),
+            Some("rago") => return Err("The Rago loader only works on Windows for now.".into()),
+            _ => return Err("Invalid value.".into()),
         },
         "jvmArgs" => {
-            let text = value.as_str().ok_or("Valeur invalide.")?.trim().to_string();
+            let text = value.as_str().ok_or("Invalid value.")?.trim().to_string();
             parse_jvm_arguments(&text)?;
             s.jvm_args = (!text.is_empty()).then_some(text);
         }
@@ -591,7 +591,7 @@ fn set_setting(key: String, value: serde_json::Value) -> Result<(), String> {
                 None => None,
             }
         }
-        _ => return Err("Réglage inconnu.".into()),
+        _ => return Err("Unknown setting.".into()),
     }
     save_settings(&s)
 }
@@ -599,18 +599,18 @@ fn set_setting(key: String, value: serde_json::Value) -> Result<(), String> {
 /// Lets the player pick their own Java 8 (java or javaw), checked by running it.
 #[tauri::command]
 async fn pick_java(app: AppHandle) -> Result<Option<String>, String> {
-    let Some(picked) = app.dialog().file().set_title("Choisis l'exécutable de Java 8 (bin/javaw.exe)").blocking_pick_file() else {
+    let Some(picked) = app.dialog().file().set_title("Choose the Java 8 executable (bin/javaw.exe)").blocking_pick_file() else {
         return Ok(None);
     };
     let path = picked.into_path().map_err(err)?;
     let name = path.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
     if !["java", "javaw", "java.exe", "javaw.exe"].contains(&name.as_str()) {
-        return Err("Choisis le fichier java (javaw.exe sur Windows), dans le dossier bin de Java.".into());
+        return Err("Choose the java file (javaw.exe on Windows), in Java's bin folder.".into());
     }
     let probe = path.clone();
     let version = tauri::async_runtime::spawn_blocking(move || java::version(&probe)).await.map_err(err)?.map_err(err_chain)?;
     if !java::is_java_8(&version) {
-        return Err(format!("Ce Java est en version {version}. Forge 1.8.9 a besoin de Java 8 (1.8)."));
+        return Err(format!("This Java is version {version}. Forge 1.8.9 needs Java 8 (1.8)."));
     }
     let mut s = load_settings();
     s.java_path = Some(path.to_string_lossy().into_owned());
@@ -630,7 +630,7 @@ fn reset_java() -> Result<(), String> {
 #[tauri::command]
 fn apply_preset(name: String, state: State<'_, AppState>) -> Result<(), String> {
     if *state.busy.lock().unwrap() {
-        return Err("Ferme le jeu d'abord : il réécrit ses options en quittant.".into());
+        return Err("Close the game first: it rewrites its options when it quits.".into());
     }
     presets::apply(&layout().game(), Preset::parse(&name).map_err(err)?).map_err(err_chain)?;
     let mut s = load_settings();
@@ -696,7 +696,7 @@ fn pipe_output(handle: &AppHandle, out: impl Read + Send + 'static, err: impl Re
             match rx.recv_timeout(Duration::from_millis(150)) {
                 Ok(mut line) => {
                     if !token.is_empty() && line.contains(&token) {
-                        line = line.replace(&token, "<jeton masqué>");
+                        line = line.replace(&token, "<token hidden>");
                     }
                     let _ = writeln!(log, "{line}");
                     batch.push(line);
@@ -732,7 +732,7 @@ fn fresh_session(state: &AppState, uuid: &str) -> Result<McSession, String> {
             return Ok(s.clone());
         }
     }
-    let again = || "Reconnecte ce compte avec Microsoft.".to_string();
+    let again = || "Sign in to this account with Microsoft again.".to_string();
     let client_id = auth::client_id().ok_or_else(again)?;
     let refresh = keyring_entry(uuid)?.get_password().map_err(|_| again())?;
     let client = http::client().map_err(err)?;
@@ -771,7 +771,7 @@ async fn play(app: AppHandle, server: Option<String>) -> Result<(), String> {
         let state = app.state::<AppState>();
         let mut busy = state.busy.lock().unwrap();
         if *busy {
-            return Err("Le jeu est déjà en route.".into());
+            return Err("The game is already running.".into());
         }
         *busy = true;
     }
@@ -779,7 +779,7 @@ async fn play(app: AppHandle, server: Option<String>) -> Result<(), String> {
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let state = handle.state::<AppState>();
         let settings = load_settings();
-        let uuid = settings.selected.clone().or_else(|| settings.accounts.first().map(|a| a.uuid.clone())).ok_or("Connecte-toi d'abord avec ton compte Microsoft.")?;
+        let uuid = settings.selected.clone().or_else(|| settings.accounts.first().map(|a| a.uuid.clone())).ok_or("Sign in with your Microsoft account first.")?;
         let session = fresh_session(&state, &uuid)?;
         let client = http::client().map_err(err)?;
         let layout = layout();
@@ -803,7 +803,7 @@ async fn play(app: AppHandle, server: Option<String>) -> Result<(), String> {
             installed = loader::prepare(&client, &layout, &installed).map_err(err_chain)?;
         } else if let Some(own) = settings.java_path.as_deref().map(PathBuf::from) {
             if !own.is_file() {
-                return Err(format!("Le Java choisi n'existe plus : {}. Remets celui du launcher dans les paramètres.", own.display()));
+                return Err(format!("The chosen Java no longer exists: {}. Reset to the launcher's Java in Settings.", own.display()));
             }
             installed.java = own;
         }
@@ -822,12 +822,12 @@ async fn play(app: AppHandle, server: Option<String>) -> Result<(), String> {
         if on_launch == "close" {
             // the game outlives the launcher: its output goes straight to the file
             cmd.stdout(log.try_clone().map_err(err)?).stderr(log);
-            cmd.spawn().map_err(|e| format!("Java n'a pas pu démarrer : {e}"))?;
+            cmd.spawn().map_err(|e| format!("Java could not start: {e}"))?;
             let _ = handle.emit("playing", ());
             handle.exit(0);
             return Ok(());
         }
-        let mut child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| format!("Java n'a pas pu démarrer : {e}"))?;
+        let mut child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| format!("Java could not start: {e}"))?;
         let output = pipe_output(&handle, child.stdout.take().unwrap(), child.stderr.take().unwrap(), log, session.account.access_token.clone());
         let _ = handle.emit("playing", ());
         match on_launch {
@@ -868,7 +868,7 @@ async fn add_optifine(app: AppHandle) -> Result<Option<String>, String> {
     let path = picked.into_path().map_err(err)?;
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     if !is_optifine(&name) {
-        return Err("Choisis le fichier OptiFine pour Minecraft 1.8.9 (OptiFine_1.8.9_….jar).".into());
+        return Err("Choose the OptiFine file for Minecraft 1.8.9 (OptiFine_1.8.9_….jar).".into());
     }
     let mods = layout().mods();
     fs::create_dir_all(&mods).map_err(err)?;
@@ -899,7 +899,7 @@ fn open_folder(app: AppHandle, which: String) -> Result<(), String> {
     let dir = match which.as_str() {
         "game" => game,
         "logs" | "mods" | "resourcepacks" | "screenshots" => game.join(&which),
-        _ => return Err("Dossier inconnu.".into()),
+        _ => return Err("Unknown folder.".into()),
     };
     fs::create_dir_all(&dir).map_err(err)?;
     app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(err)
@@ -911,7 +911,7 @@ fn open_crash_report(app: AppHandle, path: String) -> Result<(), String> {
     let folder = layout().game().join("crash-reports").canonicalize().map_err(err)?;
     let file = PathBuf::from(path).canonicalize().map_err(err)?;
     if !file.starts_with(&folder) {
-        return Err("Rapport introuvable.".into());
+        return Err("Report not found.".into());
     }
     app.opener().open_path(file.to_string_lossy(), None::<&str>).map_err(err)
 }
@@ -920,7 +920,7 @@ fn open_crash_report(app: AppHandle, path: String) -> Result<(), String> {
 #[tauri::command]
 async fn import_official() -> Result<Vec<String>, String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let from = import::official_dir().filter(|d| d.is_dir()).ok_or("Aucun dossier .minecraft trouvé.")?;
+        let from = import::official_dir().filter(|d| d.is_dir()).ok_or("No .minecraft folder found.")?;
         import::import(&from, &layout().game()).map_err(err_chain)
     })
     .await
@@ -949,7 +949,7 @@ async fn install_update(app: AppHandle, update: updates::Update) -> Result<(), S
     let path = tauri::async_runtime::spawn_blocking(move || -> Result<PathBuf, String> {
         // the update must come from this repository's releases
         if !update.url.starts_with("https://github.com/kaliso-dev/Rago-Client/releases/download/") || update.file.contains(['/', '\\']) {
-            return Err("Mise à jour refusée : elle ne vient pas des versions de Rago.".into());
+            return Err("Update refused: it does not come from Rago's releases.".into());
         }
         let client = http::client().map_err(err)?;
         let path = root().join("updates").join(&update.file);
@@ -961,7 +961,7 @@ async fn install_update(app: AppHandle, update: updates::Update) -> Result<(), S
     })
     .await
     .map_err(err)??;
-    std::process::Command::new(&path).spawn().map_err(|e| format!("L'installeur n'a pas pu démarrer : {e}"))?;
+    std::process::Command::new(&path).spawn().map_err(|e| format!("The installer could not start: {e}"))?;
     app.exit(0);
     Ok(())
 }

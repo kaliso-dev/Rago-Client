@@ -39,10 +39,10 @@ fn id() -> String {
 /// Java 21, the loader jar and the renamed game, then what to start instead of Forge.
 pub fn prepare(client: &Client, layout: &Layout, inst: &Installed) -> Result<Installed> {
     if !available() {
-        bail!("Cette version du launcher n'a pas le chargeur Rago.");
+        bail!("This launcher build does not include the Rago loader.");
     }
     if !supported(Os::current()) {
-        bail!("Le chargeur Rago ne marche que sur Windows pour l'instant.");
+        bail!("The Rago loader only works on Windows for now.");
     }
     let java = java::ensure(client, &layout.runtime().join(format!("java-{JAVA}")), Os::current(), JAVA)?;
     prepare_with(layout, inst, java)
@@ -50,7 +50,7 @@ pub fn prepare(client: &Client, layout: &Layout, inst: &Installed) -> Result<Ins
 
 /// [`prepare`] with a Java 21 already there.
 pub fn prepare_with(layout: &Layout, inst: &Installed, java: PathBuf) -> Result<Installed> {
-    let rago = inst.rago.clone().context("Rago n'est pas installé")?;
+    let rago = inst.rago.clone().context("Rago is not installed")?;
     let dir = layout.version_dir().join("rago");
     fs::create_dir_all(&dir)?;
     let id = id();
@@ -74,10 +74,10 @@ fn rename_game(java: &Path, jar: &Path, inst: &Installed, out: &Path) -> Result<
     let mut cmd = Command::new(java);
     cmd.arg("-cp").arg(jar).arg(MAIN_CLASS).arg("remap").arg(&inst.vanilla.forge_jar).arg(&inst.vanilla.client_jar).arg(&tmp);
     crate::system::hide_window(&mut cmd);
-    let result = cmd.output().with_context(|| format!("{} ne démarre pas", java.display()))?;
+    let result = cmd.output().with_context(|| format!("{} does not start", java.display()))?;
     if !result.status.success() || !tmp.is_file() {
         let _ = fs::remove_file(&tmp);
-        bail!("le chargeur Rago n'a pas pu préparer le jeu : {}", String::from_utf8_lossy(&result.stderr).trim());
+        bail!("the Rago loader could not prepare the game: {}", String::from_utf8_lossy(&result.stderr).trim());
     }
     fs::rename(&tmp, out)?;
     Ok(())

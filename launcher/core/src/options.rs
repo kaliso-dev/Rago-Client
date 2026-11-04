@@ -22,7 +22,7 @@ impl Preset {
             "performance" => Preset::Performance,
             "balanced" => Preset::Balanced,
             "quality" => Preset::Quality,
-            _ => bail!("préréglage inconnu"),
+            _ => bail!("unknown preset"),
         })
     }
 

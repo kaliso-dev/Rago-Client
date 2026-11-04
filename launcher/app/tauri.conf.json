@@ -37,12 +37,12 @@
       "icons/icon.ico"
     ],
     "publisher": "Rago",
-    "shortDescription": "Launcher de Rago Client",
+    "shortDescription": "Rago Client launcher",
     "windows": {
       "nsis": {
         "installMode": "currentUser",
         "languages": [
-          "French"
+          "English"
         ]
       }
     }
