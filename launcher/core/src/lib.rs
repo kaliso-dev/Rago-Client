@@ -16,6 +16,7 @@ pub mod launch;
 pub mod loader;
 pub mod mojang;
 pub mod net;
+pub mod network;
 pub mod news;
 pub mod options;
 pub mod os;

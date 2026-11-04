@@ -70,6 +70,21 @@ summary:focus-visible { outline-offset: 0; }
 .brand .name span { color: var(--muted); font-weight: 600; }
 .pill { padding: 3px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; color: #FF8E86; background: rgba(242, 57, 44, 0.16); }
 .right { display: flex; align-items: center; gap: 6px; height: 100%; }
+.points {
+  display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 12px 0 10px; border-radius: 10px;
+  background: rgba(255, 193, 77, 0.1); border: 1px solid rgba(255, 193, 77, 0.3); color: var(--warn); font-weight: 600;
+  font-variant-numeric: tabular-nums; animation: pop var(--med) var(--ease) backwards;
+}
+.points .i { width: 18px; height: 18px; }
+.points strong { color: #FFE2A8; }
+.shop {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border-radius: 10px;
+  border: 1px solid var(--border-strong); background: rgba(255, 255, 255, 0.05); color: var(--soft); font-weight: 600;
+}
+.shop .i { width: 18px; height: 18px; }
+.shop:not(:disabled):hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+.shop:disabled { opacity: 0.7; cursor: default; }
+.soon { padding: 1px 6px; border-radius: 6px; font-size: 10.5px; background: var(--accent-soft); color: #FF8E86; }
 .discord {
   display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px 0 10px; border-radius: 10px;
   border: 1px solid rgba(88, 101, 242, 0.45); background: rgba(88, 101, 242, 0.14); color: #C9CDFB; font-weight: 600;
@@ -448,6 +463,31 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .times { color: var(--muted); }
 .field-error { margin: 0; font-size: 12.5px; color: var(--error); }
 #jvm-args { width: 100%; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; }
+
+/* friends */
+.nav .count {
+  margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 10px;
+  display: grid; place-items: center; font-style: normal; font-size: 11.5px; font-weight: 600;
+  background: rgba(61, 220, 132, 0.15); color: var(--green); animation: pop var(--med) var(--ease) backwards;
+}
+.add-friend { display: flex; gap: 10px; margin: 18px 0 6px; max-width: 520px; }
+.add-friend input { flex: 1; min-width: 0; }
+.add-friend .primary { display: inline-flex; align-items: center; gap: 8px; height: 38px; }
+.friend-group { margin-top: 18px; }
+.friend-group h2 { margin: 0 0 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.friend { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); animation: rise var(--med) var(--ease) backwards; }
+.friend:hover { border-color: var(--border-strong); }
+.friend .head img, .friend .head .face { width: 36px; height: 36px; }
+.friend .head .online { box-shadow: 0 0 0 2px var(--panel); }
+.friend .head .online.off { background: var(--faint); }
+.friend-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.friend-body strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.friend-body small { color: var(--muted); }
+.friend-body small.on { color: var(--green); }
+.friend .actions { display: flex; gap: 8px; }
+.friend .actions button { height: 32px; padding: 0 12px; }
+.friend .link.danger { color: var(--muted); }
+.friend .link.danger:hover { color: var(--error); }
 
 /* console */
 .console { padding: 16px 20px 18px; gap: 12px; position: relative; }

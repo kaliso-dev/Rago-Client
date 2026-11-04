@@ -148,6 +148,7 @@ function showPage(name) {
     renderConsole();
   }
   if (name === "mods") renderMods();
+  if (name === "friends") renderFriends();
   if (name === "home") {
     pollStats();
     pollConnection();
@@ -253,6 +254,8 @@ async function renderAccounts() {
     const b = menuButton(a.name, () => run(b, async () => {
       await invoke("select_account", { uuid: a.uuid });
       $("accounts").open = false;
+      renderPoints();
+      if (page === "friends") renderFriends();
     }), a.uuid === selected.uuid ? "current" : "");
     menu.append(b);
   }
@@ -370,6 +373,7 @@ function signIn(button) {
     setStatus("Finish signing in in your browser…");
     const account = await invoke("sign_in");
     setStatus(`Welcome, ${account.name}!`);
+    renderPoints();
     $("accounts").open = false;
   });
 }
@@ -566,6 +570,118 @@ function renderNotes() {
     }));
   note.append(go);
   notes.append(note);
+}
+
+// Rago Network: friends and points. They need the account signed in to Rago Network, which needs
+// the Microsoft sign-in; without an account the friends page says so and the points stay hidden.
+
+function networkError(e) {
+  const text = String(e);
+  if (/404 not_found/.test(text)) return "Friends are not on Rago Network yet: they arrive with its next update.";
+  if (/Rago Network unreachable/.test(text)) return "Rago Network does not answer right now. Try again in a minute.";
+  return text;
+}
+
+function friendRow(person, detail, online, actions) {
+  const row = el("div", "friend");
+  const head = el("span", "head");
+  const letter = el("span", "face letter", person.name.slice(0, 1).toUpperCase());
+  head.append(letter);
+  if (online !== null) head.append(el("i", `online${online ? "" : " off"}`));
+  const body = el("span", "friend-body");
+  body.append(el("strong", "", person.name), el("small", online ? "on" : "", detail));
+  const buttons = el("span", "actions");
+  for (const [label, cls, onClick] of actions) {
+    const b = el("button", cls, label);
+    b.addEventListener("click", () => run(b, async () => {
+      try {
+        await onClick();
+      } catch (e) {
+        toast(networkError(e), true);
+      }
+      await renderFriends();
+    }));
+    buttons.append(b);
+  }
+  row.append(head, body, buttons);
+  face(person.uuid.replaceAll("-", "")).then((src) => {
+    if (!src) return;
+    const img = el("img", "face");
+    img.alt = "";
+    img.src = src;
+    letter.replaceWith(img);
+  });
+  return row;
+}
+
+let friendsTimer = null;
+async function renderFriends() {
+  clearTimeout(friendsTimer);
+  if (!view?.accounts.length) {
+    $("friends-error").textContent = "Sign in with Microsoft to see your Rago friends.";
+    $("friends-error").hidden = false;
+    $("friend-add").disabled = true;
+    return;
+  }
+  $("friend-add").disabled = false;
+  let data;
+  try {
+    data = await invoke("friends");
+    $("friends-error").hidden = true;
+  } catch (e) {
+    $("friends-error").textContent = networkError(e);
+    $("friends-error").hidden = false;
+    return;
+  }
+  const online = data.friends.filter((f) => f.online).length;
+  $("friends-count").hidden = online === 0;
+  $("friends-count").textContent = online;
+  $("friends-title").textContent = data.friends.length ? `Friends · ${online} online` : "Friends";
+  $("friend-list").replaceChildren(...data.friends.map((f) =>
+    friendRow(f, f.online ? "Playing with Rago" : "Offline", f.online, [["Remove", "link danger", () => invoke("friend_remove", { uuid: f.uuid })]])));
+  $("friends-empty").hidden = data.friends.length > 0;
+  $("received-group").hidden = !data.received.length;
+  $("received-list").replaceChildren(...data.received.map((p) =>
+    friendRow(p, "Wants to be your friend", null, [
+      ["Accept", "primary", () => invoke("friend_answer", { uuid: p.uuid, accept: true })],
+      ["Decline", "secondary", () => invoke("friend_answer", { uuid: p.uuid, accept: false })],
+    ])));
+  $("sent-group").hidden = !data.sent.length;
+  $("sent-list").replaceChildren(...data.sent.map((p) =>
+    friendRow(p, "Request sent", null, [["Cancel", "link danger", () => invoke("friend_remove", { uuid: p.uuid })]])));
+  // the list follows who comes and goes while the page is open; nothing runs during a game
+  if (page === "friends" && !playing) friendsTimer = setTimeout(renderFriends, 60000);
+}
+
+$("friend-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = $("friend-name").value.trim();
+  if (!name) return;
+  run($("friend-add"), async () => {
+    try {
+      const now = await invoke("friend_add", { name });
+      toast(now ? `You and ${name} are friends now.` : `Friend request sent to ${name}.`);
+      $("friend-name").value = "";
+    } catch (e) {
+      toast(networkError(e), true);
+    }
+    await renderFriends();
+  });
+});
+
+let pointsTimer = null;
+async function renderPoints() {
+  clearTimeout(pointsTimer);
+  if (!view?.accounts.length) {
+    $("points").hidden = true;
+    return;
+  }
+  if (!playing && !document.hidden) {
+    const p = await invoke("points").catch(() => null);
+    $("points").hidden = p === null;
+    if (p !== null) setText($("points-value"), p.toLocaleString("en-US"));
+  }
+  pointsTimer = setTimeout(renderPoints, 300000);
 }
 
 // presets and the optimizer
@@ -826,6 +942,7 @@ listen("console", ({ payload }) => addLines(payload));
 listen("closed", ({ payload }) => {
   setPlaying(false);
   pollStats();
+  renderPoints();
   $("play-text").textContent = "Play";
   const ok = payload.code === 0 || payload.code === null;
   crashReport = payload.crashReport;
@@ -848,6 +965,7 @@ refresh().then(async () => {
   renderConsole();
   renderServers();
   pollStats();
+  renderPoints();
 });
 renderNews();
 renderNotes();

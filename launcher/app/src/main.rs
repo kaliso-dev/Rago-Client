@@ -17,6 +17,7 @@ use rago_launcher_core::launch::parse_jvm_arguments;
 use rago_launcher_core::os::Os;
 use rago_launcher_core::options::{self as presets, Preset};
 use rago_launcher_core::net::{self, Latency, Status};
+use rago_launcher_core::network::{self, Friends};
 use rago_launcher_core::news::{self, News};
 use rago_launcher_core::{command, http, import, java, loader, rago, servers, skin, system, updates, Options};
 use serde::{Deserialize, Serialize};
@@ -143,6 +144,8 @@ const CONSOLE_LINES: usize = 4000;
 #[derive(Default)]
 struct AppState {
     sessions: Mutex<HashMap<String, McSession>>,
+    /// Rago Network sessions, by account uuid
+    network: Mutex<HashMap<String, network::Session>>,
     busy: Mutex<bool>,
     console: Mutex<VecDeque<String>>,
 }
@@ -755,6 +758,77 @@ fn fresh_session(state: &AppState, uuid: &str) -> Result<McSession, String> {
     Ok(session)
 }
 
+fn now_secs() -> u64 {
+    SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+/// Runs `call` with a Rago Network session for the selected account, signing in when there is
+/// none or the server asks for it again (once).
+fn with_network<T>(state: &AppState, call: impl Fn(&network::Client, &network::Session) -> anyhow::Result<T>) -> Result<T, String> {
+    let s = load_settings();
+    let uuid = s.selected.clone().filter(|u| s.accounts.iter().any(|a| a.uuid == *u)).or_else(|| s.accounts.first().map(|a| a.uuid.clone()))
+        .ok_or("Sign in with your Microsoft account first.")?;
+    let client = http::client().map_err(err)?;
+    for attempt in 0..2 {
+        let cached = state.network.lock().unwrap().get(&uuid).filter(|n| n.expires_at > now_secs() + 60).cloned();
+        let session = match cached {
+            Some(n) => n,
+            None => {
+                let mc = fresh_session(state, &uuid)?;
+                let n = network::sign_in(&client, network::SERVER, &mc.account, now_secs()).map_err(err_chain)?;
+                state.network.lock().unwrap().insert(uuid.clone(), n.clone());
+                n
+            }
+        };
+        match call(&client, &session) {
+            Err(e) if attempt == 0 && network::needs_sign_in(&e) => {
+                state.network.lock().unwrap().remove(&uuid);
+            }
+            other => return other.map_err(err_chain),
+        }
+    }
+    Err("Rago Network refused the sign-in.".into())
+}
+
+#[tauri::command]
+async fn friends(app: AppHandle) -> Result<Friends, String> {
+    tauri::async_runtime::spawn_blocking(move || with_network(&app.state::<AppState>(), |c, n| network::friends(c, network::SERVER, n)))
+        .await
+        .map_err(err)?
+}
+
+/// Asks a player to be friends: true when they had asked too, so you are friends now.
+#[tauri::command]
+async fn friend_add(app: AppHandle, name: String) -> Result<bool, String> {
+    if name.is_empty() || name.len() > 16 || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        return Err("That is not a Minecraft name.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || with_network(&app.state::<AppState>(), |c, n| network::add_friend(c, network::SERVER, n, &name)))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+async fn friend_answer(app: AppHandle, uuid: String, accept: bool) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || with_network(&app.state::<AppState>(), |c, n| network::answer(c, network::SERVER, n, &uuid, accept)))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+async fn friend_remove(app: AppHandle, uuid: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || with_network(&app.state::<AppState>(), |c, n| network::remove_friend(c, network::SERVER, n, &uuid)))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+async fn points(app: AppHandle) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || with_network(&app.state::<AppState>(), |c, n| network::points(c, network::SERVER, n)))
+        .await
+        .map_err(err)?
+}
+
 /// The newest crash report written since `since`.
 fn crash_report_since(game: &Path, since: SystemTime) -> Option<PathBuf> {
     fs::read_dir(game.join("crash-reports"))
@@ -997,6 +1071,11 @@ fn main() {
             news,
             open_release,
             open_discord,
+            friends,
+            friend_add,
+            friend_answer,
+            friend_remove,
+            points,
             mods,
             set_mod_enabled,
             optimize,
