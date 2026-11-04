@@ -64,15 +64,6 @@
       <div class="menu" id="account-menu"></div>
     </details>
     <span class="points" id="points" title="Your Rago Points" hidden><svg class="i"><use href="#i-coin"/></svg><strong id="points-value">0</strong></span>
-    <button class="shop" id="shop" disabled title="The Rago shop opens soon"><svg class="i"><use href="#i-bag"/></svg>Shop<span class="soon">Soon</span></button>
-    <button class="discord" id="discord" title="Join the Rago Discord"><svg class="i"><use href="#i-chat"/></svg>Discord</button>
-    <details id="bell" class="drop">
-      <summary class="icon-button" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg><i class="dot" id="bell-dot" hidden></i></summary>
-      <div class="menu notes" id="notes">
-        <p class="empty-note">No notifications.</p>
-      </div>
-    </details>
-    <button class="icon-button" data-page="settings" aria-label="Settings"><svg class="i"><use href="#i-gear"/></svg></button>
     <span class="sep" aria-hidden="true"></span>
     <button class="win" id="win-min" aria-label="Minimize"><svg class="i"><use href="#i-min"/></svg></button>
     <button class="win" id="win-max" aria-label="Maximize"><svg class="i"><use href="#i-max"/></svg></button>
@@ -87,6 +78,7 @@
     <button class="nav" data-page="performance"><svg class="i"><use href="#i-gauge"/></svg>Performance</button>
     <button class="nav" data-page="settings"><svg class="i"><use href="#i-gear"/></svg>Settings</button>
     <button class="nav" data-page="friends"><svg class="i"><use href="#i-users"/></svg>Friends<i class="count" id="friends-count" hidden></i></button>
+    <button class="nav store" id="store-nav" disabled title="The Rago store opens soon"><svg class="i"><use href="#i-bag"/></svg>Store<span class="soon">Soon</span></button>
     <button class="nav" data-page="console"><svg class="i"><use href="#i-console"/></svg>Console<i class="dot" id="console-dot" hidden></i></button>
 
     <div class="optimizer">
@@ -186,11 +178,20 @@
           </div>
         </article>
 
-        <article class="panel news">
+        <article class="panel news" id="feed">
           <header class="panel-head">
-            <h2><svg class="i accent"><use href="#i-news"/></svg>News</h2>
+            <div class="tabs" role="tablist" aria-label="Friends or news">
+              <button role="tab" id="tab-friends" data-feed="friends" aria-selected="true"><svg class="i sm"><use href="#i-users"/></svg>Online friends<i class="count" id="home-friends-count" hidden></i></button>
+              <button role="tab" id="tab-news" data-feed="news" aria-selected="false"><svg class="i sm"><use href="#i-news"/></svg>News</button>
+            </div>
             <button class="see-all" id="news-all" hidden>See all <svg class="i sm"><use href="#i-arrow"/></svg></button>
+            <button class="see-all" id="friends-all" data-page="friends">All <svg class="i sm"><use href="#i-arrow"/></svg></button>
           </header>
+          <div class="feed-friends" id="feed-friends" role="tabpanel">
+            <div class="online-list" id="online-list"></div>
+            <p class="muted small-text" id="online-empty">Your friends who play with Rago show up here.</p>
+          </div>
+          <div class="feed-news" id="feed-news" role="tabpanel" hidden>
           <div class="news-item" id="news-item" hidden>
             <div class="news-art" aria-hidden="true"><img src="logo.png" alt="" width="44" height="44"></div>
             <div class="news-body">
@@ -201,6 +202,7 @@
             </div>
           </div>
           <p class="muted small-text" id="news-empty">Rago news shows up here.</p>
+          </div>
         </article>
       </aside>
     </section>
@@ -475,7 +477,18 @@
 
 <footer class="statusbar">
   <p><i class="state" id="state-dot"></i>Status: <strong id="state-text">Ready</strong></p>
-  <p class="versions" id="versions"></p>
+  <div class="bottom-actions">
+    <details id="bell" class="drop up">
+      <summary class="bar-button icon-only" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg><i class="dot" id="bell-dot" hidden></i></summary>
+      <div class="menu notes" id="notes">
+        <p class="empty-note">No notifications.</p>
+      </div>
+    </details>
+    <button class="bar-button shop" id="shop" disabled title="The Rago shop opens soon"><svg class="i"><use href="#i-bag"/></svg>Shop<span class="soon">Soon</span></button>
+    <button class="bar-button discord" id="discord" title="Join the Rago Discord"><svg class="i"><use href="#i-chat"/></svg>Discord</button>
+    <span class="sep" aria-hidden="true"></span>
+    <p class="versions" id="versions"></p>
+  </div>
 </footer>
 
 <div class="toast" id="toast" role="status" hidden></div>

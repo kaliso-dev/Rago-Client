@@ -536,12 +536,27 @@ document.addEventListener("visibilitychange", () => {
 
 // home: news
 
+// the home card shows online friends or news, one at a time
+let feed = "friends";
+let newsReady = false;
+function showFeed(which) {
+  feed = which;
+  for (const b of document.querySelectorAll("[data-feed]")) b.setAttribute("aria-selected", String(b.dataset.feed === which));
+  $("feed-friends").hidden = which !== "friends";
+  $("feed-news").hidden = which !== "news";
+  $("friends-all").hidden = which !== "friends";
+  $("news-all").hidden = which !== "news" || !newsReady;
+  if (which === "friends") fitOnline();
+}
+for (const b of document.querySelectorAll("[data-feed]")) b.addEventListener("click", () => showFeed(b.dataset.feed));
+
 async function renderNews() {
   const news = await invoke("news").catch(() => []);
   const n = news[0];
   $("news-item").hidden = !n;
   $("news-empty").hidden = !!n;
-  $("news-all").hidden = !n;
+  newsReady = !!n;
+  $("news-all").hidden = !n || feed !== "news";
   if (!n) return;
   $("news-date").textContent = ago(n.date);
   $("news-title").textContent = n.title;
@@ -618,6 +633,7 @@ let friendsTimer = null;
 async function renderFriends() {
   clearTimeout(friendsTimer);
   if (!view?.accounts.length) {
+    renderOnline(null, "Sign in with Microsoft to see your friends online.");
     $("friends-error").textContent = "Sign in with Microsoft to see your Rago friends.";
     $("friends-error").hidden = false;
     $("friend-add").disabled = true;
@@ -631,8 +647,11 @@ async function renderFriends() {
   } catch (e) {
     $("friends-error").textContent = networkError(e);
     $("friends-error").hidden = false;
+    renderOnline(null, networkError(e));
+    scheduleFriends();
     return;
   }
+  renderOnline(data.friends.filter((f) => f.online));
   const online = data.friends.filter((f) => f.online).length;
   $("friends-count").hidden = online === 0;
   $("friends-count").textContent = online;
@@ -649,9 +668,71 @@ async function renderFriends() {
   $("sent-group").hidden = !data.sent.length;
   $("sent-list").replaceChildren(...data.sent.map((p) =>
     friendRow(p, "Request sent", null, [["Cancel", "link danger", () => invoke("friend_remove", { uuid: p.uuid })]])));
-  // the list follows who comes and goes while the page is open; nothing runs during a game
-  if (page === "friends" && !playing) friendsTimer = setTimeout(renderFriends, 60000);
+  scheduleFriends();
 }
+
+// the lists follow who comes and goes while home or the friends page is open; nothing runs during a game
+function scheduleFriends() {
+  clearTimeout(friendsTimer);
+  if ((page === "friends" || page === "home") && !playing) friendsTimer = setTimeout(renderFriends, 60000);
+}
+
+/** The home card's online friends: as many as the card has room for, then a link to the others. */
+let lastOnline = null;
+function renderOnline(online, message = "") {
+  lastOnline = online;
+  const list = $("online-list");
+  const shown = online ? online.slice(0, 12) : [];
+  const count = online ? online.length : 0;
+  $("home-friends-count").hidden = count === 0;
+  $("home-friends-count").textContent = count;
+  $("online-empty").textContent = message || "None of your friends is playing with Rago right now.";
+  $("online-empty").hidden = shown.length > 0;
+  list.replaceChildren(...shown.map((f) => {
+    const row = el("button", "buddy");
+    row.title = `${f.name}: open your friends`;
+    const head = el("span", "head");
+    const letter = el("span", "face letter", f.name.slice(0, 1).toUpperCase());
+    head.append(letter, el("i", "online-dot"));
+    const body = el("span", "online-body");
+    body.append(el("strong", "", f.name), el("small", "", f.role && f.role !== "user" ? `Online · ${f.role[0].toUpperCase()}${f.role.slice(1)}` : "Online · Rago"));
+    row.append(head, body);
+    row.addEventListener("click", () => showPage("friends"));
+    face(f.uuid.replaceAll("-", "")).then((src) => {
+      if (!src) return;
+      const img = el("img", "face");
+      img.alt = "";
+      img.src = src;
+      letter.replaceWith(img);
+    });
+    return row;
+  }));
+  fitOnline();
+}
+
+/** Keeps the rows that fit in the card and says how many others are online. */
+function fitOnline() {
+  const list = $("online-list");
+  const box = $("feed-friends");
+  if (box.hidden || !lastOnline) return;
+  list.querySelector(".more")?.remove();
+  const rows = [...list.children];
+  for (const r of rows) r.hidden = false;
+  // layout positions, not on-screen ones: the rows may still be rising in
+  const room = box.clientHeight;
+  const fits = (r, below) => r.offsetTop + r.offsetHeight <= room - below + 1;
+  let shown = rows.filter((r) => fits(r, 0)).length;
+  const others = () => lastOnline.length - shown;
+  if (others() > 0) {
+    // keep room under the last row for the link (one short line)
+    shown = rows.filter((r) => fits(r, 28)).length;
+    rows.forEach((r, i) => (r.hidden = i >= shown));
+    const more = el("button", "buddy more", `+${others()} more online`);
+    more.addEventListener("click", () => showPage("friends"));
+    list.append(more);
+  }
+}
+new ResizeObserver(() => requestAnimationFrame(fitOnline)).observe($("feed-friends"));
 
 $("friend-form").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -943,6 +1024,7 @@ listen("closed", ({ payload }) => {
   setPlaying(false);
   pollStats();
   renderPoints();
+  renderFriends();
   $("play-text").textContent = "Play";
   const ok = payload.code === 0 || payload.code === null;
   crashReport = payload.crashReport;
@@ -966,7 +1048,9 @@ refresh().then(async () => {
   renderServers();
   pollStats();
   renderPoints();
+  renderFriends();
 });
+showFeed("friends");
 renderNews();
 renderNotes();
 invoke("check_update")

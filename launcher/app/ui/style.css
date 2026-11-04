@@ -77,22 +77,27 @@ summary:focus-visible { outline-offset: 0; }
 }
 .points .i { width: 18px; height: 18px; }
 .points strong { color: #FFE2A8; }
-.shop {
-  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border-radius: 10px;
-  border: 1px solid var(--border-strong); background: rgba(255, 255, 255, 0.05); color: var(--soft); font-weight: 600;
+/* bottom bar buttons: Shop, Discord and notifications */
+.bottom-actions { display: flex; align-items: center; gap: 6px; height: 100%; }
+.bottom-actions .sep { height: 16px; margin: 0 6px; }
+.bar-button {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 7px;
+  border: 1px solid var(--border-strong); background: rgba(255, 255, 255, 0.04); color: var(--soft);
+  font-size: 12px; font-weight: 600; list-style: none;
 }
-.shop .i { width: 18px; height: 18px; }
-.shop:not(:disabled):hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
-.shop:disabled { opacity: 0.7; cursor: default; }
-.soon { padding: 1px 6px; border-radius: 6px; font-size: 10.5px; background: var(--accent-soft); color: #FF8E86; }
-.discord {
-  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px 0 10px; border-radius: 10px;
-  border: 1px solid rgba(88, 101, 242, 0.45); background: rgba(88, 101, 242, 0.14); color: #C9CDFB; font-weight: 600;
-}
-.discord .i { width: 18px; height: 18px; transition: transform var(--med) var(--ease); }
-.discord:hover { background: rgba(88, 101, 242, 0.26); color: #FFF; box-shadow: 0 6px 18px rgba(88, 101, 242, 0.25); }
-.discord:hover .i { transform: rotate(-8deg) scale(1.08); }
-.discord:active { transform: scale(0.97); }
+.bar-button::-webkit-details-marker { display: none; }
+.bar-button .i { width: 14px; height: 14px; transition: transform var(--med) var(--ease); }
+.bar-button:not(:disabled):hover, .drop[open] > .bar-button { background: rgba(255, 255, 255, 0.09); color: var(--text); }
+.bar-button:not(:disabled):hover .i { transform: scale(1.12); }
+.bar-button:not(:disabled):active { transform: scale(0.96); }
+.bar-button.icon-only { width: 26px; padding: 0; justify-content: center; }
+.bar-button .dot { top: 2px; right: 3px; width: 6px; height: 6px; box-shadow: none; }
+.shop:disabled { opacity: 0.75; cursor: default; }
+.soon { padding: 0 5px; border-radius: 5px; font-size: 10px; line-height: 15px; background: var(--accent-soft); color: #FF8E86; }
+.discord { border-color: rgba(88, 101, 242, 0.45); background: rgba(88, 101, 242, 0.14); color: #C9CDFB; }
+.discord:hover { background: rgba(88, 101, 242, 0.28) !important; color: #FFF !important; box-shadow: 0 4px 14px rgba(88, 101, 242, 0.25); }
+.drop.up > .menu { top: auto; bottom: calc(100% + 8px); right: auto; left: 0; transform-origin: bottom left; }
+.drop.up[open] > .menu { animation: rise 180ms var(--ease) backwards; }
 .sep { width: 1px; height: 22px; background: var(--border-strong); margin: 0 6px; }
 .icon-button, .win {
   position: relative; display: grid; place-items: center;
@@ -164,6 +169,9 @@ summary:focus-visible { outline-offset: 0; }
 }
 .nav[aria-current="page"]::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--accent); }
 .nav[aria-current="page"] .i { color: var(--text); }
+.nav.store .soon { margin-left: auto; }
+.nav.store:disabled { opacity: 0.75; }
+}
 .nav .dot { top: 50%; right: 14px; margin-top: -4px; box-shadow: none; }
 
 .optimizer {
@@ -464,6 +472,34 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .field-error { margin: 0; font-size: 12.5px; color: var(--error); }
 #jvm-args { width: 100%; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; }
 
+/* home: online friends and news share one card */
+.tabs { display: flex; gap: 4px; padding: 3px; border-radius: 11px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); }
+.tabs button {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.tabs button:hover { color: var(--text); }
+.tabs button[aria-selected="true"] { background: rgba(255, 255, 255, 0.09); color: var(--text); }
+.tabs button[aria-selected="true"] .i { color: var(--accent); }
+.tabs .count { position: static; margin-left: 2px; min-width: 18px; height: 17px; padding: 0 5px; border-radius: 9px; display: grid; place-items: center; font-style: normal; font-size: 11px; background: rgba(61, 220, 132, 0.15); color: var(--green); }
+.feed-friends, .feed-news { position: relative; flex: 1; min-height: 0; overflow: hidden; animation: fade var(--med) var(--ease) backwards; }
+.online-list { display: flex; flex-direction: column; gap: 4px; }
+.buddy {
+  display: flex; align-items: center; gap: 11px; padding: 4px 8px; margin: 0 -8px; border: 0; border-radius: 10px; flex: none;
+  background: transparent; text-align: left; animation: rise var(--med) var(--ease) backwards;
+}
+.online-list > :nth-child(2) { animation-delay: 40ms; }
+.online-list > :nth-child(3) { animation-delay: 80ms; }
+.online-list > :nth-child(4) { animation-delay: 120ms; }
+.buddy:hover { background: rgba(255, 255, 255, 0.05); }
+.buddy .head .face { width: 30px; height: 30px; }
+.buddy .head .online-dot { position: absolute; right: -2px; bottom: -2px; width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 2px var(--panel); }
+.online-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.online-body strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.online-body small { color: var(--green); font-size: 12px; }
+.buddy.more { justify-content: center; color: var(--muted); font-size: 12.5px; padding: 4px 8px; }
+.buddy.more:hover { color: var(--text); }
+
 /* friends */
 .nav .count {
   margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 10px;
@@ -676,6 +712,21 @@ input[type=text]:focus, input[type=number]:focus, input[type=search]:focus, sele
 
 /* while the game runs, the launcher holds still so the game gets the machine */
 body.playing .glow, body.playing .slashes path, body.playing .fill::after { animation-play-state: paused; }
+
+/* short windows: the sidebar tightens so every tab and the optimizer still fit */
+@media (max-height: 700px) {
+  .sidebar { gap: 3px; padding-top: 12px; }
+  .nav { height: 42px; }
+  .optimizer { padding: 12px 12px 12px; gap: 5px; }
+  .optimizer img { width: 30px; height: 30px; }
+  .optimizer p { display: none; }
+  .home { gap: 12px; padding: 12px 14px; }
+  .side { gap: 10px; }
+  .panel { padding: 12px 14px; gap: 10px; }
+  .tiles .tile { padding: 7px 4px; }
+  .tile-icon { width: 32px; height: 32px; }
+  .tile strong { font-size: 17px; }
+  .profiles button { height: 34px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
