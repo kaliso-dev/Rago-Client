@@ -23,6 +23,9 @@ MAX_LOOKUP = 100
 EMOTE = re.compile(r"^[a-z_]{1,24}$")
 # an emote plays until its player moves; one not stopped by then is over after this many seconds
 EMOTE_FOR = 600
+MAX_FRIENDS = 200
+# friend requests a player may have waiting (sent and not answered yet)
+MAX_SENT = 50
 # a purchase's key, chosen by the client, so that sending it twice buys once
 KEY = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 ITEM = re.compile(r"^[a-z]{1,16}:[a-z0-9_]{1,32}$")
@@ -362,6 +365,65 @@ class Network:
             return 409, {"error": result["error"], "points": points}
         return 200, {"forged": item, "cost": result["cost"], "points": points}
 
+    # --- friends ---
+
+    def friends(self, uuid, body):
+        """The player's friends (online first, then by name) and the friend requests they received and
+        sent (newest first)."""
+        if not self.limits.allow("friends", uuid, 30, 10):
+            return 429, {"error": "slow_down"}
+        friends, received, sent = self.store.friends(uuid, int(self.clock()) - self.online_window)
+        friends.sort(key=lambda f: not f[3])
+        return 200, {
+            "friends": [{"uuid": u, "name": n, "role": r, "online": o} for u, n, r, o in friends],
+            "received": [{"uuid": u, "name": n} for u, n in received],
+            "sent": [{"uuid": u, "name": n} for u, n in sent],
+        }
+
+    def friend_add(self, uuid, body):
+        """Asks a Rago player, by name, to be friends; asking someone who already asked you makes you
+        friends. A player who hides that they use Rago cannot be found this way (they can still ask)."""
+        if not self.limits.allow("friend_add", uuid, 20, 10):
+            return 429, {"error": "slow_down"}
+        name = body.get("name")
+        if not isinstance(name, str) or not NAME.match(name):
+            return 400, {"error": "bad_name"}
+        found = self.store.find(name)
+        if found is None:
+            return 404, {"error": "not_on_rago"}
+        other, real_name, visible = found
+        if other == uuid:
+            return 400, {"error": "yourself"}
+        if not visible and self.store.relation(uuid, other) not in ("friends", "received"):
+            return 404, {"error": "not_on_rago"}
+        state = self.store.add_friend(uuid, other, int(self.clock()), MAX_FRIENDS, MAX_SENT)
+        if state in ("friends", "sent"):
+            return 200, {"state": state, "name": real_name}
+        return 409, {"error": state}
+
+    def friend_answer(self, uuid, body):
+        """Accepts or declines a friend request the player received."""
+        if not self.limits.allow("friend_answer", uuid, 30, 10):
+            return 429, {"error": "slow_down"}
+        other, accept = undashed(body.get("uuid")), body.get("accept")
+        if other is None or not isinstance(accept, bool):
+            return 400, {"error": "bad_request"}
+        state = self.store.answer_friend(uuid, dashed(other), accept, int(self.clock()), MAX_FRIENDS)
+        if state == "no_request":
+            return 404, {"error": state}
+        if state == "too_many_friends":
+            return 409, {"error": state}
+        return 200, {"state": state}
+
+    def friend_remove(self, uuid, body):
+        """Ends a friendship, or takes back (or turns down) a request."""
+        if not self.limits.allow("friend_remove", uuid, 30, 10):
+            return 429, {"error": "slow_down"}
+        other = undashed(body.get("uuid"))
+        if other is None:
+            return 400, {"error": "bad_request"}
+        return 200, {"removed": self.store.remove_friend(uuid, dashed(other))}
+
     def stats(self, ip):
         if not self.limits.allow("stats", ip, 60, 20):
             return 429, {"error": "slow_down"}
@@ -444,7 +506,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         signed_in = {"/v1/presence": n.presence, "/v1/lookup": n.lookup, "/v1/emote": n.emote, "/v1/emotes": n.emotes,
                      "/v1/rewards": n.rewards, "/v1/rewards/open": n.open_chest, "/v1/inventory": n.inventory,
-                     "/v1/shop": n.shop, "/v1/shop/buy": n.buy, "/v1/forge": n.forge, "/v1/pass": n.play_pass}
+                     "/v1/shop": n.shop, "/v1/shop/buy": n.buy, "/v1/forge": n.forge, "/v1/pass": n.play_pass,
+                     "/v1/friends": n.friends, "/v1/friends/add": n.friend_add, "/v1/friends/answer": n.friend_answer,
+                     "/v1/friends/remove": n.friend_remove}
         handle = signed_in.get(self.path)
         if handle is None:
             self._send(404, {"error": "not_found"})

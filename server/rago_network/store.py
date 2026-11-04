@@ -1,5 +1,6 @@
-"""Storage: players, their sign-in sessions (only a hash of each token is kept), and what they have
-won: Rago Points, cosmetics, fragments, the chests opened, time played and every change of points.
+"""Storage: players, their sign-in sessions (only a hash of each token is kept), their friends, and
+what they have won: Rago Points, cosmetics, fragments, the chests opened, time played and every change
+of points.
 
 In SQLite (a file, or ":memory:" for the tests) or in PostgreSQL ("postgresql://..." as the database,
 for example a free Neon database, so that nothing is lost when the server restarts)."""
@@ -27,6 +28,22 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sessions_uuid ON sessions(uuid);
+CREATE INDEX IF NOT EXISTS users_name ON users(lower(name));
+-- a friendship is stored once for each side, so each player's list is one indexed read
+CREATE TABLE IF NOT EXISTS friends (
+    uuid TEXT NOT NULL,
+    friend TEXT NOT NULL,
+    since BIGINT NOT NULL,
+    PRIMARY KEY (uuid, friend)
+);
+CREATE INDEX IF NOT EXISTS friends_friend ON friends(friend);
+CREATE TABLE IF NOT EXISTS friend_requests (
+    sender TEXT NOT NULL,
+    receiver TEXT NOT NULL,
+    at BIGINT NOT NULL,
+    PRIMARY KEY (sender, receiver)
+);
+CREATE INDEX IF NOT EXISTS friend_requests_receiver ON friend_requests(receiver);
 CREATE TABLE IF NOT EXISTS wallets (
     uuid TEXT PRIMARY KEY,
     points INTEGER NOT NULL DEFAULT 0,
@@ -229,23 +246,137 @@ class Store:
         return online, total
 
     def delete(self, uuid):
-        """Forgets the player: their sessions and everything they won."""
+        """Forgets the player: their sessions, friends, and everything they won."""
         with self._lock:
             self._db.execute("DELETE FROM sessions WHERE uuid = ?", (uuid,))
+            self._forget_friends(uuid)
             for table in ECONOMY_TABLES:
                 self._db.execute(f"DELETE FROM {table} WHERE uuid = ?", (uuid,))
             return self._db.execute("DELETE FROM users WHERE uuid = ?", (uuid,)).rowcount
 
     def prune(self, now, forget_after):
-        """Drops expired sessions and players not seen for `forget_after` seconds (what they won is
-        kept: a player who comes back after a long break finds their collection)."""
+        """Drops expired sessions and players not seen for `forget_after` seconds, with their friends
+        and friend requests (what they won is kept: a player who comes back after a long break finds
+        their collection)."""
         with self._lock:
             self._db.execute("DELETE FROM sessions WHERE expires <= ?", (now,))
             gone = [r[0] for r in self._db.execute("SELECT uuid FROM users WHERE last_seen < ?", (now - forget_after,))]
             for uuid in gone:
                 self._db.execute("DELETE FROM sessions WHERE uuid = ?", (uuid,))
+                self._forget_friends(uuid)
                 self._db.execute("DELETE FROM users WHERE uuid = ?", (uuid,))
         return len(gone)
+
+    # --- friends ---
+
+    def _forget_friends(self, uuid):
+        """Ends the player's friendships and requests, both ways; the lock is held."""
+        self._db.execute("DELETE FROM friends WHERE uuid = ?", (uuid,))
+        self._db.execute("DELETE FROM friends WHERE friend = ?", (uuid,))
+        self._db.execute("DELETE FROM friend_requests WHERE sender = ?", (uuid,))
+        self._db.execute("DELETE FROM friend_requests WHERE receiver = ?", (uuid,))
+
+    def find(self, name):
+        """(uuid, name, visible) of the Rago player with this name (any case), or None. Two players can
+        have had the same name: the one seen last has it."""
+        with self._lock:
+            row = self._db.execute("SELECT uuid, name, visible FROM users WHERE lower(name) = lower(?) "
+                                   "ORDER BY last_seen DESC LIMIT 1", (name,)).fetchone()
+        return (row[0], row[1], bool(row[2])) if row else None
+
+    def _relation(self, uuid, other):
+        """"friends", "sent" (uuid asked other), "received" (other asked uuid) or None."""
+        if self._db.execute("SELECT 1 FROM friends WHERE uuid = ? AND friend = ?", (uuid, other)).fetchone():
+            return "friends"
+        if self._db.execute("SELECT 1 FROM friend_requests WHERE sender = ? AND receiver = ?", (uuid, other)).fetchone():
+            return "sent"
+        if self._db.execute("SELECT 1 FROM friend_requests WHERE sender = ? AND receiver = ?", (other, uuid)).fetchone():
+            return "received"
+        return None
+
+    def relation(self, uuid, other):
+        with self._lock:
+            return self._relation(uuid, other)
+
+    def _count(self, sql, uuid):
+        return self._db.execute(sql, (uuid,)).fetchone()[0]
+
+    def _befriend(self, a, b, now):
+        self._db.execute("DELETE FROM friend_requests WHERE sender = ? AND receiver = ?", (a, b))
+        self._db.execute("DELETE FROM friend_requests WHERE sender = ? AND receiver = ?", (b, a))
+        for x, y in ((a, b), (b, a)):
+            self._db.execute("INSERT INTO friends(uuid, friend, since) VALUES(?, ?, ?) ON CONFLICT DO NOTHING",
+                             (x, y, now))
+
+    def add_friend(self, uuid, other, now, max_friends, max_sent):
+        """uuid asks other to be friends, all in one transaction. "friends" (already, or other had asked
+        uuid: asking back accepts), "sent", or why not: "too_many_friends" (either side is full),
+        "too_many_requests" (uuid has `max_sent` requests waiting)."""
+
+        def work():
+            relation = self._relation(uuid, other)
+            if relation in ("friends", "sent"):
+                return relation
+            full = "SELECT COUNT(*) FROM friends WHERE uuid = ?"
+            if self._count(full, uuid) >= max_friends or self._count(full, other) >= max_friends:
+                return "too_many_friends"
+            if relation == "received":
+                self._befriend(uuid, other, now)
+                return "friends"
+            if self._count("SELECT COUNT(*) FROM friend_requests WHERE sender = ?", uuid) >= max_sent:
+                return "too_many_requests"
+            self._db.execute("INSERT INTO friend_requests(sender, receiver, at) VALUES(?, ?, ?) ON CONFLICT DO NOTHING",
+                             (uuid, other, now))
+            return "sent"
+
+        return self._transaction(work)
+
+    def answer_friend(self, uuid, other, accept, now, max_friends):
+        """uuid accepts or declines the request other sent them: "friends", "declined", or why not:
+        "no_request", "too_many_friends"."""
+
+        def work():
+            if self._relation(uuid, other) != "received":
+                return "no_request"
+            if not accept:
+                self._db.execute("DELETE FROM friend_requests WHERE sender = ? AND receiver = ?", (other, uuid))
+                return "declined"
+            full = "SELECT COUNT(*) FROM friends WHERE uuid = ?"
+            if self._count(full, uuid) >= max_friends or self._count(full, other) >= max_friends:
+                return "too_many_friends"
+            self._befriend(uuid, other, now)
+            return "friends"
+
+        return self._transaction(work)
+
+    def remove_friend(self, a, b):
+        """Ends a friendship, takes back or declines a request, whichever there is. Whether anything was
+        removed."""
+
+        def work():
+            removed = 0
+            for sql in ("DELETE FROM friends WHERE uuid = ? AND friend = ?",
+                        "DELETE FROM friend_requests WHERE sender = ? AND receiver = ?"):
+                removed += self._db.execute(sql, (a, b)).rowcount + self._db.execute(sql, (b, a)).rowcount
+            return removed > 0
+
+        return self._transaction(work)
+
+    def friends(self, uuid, since):
+        """The player's friends as (uuid, name, role, online) by name, online meaning seen since then
+        and showing they use Rago; the requests they received and sent as (uuid, name), newest first."""
+        with self._lock:
+            friends = self._db.execute(
+                "SELECT u.uuid, u.name, u.role, u.visible, u.last_seen FROM friends f JOIN users u ON u.uuid = f.friend "
+                "WHERE f.uuid = ? ORDER BY lower(u.name)", (uuid,)).fetchall()
+            received = self._db.execute(
+                "SELECT u.uuid, u.name FROM friend_requests r JOIN users u ON u.uuid = r.sender "
+                "WHERE r.receiver = ? ORDER BY r.at DESC", (uuid,)).fetchall()
+            sent = self._db.execute(
+                "SELECT u.uuid, u.name FROM friend_requests r JOIN users u ON u.uuid = r.receiver "
+                "WHERE r.sender = ? ORDER BY r.at DESC", (uuid,)).fetchall()
+        return ([(u, n, r, v == 1 and seen >= since) for u, n, r, v, seen in friends],
+                [tuple(x) for x in received], [tuple(x) for x in sent])
 
     # --- what players have won ---
 

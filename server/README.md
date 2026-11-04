@@ -2,7 +2,7 @@
 
 The small server behind Rago Client's online features: which players use Rago (the Rago logo next
 to their name, in the tab list and on name tags), their role (creator, partner, staff) and the
-cosmetics they show (cape, hat, wings, shield), and how many Rago players are online.
+cosmetics they show (cape, hat, wings, shield), their friends, and how many Rago players are online.
 
 Python 3.10 or newer, standard library only, SQLite for storage.
 
@@ -38,7 +38,11 @@ Minecraft server's login and so join that server as the player.
 | `POST /v1/lookup` | yes | `{"uuids": [...]}` (100 at most) → `{"players": {uuid: {"role", "cosmetics"}}}` |
 | `POST /v1/emote` | yes | `{"emote": "dab", "speed": 100}` (`"none"` stops it) → `{"ok": true}`; kept in memory only, 10 minutes at most |
 | `POST /v1/emotes` | yes | `{"uuids": [...]}` (100 at most) → `{"emotes": {uuid: {"emote", "speed", "elapsed"}}}`, elapsed in ms |
-| `DELETE /v1/me` | yes | forgets the player and their sessions |
+| `POST /v1/friends` | yes | `{}` → `{"friends": [{"uuid", "name", "role", "online"}], "received": [{"uuid", "name"}], "sent": [...]}`: friends online first then by name, requests newest first |
+| `POST /v1/friends/add` | yes | `{"name"}` → `{"state": "sent" \| "friends", "name"}`; `404 not_on_rago`, `400 yourself` / `bad_name`, `409 too_many_friends` / `too_many_requests`. Asking someone who already asked you makes you friends |
+| `POST /v1/friends/answer` | yes | `{"uuid", "accept": true \| false}` → `{"state": "friends" \| "declined"}`; `404 no_request` |
+| `POST /v1/friends/remove` | yes | `{"uuid"}` → `{"removed": true \| false}`: ends a friendship, or takes back or turns down a request |
+| `DELETE /v1/me` | yes | forgets the player, their sessions, friends and requests |
 
 Signed-in calls send `Authorization: Bearer <token>`.
 
@@ -50,10 +54,13 @@ Signed-in calls send `Authorization: Bearer <token>`.
   the roles and the players (uuid, 32 hex digits) given, e.g.
   `{"cape": {"creator": ["creator", "<uuid of another account>"]}}`: a player listed wears it
   without getting the role.
+- A friend is online like everyone else: a presence in the last 150 seconds with `"visible": true`.
+  A player who hides that they use Rago shows offline to their friends and cannot be found by name
+  (`404 not_on_rago`), but can still ask others. 200 friends and 50 requests waiting at most.
 - Rate limits (per address for sign-in and stats, per player otherwise): sign-in 10 a minute,
-  presence 6, lookup 30, stats 60. Over the limit: `429`.
+  presence 6, lookup 30, friends 30, adding a friend 20, stats 60. Over the limit: `429`.
 - Nothing is logged per request, addresses are never stored, and players not seen for 180 days are
-  deleted.
+  deleted, with their friendships and requests.
 
 ## Configuration
 
