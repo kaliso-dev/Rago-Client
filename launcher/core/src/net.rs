@@ -33,11 +33,11 @@ fn resolve(host: &str, port: u16) -> Result<SocketAddr> {
     (host, port).to_socket_addrs().with_context(|| format!("{host} not found"))?.next().ok_or_else(|| anyhow!("{host} not found"))
 }
 
-/// The connection to a server, from a few TCP connections.
+/// The connection to a server, from a few pings.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Latency {
-    /// the median time to connect, in milliseconds
+    /// the median ping, in milliseconds
     pub ping_ms: u32,
     /// how much that time moves from one try to the next (mean difference), in milliseconds
     pub jitter_ms: u32,
@@ -46,7 +46,7 @@ pub struct Latency {
     pub tries: u32,
 }
 
-/// Connects `tries` times to `host:port` and measures how long each connection takes.
+/// Pings `host:port` `tries` times the way the game's server list does and measures each answer.
 pub fn latency(host: &str, port: u16, tries: u32) -> Result<Latency> {
     let addr = resolve(host, port)?;
     let mut times = Vec::new();
@@ -55,12 +55,8 @@ pub fn latency(host: &str, port: u16, tries: u32) -> Result<Latency> {
         if i > 0 {
             std::thread::sleep(Duration::from_millis(120));
         }
-        let start = Instant::now();
-        match TcpStream::connect_timeout(&addr, TIMEOUT) {
-            Ok(s) => {
-                times.push(start.elapsed().as_secs_f64() * 1000.0);
-                drop(s);
-            }
+        match ask(&addr, host, port) {
+            Ok((_, ms)) => times.push(ms),
             Err(_) => lost += 1,
         }
     }
@@ -129,8 +125,15 @@ fn packet(id: i32, body: &[u8]) -> Vec<u8> {
 /// Asks the server for its status, like the multiplayer screen does.
 pub fn status(host: &str, port: u16) -> Result<Status> {
     let addr = resolve(host, port)?;
-    let start = Instant::now();
-    let mut s = TcpStream::connect_timeout(&addr, TIMEOUT)?;
+    let (json, ms) = ask(&addr, host, port)?;
+    Ok(parse_status(&json, ms.round() as u32))
+}
+
+/// One exchange with the server, as the game's server list does it: the status, then a ping packet.
+/// The time is the ping packet's round trip only, so neither the TCP connection, nor the server
+/// building its status, nor the icon's download count in it, just like the ping the game shows.
+fn ask(addr: &SocketAddr, host: &str, port: u16) -> Result<(serde_json::Value, f64)> {
+    let mut s = TcpStream::connect_timeout(addr, TIMEOUT)?;
     s.set_read_timeout(Some(TIMEOUT))?;
     s.set_write_timeout(Some(TIMEOUT))?;
     s.set_nodelay(true)?;
@@ -143,13 +146,7 @@ pub fn status(host: &str, port: u16) -> Result<Status> {
     let mut request = packet(0, &hello);
     request.extend(packet(0, &[]));
     s.write_all(&request)?;
-    let len = read_varint(&mut s)?;
-    if !(1..=1 << 21).contains(&len) {
-        bail!("invalid response");
-    }
-    let mut body = vec![0u8; len as usize];
-    s.read_exact(&mut body)?;
-    let ping_ms = start.elapsed().as_millis() as u32;
+    let body = read_packet(&mut s)?;
     let mut cursor = &body[..];
     if read_varint(&mut cursor)? != 0 {
         bail!("invalid response");
@@ -159,7 +156,27 @@ pub fn status(host: &str, port: u16) -> Result<Status> {
         bail!("invalid response");
     }
     let json: serde_json::Value = serde_json::from_slice(&cursor[..text_len as usize])?;
-    Ok(parse_status(&json, ping_ms))
+
+    let token: i64 = 0x5241_474f; // any number: the server sends it back
+    let start = Instant::now();
+    s.write_all(&packet(1, &token.to_be_bytes()))?;
+    let pong = read_packet(&mut s)?;
+    let ms = start.elapsed().as_secs_f64() * 1000.0;
+    let mut cursor = &pong[..];
+    if read_varint(&mut cursor)? != 1 || cursor != token.to_be_bytes() {
+        bail!("invalid response");
+    }
+    Ok((json, ms))
+}
+
+fn read_packet(s: &mut impl Read) -> Result<Vec<u8>> {
+    let len = read_varint(s)?;
+    if !(1..=1 << 21).contains(&len) {
+        bail!("invalid response");
+    }
+    let mut body = vec![0u8; len as usize];
+    s.read_exact(&mut body)?;
+    Ok(body)
 }
 
 fn parse_status(json: &serde_json::Value, ping_ms: u32) -> Status {
@@ -211,5 +228,33 @@ mod tests {
         let s = parse_status(&json, 40);
         assert_eq!((s.online, s.max, s.favicon.as_deref()), (41234, 200000, Some("data:image/png;base64,AAA")));
         assert!(parse_status(&serde_json::json!({"favicon": "javascript:x"}), 1).favicon.is_none());
+    }
+
+    /// A server that answers one status and one ping, after `delay`, like a 1.8 server would.
+    fn fake_server(delay: Duration) -> u16 {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut s, _) = listener.accept().unwrap();
+            read_packet(&mut s).unwrap(); // handshake
+            read_packet(&mut s).unwrap(); // status request
+            let text = br#"{"players":{"online":3,"max":20}}"#;
+            let mut body = Vec::new();
+            write_varint(&mut body, text.len() as i32);
+            body.extend_from_slice(text);
+            s.write_all(&packet(0, &body)).unwrap();
+            let ping = read_packet(&mut s).unwrap();
+            std::thread::sleep(delay);
+            s.write_all(&packet(1, &ping[1..])).unwrap();
+        });
+        port
+    }
+
+    #[test]
+    fn times_the_ping_packet() {
+        let port = fake_server(Duration::from_millis(60));
+        let s = status("127.0.0.1", port).unwrap();
+        assert_eq!((s.online, s.max), (3, 20));
+        assert!((55..200).contains(&s.ping_ms), "{}", s.ping_ms);
     }
 }

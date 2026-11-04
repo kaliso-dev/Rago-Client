@@ -323,6 +323,9 @@ h1 span { color: var(--accent); }
   white-space: nowrap;
 }
 .profiles button:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+/* the home card is narrow: each button takes the width of its name, and the space left is shared */
+.panel .profiles { grid-template-columns: auto auto auto; gap: 6px; }
+.panel .profiles button { min-width: 0; padding: 0 6px; gap: 6px; }
 .profiles button.current { background: linear-gradient(180deg, #F5463A, #D42419); border-color: transparent; color: #FFF; box-shadow: 0 6px 18px rgba(242, 57, 44, 0.28); }
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--border); }
 .tiles .tile { display: flex; align-items: center; gap: 12px; padding: 12px 4px; min-width: 0; }
@@ -473,6 +476,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 /* smaller windows: the side column narrows, the character shrinks */
 @media (max-width: 1180px) {
   .home { grid-template-columns: minmax(0, 1fr) 300px; }
+  .panel .profiles button { padding: 0 4px; gap: 4px; font-size: 12.5px; }
+  .panel .profiles button .i { width: 13px; height: 13px; }
   .character { width: 240px; }
   .hero-body { padding-left: 205px; }
   h1 { font-size: 46px; }
