@@ -2,6 +2,7 @@ package gg.rago.loader;
 
 import gg.rago.loader.patch.Access;
 import gg.rago.loader.patch.CompatPatches;
+import gg.rago.loader.patch.PackageAccess;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -91,6 +92,7 @@ final class Start {
 
 		CompatPatches compat = new CompatPatches(game, line -> log(line));
 		game.addTransformer(compat::transform);
+		game.addTransformer(new PackageAccess()::transform);
 		Access access = new Access();
 		game.addTransformer(access::transform);
 
