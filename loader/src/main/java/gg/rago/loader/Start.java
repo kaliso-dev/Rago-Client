@@ -69,9 +69,11 @@ final class Start {
 	static void run(String[] raw) throws Throwable {
 		long t0 = System.nanoTime();
 		Args args = Args.parse(raw);
+		List<Path> jars = new ArrayList<>(args.mods);
+		jars.addAll(folderMods(Path.of(args.option("--gameDir", ".")), args.mods));
 		List<URL> urls = new ArrayList<>();
 		urls.add(args.game.toUri().toURL());
-		for (Path m : args.mods) {
+		for (Path m : jars) {
 			urls.add(m.toUri().toURL());
 		}
 		// the compatibility API is inside this jar, and must be loaded next to the game
@@ -100,7 +102,7 @@ final class Start {
 		// before the first game class loads
 		List<Mod> mods = new ArrayList<>();
 		List<String> corePlugins = new ArrayList<>();
-		for (Path jar : args.mods) {
+		for (Path jar : jars) {
 			Found found = scan(jar, access);
 			mods.addAll(found.mods);
 			if (found.corePlugin != null) {
@@ -125,6 +127,88 @@ final class Start {
 		} catch (java.lang.reflect.InvocationTargetException e) {
 			throw e.getCause();
 		}
+	}
+
+	/**
+	 * The Forge mods of the game folder's {@code mods} and {@code mods/1.8.9} that this loader can
+	 * start: jars with an {@code @Mod} class, not already given with {@code --mod} (the Rago jar
+	 * Forge loads from there too), and without what only Forge can run (a core plugin, a tweaker or
+	 * Mixin configurations).
+	 */
+	static List<Path> folderMods(Path gameDir, List<Path> given) throws IOException {
+		java.util.Set<String> known = new java.util.HashSet<>();
+		java.util.Set<String> knownPlugins = new java.util.HashSet<>();
+		for (Path jar : given) {
+			known.addAll(modClasses(jar));
+			try (JarFile file = new JarFile(jar.toFile())) {
+				Manifest m = file.getManifest();
+				if (m != null && m.getMainAttributes().getValue("FMLCorePlugin") != null) {
+					knownPlugins.add(m.getMainAttributes().getValue("FMLCorePlugin"));
+				}
+			}
+		}
+		List<Path> out = new ArrayList<>();
+		for (Path dir : List.of(gameDir.resolve("mods"), gameDir.resolve("mods").resolve("1.8.9"))) {
+			if (!java.nio.file.Files.isDirectory(dir)) {
+				continue;
+			}
+			List<Path> found;
+			try (var list = java.nio.file.Files.list(dir)) {
+				found = list.filter(f -> f.getFileName().toString().endsWith(".jar")).sorted().toList();
+			}
+			for (Path jar : found) {
+				String name = jar.getFileName().toString();
+				try (JarFile file = new JarFile(jar.toFile())) {
+					Manifest manifest = file.getManifest();
+					Attributes a = manifest == null ? new Attributes() : manifest.getMainAttributes();
+					String forgeOnly = a.getValue("FMLCorePlugin") != null ? "a core plugin"
+						: a.getValue("TweakClass") != null ? "a tweaker"
+						: a.getValue("MixinConfigs") != null ? "Mixin" : null;
+					if (knownPlugins.contains(a.getValue("FMLCorePlugin"))) {
+						log(name + " is already loaded");
+						continue;
+					}
+					if (forgeOnly != null) {
+						log(name + " needs Forge (" + forgeOnly + "); not started");
+						continue;
+					}
+				} catch (IOException e) {
+					log(name + " could not be read: " + e);
+					continue;
+				}
+				List<String> classes = modClasses(jar);
+				if (classes.isEmpty()) {
+					log(name + " has no @Mod class; not started");
+				} else if (classes.stream().anyMatch(known::contains)) {
+					log(name + " is already loaded");
+				} else {
+					known.addAll(classes);
+					out.add(jar);
+					log("mod from the mods folder: " + name);
+				}
+			}
+		}
+		return out;
+	}
+
+	private static List<String> modClasses(Path jar) throws IOException {
+		List<String> out = new ArrayList<>();
+		try (JarFile file = new JarFile(jar.toFile())) {
+			Enumeration<JarEntry> entries = file.entries();
+			while (entries.hasMoreElements()) {
+				JarEntry e = entries.nextElement();
+				if (!e.getName().endsWith(".class") || e.getName().startsWith("META-INF/")) {
+					continue;
+				}
+				try (InputStream in = file.getInputStream(e)) {
+					String name = modClass(in.readAllBytes());
+					if (name != null) {
+						out.add(name);
+					}
+				}
+			}
+		}
+		return out;
 	}
 
 	private static boolean dependsOnGame(Path jar) {
