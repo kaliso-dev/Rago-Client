@@ -92,7 +92,10 @@ summary:focus-visible { outline-offset: 0; }
 .bar-button:not(:disabled):active { transform: scale(0.96); }
 .bar-button.icon-only { width: 26px; padding: 0; justify-content: center; }
 .bar-button .dot { top: 2px; right: 3px; width: 6px; height: 6px; box-shadow: none; }
-.shop:disabled { opacity: 0.75; cursor: default; }
+.shop { border-color: rgba(255, 79, 163, 0.5); background: rgba(255, 79, 163, 0.16); color: #FFB3D9; }
+.shop:not(:disabled):hover { background: rgba(255, 79, 163, 0.3) !important; color: #FFF !important; box-shadow: 0 4px 14px rgba(255, 79, 163, 0.3); }
+.shop:disabled { cursor: default; opacity: 1; }
+.shop .soon { background: rgba(255, 79, 163, 0.22); color: #FFC7E3; }
 .soon { padding: 0 5px; border-radius: 5px; font-size: 10px; line-height: 15px; background: var(--accent-soft); color: #FF8E86; }
 .discord { border-color: rgba(88, 101, 242, 0.45); background: rgba(88, 101, 242, 0.14); color: #C9CDFB; }
 .discord:hover { background: rgba(88, 101, 242, 0.28) !important; color: #FFF !important; box-shadow: 0 4px 14px rgba(88, 101, 242, 0.25); }
