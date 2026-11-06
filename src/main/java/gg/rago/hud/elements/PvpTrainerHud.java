@@ -56,10 +56,10 @@ public final class PvpTrainerHud extends HudElement {
 	private static final int PANEL = 0x90000000;
 
 	private static final int PAD = 4;
-	private static final int SLOT = 8;
-	private static final int BAR_W = 6;
+	private static final int SLOT = 12;
+	private static final int BAR_W = 9;
 	private static final int GRAPH_H = 18;
-	private static final int DOT = 4;
+	private static final int DOT = 5;
 	private static final int W = 2 * PAD + BARS * SLOT - (SLOT - BAR_W);
 
 	private static final int[] SAMPLE_JUMPS = {0, -1, NO_JUMP, 0, 0, 1, 0, -2, 0, 0, NO_JUMP, 0};

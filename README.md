@@ -500,9 +500,13 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
 - new in 1.11.2
-  - **View Bobbing** (was No F5 Bobbing) gets a **Minimal** mode: the world and the camera stay
-    still while you walk, only your hand and the item you hold bob, in every view (Minecraft's view
-    bobbing must be on). "Not in F5" keeps the old behaviour. One check per frame
+  - **View Bobbing** (was No F5 Bobbing) has two options that can be on together: **Minimal**, in
+    first person the world and the camera stay still while you walk and only your hand and the item
+    you hold bob (Minecraft's view bobbing must be on), and **Not in F5**, the old behaviour, no
+    camera sway in third person. One check per frame
+  - **Resource packs**: turning a pack on now replaces the packs in use, so changing pack is one
+    click; overlays in use (wool, sky, sword...) stay on top of it, and Shift + click stacks a pack
+    on top of the others as before
   - new HUD **PvP Trainer** (PvP, off by default), to practise jump resets and sprint resets. After
     each knockback you take on the ground, a bar shows whether you jumped on its exact tick
     (perfect, green), one tick off (yellow), two or three off (orange: early means you were already
