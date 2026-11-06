@@ -71,6 +71,7 @@ final class ModuleInfo {
 		ICONS.put("server_address", "server");
 		ICONS.put("reach", "ruler");
 		ICONS.put("combo", "trending-up");
+		ICONS.put("pvp_trainer", "target");
 		ICONS.put("bedwars_resources", "gem");
 		ICONS.put("motion_blur", "blend");
 		ICONS.put("rago_cape", "flag");

@@ -503,6 +503,16 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - **View Bobbing** (was No F5 Bobbing) gets a **Minimal** mode: the world and the camera stay
     still while you walk, only your hand and the item you hold bob, in every view (Minecraft's view
     bobbing must be on). "Not in F5" keeps the old behaviour. One check per frame
+  - new HUD **PvP Trainer** (PvP, off by default), to practise jump resets and sprint resets. After
+    each knockback you take on the ground, a bar shows whether you jumped on its exact tick
+    (perfect, green), one tick off (yellow), two or three off (orange: early means you were already
+    in the air, late means you pressed jump in the air) or not at all (red), with the share of
+    perfect ones over the last 20. A row of dots shows which of your hits that landed were sprint
+    hits (W-tap). It only reads what the client already knows (motion, hurt animation, the game's
+    jump cooldown, your attacks) and shows what already happened: it never tells you when to jump
+    and never acts for you. Your own fireball jumps do not count (nobody within 6 blocks). A few
+    field reads a tick, one batch of shapes a frame, a nearby-entity lookup only when knockback
+    arrives
   - Rago Network: **friends** (ask a Rago player by name, accept or decline, remove), for the
     launcher's friends list
   - Rago Points lowered: the chest's point cards and duplicates give half as much (about 50 points

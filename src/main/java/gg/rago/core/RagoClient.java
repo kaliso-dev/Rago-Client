@@ -52,6 +52,7 @@ import gg.rago.hud.elements.KeystrokesHud;
 import gg.rago.hud.elements.MemoryHud;
 import gg.rago.hud.elements.PingHud;
 import gg.rago.hud.elements.PotionHud;
+import gg.rago.hud.elements.PvpTrainerHud;
 import gg.rago.hud.elements.ReachHud;
 import gg.rago.hud.elements.ScoreboardHud;
 import gg.rago.hud.elements.ServerHud;
@@ -276,6 +277,7 @@ public final class RagoClient {
 		MODULES.register(new ServerHud());
 		MODULES.register(new ReachHud());
 		MODULES.register(new ComboHud());
+		MODULES.register(new PvpTrainerHud());
 		MODULES.register(new ScoreboardHud());
 		MODULES.register(new BossBarHud());
 		MODULES.register(new BedwarsResourcesHud());
