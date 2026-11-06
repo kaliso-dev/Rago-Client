@@ -147,12 +147,13 @@ public final class Hooks {
 	}
 
 	/**
-	 * EntityRenderer.setupCameraTransform, where it reads gameSettings.viewBobbing: no bobbing in
-	 * third person with "No F5 Bobbing" on. The hand (first person) reads the setting elsewhere.
+	 * EntityRenderer.setupCameraTransform, where it reads gameSettings.viewBobbing: no camera bobbing
+	 * in third person, or anywhere (minimal view bobbing), with "View Bobbing" on. The hand (first
+	 * person) reads the setting elsewhere, so it keeps bobbing.
 	 */
 	public static boolean cameraBobbing(boolean vanilla) {
 		NoF5Bobbing m = noF5Bobbing;
-		return vanilla && (m == null || !m.isEnabled() || Minecraft.getMinecraft().gameSettings.thirdPersonView == 0);
+		return vanilla && (m == null || m.cameraBobs(Minecraft.getMinecraft().gameSettings.thirdPersonView));
 	}
 
 	/** GuiScreen.drawWorldBackground: the colours of the dark gradient behind menus in a world. */

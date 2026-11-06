@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.11.1.** What it contains:
+**Current version: 1.11.2.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -499,6 +499,12 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.11.2
+  - **View Bobbing** (was No F5 Bobbing) gets a **Minimal** mode: the world and the camera stay
+    still while you walk, only your hand and the item you hold bob, in every view (Minecraft's view
+    bobbing must be on). "Not in F5" keeps the old behaviour. One check per frame
+  - Rago Network: **friends** (ask a Rago player by name, accept or decline, remove), for the
+    launcher's friends list
 - new in 1.11.1
   - **Clear Inventory** (Visual): behind your inventory (E) the world stays as it is, with no blur
     and no dark shade, only a light vignette at the edges (0 to 100 %, 25 % by default; 0 for
