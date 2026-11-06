@@ -13,7 +13,7 @@ import com.google.gson.JsonPrimitive;
 public final class Loadout {
 	public static final String[] CAPES = {"none", "rago", "black_cat", "pixel_cat", "night_cat", "qrago", "pink_r", "primal", "mfga", "sakura", "circuit", "inferno", "galaxy", "streak_100", "flag_fr", "flag_be", "flag_ch", "flag_ca", "flag_ma", "flag_dz", "flag_tn", "flag_us", "flag_gb", "flag_de", "flag_es", "flag_it", "flag_pt", "flag_br", "flag_tr"};
 	public static final String[] HATS = {"none", "rago_cap", "rago_beanie", "top_hat", "wizard_hat", "crown", "halo", "cat_ears", "devil_horns", "headphones", "kitsune"};
-	public static final String[] WINGS = {"none", "dragon", "dragon_small", "frost", "angel", "mecha"};
+	public static final String[] WINGS = {"none", "dragon", "dragon_small", "frost", "angel", "mecha", "dragon_red_black", "rago_frost", "rago_inferno"};
 	/** The colours of the name (catalogue "name:..."), drawn by gg.rago.modules.RagoBadge. */
 	public static final String[] NAME_COLORS = {"none", "mint", "sky", "peach", "lilac", "lemon", "rago_red", "sakura", "sunset", "ocean", "toxic", "aurora", "inferno", "rainbow", "gold_rush"};
 	/** The icons after the name (catalogue "icon:..."). */

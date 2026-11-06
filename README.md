@@ -533,6 +533,14 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - Rago Points lowered: the chest's point cards and duplicates give half as much (about 50 points
     a day instead of 85), and the play pass takes 90 minutes a tier (45 hours in all) for 1,200
     points instead of 1,710, most of them in the last tiers. Points and tiers already won stay
+  - three new wings, **Dragon Red Black**, **Rago Frost** and **Rago Inferno** (legendary, from the
+    daily chest and the shop), each a pair with a piece joining the two wings on the spine. They are
+    made from a picture of the pair by `tools/image_wings.py`: the right wing traced onto the
+    wing grid with its own colours, thicker where it is dark (the bones), and extruded into voxels
+    like the other wings
+  - for makers of cosmetics: `tools/voxelize.py` turns a 3D model (.glb from Meshy, Tripo, Blender
+    or Blockbench) into a voxel hat of half-pixel cubes coloured from its texture, and
+    `tools/preview.py` draws a model on a player from six sides without starting the game
 - new in 1.11.1
   - **Clear Inventory** (Visual): behind your inventory (E) the world stays as it is, with no blur
     and no dark shade, only a light vignette at the edges (0 to 100 %, 25 % by default; 0 for

@@ -40,6 +40,25 @@ VIEWS = [
     ('Dessus', 30, 58, 'head'),
     ('En entier', 28, 12, 'all'),
 ]
+WING_VIEWS = [
+    ('Dos', 180, 8, 'all'),
+    ('Trois-quarts dos', 145, 16, 'all'),
+    ('Profil', 90, 6, 'all'),
+    ('Face', 0, 6, 'all'),
+    ('Dessus', 160, 55, 'all'),
+    ('Trois-quarts face', 35, 14, 'all'),
+]
+
+# Where wings go on the back, as gg.rago.modules.Cosmetics.WING_FITS says (keep the two the same):
+# the root of the model on the body (x from the spine, y down from the neck, z back from the middle,
+# in blocks), its turn back around the spine and up around the root (degrees, for the left wing;
+# the right one mirrored), and how wide the texture is in blocks.
+DEFAULT_WINGS = (0.05, 0.04, 0.16, -30, -22, 0.7)
+WING_FITS = {
+    'dragon_red_black': (0, 0.16, 0.16, -18, -10, 1.0),
+    'rago_frost': (0, 0.16, 0.16, -18, -10, 1.0),
+    'rago_inferno': (0, 0.16, 0.16, -18, -10, 1.0),
+}
 
 
 def read_rmdl(path):
@@ -163,29 +182,49 @@ def render(meshes, yaw, pitch, focus, size, background):
     return color
 
 
+def on_back(pos, fit):
+    """A wing model's triangles (blocks) placed on the body as Cosmetics.extrudedWing does, both
+    sides: translate, turn back around y, up around z, scale (mirrored on the right). In pixels."""
+    x, y, z, sweep, lift, span = fit
+    out = []
+    for side in (-1, 1):
+        a, b = np.radians(side * sweep), np.radians(side * lift)
+        ry = np.array([[np.cos(a), 0, np.sin(a)], [0, 1, 0], [-np.sin(a), 0, np.cos(a)]])
+        rz = np.array([[np.cos(b), -np.sin(b), 0], [np.sin(b), np.cos(b), 0], [0, 0, 1]])
+        m = ry @ rz @ np.diag([side * span, span, span])
+        out.append((pos @ m.T + np.array([side * x, y, z])) * 16)
+    return out
+
+
 def gradient(size):
     top, bottom = np.array([92, 98, 112], float), np.array([58, 62, 72], float)
     t = np.linspace(0, 1, size)[:, None, None]
     return np.broadcast_to(top * (1 - t) + bottom * t, (size, size, 3)).copy()
 
 
-def sheet(model, texture, skin, out, title=None, panel=360, supersample=2):
-    """A picture of six views of the model on the player."""
+def sheet(model, texture, skin, out, title=None, panel=360, supersample=2, place='head'):
+    """A picture of six views of the model on the player: a hat (place 'head'), or wings (place: the
+    fit of the wings, as WING_FITS)."""
     skin_tex = np.asarray(Image.open(skin).convert('RGBA')).astype(float)
     cos_tex = np.asarray(Image.open(texture).convert('RGBA')).astype(float)
     ppos, puv, pshade = player(skin_tex)
     meshes = [(ppos, puv, pshade, skin_tex)]
     cosmetic = []
     for _, _, pos, uv, shade in read_rmdl(model):
-        # the model is in blocks, in head space: the same as the player's pixels / 16
-        meshes.append((pos * 16, uv, shade, cos_tex))
-        cosmetic.append(pos.reshape(-1, 3) * 16)
+        if place == 'head':
+            # the model is in blocks, in head space: the same as the player's pixels / 16
+            placed = [pos * 16]
+        else:
+            placed = on_back(pos, place)
+        for p in placed:
+            meshes.append((p, uv, shade, cos_tex))
+            cosmetic.append(p.reshape(-1, 3))
     cosmetic = np.concatenate(cosmetic)
     head = np.array([[x, y, z] for x in (-4.5, 4.5) for y in (-8.5, 3) for z in (-4.5, 4.5)])
     everything = np.r_[cosmetic, ppos.reshape(-1, 3)]
     big = panel * supersample
     pictures = []
-    for label, yaw, pitch, focus in VIEWS:
+    for label, yaw, pitch, focus in (VIEWS if place == 'head' else WING_VIEWS):
         pts = np.r_[cosmetic, head] if focus == 'head' else everything
         img = render(meshes, yaw, pitch, pts, big, gradient(big))
         pictures.append((label, Image.fromarray(img.clip(0, 255).astype(np.uint8)).resize((panel, panel), Image.BOX)))
