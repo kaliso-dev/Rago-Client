@@ -27,3 +27,12 @@ jobs:
           name: rago-jar
           path: build/libs/*.jar
           if-no-files-found: error
+
+  music-script:
+    # the Music HUD's reader only runs on Windows: check it there
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check rago-music.ps1
+        shell: powershell
+        run: .\src\test\powershell\test-rago-music.ps1

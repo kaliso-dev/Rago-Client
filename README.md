@@ -513,6 +513,15 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     and never acts for you. Your own fireball jumps do not count (nobody within 6 blocks). A few
     field reads a tick, one batch of shapes a frame, a nearby-entity lookup only when knockback
     arrives
+  - new HUD **Music** (HUD, off by default, Windows only): what plays on this PC (Spotify, Deezer,
+    a browser...), with its cover, title, artist, time and a progress bar, read from Windows' media
+    controls (what the volume panel shows). Three keys to set in Controls: play/pause, next,
+    previous. The reading runs in a separate PowerShell process at low priority, which asks Windows
+    once a second and writes a line only when something changes; it runs only while the HUD is on
+    and stops with the game. In the game: one field read a frame, the cut titles kept until the
+    track changes, the time text until its second changes, a 128 x 128 cover uploaded once per
+    track. No Spotify account or key: Spotify's API cannot play music itself, so Spotify (or
+    another player) still has to be open
   - Rago Network: **friends** (ask a Rago player by name, accept or decline, remove), for the
     launcher's friends list
   - Rago Points lowered: the chest's point cards and duplicates give half as much (about 50 points

@@ -51,6 +51,7 @@ import gg.rago.hud.elements.ItemCounterHud;
 import gg.rago.hud.elements.KeystrokesHud;
 import gg.rago.hud.elements.MemoryHud;
 import gg.rago.hud.elements.PingHud;
+import gg.rago.hud.elements.MusicHud;
 import gg.rago.hud.elements.PotionHud;
 import gg.rago.hud.elements.PvpTrainerHud;
 import gg.rago.hud.elements.ReachHud;
@@ -227,6 +228,7 @@ public final class RagoClient {
 	private static Path configDir;
 	private static HypixelApi hypixel;
 	private static AutoText autoText;
+	private static MusicHud music;
 
 	/** Forge's config folder, where Rago keeps its files. */
 	public static Path configDir() {
@@ -278,6 +280,7 @@ public final class RagoClient {
 		MODULES.register(new ReachHud());
 		MODULES.register(new ComboHud());
 		MODULES.register(new PvpTrainerHud());
+		music = MODULES.register(new MusicHud());
 		MODULES.register(new ScoreboardHud());
 		MODULES.register(new BossBarHud());
 		MODULES.register(new BedwarsResourcesHud());
@@ -408,6 +411,9 @@ public final class RagoClient {
 		ClientRegistry.registerKeyBinding(quickplay.key());
 		ClientRegistry.registerKeyBinding(quickplay.replayKey());
 		for (KeyBinding k : autoText.keys()) {
+			ClientRegistry.registerKeyBinding(k);
+		}
+		for (KeyBinding k : music.keys()) {
 			ClientRegistry.registerKeyBinding(k);
 		}
 		MinecraftForge.EVENT_BUS.register(this);
