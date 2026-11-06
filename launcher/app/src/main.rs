@@ -1024,9 +1024,14 @@ async fn check_update() -> Result<Option<updates::Update>, String> {
     .map_err(err)?
 }
 
-/// Downloads the newer installer (checked by SHA-256), starts it and closes the launcher.
+/// Downloads the newer installer (checked by SHA-256), starts it and closes the launcher. The
+/// installer runs on its own with only a progress bar (`/P`), keeps the shortcuts and settings
+/// (`/UPDATE`) and opens the new launcher when it is done (`/R`).
 #[tauri::command]
 async fn install_update(app: AppHandle, update: updates::Update) -> Result<(), String> {
+    if *app.state::<AppState>().busy.lock().unwrap() {
+        return Err("Close the game first: the launcher restarts to update.".into());
+    }
     let path = tauri::async_runtime::spawn_blocking(move || -> Result<PathBuf, String> {
         // the update must come from this repository's releases
         if !update.url.starts_with("https://github.com/kaliso-dev/Rago-Client/releases/download/") || update.file.contains(['/', '\\']) {
@@ -1042,7 +1047,10 @@ async fn install_update(app: AppHandle, update: updates::Update) -> Result<(), S
     })
     .await
     .map_err(err)??;
-    std::process::Command::new(&path).spawn().map_err(|e| format!("The installer could not start: {e}"))?;
+    std::process::Command::new(&path)
+        .args(["/P", "/UPDATE", "/R"])
+        .spawn()
+        .map_err(|e| format!("The installer could not start: {e}"))?;
     app.exit(0);
     Ok(())
 }

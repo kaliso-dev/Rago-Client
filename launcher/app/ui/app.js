@@ -576,15 +576,63 @@ function renderNotes() {
     return;
   }
   const note = el("div", "note");
-  note.append(el("p", "", `A new launcher version is ready: v${update.version}.`));
-  const go = el("button", "primary", "Update");
-  go.addEventListener("click", () =>
-    run(go, async () => {
-      go.textContent = "Downloading…";
-      await invoke("install_update", { update });
-    }));
+  note.append(el("p", "", `Launcher v${update.version} is ready. The launcher restarts to install it.`));
+  const go = el("button", "primary", "Update and restart");
+  go.addEventListener("click", () => installUpdate(go));
   note.append(go);
   notes.append(note);
+}
+
+// launcher updates: checked on start and every few hours; with "Keep Rago updated" on, a new
+// version installs by itself when the launcher opens, the way the game's own client does it
+
+const UPDATE_EVERY = 6 * 60 * 60 * 1000;
+const TRIED_KEY = "rago.updateTried";
+
+async function installUpdate(button) {
+  if (!update) return;
+  if (playing) {
+    toast("Close the game first: the launcher restarts to update.", true);
+    return;
+  }
+  if (button) button.disabled = true;
+  $("play").disabled = true;
+  setProgress("busy");
+  setStatus(`Downloading launcher v${update.version}…`);
+  try {
+    // the installer closes this window and opens the new launcher when it is done
+    await invoke("install_update", { update });
+  } catch (e) {
+    setProgress(null);
+    setStatus(String(e), true);
+    if (button) button.disabled = false;
+    $("play").disabled = false;
+  }
+}
+
+/** Whether this version was already installed by itself once (the installer may have failed). */
+function triedBefore(version) {
+  try {
+    if (localStorage.getItem(TRIED_KEY) === version) return true;
+    localStorage.setItem(TRIED_KEY, version);
+  } catch {
+    // no storage: still update, a failed install only asks again on the next start
+  }
+  return false;
+}
+
+async function checkUpdate(onStart) {
+  if (playing) return;
+  try {
+    update = await invoke("check_update");
+  } catch {
+    return; // offline or GitHub busy: the next check tries again
+  }
+  renderNotes();
+  if (update && onStart && view?.autoUpdate && !view.playing && !triedBefore(update.version)) {
+    toast(`Updating the launcher to v${update.version}…`);
+    installUpdate(null);
+  }
 }
 
 // Rago Network: friends and points. They need the account signed in to Rago Network, which needs
@@ -1039,7 +1087,8 @@ listen("closed", ({ payload }) => {
 // start
 
 character.init();
-refresh().then(async () => {
+const started = refresh();
+started.then(async () => {
   setState(view.playing ? "In game" : "Ready", view.playing ? "playing" : "");
   character.update();
   // a game still running (the window was reloaded): its output so far
@@ -1053,9 +1102,5 @@ refresh().then(async () => {
 showFeed("friends");
 renderNews();
 renderNotes();
-invoke("check_update")
-  .then((u) => {
-    update = u;
-    renderNotes();
-  })
-  .catch(() => {});
+started.then(() => checkUpdate(true), () => checkUpdate(false));
+setInterval(() => checkUpdate(false), UPDATE_EVERY);

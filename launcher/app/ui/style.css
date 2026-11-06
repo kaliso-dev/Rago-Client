@@ -147,7 +147,8 @@ summary:focus-visible { outline-offset: 0; }
 .notes p { margin: 0; color: var(--soft); line-height: 1.5; }
 .notes .empty-note { color: var(--muted); padding: 6px 4px; }
 .note { display: flex; flex-direction: column; gap: 10px; padding: 6px 4px; }
-.note .primary { align-self: flex-start; }
+.note .primary { align-self: flex-start; width: auto; height: 34px; padding: 0 16px; background: var(--button); color: #FFF; font-weight: 600; }
+.menu .note .primary:not(:disabled):hover { padding-left: 16px; background: var(--button-hover); }
 
 /* layout */
 .shell { flex: 1; display: flex; min-height: 0; }
