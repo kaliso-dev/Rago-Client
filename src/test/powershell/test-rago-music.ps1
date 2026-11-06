@@ -122,7 +122,8 @@ try {
     if ($null -ne $properties.Thumbnail) {
         try {
             $stream = Await ($properties.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
-            Write-Host ('thumbnail stream: ' + ($null -ne $stream) + ', size: ' + $stream.Size)
+            $size = [Windows.Storage.Streams.IRandomAccessStream].GetProperty('Size').GetValue($stream, $null)
+            Write-Host ('thumbnail stream: ' + ($null -ne $stream) + ', size: ' + $size)
         } catch {
             Write-Host ('thumbnail read failed: ' + $_)
         }

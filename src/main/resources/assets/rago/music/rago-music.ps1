@@ -45,6 +45,14 @@ $coverId = 0
 $coverFile = ''
 $coverText = ''
 $coverChecks = 0
+$coverError = ''
+
+# the picture stream's members, called through their interfaces: PowerShell does not see them on
+# a stream that comes from another program (a browser), which it knows only as a COM object
+$sizeOf = [Windows.Storage.Streams.IRandomAccessStream].GetProperty('Size')
+$inputAt = [Windows.Storage.Streams.IRandomAccessStream].GetMethod('GetInputStreamAt')
+$newReader = [Windows.Storage.Streams.DataReader].GetConstructor([Type[]]@([Windows.Storage.Streams.IInputStream]))
+$close = [IDisposable].GetMethod('Dispose')
 
 function Read-Thumbnail($properties) {
     # the picture's bytes, or $null while there is none
@@ -53,13 +61,13 @@ function Read-Thumbnail($properties) {
         $stream = Await ($properties.Thumbnail.OpenReadAsync()) $streamType
         if ($null -eq $stream) { return $null }
         try {
-            if ($stream.Size -eq 0 -or $stream.Size -gt 4MB) { return $null }
-            $size = [uint32]$stream.Size
-            $reader = [Windows.Storage.Streams.DataReader]::new($stream.GetInputStreamAt(0))
+            $size = [uint64]$sizeOf.GetValue($stream, $null)
+            if ($size -eq 0 -or $size -gt 4MB) { return $null }
+            $reader = $newReader.Invoke([object[]]@($inputAt.Invoke($stream, [object[]]@([uint64]0))))
             try {
-                $loaded = Await ($reader.LoadAsync($size)) ([uint32])
-                if ($null -eq $loaded -or [uint32]$loaded -lt $size) { return $null }
-                $bytes = New-Object byte[] $size
+                $loaded = Await ($reader.LoadAsync([uint32]$size)) ([uint32])
+                if ($null -eq $loaded -or [uint64]$loaded -lt $size) { return $null }
+                $bytes = New-Object byte[] ([int]$size)
                 $reader.ReadBytes($bytes)
                 # the comma keeps the array whole (PowerShell would return its bytes one by one)
                 return ,$bytes
@@ -67,9 +75,15 @@ function Read-Thumbnail($properties) {
                 $reader.Dispose()
             }
         } finally {
-            $stream.Dispose()
+            try { [void]$close.Invoke($stream, $null) } catch { }
         }
     } catch {
+        # to helper.log, once while it is the same error
+        $message = 'cover: ' + $_
+        if ($message -ne $script:coverError) {
+            $script:coverError = $message
+            [Console]::Error.WriteLine($message)
+        }
         return $null
     }
 }
