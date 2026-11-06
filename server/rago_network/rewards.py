@@ -13,7 +13,7 @@ RARITIES = ("common", "uncommon", "rare", "epic", "legendary", "mythic")
 # the chance of each rarity for one card, out of 10 000 (published in the client)
 CARD_ODDS = (5500, 2700, 1200, 450, 130, 20)
 # what a cosmetic one already has is worth in points when it comes again
-DUPLICATE_POINTS = {"common": 30, "uncommon": 60, "rare": 150, "epic": 400, "legendary": 1000, "mythic": 2500}
+DUPLICATE_POINTS = {"common": 15, "uncommon": 30, "rare": 75, "epic": 200, "legendary": 500, "mythic": 1250}
 # shop prices; mythics are never sold
 PRICES = {"common": 120, "uncommon": 300, "rare": 800, "epic": 2000, "legendary": 4000}
 # how many fragments make a cosmetic; legendaries and mythics are never cut up
@@ -299,23 +299,23 @@ def draw_card(rarity, hand, catalogue, rng):
     """What a card of that rarity holds (see the plan: points, fragments or a cosmetic)."""
     pick = rng.randrange(100)
     if rarity == "common":
-        card = _points(25, hand) if pick < 70 else _fragments("common", 1, hand, catalogue, rng, 25)
+        card = _points(15, hand) if pick < 70 else _fragments("common", 1, hand, catalogue, rng, 15)
     elif rarity == "uncommon":
         if pick < 50:
-            card = _points(60, hand)
+            card = _points(35, hand)
         elif pick < 80:
-            card = _fragments("rare", 1, hand, catalogue, rng, 60)
+            card = _fragments("rare", 1, hand, catalogue, rng, 35)
         else:
-            card = _item("common", hand, catalogue, rng, 60)
+            card = _item("common", hand, catalogue, rng, 35)
     elif rarity == "rare":
         if pick < 50:
-            card = _item("rare", hand, catalogue, rng, 150)
+            card = _item("rare", hand, catalogue, rng, 90)
         elif pick < 80:
-            card = _points(150, hand)
+            card = _points(90, hand)
         else:
-            card = _fragments("epic", 2, hand, catalogue, rng, 150)
+            card = _fragments("epic", 2, hand, catalogue, rng, 90)
     elif rarity == "epic":
-        card = _item("epic", hand, catalogue, rng, 400) if pick < 70 else _points(400, hand)
+        card = _item("epic", hand, catalogue, rng, 250) if pick < 70 else _points(250, hand)
     else:
         card = _item(rarity, hand, catalogue, rng, DUPLICATE_POINTS[rarity])
     card["rarity"] = rarity

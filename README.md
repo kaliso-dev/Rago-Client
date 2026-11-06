@@ -505,6 +505,9 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     bobbing must be on). "Not in F5" keeps the old behaviour. One check per frame
   - Rago Network: **friends** (ask a Rago player by name, accept or decline, remove), for the
     launcher's friends list
+  - Rago Points lowered: the chest's point cards and duplicates give half as much (about 50 points
+    a day instead of 85), and the play pass takes 90 minutes a tier (45 hours in all) for 1,200
+    points instead of 1,710, most of them in the last tiers. Points and tiers already won stay
 - new in 1.11.1
   - **Clear Inventory** (Visual): behind your inventory (E) the world stays as it is, with no blur
     and no dark shade, only a light vignette at the edges (0 to 100 %, 25 % by default; 0 for

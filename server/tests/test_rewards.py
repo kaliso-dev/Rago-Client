@@ -128,8 +128,8 @@ class DrawTest(unittest.TestCase):
         cat = Catalogue({"items": {"hat:only": {"rarity": "legendary", "sources": ["chest"]}}})
         hand = rewards.Hand({"hat:only"}, {})
         card = rewards.draw_card("legendary", hand, cat, random.Random(1))
-        self.assertEqual(card, {"kind": "duplicate", "item": "hat:only", "points": 1000, "rarity": "legendary"})
-        self.assertEqual(hand.points, 1000)
+        self.assertEqual(card, {"kind": "duplicate", "item": "hat:only", "points": 500, "rarity": "legendary"})
+        self.assertEqual(hand.points, 500)
 
     def test_fragments_go_to_a_started_cosmetic_and_complete_it(self):
         cat = Catalogue(small_catalogue())
@@ -141,8 +141,9 @@ class DrawTest(unittest.TestCase):
         self.assertIn("cape:common_cape", hand.owned)
         self.assertNotIn("cape:common_cape", hand.fragments)
 
-    def test_on_average_a_player_wins_about_85_points_a_day(self):
-        # the plan's figure, with every rarity in the chest and nothing owned yet
+    def test_on_average_a_player_wins_about_50_points_a_day(self):
+        # with every rarity in the chest and nothing owned yet (85 before the points were lowered in
+        # November 2026)
         cat = Catalogue(small_catalogue())
         rng = random.Random(5)
         days = 20_000
@@ -150,7 +151,7 @@ class DrawTest(unittest.TestCase):
         for _ in range(days):
             _, _, hand, _ = open_chest(dict(NEW_WALLET), 10, set(), {}, cat, rng)
             points += hand.points
-        self.assertAlmostEqual(points / days, 85, delta=5)
+        self.assertAlmostEqual(points / days, 50, delta=5)
 
 
 class ChestTest(unittest.TestCase):
