@@ -6,17 +6,25 @@ import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.hud.Anchor;
 import gg.rago.hud.HudElement;
+import gg.rago.hud.HudManager;
 import gg.rago.music.MediaSession;
+import gg.rago.render.HudText;
 import gg.rago.render.Paint;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiChat;
+import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.event.GuiScreenEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
 import java.io.File;
@@ -29,6 +37,9 @@ import java.io.File;
  * on the game's thread this only reads one field a frame, draws one cover, three lines and a bar,
  * keeps the cut titles until the track changes and the time text until its second changes, and
  * uploads a 128 x 128 cover once per track. The process only runs while the HUD is on.
+ *
+ * <p>While the chat is open (the mouse is free), previous, play/pause and next buttons take the
+ * place of the artist, time and bar, and a click on them is sent like the keys.
  */
 public final class MusicHud extends HudElement {
 	private static final int PAD = 4;
@@ -40,6 +51,12 @@ public final class MusicHud extends HudElement {
 	private static final int TRACK_BG = 0x40FFFFFF;
 	private static final int BAR = 0xFF1ED760;
 	private static final int NO_COVER = 0x30FFFFFF;
+	private static final int BUTTON = 16;
+	private static final int BUTTON_GAP = 6;
+	private static final int BUTTONS_TOP = PAD + 12;
+	private static final String[] COMMANDS = {"previous", "toggle", "next"};
+	/** A track paused this recently stays shown even when idle tracks are hidden, to resume it. */
+	private static final long PAUSED_SHOWN_NS = 10_000_000_000L;
 
 	private final IntOption width = addOption(new IntOption("music_width", 170, 120, 260));
 	private final BooleanOption showCover = addOption(new BooleanOption("music_cover", true));
@@ -50,6 +67,7 @@ public final class MusicHud extends HudElement {
 	private final KeyBinding previousKey = new KeyBinding("key.rago.music_previous", 0, "key.categories.rago");
 
 	private final MediaSession session = new MediaSession();
+	private final int[] screenBounds = new int[4];
 
 	private DynamicTexture coverTexture;
 	private ResourceLocation coverLocation;
@@ -107,7 +125,66 @@ public final class MusicHud extends HudElement {
 			return false;
 		}
 		MediaSession.Track t = session.track();
-		return t != MediaSession.NONE && (t.playing || !hideIdle.get()) || session.unavailable() && !hideIdle.get();
+		if (t != MediaSession.NONE) {
+			// paused: still shown for a moment, and while the chat is open, to press play again
+			return t.playing || !hideIdle.get() || chatOpen() || System.nanoTime() - t.readAt < PAUSED_SHOWN_NS;
+		}
+		return session.unavailable() && !hideIdle.get();
+	}
+
+	private static boolean chatOpen() {
+		return Minecraft.getMinecraft().currentScreen instanceof GuiChat;
+	}
+
+	/** A left click in the chat on one of the buttons: sent like the keys, and kept from the chat. */
+	@SubscribeEvent
+	public void onMouse(GuiScreenEvent.MouseInputEvent.Pre event) {
+		if (!(event.gui instanceof GuiChat) || Mouse.getEventButton() != 0 || !Mouse.getEventButtonState()
+			|| !isEnabled() || !MediaSession.supported() || session.track() == MediaSession.NONE
+			|| Minecraft.getMinecraft().gameSettings.hideGUI || !onScreen()) {
+			return;
+		}
+		int i = buttonAt(Mouse.getEventX(), Mouse.getEventY());
+		if (i < 0) {
+			return;
+		}
+		session.send(COMMANDS[i]);
+		Minecraft.getMinecraft().getSoundHandler().playSound(PositionedSoundRecord.create(new ResourceLocation("gui.button.press"), 1.0F));
+		event.setCanceled(true);
+	}
+
+	/** The button under the mouse (LWJGL pixels, from the bottom), or -1. */
+	private int buttonAt(int mouseX, int mouseY) {
+		Minecraft mc = Minecraft.getMinecraft();
+		ScaledResolution window = HudText.resolution();
+		int sw = window.getScaledWidth();
+		int sh = window.getScaledHeight();
+		float x = mouseX * (float) sw / mc.displayWidth;
+		float y = sh - mouseY * (float) sh / mc.displayHeight - 1;
+		int[] b = HudManager.boundsInto(this, mc.fontRendererObj, sw, sh, false, screenBounds);
+		float scale = position().scale();
+		return buttonAt((x - b[0]) / scale, (y - b[1]) / scale, showCover.get(), width.get());
+	}
+
+	/** The button at a point inside the HUD (its own units), or -1. */
+	static int buttonAt(float x, float y, boolean cover, int w) {
+		if (y < BUTTONS_TOP || y >= BUTTONS_TOP + BUTTON) {
+			return -1;
+		}
+		int left = buttonsLeft(cover, w);
+		for (int i = 0; i < COMMANDS.length; i++) {
+			int bx = left + i * (BUTTON + BUTTON_GAP);
+			if (x >= bx && x < bx + BUTTON) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	private static int buttonsLeft(boolean cover, int w) {
+		int textX = cover ? PAD + COVER + GAP : PAD;
+		int textW = w - textX - PAD;
+		return textX + (textW - (COMMANDS.length * BUTTON + (COMMANDS.length - 1) * BUTTON_GAP)) / 2;
 	}
 
 	@Override
@@ -124,6 +201,8 @@ public final class MusicHud extends HudElement {
 	public void render(FontRenderer text, boolean placeholder) {
 		MediaSession.Track t = session.track();
 		boolean sample = placeholder && t == MediaSession.NONE;
+		boolean controls = !placeholder && t != MediaSession.NONE && chatOpen();
+		int hover = controls ? buttonAt(Mouse.getX(), Mouse.getY()) : -1;
 		long now = System.nanoTime();
 		int w = width.get();
 		int textX = showCover.get() ? PAD + COVER + GAP : PAD;
@@ -164,7 +243,14 @@ public final class MusicHud extends HudElement {
 			Paint.roundInto(shapes, PAD, PAD, COVER, COVER, 3, NO_COVER);
 		}
 		int barY = PAD + COVER - 3;
-		if (duration > 0) {
+		if (controls) {
+			int left = buttonsLeft(showCover.get(), w);
+			for (int i = 0; i < COMMANDS.length; i++) {
+				int bx = left + i * (BUTTON + BUTTON_GAP);
+				Paint.roundInto(shapes, bx, BUTTONS_TOP, BUTTON, BUTTON, 4, i == hover ? 0x48FFFFFF : 0x1AFFFFFF);
+				icon(shapes, i, bx, BUTTONS_TOP, playing);
+			}
+		} else if (duration > 0) {
 			float k = (float) Math.max(0, Math.min(1, position / duration));
 			Paint.roundInto(shapes, textX, barY, textW, 3, 1.5f, TRACK_BG);
 			Paint.roundInto(shapes, textX, barY, Math.max(3, textW * k), 3, 1.5f, playing ? BAR : DIM);
@@ -188,11 +274,31 @@ public final class MusicHud extends HudElement {
 		}
 
 		drawText(text, title, textX, PAD + 1, textColor.get());
+		if (controls) {
+			return;
+		}
 		if (!artist.isEmpty()) {
 			drawText(text, artist, textX, PAD + 11, DIM);
 		}
 		if (duration > 0) {
 			drawText(text, time, w - PAD - textWidth(time), PAD + 11, DIM);
+		}
+	}
+
+	/** Previous (0), play or pause (1), next (2), in white on a {@link #BUTTON} square. */
+	private static void icon(WorldRenderer b, int i, float x, float y, boolean playing) {
+		int c = 0xFFFFFFFF;
+		if (i == 0) {
+			Paint.roundInto(b, x + 4, y + 4, 1.5f, 8, 0, c);
+			Paint.triangleInto(b, x + 12, y + 4, x + 12, y + 12, x + 6, y + 8, c);
+		} else if (i == 2) {
+			Paint.triangleInto(b, x + 4, y + 4, x + 4, y + 12, x + 10, y + 8, c);
+			Paint.roundInto(b, x + 10.5f, y + 4, 1.5f, 8, 0, c);
+		} else if (playing) {
+			Paint.roundInto(b, x + 5, y + 4, 2.5f, 8, 0.5f, c);
+			Paint.roundInto(b, x + 8.5f, y + 4, 2.5f, 8, 0.5f, c);
+		} else {
+			Paint.triangleInto(b, x + 5.5f, y + 4, x + 5.5f, y + 12, x + 12, y + 8, c);
 		}
 	}
 

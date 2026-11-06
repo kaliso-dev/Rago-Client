@@ -520,7 +520,9 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
   - new HUD **Music** (HUD, off by default, Windows only): what plays on this PC (Spotify, Deezer,
     a browser...), with its cover, title, artist, time and a progress bar, read from Windows' media
     controls (what the volume panel shows). Three keys to set in Controls: play/pause, next,
-    previous. The reading runs in a separate PowerShell process at low priority, which asks Windows
+    previous; while the chat is open, buttons for them take the place of the artist and the time,
+    and stay clickable. With "Hide when paused" on, a paused track stays shown 10 seconds, and
+    while the chat is open, so it can be started again. The reading runs in a separate PowerShell process at low priority, which asks Windows
     once a second and writes a line only when something changes; it runs only while the HUD is on
     and stops with the game. In the game: one field read a frame, the cut titles kept until the
     track changes, the time text until its second changes, a 128 x 128 cover uploaded once per
