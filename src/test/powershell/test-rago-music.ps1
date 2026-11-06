@@ -50,6 +50,17 @@ Add-Type -AssemblyName System.Drawing
 [void][Windows.Media.Playback.MediaPlayer, Windows.Media.Playback, ContentType = WindowsRuntime]
 [void][Windows.Media.MediaPlaybackStatus, Windows.Media, ContentType = WindowsRuntime]
 [void][Windows.Storage.Streams.RandomAccessStreamReference, Windows.Storage.Streams, ContentType = WindowsRuntime]
+[void][Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime]
+[void][Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType = WindowsRuntime]
+$asTask = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+    $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and
+    $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
+} | Select-Object -First 1
+function Await($operation, [Type]$type) {
+    $task = $asTask.MakeGenericMethod($type).Invoke($null, @($operation))
+    [void]$task.Wait(5000)
+    $task.Result
+}
 $player = [Windows.Media.Playback.MediaPlayer]::new()
 $player.CommandManager.IsEnabled = $false
 $controls = $player.SystemMediaTransportControls
@@ -92,12 +103,34 @@ $g.Dispose()
 $png = New-Object System.IO.MemoryStream
 $image.Save($png, [System.Drawing.Imaging.ImageFormat]::Png)
 $bytes = $png.ToArray()
-$memory = New-Object System.IO.MemoryStream (, $bytes)
-$display.Thumbnail = [Windows.Storage.Streams.RandomAccessStreamReference]::CreateFromStream(
-    [System.IO.WindowsRuntimeStreamExtensions]::AsRandomAccessStream($memory))
+$picture = Join-Path $folder 'test-picture.png'
+[IO.File]::WriteAllBytes($picture, $bytes)
+$file = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($picture)) ([Windows.Storage.StorageFile])
+$display.Thumbnail = [Windows.Storage.Streams.RandomAccessStreamReference]::CreateFromFile($file)
 $display.Update()
 
-$withCover = Wait-For $loop { param($j) $j.title -eq 'Rago test track' -and $j.cover } 20 'the picture'
+try {
+    $withCover = Wait-For $loop { param($j) $j.title -eq 'Rago test track' -and $j.cover } 20 'the picture'
+} catch {
+    # what Windows itself gives for the track's picture, and what the script wrote on its error output
+    $manager = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) `
+        ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+    $session = $manager.GetCurrentSession()
+    $properties = Await ($session.TryGetMediaPropertiesAsync()) `
+        ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+    Write-Host ('session: ' + $session.SourceAppUserModelId + ', title: ' + $properties.Title + ', thumbnail: ' + ($null -ne $properties.Thumbnail))
+    if ($null -ne $properties.Thumbnail) {
+        try {
+            $stream = Await ($properties.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
+            Write-Host ('thumbnail stream: ' + ($null -ne $stream) + ', size: ' + $stream.Size)
+        } catch {
+            Write-Host ('thumbnail read failed: ' + $_)
+        }
+    }
+    if (-not $loop.HasExited) { $loop.Kill() }
+    Write-Host ('script errors: ' + $loop.StandardError.ReadToEnd())
+    throw
+}
 if ($withCover.coverId -le $first.coverId) { throw 'the cover id did not change' }
 $saved = [IO.File]::ReadAllBytes($withCover.cover)
 if ([Convert]::ToBase64String($saved) -ne [Convert]::ToBase64String($bytes)) {

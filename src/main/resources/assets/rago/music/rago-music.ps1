@@ -164,10 +164,12 @@ while ($true) {
             $media.Remove('position')
             $key = $media | ConvertTo-Json -Compress
             # the game moves the position on by itself while playing: send it again only when
-            # something else changed or it jumped (a seek)
+            # something else changed or it jumped (a seek); without a length (a live stream, an
+            # app that gives no time) the game shows no time, so the position does not matter
             $expected = $sentPosition
             if ($sentPlaying) { $expected += ([DateTime]::UtcNow - $sentAt).TotalSeconds }
-            if ($key -ne $sent -or [Math]::Abs($position - $expected) -gt 1.5) {
+            $jumped = $media.duration -gt 0 -and [Math]::Abs($position - $expected) -gt 1.5
+            if ($key -ne $sent -or $jumped) {
                 $media.position = $position
                 Send ($media | ConvertTo-Json -Compress)
                 $sent = $key
