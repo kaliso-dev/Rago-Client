@@ -43,27 +43,64 @@ function Send([string]$line) {
 $coverTrack = $null
 $coverId = 0
 $coverFile = ''
+$coverText = ''
+$coverChecks = 0
 
-function Save-Cover($properties) {
-    # the cover of a new track, in one of two files in turn (the game may still be reading the other)
-    $script:coverId++
-    $file = Join-Path $Folder ('cover-' + ($script:coverId % 2) + '.img')
+function Read-Thumbnail($properties) {
+    # the picture's bytes, or $null while there is none
     try {
-        if ($null -eq $properties.Thumbnail) { return '' }
+        if ($null -eq $properties.Thumbnail) { return $null }
         $stream = Await ($properties.Thumbnail.OpenReadAsync()) $streamType
-        if ($null -eq $stream -or $stream.Size -eq 0 -or $stream.Size -gt 4MB) { return '' }
-        $size = [uint32]$stream.Size
-        $reader = [Windows.Storage.Streams.DataReader]::new($stream.GetInputStreamAt(0))
-        [void](Await ($reader.LoadAsync($size)) ([uint32]))
-        $bytes = New-Object byte[] $size
-        $reader.ReadBytes($bytes)
-        $reader.Dispose()
-        $stream.Dispose()
-        [IO.File]::WriteAllBytes($file, $bytes)
-        return $file
+        if ($null -eq $stream) { return $null }
+        try {
+            if ($stream.Size -eq 0 -or $stream.Size -gt 4MB) { return $null }
+            $size = [uint32]$stream.Size
+            $reader = [Windows.Storage.Streams.DataReader]::new($stream.GetInputStreamAt(0))
+            try {
+                $loaded = Await ($reader.LoadAsync($size)) ([uint32])
+                if ($null -eq $loaded -or [uint32]$loaded -lt $size) { return $null }
+                $bytes = New-Object byte[] $size
+                $reader.ReadBytes($bytes)
+                # the comma keeps the array whole (PowerShell would return its bytes one by one)
+                return ,$bytes
+            } finally {
+                $reader.Dispose()
+            }
+        } finally {
+            $stream.Dispose()
+        }
     } catch {
-        return ''
+        return $null
     }
+}
+
+function Update-Cover($properties, [string]$track) {
+    if ($track -ne $script:coverTrack) {
+        # a new track: no picture until its own is read, so the game drops the last one
+        $script:coverTrack = $track
+        $script:coverId++
+        $script:coverFile = ''
+        $script:coverText = ''
+        # browsers (YouTube...) give the picture a moment after the title, at times the last
+        # track's first: look again each second for a few seconds
+        $script:coverChecks = 10
+    }
+    if ($script:coverChecks -le 0) { return }
+    $script:coverChecks--
+    $bytes = Read-Thumbnail $properties
+    if ($null -eq $bytes -or $bytes.Length -eq 0) { return }
+    try {
+        # the same picture as the one sent: nothing to do
+        $text = [Convert]::ToBase64String([byte[]]$bytes)
+        if ($text -eq $script:coverText) { return }
+        # one of two files in turn: the game may still be reading the other
+        $id = $script:coverId + 1
+        $file = Join-Path $Folder ('cover-' + ($id % 2) + '.img')
+        [IO.File]::WriteAllBytes($file, [byte[]]$bytes)
+        $script:coverId = $id
+        $script:coverFile = $file
+        $script:coverText = $text
+    } catch { }
 }
 
 function Read-Media {
@@ -81,10 +118,7 @@ function Read-Media {
     $duration = ($timeline.EndTime - $timeline.StartTime).TotalSeconds
     if ($duration -gt 0) { $position = [Math]::Min([Math]::Max($position, 0), $duration) }
     $track = $properties.Title + "`n" + $properties.Artist
-    if ($track -ne $script:coverTrack) {
-        $script:coverTrack = $track
-        $script:coverFile = Save-Cover $properties
-    }
+    Update-Cover $properties $track
     return [ordered]@{
         title = $properties.Title; artist = $properties.Artist; playing = $playing
         position = [Math]::Round($position, 1); duration = [Math]::Round($duration, 1)
