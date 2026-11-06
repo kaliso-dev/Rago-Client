@@ -1,4 +1,4 @@
-//! The command line that starts Minecraft with Forge and Rago.
+//! The command line that starts Minecraft with Forge and Rago, or with Rago's own loader.
 
 use std::collections::HashMap;
 use std::process::Command;
@@ -49,10 +49,10 @@ pub fn parse_jvm_arguments(text: &str) -> Result<Vec<String>, String> {
     let args: Vec<String> = text.split_whitespace().map(str::to_string).collect();
     for a in &args {
         if ["-cp", "-classpath", "--class-path", "-jar"].contains(&a.as_str()) || a.starts_with("-Djava.library.path=") {
-            return Err(format!("{a} est géré par le launcher."));
+            return Err(format!("{a} is managed by the launcher."));
         }
         if !a.starts_with('-') {
-            return Err(format!("« {a} » n'est pas un argument de Java (il doit commencer par -)."));
+            return Err(format!("\"{a}\" is not a Java argument (it must start with -)."));
         }
     }
     Ok(args)
@@ -61,7 +61,7 @@ pub fn parse_jvm_arguments(text: &str) -> Result<Vec<String>, String> {
 /// G1 settings the official launcher uses for Java 8 (short pauses, fewer stutters), plus:
 /// references processed in parallel (shorter pauses), no full collection when a mod calls
 /// System.gc(), and Forge's start without checking the vanilla jar's signature again.
-const TUNED: [&str; 10] = [
+const TUNED: [&str; 14] = [
     "-XX:+UnlockExperimentalVMOptions",
     "-XX:+UseG1GC",
     "-XX:G1NewSizePercent=20",
@@ -70,6 +70,14 @@ const TUNED: [&str; 10] = [
     "-XX:G1HeapRegionSize=32M",
     "-XX:+ParallelRefProcEnabled",
     "-XX:+DisableExplicitGC",
+    // old objects are collected in fewer, shorter mixed pauses, and short-lived ones (most of a
+    // frame's garbage) die young instead of being copied around
+    "-XX:G1MixedGCCountTarget=4",
+    "-XX:MaxTenuringThreshold=1",
+    // no performance counters written to a shared file on disk, a known source of hitches
+    "-XX:+PerfDisableSharedMem",
+    // servers are reached over IPv4 straight away, without first trying an IPv6 route
+    "-Djava.net.preferIPv4Stack=true",
     "-Dfml.ignoreInvalidMinecraftCertificates=true",
     "-Dfml.ignorePatchDiscrepancies=true",
 ];
@@ -90,7 +98,9 @@ pub fn substitute(template: &str, vars: &HashMap<&str, String>) -> Vec<String> {
 
 pub fn jvm_arguments(inst: &Installed, opts: &Options, os: Os) -> Vec<String> {
     let memory = opts.memory_mb.max(512);
-    let mut args = vec![format!("-Xms{}M", memory.min(1024)), format!("-Xmx{memory}M")];
+    // tuned: the heap starts at its full size, so Java never stops the game to grow it
+    let start = if opts.tuned_jvm { memory } else { memory.min(1024) };
+    let mut args = vec![format!("-Xms{start}M"), format!("-Xmx{memory}M")];
     if opts.tuned_jvm {
         args.extend(TUNED.iter().map(|s| s.to_string()));
     }
@@ -120,6 +130,7 @@ pub fn game_arguments(inst: &Installed, account: &Account, opts: &Options) -> Ve
         ("user_type", "msa".into()),
     ]
     .into_iter()
+    .chain(inst.vars.iter().map(|(k, v)| (k.as_str(), v.clone())))
     .collect();
     let mut args = substitute(&inst.minecraft_arguments, &vars);
     if let Some((w, h)) = opts.size {
@@ -165,6 +176,13 @@ mod tests {
             version_name: "1.8.9-forge".into(),
             log_argument: Some("-Dlog4j.configurationFile=client-1.7.xml".into()),
             rago: None,
+            vars: Vec::new(),
+            vanilla: crate::install::Vanilla {
+                classpath: vec![PathBuf::from("b.jar")],
+                client_jar: PathBuf::from("1.8.9.jar"),
+                arguments: "--username ${auth_player_name}".into(),
+                forge_jar: PathBuf::from("forge.jar"),
+            },
         }
     }
 
@@ -193,7 +211,7 @@ mod tests {
     #[test]
     fn jvm_arguments_end_with_the_class_path() {
         let args = jvm_arguments(&installed(), &Options { memory_mb: 3072, ..Options::default() }, Os::Linux);
-        assert!(args.contains(&"-Xmx3072M".to_string()));
+        assert!(args.contains(&"-Xmx3072M".to_string()) && args.contains(&"-Xms3072M".to_string()));
         assert!(args.contains(&"-XX:+UseG1GC".to_string()));
         let plain = jvm_arguments(&installed(), &Options { tuned_jvm: false, extra_jvm: vec!["-Dx=1".into()], ..Options::default() }, Os::Linux);
         assert!(!plain.contains(&"-XX:+UseG1GC".to_string()));

@@ -39,7 +39,7 @@ enum Tag {
 impl Reader<'_> {
     fn take(&mut self, n: usize) -> Result<&[u8]> {
         if n > self.data.len() {
-            bail!("servers.dat tronqué");
+            bail!("servers.dat is truncated");
         }
         let (a, b) = self.data.split_at(n);
         self.data = b;
@@ -57,7 +57,7 @@ impl Reader<'_> {
     fn len(&mut self) -> Result<usize> {
         let n = self.i32()?;
         if n < 0 {
-            bail!("servers.dat invalide");
+            bail!("invalid servers.dat");
         }
         Ok(n as usize)
     }
@@ -69,7 +69,7 @@ impl Reader<'_> {
     fn payload(&mut self, kind: u8) -> Result<Tag> {
         self.depth += 1;
         if self.depth > 64 {
-            bail!("servers.dat invalide");
+            bail!("invalid servers.dat");
         }
         let tag = match kind {
             1 => self.take(1).map(|_| Tag::Other)?,
@@ -104,13 +104,13 @@ impl Reader<'_> {
             }
             11 => {
                 let n = self.len()?;
-                self.take(n.checked_mul(4).ok_or_else(|| anyhow::anyhow!("servers.dat invalide"))?).map(|_| Tag::Other)?
+                self.take(n.checked_mul(4).ok_or_else(|| anyhow::anyhow!("invalid servers.dat"))?).map(|_| Tag::Other)?
             }
             12 => {
                 let n = self.len()?;
-                self.take(n.checked_mul(8).ok_or_else(|| anyhow::anyhow!("servers.dat invalide"))?).map(|_| Tag::Other)?
+                self.take(n.checked_mul(8).ok_or_else(|| anyhow::anyhow!("invalid servers.dat"))?).map(|_| Tag::Other)?
             }
-            _ => bail!("servers.dat invalide"),
+            _ => bail!("invalid servers.dat"),
         };
         self.depth -= 1;
         Ok(tag)
@@ -124,10 +124,10 @@ fn field<'a>(fields: &'a [(String, Tag)], name: &str) -> Option<&'a Tag> {
 pub fn parse(data: &[u8]) -> Result<Vec<Server>> {
     let mut r = Reader { data, depth: 0 };
     if r.u8()? != 10 {
-        bail!("servers.dat invalide");
+        bail!("invalid servers.dat");
     }
     r.string()?;
-    let Tag::Compound(root) = r.payload(10)? else { bail!("servers.dat invalide") };
+    let Tag::Compound(root) = r.payload(10)? else { bail!("invalid servers.dat") };
     let Some(Tag::List(list)) = field(&root, "servers") else {
         return Ok(Vec::new());
     };

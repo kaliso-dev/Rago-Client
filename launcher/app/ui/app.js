@@ -5,14 +5,15 @@ const appWindow = window.__TAURI__.window?.getCurrentWindow?.();
 
 const $ = (id) => document.getElementById(id);
 const STAGES = {
-  version: "Préparation…",
-  natives: "Préparation du jeu…",
-  java: "Vérification de Java…",
-  rago: "Mise à jour de Rago…",
+  version: "Preparing…",
+  natives: "Preparing the game…",
+  java: "Checking Java…",
+  rago: "Updating Rago…",
+  loader: "Preparing Java 21…",
 };
 const SIZES = ["1280x720", "1600x900", "1920x1080"];
 const MAX_LINES = 4000;
-const PRESET_NAMES = { performance: "Compétitif", balanced: "Équilibré", quality: "Visuel" };
+const PRESET_NAMES = { performance: "Competitive", balanced: "Balanced", quality: "Visual" };
 
 let view = null;
 let update = null;
@@ -22,6 +23,8 @@ let playing = false;
 let servers = [];
 const statuses = {};
 const faces = {};
+const skins = {};
+const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
 const lines = [];
 
 // small helpers
@@ -45,22 +48,37 @@ function icon(name, extra = "") {
 
 function gb(mb) {
   const g = mb / 1024;
-  return `${Number.isInteger(g) ? g : g.toFixed(1).replace(".", ",")} Go`;
+  return `${Number.isInteger(g) ? g : g.toFixed(1)} GB`;
 }
 
 function players(n) {
-  return `${n.toLocaleString("fr-FR")} joueur${n > 1 ? "s" : ""}`;
+  return `${n.toLocaleString("en-US")} player${n === 1 ? "" : "s"}`;
 }
 
 function ago(iso) {
   const t = Date.parse(iso);
   if (!t) return "";
   const days = Math.floor((Date.now() - t) / 86400000);
-  if (days <= 0) return "aujourd'hui";
-  if (days === 1) return "hier";
-  if (days < 30) return `il y a ${days} jours`;
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days} days ago`;
   const months = Math.floor(days / 30);
-  return months < 12 ? `il y a ${months} mois` : `il y a ${Math.floor(months / 12)} an${months >= 24 ? "s" : ""}`;
+  if (months < 12) return months === 1 ? "1 month ago" : `${months} months ago`;
+  const years = Math.floor(months / 12);
+  return years === 1 ? "1 year ago" : `${years} years ago`;
+}
+
+/** A short fade and lift on an element whose content just changed; nothing when motion is reduced. */
+function flash(node) {
+  if (calm.matches || document.hidden || !node.animate) return;
+  node.animate([{ opacity: 0.2, transform: "translateY(3px)" }, { opacity: 1, transform: "none" }], { duration: 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+}
+
+/** Sets a text only when it changed, so nothing repaints or animates for the same value. */
+function setText(node, text, animate = true) {
+  if (node.textContent === text) return;
+  node.textContent = text;
+  if (animate) flash(node);
 }
 
 let toastTimer = null;
@@ -68,9 +86,13 @@ function toast(text, error = false) {
   const t = $("toast");
   t.textContent = text;
   t.classList.toggle("error", error);
-  t.hidden = false;
+  if (t.hidden) {
+    t.hidden = false;
+    void t.offsetWidth; // once, so the first toast slides in rather than appearing
+  }
+  t.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (t.hidden = true), error ? 6000 : 3200);
+  toastTimer = setTimeout(() => t.classList.remove("show"), error ? 6000 : 3200);
 }
 
 function setState(text, kind = "") {
@@ -79,15 +101,25 @@ function setState(text, kind = "") {
   $("state-text").className = kind === "playing" ? "playing" : "";
 }
 
-function setStatus(text, error = false) {
-  $("status-text").textContent = text;
+function setStatus(text, error = false, animate = true) {
+  setText($("status-text"), text, animate);
   $("status-text").classList.toggle("error", error);
-  if (error) setState("Erreur");
+  if (error) setState("Error", "error");
 }
 
+/** null hides the bar, "busy" shows a bar that moves without a known end, a number fills it. */
 function setProgress(fraction) {
-  $("track").hidden = fraction === null;
-  if (fraction !== null) $("fill").style.width = `${Math.round(fraction * 100)}%`;
+  const track = $("track");
+  track.hidden = fraction === null;
+  track.classList.toggle("busy", fraction === "busy");
+  if (typeof fraction === "number") $("fill").style.transform = `scaleX(${Math.min(1, Math.max(0, fraction)).toFixed(3)})`;
+}
+
+/** Whether the game runs: the launcher then stops its looping animations and its 3D view. */
+function setPlaying(on) {
+  playing = on;
+  document.body.classList.toggle("playing", on);
+  character.update();
 }
 
 // window
@@ -116,6 +148,7 @@ function showPage(name) {
     renderConsole();
   }
   if (name === "mods") renderMods();
+  if (name === "friends") renderFriends();
   if (name === "home") {
     pollStats();
     pollConnection();
@@ -139,7 +172,16 @@ function litSection() {
   if (scroll.scrollTop + scroll.clientHeight >= scroll.scrollHeight - 2) current = "tools";
   for (const b of document.querySelectorAll(".subnav button")) b.classList.toggle("current", b.dataset.goto === current);
 }
-$("settings-scroll").addEventListener("scroll", litSection);
+// once per frame at most, however fast the wheel turns
+let litQueued = false;
+$("settings-scroll").addEventListener("scroll", () => {
+  if (litQueued) return;
+  litQueued = true;
+  requestAnimationFrame(() => {
+    litQueued = false;
+    litSection();
+  });
+}, { passive: true });
 
 // the player in 3D: their own skin when signed in, Rago's otherwise. It only draws while the home
 // page is on screen and the game is not running, so it never takes the graphics card from the game.
@@ -172,7 +214,7 @@ const character = {
   setSkin(src, slim) {
     if (!this.viewer || this.skin === src) return;
     this.skin = src;
-    this.viewer.loadSkin(src, { model: slim ? "slim" : "default" }).catch(() => {});
+    this.viewer.loadSkin(src, { model: slim ? "slim" : "default" }).then(() => flash($("character"))).catch(() => {});
   },
   update() {
     if (this.viewer) this.viewer.renderPaused = page !== "home" || playing || document.hidden;
@@ -199,7 +241,7 @@ async function renderAccounts() {
   $("accounts").hidden = !selected;
   $("sign-in").hidden = !!selected;
   $("sign-in").disabled = !view.signInReady;
-  $("sign-in").title = view.signInReady ? "" : "Bientôt : Mojang doit encore autoriser l'application Rago.";
+  $("sign-in").title = view.signInReady ? "" : "Coming soon: Mojang still has to approve the Rago app.";
   const menu = $("account-menu");
   menu.replaceChildren();
   if (!selected) {
@@ -212,14 +254,16 @@ async function renderAccounts() {
     const b = menuButton(a.name, () => run(b, async () => {
       await invoke("select_account", { uuid: a.uuid });
       $("accounts").open = false;
+      renderPoints();
+      if (page === "friends") renderFriends();
     }), a.uuid === selected.uuid ? "current" : "");
     menu.append(b);
   }
   menu.append(el("hr"));
-  const add = menuButton("Ajouter un compte", () => signIn(add));
+  const add = menuButton("Add account", () => signIn(add));
   add.disabled = !view.signInReady;
   menu.append(add);
-  const remove = menuButton(`Retirer ${selected.name}`, () => run(remove, async () => {
+  const remove = menuButton(`Remove ${selected.name}`, () => run(remove, async () => {
     await invoke("remove_account", { uuid: selected.uuid });
     $("accounts").open = false;
     setStatus("");
@@ -229,7 +273,9 @@ async function renderAccounts() {
   $("face").hidden = !src;
   $("face-letter").hidden = !!src;
   if (src) $("face").src = src;
-  const skin = await invoke("skin", { uuid: selected.uuid }).catch(() => null);
+  // asked once per account: render() runs after every action and must not fetch the skin each time
+  if (!(selected.uuid in skins)) skins[selected.uuid] = await invoke("skin", { uuid: selected.uuid }).catch(() => null);
+  const skin = skins[selected.uuid];
   if (skin) character.setSkin(skin.png, skin.slim);
 }
 
@@ -240,23 +286,28 @@ function render() {
   renderAccounts();
   const signedIn = view.accounts.length > 0;
   playing = view.playing || $("play").dataset.running === "1";
+  document.body.classList.toggle("playing", !!view.playing);
+  character.update();
   $("play").disabled = !signedIn || playing;
   if (!signedIn && !$("status-text").textContent) {
-    setStatus(view.signInReady ? "Connecte-toi pour jouer." : "La connexion Microsoft arrive bientôt : Mojang doit encore autoriser l'application Rago.");
+    setStatus(view.signInReady ? "Sign in to play." : "Microsoft sign-in is coming soon: Mojang still has to approve the Rago app.");
   }
   const rago = view.rago?.match(/^rago-(.+?)\+/);
   const versions = $("versions");
-  versions.replaceChildren(el("span", "", "Minecraft 1.8.9"), el("span", "", `Forge ${view.forge}`));
+  const engine = view.engine === "rago" ? "Rago loader · Java 21" : `Forge ${view.forge}`;
+  versions.replaceChildren(el("span", "", "Minecraft 1.8.9"), el("span", "", engine));
   if (rago) versions.append(el("span", "", `Rago ${rago[1]}`));
 
   // performance card and page
   for (const b of document.querySelectorAll("[data-preset]")) b.classList.toggle("current", b.dataset.preset === view.preset);
-  $("stat-fps").textContent = view.maxFps == null ? "120" : view.maxFps >= 260 ? "Illimité" : String(view.maxFps);
+  $("engine-setting").hidden = !view.loader;
+  for (const b of document.querySelectorAll("[data-engine]")) b.classList.toggle("current", b.dataset.engine === view.engine);
+  $("stat-fps").textContent = view.maxFps == null ? "120" : view.maxFps >= 260 ? "Unlimited" : String(view.maxFps);
   $("memory").max = view.maxMemoryMb;
   $("memory").value = view.memoryMb;
   $("memory-value").textContent = gb(view.memoryMb);
-  const pc = view.systemMemoryMb ? ` (ton PC a ${gb(Math.round(view.systemMemoryMb / 512) * 512)})` : "";
-  $("memory-hint").textContent = `Recommandé : ${gb(view.recommendedMemoryMb)}${pc}. Plus que nécessaire rend chaque nettoyage de la mémoire plus long.`;
+  const pc = view.systemMemoryMb ? ` (your PC has ${gb(Math.round(view.systemMemoryMb / 512) * 512)})` : "";
+  $("memory-hint").textContent = `Recommended: ${gb(view.recommendedMemoryMb)}${pc}. More than needed makes every memory cleanup take longer.`;
   $("tuned-jvm").checked = view.tunedJvm;
   $("high-priority").checked = view.highPriority;
   $("dedicated-gpu").checked = view.dedicatedGpu;
@@ -264,8 +315,8 @@ function render() {
 
   // mods page
   $("optifine-text").textContent = view.optifine
-    ? `${view.optifine} est installé.`
-    : "OptiFine ne peut pas être livré avec Rago. Télécharge-le sur son site, puis ajoute le fichier ici.";
+    ? `${view.optifine} is installed.`
+    : "OptiFine can't ship with Rago. Download it from its website, then add the file here.";
   $("optifine-remove").hidden = !view.optifine;
 
   // settings
@@ -277,7 +328,7 @@ function render() {
   if (document.activeElement !== $("height")) $("height").value = view.height ?? "";
   $("fullscreen").checked = view.fullscreen;
   $("auto-update").checked = view.autoUpdate;
-  $("java-text").textContent = view.javaPath ? view.javaPath : "Java 8 de Temurin, installé et mis à jour par le launcher.";
+  $("java-text").textContent = view.javaPath ? view.javaPath : view.engine === "rago" ? "Temurin Java 21, installed and kept up to date by the launcher." : "Temurin Java 8, installed and kept up to date by the launcher.";
   $("java-text").classList.toggle("path", !!view.javaPath);
   $("java-reset").hidden = !view.javaPath;
   if (document.activeElement !== $("jvm-args")) $("jvm-args").value = view.jvmArgs;
@@ -319,9 +370,10 @@ async function save(key, value) {
 
 function signIn(button) {
   return run(button, async () => {
-    setStatus("Termine la connexion dans ton navigateur…");
+    setStatus("Finish signing in in your browser…");
     const account = await invoke("sign_in");
-    setStatus(`Bienvenue ${account.name} !`);
+    setStatus(`Welcome, ${account.name}!`);
+    renderPoints();
     $("accounts").open = false;
   });
 }
@@ -332,16 +384,17 @@ function play(server = null) {
   if (playing || !view?.accounts.length) return;
   $("after-crash").hidden = true;
   $("play").dataset.running = "1";
-  $("play-text").textContent = "Lancement";
-  setState("Lancement…", "busy");
+  $("play-text").textContent = "Launching";
+  setState("Launching…", "busy");
   showPage("home");
   run($("play"), async () => {
-    setStatus("Connexion…");
+    setStatus("Signing in…");
+    setProgress("busy");
     try {
       await invoke("play", { server });
     } finally {
       $("play").dataset.running = "";
-      $("play-text").textContent = "Jouer";
+      $("play-text").textContent = "Play";
     }
   });
 }
@@ -355,8 +408,9 @@ function serverName(address) {
 
 function renderJoin() {
   if (!view) return;
-  $("join-name").textContent = view.join ? serverName(view.join) : "Menu principal";
-  $("join-detail").textContent = view.join ? `${view.join} · 1.8.9 Forge` : "1.8.9 Forge";
+  $("join-name").textContent = view.join ? serverName(view.join) : "Main menu";
+  const engine = view.engine === "rago" ? "1.8.9 Rago" : "1.8.9 Forge";
+  $("join-detail").textContent = view.join ? `${view.join} · ${engine}` : engine;
   const menu = $("join-menu");
   menu.replaceChildren();
   const option = (label, detail, value) => {
@@ -367,8 +421,8 @@ function renderJoin() {
     if (detail) b.firstChild.append(el("small", "", detail));
     menu.append(b);
   };
-  option("Menu principal", "Le jeu s'ouvre sur son menu", "");
-  for (const s of servers) option(`Rejoindre ${s.name}`, s.address, s.address);
+  option("Main menu", "The game opens on its menu", "");
+  for (const s of servers) option(`Join ${s.name}`, s.address, s.address);
 }
 
 // home: recent servers
@@ -392,12 +446,12 @@ async function renderServers() {
     const body = el("span", "server-body");
     const name = el("strong", "", s.name);
     const detail = el("small", "", s.suggested ? "Bed Wars, SkyWars, Duels" : s.address);
-    const state = el("span", "server-state", "Recherche…");
+    const state = el("span", "server-state", "Pinging…");
     body.append(name, detail, state);
     const go = el("span", "server-go");
     go.append(icon("right", "sm"));
     card.append(iconBox, body, go);
-    card.title = `Jouer sur ${s.name}`;
+    card.title = `Play on ${s.name}`;
     card.addEventListener("click", () => play(s.address));
     list.append(card);
     const setIcon = (src) => {
@@ -409,11 +463,11 @@ async function renderServers() {
     if (s.icon) setIcon(s.icon);
     serverStatus(s.address).then((st) => {
       if (!st) {
-        state.textContent = "Hors ligne";
+        state.textContent = "Offline";
         state.className = "server-state off";
         return;
       }
-      state.textContent = `En ligne · ${st.pingMs} ms`;
+      state.textContent = `Online · ${st.pingMs} ms`;
       state.className = "server-state on";
       detail.textContent = players(st.online);
       if (st.favicon && !s.icon) setIcon(st.favicon);
@@ -421,7 +475,7 @@ async function renderServers() {
   }
   if (servers.length < 2) {
     const hint = el("div", "server hint");
-    hint.append(el("p", "", "Ajoute tes serveurs dans Multijoueur en jeu : ils apparaissent ici, à un clic."));
+    hint.append(el("p", "", "Add your servers in Multiplayer in game: they show up here, one click away."));
     list.append(hint);
   }
   pollConnection(true);
@@ -432,12 +486,13 @@ async function renderServers() {
 let statsTimer = null;
 async function pollStats() {
   clearTimeout(statsTimer);
-  if (page !== "home" || document.hidden) return;
+  // nothing measured while the game runs: the game gets the processor and the network
+  if (page !== "home" || document.hidden || playing) return;
   const s = await invoke("stats").catch(() => null);
   if (s) {
-    $("stat-cpu").textContent = s.cpu == null ? "–" : `${s.cpu} %`;
-    $("stat-ram").textContent = s.ram == null ? "–" : `${s.ram} %`;
-    $("stat-gpu").textContent = s.gpu ?? "–";
+    setText($("stat-cpu"), s.cpu == null ? "–" : `${s.cpu}%`);
+    setText($("stat-ram"), s.ram == null ? "–" : `${s.ram}%`);
+    setText($("stat-gpu"), s.gpu ?? "–");
     $("stat-gpu").title = s.gpuFull ?? "";
   }
   statsTimer = setTimeout(pollStats, 3000);
@@ -447,9 +502,9 @@ let connTimer = null;
 let connBusy = false;
 async function pollConnection(now = false) {
   clearTimeout(connTimer);
-  if (page !== "home" || document.hidden || (connBusy && !now)) return;
+  if (page !== "home" || document.hidden || playing || (connBusy && !now)) return;
   const address = view?.join || servers[0]?.address || "mc.hypixel.net";
-  $("conn-target").textContent = `vers ${serverName(address)}`;
+  $("conn-target").textContent = `to ${serverName(address)}`;
   connBusy = true;
   const l = await invoke("connection", { address }).catch(() => null);
   connBusy = false;
@@ -457,16 +512,16 @@ async function pollConnection(now = false) {
   badge.hidden = false;
   badge.replaceChildren();
   if (!l) {
-    $("conn-ping").textContent = "–";
-    $("conn-jitter").textContent = "–";
+    setText($("conn-ping"), "–");
+    setText($("conn-jitter"), "–");
     badge.className = "badge bad";
-    badge.textContent = "Injoignable";
+    badge.textContent = "Unreachable";
   } else {
-    $("conn-ping").textContent = `${l.pingMs} ms`;
-    $("conn-jitter").textContent = `${l.jitterMs} ms`;
+    setText($("conn-ping"), `${l.pingMs} ms`);
+    setText($("conn-jitter"), `${l.jitterMs} ms`);
     const stable = l.lost === 0 && l.jitterMs <= 10;
     badge.className = `badge ${stable ? "good" : "meh"}`;
-    badge.append(stable ? "Stable" : "Instable");
+    badge.append(stable ? "Stable" : "Unstable");
     if (stable) badge.append(icon("check", "sm"));
   }
   connTimer = setTimeout(pollConnection, 30000);
@@ -481,12 +536,27 @@ document.addEventListener("visibilitychange", () => {
 
 // home: news
 
+// the home card shows online friends or news, one at a time
+let feed = "friends";
+let newsReady = false;
+function showFeed(which) {
+  feed = which;
+  for (const b of document.querySelectorAll("[data-feed]")) b.setAttribute("aria-selected", String(b.dataset.feed === which));
+  $("feed-friends").hidden = which !== "friends";
+  $("feed-news").hidden = which !== "news";
+  $("friends-all").hidden = which !== "friends";
+  $("news-all").hidden = which !== "news" || !newsReady;
+  if (which === "friends") fitOnline();
+}
+for (const b of document.querySelectorAll("[data-feed]")) b.addEventListener("click", () => showFeed(b.dataset.feed));
+
 async function renderNews() {
   const news = await invoke("news").catch(() => []);
   const n = news[0];
   $("news-item").hidden = !n;
   $("news-empty").hidden = !!n;
-  $("news-all").hidden = !n;
+  newsReady = !!n;
+  $("news-all").hidden = !n || feed !== "news";
   if (!n) return;
   $("news-date").textContent = ago(n.date);
   $("news-title").textContent = n.title;
@@ -502,19 +572,245 @@ function renderNotes() {
   notes.replaceChildren();
   $("bell-dot").hidden = !update;
   if (!update) {
-    notes.append(el("p", "empty-note", "Aucune notification."));
+    notes.append(el("p", "empty-note", "No notifications."));
     return;
   }
   const note = el("div", "note");
-  note.append(el("p", "", `Une nouvelle version du launcher est prête : v${update.version}.`));
-  const go = el("button", "primary", "Mettre à jour");
-  go.addEventListener("click", () =>
-    run(go, async () => {
-      go.textContent = "Téléchargement…";
-      await invoke("install_update", { update });
-    }));
+  note.append(el("p", "", `Launcher v${update.version} is ready. The launcher restarts to install it.`));
+  const go = el("button", "primary", "Update and restart");
+  go.addEventListener("click", () => installUpdate(go));
   note.append(go);
   notes.append(note);
+}
+
+// launcher updates: checked on start and every few hours; with "Keep Rago updated" on, a new
+// version installs by itself when the launcher opens, the way the game's own client does it
+
+const UPDATE_EVERY = 6 * 60 * 60 * 1000;
+const TRIED_KEY = "rago.updateTried";
+
+async function installUpdate(button) {
+  if (!update) return;
+  if (playing) {
+    toast("Close the game first: the launcher restarts to update.", true);
+    return;
+  }
+  if (button) button.disabled = true;
+  $("play").disabled = true;
+  setProgress("busy");
+  setStatus(`Downloading launcher v${update.version}…`);
+  try {
+    // the installer closes this window and opens the new launcher when it is done
+    await invoke("install_update", { update });
+  } catch (e) {
+    setProgress(null);
+    setStatus(String(e), true);
+    if (button) button.disabled = false;
+    $("play").disabled = false;
+  }
+}
+
+/** Whether this version was already installed by itself once (the installer may have failed). */
+function triedBefore(version) {
+  try {
+    if (localStorage.getItem(TRIED_KEY) === version) return true;
+    localStorage.setItem(TRIED_KEY, version);
+  } catch {
+    // no storage: still update, a failed install only asks again on the next start
+  }
+  return false;
+}
+
+async function checkUpdate(onStart) {
+  if (playing) return;
+  try {
+    update = await invoke("check_update");
+  } catch {
+    return; // offline or GitHub busy: the next check tries again
+  }
+  renderNotes();
+  if (update && onStart && view?.autoUpdate && !view.playing && !triedBefore(update.version)) {
+    toast(`Updating the launcher to v${update.version}…`);
+    installUpdate(null);
+  }
+}
+
+// Rago Network: friends and points. They need the account signed in to Rago Network, which needs
+// the Microsoft sign-in; without an account the friends page says so and the points stay hidden.
+
+function networkError(e) {
+  const text = String(e);
+  if (/404 not_found/.test(text)) return "Friends are not on Rago Network yet: they arrive with its next update.";
+  if (/Rago Network unreachable/.test(text)) return "Rago Network does not answer right now. Try again in a minute.";
+  return text;
+}
+
+function friendRow(person, detail, online, actions) {
+  const row = el("div", "friend");
+  const head = el("span", "head");
+  const letter = el("span", "face letter", person.name.slice(0, 1).toUpperCase());
+  head.append(letter);
+  if (online !== null) head.append(el("i", `online${online ? "" : " off"}`));
+  const body = el("span", "friend-body");
+  body.append(el("strong", "", person.name), el("small", online ? "on" : "", detail));
+  const buttons = el("span", "actions");
+  for (const [label, cls, onClick] of actions) {
+    const b = el("button", cls, label);
+    b.addEventListener("click", () => run(b, async () => {
+      try {
+        await onClick();
+      } catch (e) {
+        toast(networkError(e), true);
+      }
+      await renderFriends();
+    }));
+    buttons.append(b);
+  }
+  row.append(head, body, buttons);
+  face(person.uuid.replaceAll("-", "")).then((src) => {
+    if (!src) return;
+    const img = el("img", "face");
+    img.alt = "";
+    img.src = src;
+    letter.replaceWith(img);
+  });
+  return row;
+}
+
+let friendsTimer = null;
+async function renderFriends() {
+  clearTimeout(friendsTimer);
+  if (!view?.accounts.length) {
+    renderOnline(null, "Sign in with Microsoft to see your friends online.");
+    $("friends-error").textContent = "Sign in with Microsoft to see your Rago friends.";
+    $("friends-error").hidden = false;
+    $("friend-add").disabled = true;
+    return;
+  }
+  $("friend-add").disabled = false;
+  let data;
+  try {
+    data = await invoke("friends");
+    $("friends-error").hidden = true;
+  } catch (e) {
+    $("friends-error").textContent = networkError(e);
+    $("friends-error").hidden = false;
+    renderOnline(null, networkError(e));
+    scheduleFriends();
+    return;
+  }
+  renderOnline(data.friends.filter((f) => f.online));
+  const online = data.friends.filter((f) => f.online).length;
+  $("friends-count").hidden = online === 0;
+  $("friends-count").textContent = online;
+  $("friends-title").textContent = data.friends.length ? `Friends · ${online} online` : "Friends";
+  $("friend-list").replaceChildren(...data.friends.map((f) =>
+    friendRow(f, f.online ? "Playing with Rago" : "Offline", f.online, [["Remove", "link danger", () => invoke("friend_remove", { uuid: f.uuid })]])));
+  $("friends-empty").hidden = data.friends.length > 0;
+  $("received-group").hidden = !data.received.length;
+  $("received-list").replaceChildren(...data.received.map((p) =>
+    friendRow(p, "Wants to be your friend", null, [
+      ["Accept", "primary", () => invoke("friend_answer", { uuid: p.uuid, accept: true })],
+      ["Decline", "secondary", () => invoke("friend_answer", { uuid: p.uuid, accept: false })],
+    ])));
+  $("sent-group").hidden = !data.sent.length;
+  $("sent-list").replaceChildren(...data.sent.map((p) =>
+    friendRow(p, "Request sent", null, [["Cancel", "link danger", () => invoke("friend_remove", { uuid: p.uuid })]])));
+  scheduleFriends();
+}
+
+// the lists follow who comes and goes while home or the friends page is open; nothing runs during a game
+function scheduleFriends() {
+  clearTimeout(friendsTimer);
+  if ((page === "friends" || page === "home") && !playing) friendsTimer = setTimeout(renderFriends, 60000);
+}
+
+/** The home card's online friends: as many as the card has room for, then a link to the others. */
+let lastOnline = null;
+function renderOnline(online, message = "") {
+  lastOnline = online;
+  const list = $("online-list");
+  const shown = online ? online.slice(0, 12) : [];
+  const count = online ? online.length : 0;
+  $("home-friends-count").hidden = count === 0;
+  $("home-friends-count").textContent = count;
+  $("online-empty").textContent = message || "None of your friends is playing with Rago right now.";
+  $("online-empty").hidden = shown.length > 0;
+  list.replaceChildren(...shown.map((f) => {
+    const row = el("button", "buddy");
+    row.title = `${f.name}: open your friends`;
+    const head = el("span", "head");
+    const letter = el("span", "face letter", f.name.slice(0, 1).toUpperCase());
+    head.append(letter, el("i", "online-dot"));
+    const body = el("span", "online-body");
+    body.append(el("strong", "", f.name), el("small", "", f.role && f.role !== "user" ? `Online · ${f.role[0].toUpperCase()}${f.role.slice(1)}` : "Online · Rago"));
+    row.append(head, body);
+    row.addEventListener("click", () => showPage("friends"));
+    face(f.uuid.replaceAll("-", "")).then((src) => {
+      if (!src) return;
+      const img = el("img", "face");
+      img.alt = "";
+      img.src = src;
+      letter.replaceWith(img);
+    });
+    return row;
+  }));
+  fitOnline();
+}
+
+/** Keeps the rows that fit in the card and says how many others are online. */
+function fitOnline() {
+  const list = $("online-list");
+  const box = $("feed-friends");
+  if (box.hidden || !lastOnline) return;
+  list.querySelector(".more")?.remove();
+  const rows = [...list.children];
+  for (const r of rows) r.hidden = false;
+  // layout positions, not on-screen ones: the rows may still be rising in
+  const room = box.clientHeight;
+  const fits = (r, below) => r.offsetTop + r.offsetHeight <= room - below + 1;
+  let shown = rows.filter((r) => fits(r, 0)).length;
+  const others = () => lastOnline.length - shown;
+  if (others() > 0) {
+    // keep room under the last row for the link (one short line)
+    shown = rows.filter((r) => fits(r, 28)).length;
+    rows.forEach((r, i) => (r.hidden = i >= shown));
+    const more = el("button", "buddy more", `+${others()} more online`);
+    more.addEventListener("click", () => showPage("friends"));
+    list.append(more);
+  }
+}
+new ResizeObserver(() => requestAnimationFrame(fitOnline)).observe($("feed-friends"));
+
+$("friend-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = $("friend-name").value.trim();
+  if (!name) return;
+  run($("friend-add"), async () => {
+    try {
+      const now = await invoke("friend_add", { name });
+      toast(now ? `You and ${name} are friends now.` : `Friend request sent to ${name}.`);
+      $("friend-name").value = "";
+    } catch (e) {
+      toast(networkError(e), true);
+    }
+    await renderFriends();
+  });
+});
+
+let pointsTimer = null;
+async function renderPoints() {
+  clearTimeout(pointsTimer);
+  if (!view?.accounts.length) {
+    $("points").hidden = true;
+    return;
+  }
+  if (!playing && !document.hidden) {
+    const p = await invoke("points").catch(() => null);
+    $("points").hidden = p === null;
+    if (p !== null) setText($("points-value"), p.toLocaleString("en-US"));
+  }
+  pointsTimer = setTimeout(renderPoints, 300000);
 }
 
 // presets and the optimizer
@@ -523,7 +819,7 @@ for (const b of document.querySelectorAll("[data-preset]")) {
   b.addEventListener("click", async () => {
     try {
       await invoke("apply_preset", { name: b.dataset.preset });
-      toast(`Profil ${PRESET_NAMES[b.dataset.preset]} appliqué. Il prend effet au prochain lancement.`);
+      toast(`${PRESET_NAMES[b.dataset.preset]} profile applied. It takes effect on the next launch.`);
     } catch (e) {
       toast(String(e), true);
     }
@@ -534,7 +830,7 @@ for (const b of document.querySelectorAll("[data-preset]")) {
 $("optimize").addEventListener("click", async () => {
   try {
     await invoke("optimize");
-    toast(view.windows ? "Optimisé : profil Compétitif, Java optimisé et priorité haute." : "Optimisé : profil Compétitif et Java optimisé.");
+    toast(view.windows ? "Optimized: Competitive profile with OptiFine's fast settings, tuned Java and high priority." : "Optimized: Competitive profile with OptiFine's fast settings and tuned Java.");
   } catch (e) {
     toast(String(e), true);
   }
@@ -547,7 +843,7 @@ async function renderMods() {
   const mods = await invoke("mods").catch(() => []);
   const list = $("mod-list");
   list.replaceChildren();
-  if (!mods.length) list.append(el("p", "muted small-text", "Aucun mod pour l'instant : Rago s'installe au premier lancement."));
+  if (!mods.length) list.append(el("p", "muted small-text", "No mods yet: Rago installs itself on the first launch."));
   for (const m of mods) {
     const row = el("div", `mod${m.enabled ? "" : " off"}`);
     const ic = el("span", `mod-icon ${m.kind}`);
@@ -559,13 +855,13 @@ async function renderMods() {
       ic.append(img);
     } else ic.append(icon(m.kind === "optifine" ? "monitor" : "mods"));
     const body = el("span", "mod-body");
-    body.append(el("strong", "", m.file), el("small", "", m.kind === "rago" ? "Le client, toujours activé" : m.kind === "optifine" ? "Graphismes" : "Mod Forge"));
+    body.append(el("strong", "", m.file), el("small", "", m.kind === "rago" ? "The client, always on" : m.kind === "optifine" ? "Graphics" : "Forge mod"));
     row.append(ic, body);
     if (m.kind !== "rago") {
       const sw = el("input", "switch");
       sw.type = "checkbox";
       sw.checked = m.enabled;
-      sw.setAttribute("aria-label", `Activer ${m.file}`);
+      sw.setAttribute("aria-label", `Enable ${m.file}`);
       sw.addEventListener("change", async () => {
         try {
           await invoke("set_mod_enabled", { file: m.enabled ? m.file : `${m.file}.disabled`, enabled: sw.checked });
@@ -588,6 +884,13 @@ for (const [id, key] of [["tuned-jvm", "tunedJvm"], ["high-priority", "highPrior
   $(id).addEventListener("change", (e) => save(key, e.target.checked));
 }
 $("on-launch").addEventListener("change", (e) => save("onLaunch", e.target.value));
+for (const b of document.querySelectorAll("[data-engine]")) {
+  b.addEventListener("click", async () => {
+    if (b.dataset.engine === view.engine) return;
+    await save("engine", b.dataset.engine);
+    if (view.engine === b.dataset.engine) toast(b.dataset.engine === "rago" ? "Rago loader selected: the next launch prepares Java 21." : "Forge selected for the next launch.");
+  });
+}
 
 $("size-preset").addEventListener("change", (e) => {
   const v = e.target.value;
@@ -613,7 +916,7 @@ async function saveJvmArgs() {
   try {
     await invoke("set_setting", { key: "jvmArgs", value });
     $("jvm-error").hidden = true;
-    toast("Arguments enregistrés.");
+    toast("Arguments saved.");
   } catch (e) {
     $("jvm-error").textContent = String(e);
     $("jvm-error").hidden = false;
@@ -628,7 +931,7 @@ $("java-pick").addEventListener("click", () =>
   run($("java-pick"), async () => {
     try {
       const version = await invoke("pick_java");
-      if (version) toast(`Java ${version} choisi.`);
+      if (version) toast(`Java ${version} selected.`);
     } catch (e) {
       toast(String(e), true);
     }
@@ -642,7 +945,7 @@ $("optifine-add").addEventListener("click", () =>
   run($("optifine-add"), async () => {
     try {
       const name = await invoke("add_optifine");
-      if (name) toast(`${name} ajouté.`);
+      if (name) toast(`${name} added.`);
     } catch (e) {
       toast(String(e), true);
     }
@@ -657,13 +960,14 @@ for (const b of document.querySelectorAll("[data-folder]")) {
   b.addEventListener("click", () => invoke("open_folder", { which: b.dataset.folder }).catch((e) => toast(String(e), true)));
 }
 $("open-console").addEventListener("click", () => showPage("console"));
+$("discord").addEventListener("click", () => invoke("open_discord").catch((e) => toast(String(e), true)));
 $("open-crash").addEventListener("click", () => crashReport && invoke("open_crash_report", { path: crashReport }));
 
 $("import").addEventListener("click", () =>
   run($("import"), async () => {
     try {
       const copied = await invoke("import_official");
-      toast(copied.length ? `Importé : ${copied.length} élément${copied.length > 1 ? "s" : ""} (options, serveurs, packs).` : "Rien de nouveau à importer.");
+      toast(copied.length ? `Imported ${copied.length} item${copied.length === 1 ? "" : "s"} (options, servers, packs).` : "Nothing new to import.");
       renderServers();
     } catch (e) {
       toast(String(e), true);
@@ -674,7 +978,7 @@ $("repair").addEventListener("click", () =>
   run($("repair"), async () => {
     try {
       await invoke("repair");
-      toast("Le jeu et Java seront retéléchargés au prochain lancement.");
+      toast("The game and Java will be downloaded again on the next launch.");
     } catch (e) {
       toast(String(e), true);
     }
@@ -716,20 +1020,27 @@ function addLines(batch) {
     return;
   }
   const out = $("console-out");
-  for (const l of batch) if (matches(l)) out.append(lineNode(l));
+  const frag = document.createDocumentFragment();
+  for (const l of batch) if (matches(l)) frag.append(lineNode(l));
+  out.append(frag);
   while (out.childElementCount > MAX_LINES) out.firstElementChild.remove();
   $("console-empty").hidden = true;
   if ($("console-follow").checked) out.scrollTop = out.scrollHeight;
 }
 
-$("console-filter").addEventListener("input", renderConsole);
+// the filter redraws up to 4000 lines: wait until typing pauses
+let filterTimer = null;
+$("console-filter").addEventListener("input", () => {
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(renderConsole, 120);
+});
 $("console-follow").addEventListener("change", (e) => e.target.checked && ($("console-out").scrollTop = $("console-out").scrollHeight));
 $("console-copy").addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(lines.filter(matches).join("\n"));
-    toast("Console copiée.");
+    toast("Console copied.");
   } catch {
-    toast("La copie a échoué : sélectionne le texte et fais Ctrl+C.", true);
+    toast("Copy failed: select the text and press Ctrl+C.", true);
   }
 });
 
@@ -737,37 +1048,38 @@ $("console-copy").addEventListener("click", async () => {
 
 listen("progress", ({ payload }) => {
   if (payload.stage === "files") {
-    setStatus(`Vérification des fichiers de Minecraft : ${payload.done} sur ${payload.total}` + (payload.megabytes ? ` (${payload.megabytes} Mo téléchargés)` : ""));
+    setStatus(`Checking Minecraft files: ${payload.done} of ${payload.total}` + (payload.megabytes ? ` (${payload.megabytes} MB downloaded)` : ""), false, false);
     setProgress(payload.total ? payload.done / payload.total : 0);
-    setState(`Fichiers ${payload.done}/${payload.total}`, "busy");
+    setState(`Files ${payload.done}/${payload.total}`, "busy");
   } else {
     setStatus(STAGES[payload.stage] ?? "…");
     setState(STAGES[payload.stage] ?? "…", "busy");
-    setProgress(null);
+    setProgress("busy");
   }
 });
 listen("playing", () => {
-  playing = true;
-  character.update();
+  setPlaying(true);
   setProgress(null);
-  setStatus("Bon jeu !");
-  setState("En jeu", "playing");
-  $("play-text").textContent = "En jeu";
+  setStatus("Have fun!");
+  setState("In game", "playing");
+  $("play-text").textContent = "In game";
   lines.length = 0;
   renderConsole();
   if (view?.showConsole) showPage("console");
 });
 listen("console", ({ payload }) => addLines(payload));
 listen("closed", ({ payload }) => {
-  playing = false;
-  character.update();
-  $("play-text").textContent = "Jouer";
+  setPlaying(false);
+  pollStats();
+  renderPoints();
+  renderFriends();
+  $("play-text").textContent = "Play";
   const ok = payload.code === 0 || payload.code === null;
   crashReport = payload.crashReport;
   $("after-crash").hidden = ok;
   $("open-crash").hidden = !crashReport;
-  setStatus(ok ? "" : `Le jeu s'est fermé sur une erreur (code ${payload.code}).`, !ok);
-  if (ok) setState("Prêt");
+  setStatus(ok ? "" : `The game closed with an error (code ${payload.code}).`, !ok);
+  if (ok) setState("Ready");
   refresh();
   renderServers();
 });
@@ -775,20 +1087,20 @@ listen("closed", ({ payload }) => {
 // start
 
 character.init();
-refresh().then(async () => {
-  setState(view.playing ? "En jeu" : "Prêt", view.playing ? "playing" : "");
+const started = refresh();
+started.then(async () => {
+  setState(view.playing ? "In game" : "Ready", view.playing ? "playing" : "");
   character.update();
   // a game still running (the window was reloaded): its output so far
   lines.push(...(await invoke("console")));
   renderConsole();
   renderServers();
   pollStats();
+  renderPoints();
+  renderFriends();
 });
+showFeed("friends");
 renderNews();
 renderNotes();
-invoke("check_update")
-  .then((u) => {
-    update = u;
-    renderNotes();
-  })
-  .catch(() => {});
+started.then(() => checkUpdate(true), () => checkUpdate(false));
+setInterval(() => checkUpdate(false), UPDATE_EVERY);

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -37,6 +37,12 @@
   <symbol id="i-dots" viewBox="0 0 24 24"><g fill="currentColor" stroke="none"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></g></symbol>
   <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 2.8 20 7v10l-8 4.2L4 17V7z"/><path d="M4 7l8 4.2L20 7M12 11.2v10"/></symbol>
   <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M14.5 4.5c2.5-1 5-1 5-1s0 2.5-1 5L12 15l-3-3z"/><path d="M9 12 5.5 11 8 8h4M12 15l1 3.5 3-2.5v-4M6.5 17.5 4 20M8 19l-1.5 1.5M5 16l-1.5 1.5"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.5 5h9A3.5 3.5 0 0 1 20 8.5v5a3.5 3.5 0 0 1-3.5 3.5H12l-4.5 3.5V17A3.5 3.5 0 0 1 4 13.5v-5A3.5 3.5 0 0 1 7.5 5z"/><circle cx="9.5" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="11" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M15.5 5.2a3.5 3.5 0 0 1 0 6.6M18 14.2A6.5 6.5 0 0 1 21.5 20"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12.5H6z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M9.5 9.5c0-1 1-1.6 2.5-1.6s2.5.6 2.5 1.6-1 1.5-2.5 1.8-2.5.8-2.5 1.8 1 1.6 2.5 1.6 2.5-.6 2.5-1.6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-discord" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></symbol>
   <symbol id="i-min" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
   <symbol id="i-max" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></symbol>
   <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
@@ -49,7 +55,7 @@
     <span class="pill" id="version"></span>
   </div>
   <div class="right">
-    <button id="sign-in" class="secondary small">Se connecter avec Microsoft</button>
+    <button id="sign-in" class="secondary small">Sign in with Microsoft</button>
     <details id="accounts" class="drop accounts" hidden>
       <summary>
         <span class="head"><img id="face" class="face" alt="" width="30" height="30" hidden><span id="face-letter" class="face letter" aria-hidden="true"></span><i class="online"></i></span>
@@ -61,30 +67,32 @@
     <details id="bell" class="drop">
       <summary class="icon-button" aria-label="Notifications"><svg class="i"><use href="#i-bell"/></svg><i class="dot" id="bell-dot" hidden></i></summary>
       <div class="menu notes" id="notes">
-        <p class="empty-note">Aucune notification.</p>
+        <p class="empty-note">No notifications.</p>
       </div>
     </details>
-    <button class="icon-button" data-page="settings" aria-label="Paramètres"><svg class="i"><use href="#i-gear"/></svg></button>
+    <span class="points" id="points" title="Your Rago Points" hidden><svg class="i"><use href="#i-coin"/></svg><strong id="points-value">0</strong></span>
     <span class="sep" aria-hidden="true"></span>
-    <button class="win" id="win-min" aria-label="Réduire"><svg class="i"><use href="#i-min"/></svg></button>
-    <button class="win" id="win-max" aria-label="Agrandir"><svg class="i"><use href="#i-max"/></svg></button>
-    <button class="win close" id="win-close" aria-label="Fermer"><svg class="i"><use href="#i-close"/></svg></button>
+    <button class="win" id="win-min" aria-label="Minimize"><svg class="i"><use href="#i-min"/></svg></button>
+    <button class="win" id="win-max" aria-label="Maximize"><svg class="i"><use href="#i-max"/></svg></button>
+    <button class="win close" id="win-close" aria-label="Close"><svg class="i"><use href="#i-close"/></svg></button>
   </div>
 </header>
 
 <div class="shell">
   <nav class="sidebar" aria-label="Pages">
-    <button class="nav" data-page="home" aria-current="page"><svg class="i"><use href="#i-home"/></svg>Accueil</button>
+    <button class="nav" data-page="home" aria-current="page"><svg class="i"><use href="#i-home"/></svg>Home</button>
     <button class="nav" data-page="mods"><svg class="i"><use href="#i-mods"/></svg>Mods</button>
     <button class="nav" data-page="performance"><svg class="i"><use href="#i-gauge"/></svg>Performance</button>
-    <button class="nav" data-page="settings"><svg class="i"><use href="#i-gear"/></svg>Paramètres</button>
+    <button class="nav" data-page="settings"><svg class="i"><use href="#i-gear"/></svg>Settings</button>
+    <button class="nav" data-page="friends"><svg class="i"><use href="#i-users"/></svg>Friends<i class="count" id="friends-count" hidden></i></button>
+    <button class="nav store" id="store-nav" disabled title="The Rago store opens soon"><svg class="i"><use href="#i-bag"/></svg>Store<span class="soon">Soon</span></button>
     <button class="nav" data-page="console"><svg class="i"><use href="#i-console"/></svg>Console<i class="dot" id="console-dot" hidden></i></button>
 
     <div class="optimizer">
       <img src="logo.png" alt="" width="40" height="40">
-      <h2>Optimiseur Rago</h2>
-      <p>Profil Compétitif, Java optimisé et priorité haute, en un clic.</p>
-      <button id="optimize" class="outline">Optimiser <svg class="i sm"><use href="#i-arrow"/></svg></button>
+      <h2>Rago Optimizer</h2>
+      <p>Competitive profile, tuned Java and high priority, in one click.</p>
+      <button id="optimize" class="outline">Optimize <svg class="i sm"><use href="#i-arrow"/></svg></button>
     </div>
   </nav>
 
@@ -110,30 +118,30 @@
         </div>
         <div class="character" id="character-box"><canvas id="character"></canvas></div>
         <div class="hero-body">
-          <p class="eyebrow">Prêt pour ta prochaine partie ?</p>
+          <p class="eyebrow">Ready for your next match?</p>
           <h1>Rago <span>Client</span></h1>
           <p class="mc-pill"><svg class="i"><use href="#i-cube"/></svg><span id="mc-version">Minecraft 1.8.9</span></p>
           <div class="launch">
-            <button id="play" class="play"><svg class="i"><use href="#i-play"/></svg><span id="play-text">Jouer</span></button>
+            <button id="play" class="play"><svg class="i"><use href="#i-play"/></svg><span id="play-text">Play</span></button>
             <details class="drop join" id="join">
               <summary>
                 <svg class="i sm chev"><use href="#i-down"/></svg>
-                <span class="join-text"><strong id="join-name">Menu principal</strong><small id="join-detail">1.8.9 Forge</small></span>
+                <span class="join-text"><strong id="join-name">Main menu</strong><small id="join-detail">1.8.9 Forge</small></span>
               </summary>
               <div class="menu" id="join-menu"></div>
             </details>
           </div>
           <div class="quick">
             <button class="ghost" data-page="mods"><svg class="i"><use href="#i-mods"/></svg>Mods</button>
-            <button class="ghost" data-folder="game"><svg class="i"><use href="#i-folder"/></svg>Dossier</button>
-            <button class="ghost" data-page="settings"><svg class="i"><use href="#i-dots"/></svg>Plus d'options</button>
+            <button class="ghost" data-folder="game"><svg class="i"><use href="#i-folder"/></svg>Folder</button>
+            <button class="ghost" data-page="settings"><svg class="i"><use href="#i-dots"/></svg>More options</button>
           </div>
           <div class="status" aria-live="polite">
             <div class="track" id="track" hidden><div class="fill" id="fill"></div></div>
             <p id="status-text"></p>
             <div class="row" id="after-crash" hidden>
-              <button id="open-crash" class="link">Voir le rapport de crash</button>
-              <button id="open-console" class="link">Voir la console</button>
+              <button id="open-crash" class="link">View crash report</button>
+              <button id="open-console" class="link">View console</button>
             </div>
           </div>
         </div>
@@ -141,8 +149,8 @@
 
       <section class="servers">
         <header class="section-head">
-          <h2><svg class="i accent"><use href="#i-servers"/></svg>Serveurs récents</h2>
-          <button class="see-all" data-folder="game" hidden>Tout voir <svg class="i sm"><use href="#i-arrow"/></svg></button>
+          <h2><svg class="i accent"><use href="#i-servers"/></svg>Recent servers</h2>
+          <button class="see-all" data-folder="game" hidden>See all <svg class="i sm"><use href="#i-arrow"/></svg></button>
         </header>
         <div class="server-list" id="server-list"></div>
       </section>
@@ -151,12 +159,12 @@
         <article class="panel perf">
           <header class="panel-head">
             <h2><svg class="i accent"><use href="#i-pulse"/></svg>Performance</h2>
-            <span class="muted">Profil rapide</span>
+            <span class="muted">Quick profile</span>
           </header>
-          <div class="profiles" role="group" aria-label="Profil rapide">
-            <button data-preset="performance"><svg class="i sm"><use href="#i-bolt"/></svg>Compétitif</button>
-            <button data-preset="balanced"><svg class="i sm"><use href="#i-scale"/></svg>Équilibré</button>
-            <button data-preset="quality"><svg class="i sm"><use href="#i-monitor"/></svg>Visuel</button>
+          <div class="profiles" role="group" aria-label="Quick profile">
+            <button data-preset="performance"><svg class="i sm"><use href="#i-bolt"/></svg>Competitive</button>
+            <button data-preset="balanced"><svg class="i sm"><use href="#i-scale"/></svg>Balanced</button>
+            <button data-preset="quality"><svg class="i sm"><use href="#i-monitor"/></svg>Visual</button>
           </div>
           <div class="tiles">
             <div class="tile"><span class="tile-icon"><svg class="i"><use href="#i-cpu"/></svg></span><div><small>CPU</small><strong id="stat-cpu">–</strong></div></div>
@@ -168,30 +176,40 @@
 
         <article class="panel connection">
           <header class="panel-head">
-            <h2><svg class="i accent green"><use href="#i-signal"/></svg>Connexion<small id="conn-target"></small></h2>
+            <h2><svg class="i accent green"><use href="#i-signal"/></svg>Connection<small id="conn-target"></small></h2>
             <span class="badge" id="conn-badge" hidden></span>
           </header>
           <div class="tiles two">
             <div class="tile"><span class="tile-icon plain"><svg class="i"><use href="#i-clock"/></svg></span><div><small>Ping</small><strong id="conn-ping">–</strong></div></div>
-            <div class="tile"><span class="tile-icon plain"><svg class="i"><use href="#i-pulse"/></svg></span><div><small>Variation</small><strong id="conn-jitter">–</strong></div></div>
+            <div class="tile"><span class="tile-icon plain"><svg class="i"><use href="#i-pulse"/></svg></span><div><small>Jitter</small><strong id="conn-jitter">–</strong></div></div>
           </div>
         </article>
 
-        <article class="panel news">
+        <article class="panel news" id="feed">
           <header class="panel-head">
-            <h2><svg class="i accent"><use href="#i-news"/></svg>Actus</h2>
-            <button class="see-all" id="news-all" hidden>Tout voir <svg class="i sm"><use href="#i-arrow"/></svg></button>
+            <div class="tabs" role="tablist" aria-label="Friends or news">
+              <button role="tab" id="tab-friends" data-feed="friends" aria-selected="true"><svg class="i sm"><use href="#i-users"/></svg>Online friends<i class="count" id="home-friends-count" hidden></i></button>
+              <button role="tab" id="tab-news" data-feed="news" aria-selected="false"><svg class="i sm"><use href="#i-news"/></svg>News</button>
+            </div>
+            <button class="see-all" id="news-all" hidden>See all <svg class="i sm"><use href="#i-arrow"/></svg></button>
+            <button class="see-all" id="friends-all" data-page="friends">All <svg class="i sm"><use href="#i-arrow"/></svg></button>
           </header>
+          <div class="feed-friends" id="feed-friends" role="tabpanel">
+            <div class="online-list" id="online-list"></div>
+            <p class="muted small-text" id="online-empty">Your friends who play with Rago show up here.</p>
+          </div>
+          <div class="feed-news" id="feed-news" role="tabpanel" hidden>
           <div class="news-item" id="news-item" hidden>
             <div class="news-art" aria-hidden="true"><img src="logo.png" alt="" width="44" height="44"></div>
             <div class="news-body">
-              <p class="news-meta"><span class="tag">Mise à jour</span><span id="news-date"></span></p>
+              <p class="news-meta"><span class="tag">Update</span><span id="news-date"></span></p>
               <h3 id="news-title"></h3>
               <p id="news-summary" class="clamp"></p>
-              <button class="read-more" id="news-more">Lire la suite <svg class="i sm"><use href="#i-arrow"/></svg></button>
+              <button class="read-more" id="news-more">Read more <svg class="i sm"><use href="#i-arrow"/></svg></button>
             </div>
           </div>
-          <p class="muted small-text" id="news-empty">Les nouveautés de Rago s'affichent ici.</p>
+          <p class="muted small-text" id="news-empty">Rago news shows up here.</p>
+          </div>
         </article>
       </aside>
     </section>
@@ -201,7 +219,7 @@
       <div class="page-scroll">
         <header class="page-head">
           <h1>Mods</h1>
-          <p>Les mods du dossier mods de Rago. Un mod coupé reste dans le dossier, il ne se charge plus.</p>
+          <p>The mods in Rago's mods folder. A disabled mod stays in the folder but no longer loads.</p>
         </header>
         <div class="list" id="mod-list"></div>
         <div class="setting">
@@ -210,17 +228,17 @@
             <p id="optifine-text"></p>
           </div>
           <div class="control">
-            <button id="optifine-remove" class="secondary" hidden>Retirer</button>
-            <button id="optifine-page" class="secondary">Ouvrir le site</button>
-            <button id="optifine-add" class="secondary">Ajouter le fichier</button>
+            <button id="optifine-remove" class="secondary" hidden>Remove</button>
+            <button id="optifine-page" class="secondary">Open website</button>
+            <button id="optifine-add" class="secondary">Add file</button>
           </div>
         </div>
         <div class="setting">
           <div class="label">
-            <h3>Dossier des mods</h3>
-            <p>Pour ajouter un mod Forge 1.8.9, mets son fichier .jar dans ce dossier.</p>
+            <h3>Mods folder</h3>
+            <p>To add a Forge 1.8.9 mod, drop its .jar file into this folder.</p>
           </div>
-          <div class="control"><button class="secondary" data-folder="mods">Ouvrir le dossier</button></div>
+          <div class="control"><button class="secondary" data-folder="mods">Open folder</button></div>
         </div>
       </div>
     </section>
@@ -230,51 +248,63 @@
       <div class="page-scroll">
         <header class="page-head">
           <h1>Performance</h1>
-          <p>Tout ce que le launcher règle pour donner le plus d'images par seconde à ton PC.</p>
+          <p>Everything the launcher tunes to get the most frames per second out of your PC.</p>
         </header>
-        <div class="setting">
+        <div class="setting" id="engine-setting" hidden>
           <div class="label">
-            <h3>Mémoire du jeu</h3>
-            <p id="memory-hint"></p>
-          </div>
-          <div class="control wide">
-            <input id="memory" type="range" min="1024" max="8192" step="512" value="2048" aria-label="Mémoire du jeu">
-            <output id="memory-value" for="memory">2 Go</output>
-          </div>
-        </div>
-        <div class="setting">
-          <div class="label">
-            <h3>Profil graphique</h3>
-            <p>Distance de vue, nuages, particules, ombres et mipmaps, écrits dans les options du jeu. VSync coupée et FPS illimités dans les trois. Tu peux tout changer en jeu ensuite.</p>
+            <h3>Game engine <span class="tag">Experimental</span></h3>
+            <p>Forge on Java 8, as before, or our own loader: Minecraft on Java 21, without Forge. The Rago loader also runs OptiFine and simple Forge mods from the mods folder (like the account switcher). Mods that need Forge core features are skipped.</p>
           </div>
           <div class="control">
-            <div class="profiles" role="group" aria-label="Profil graphique">
-              <button data-preset="performance"><svg class="i sm"><use href="#i-bolt"/></svg>Compétitif</button>
-              <button data-preset="balanced"><svg class="i sm"><use href="#i-scale"/></svg>Équilibré</button>
-              <button data-preset="quality"><svg class="i sm"><use href="#i-monitor"/></svg>Visuel</button>
+            <div class="profiles" role="group" aria-label="Game engine">
+              <button data-engine="forge"><svg class="i sm"><use href="#i-cube"/></svg>Forge · Java 8</button>
+              <button data-engine="rago"><svg class="i sm"><use href="#i-bolt"/></svg>Rago · Java 21</button>
             </div>
           </div>
         </div>
         <div class="setting">
           <div class="label">
-            <h3>Réglages Java optimisés</h3>
-            <p>Ramasse-miettes G1 réglé pour des pauses courtes, pas de pause complète quand un mod en demande une, démarrage de Forge sans revérifier le jeu.</p>
+            <h3>Game memory</h3>
+            <p id="memory-hint"></p>
           </div>
-          <div class="control"><input type="checkbox" class="switch" id="tuned-jvm" aria-label="Réglages Java optimisés"></div>
+          <div class="control wide">
+            <input id="memory" type="range" min="1024" max="8192" step="512" value="2048" aria-label="Game memory">
+            <output id="memory-value" for="memory">2 GB</output>
+          </div>
+        </div>
+        <div class="setting">
+          <div class="label">
+            <h3>Graphics profile</h3>
+            <p>Render distance, clouds, particles, shadows and mipmaps, plus OptiFine's Fast Math, Render Regions and (Competitive) Fast Render. VSync off, unlimited FPS and no background usage reports in all three. You can change anything in game afterwards.</p>
+          </div>
+          <div class="control">
+            <div class="profiles" role="group" aria-label="Graphics profile">
+              <button data-preset="performance"><svg class="i sm"><use href="#i-bolt"/></svg>Competitive</button>
+              <button data-preset="balanced"><svg class="i sm"><use href="#i-scale"/></svg>Balanced</button>
+              <button data-preset="quality"><svg class="i sm"><use href="#i-monitor"/></svg>Visual</button>
+            </div>
+          </div>
+        </div>
+        <div class="setting">
+          <div class="label">
+            <h3>Tuned Java settings</h3>
+            <p>G1 garbage collector tuned for short pauses, memory reserved up front so Java never stops to grow it, no stutter from performance counters on disk, IPv4 straight away for servers.</p>
+          </div>
+          <div class="control"><input type="checkbox" class="switch" id="tuned-jvm" aria-label="Tuned Java settings"></div>
         </div>
         <div class="setting" data-windows>
           <div class="label">
-            <h3>Priorité haute</h3>
-            <p>Windows donne le processeur au jeu avant les programmes en arrière-plan.</p>
+            <h3>High priority</h3>
+            <p>Windows gives the CPU to the game before background programs.</p>
           </div>
-          <div class="control"><input type="checkbox" class="switch" id="high-priority" aria-label="Priorité haute"></div>
+          <div class="control"><input type="checkbox" class="switch" id="high-priority" aria-label="High priority"></div>
         </div>
         <div class="setting" data-windows>
           <div class="label">
-            <h3>Carte graphique dédiée</h3>
-            <p>Sur un portable avec deux cartes graphiques, demande à Windows de lancer le jeu sur la plus puissante.</p>
+            <h3>Dedicated graphics card</h3>
+            <p>On a laptop with two graphics cards, asks Windows to run the game on the more powerful one.</p>
           </div>
-          <div class="control"><input type="checkbox" class="switch" id="dedicated-gpu" aria-label="Carte graphique dédiée"></div>
+          <div class="control"><input type="checkbox" class="switch" id="dedicated-gpu" aria-label="Dedicated graphics card"></div>
         </div>
       </div>
     </section>
@@ -282,53 +312,53 @@
     <!-- Settings -->
     <section class="page settings" id="page-settings" hidden>
       <nav class="subnav" aria-label="Sections">
-        <button data-goto="game">Jeu</button>
+        <button data-goto="game">Game</button>
         <button data-goto="java">Java</button>
         <button data-goto="launcher">Launcher</button>
-        <button data-goto="tools">Outils</button>
+        <button data-goto="tools">Tools</button>
       </nav>
       <div class="scroll" id="settings-scroll">
         <section class="group" id="game">
-          <h2>Jeu</h2>
+          <h2>Game</h2>
           <div class="setting">
             <div class="label">
-              <h3>Taille de la fenêtre</h3>
-              <p>La taille du jeu à son ouverture.</p>
+              <h3>Window size</h3>
+              <p>The size of the game window when it opens.</p>
             </div>
             <div class="control">
-              <select id="size-preset" aria-label="Taille de la fenêtre">
-                <option value="">Par défaut (854 × 480)</option>
+              <select id="size-preset" aria-label="Window size">
+                <option value="">Default (854 × 480)</option>
                 <option value="1280x720">1280 × 720</option>
                 <option value="1600x900">1600 × 900</option>
                 <option value="1920x1080">1920 × 1080</option>
-                <option value="custom">Personnalisée</option>
+                <option value="custom">Custom</option>
               </select>
             </div>
           </div>
           <div class="setting" id="custom-size" hidden>
             <div class="label">
-              <h3>Taille personnalisée</h3>
-              <p>En pixels, de 320 à 7680.</p>
+              <h3>Custom size</h3>
+              <p>In pixels, from 320 to 7680.</p>
             </div>
             <div class="control">
-              <input id="width" type="number" min="320" max="7680" aria-label="Largeur">
+              <input id="width" type="number" min="320" max="7680" aria-label="Width">
               <span class="times">×</span>
-              <input id="height" type="number" min="320" max="7680" aria-label="Hauteur">
+              <input id="height" type="number" min="320" max="7680" aria-label="Height">
             </div>
           </div>
           <div class="setting">
             <div class="label">
-              <h3>Plein écran au démarrage</h3>
-              <p>F11 en jeu passe aussi du plein écran à la fenêtre.</p>
+              <h3>Start in fullscreen</h3>
+              <p>F11 in game also switches between fullscreen and windowed.</p>
             </div>
-            <div class="control"><input type="checkbox" class="switch" id="fullscreen" aria-label="Plein écran au démarrage"></div>
+            <div class="control"><input type="checkbox" class="switch" id="fullscreen" aria-label="Start in fullscreen"></div>
           </div>
           <div class="setting">
             <div class="label">
-              <h3>Mettre Rago à jour</h3>
-              <p>Installe la dernière version de Rago à chaque lancement.</p>
+              <h3>Keep Rago updated</h3>
+              <p>Installs the latest Rago on every launch, and the new launcher versions by themselves.</p>
             </div>
-            <div class="control"><input type="checkbox" class="switch" id="auto-update" aria-label="Mettre Rago à jour"></div>
+            <div class="control"><input type="checkbox" class="switch" id="auto-update" aria-label="Keep Rago updated"></div>
           </div>
         </section>
 
@@ -336,20 +366,20 @@
           <h2>Java</h2>
           <div class="setting">
             <div class="label">
-              <h3>Java utilisé</h3>
+              <h3>Java runtime</h3>
               <p id="java-text"></p>
             </div>
             <div class="control">
-              <button id="java-reset" class="secondary" hidden>Rétablir</button>
-              <button id="java-pick" class="secondary">Choisir…</button>
+              <button id="java-reset" class="secondary" hidden>Reset</button>
+              <button id="java-pick" class="secondary">Choose…</button>
             </div>
           </div>
           <div class="setting column">
             <div class="label">
-              <h3>Arguments Java supplémentaires</h3>
-              <p>Ajoutés après ceux du launcher, qu'ils remplacent en cas de doublon. Entrée pour enregistrer.</p>
+              <h3>Extra Java arguments</h3>
+              <p>Added after the launcher's own, replacing them when they overlap. Press Enter to save.</p>
             </div>
-            <input id="jvm-args" type="text" spellcheck="false" autocomplete="off" placeholder="-XX:+UseStringDeduplication" aria-label="Arguments Java supplémentaires">
+            <input id="jvm-args" type="text" spellcheck="false" autocomplete="off" placeholder="-XX:+UseStringDeduplication" aria-label="Extra Java arguments">
             <p class="field-error" id="jvm-error" hidden></p>
           </div>
         </section>
@@ -358,54 +388,82 @@
           <h2>Launcher</h2>
           <div class="setting">
             <div class="label">
-              <h3>Quand le jeu démarre</h3>
-              <p>Fermer le launcher libère sa mémoire, mais la console s'arrête avec lui.</p>
+              <h3>When the game starts</h3>
+              <p>Closing the launcher frees its memory, but the console stops with it.</p>
             </div>
             <div class="control">
-              <select id="on-launch" aria-label="Quand le jeu démarre">
-                <option value="minimize">Réduire le launcher</option>
-                <option value="close">Fermer le launcher</option>
-                <option value="keep">Garder le launcher ouvert</option>
+              <select id="on-launch" aria-label="When the game starts">
+                <option value="minimize">Minimize the launcher</option>
+                <option value="close">Close the launcher</option>
+                <option value="keep">Keep the launcher open</option>
               </select>
             </div>
           </div>
           <div class="setting">
             <div class="label">
-              <h3>Ouvrir la console au lancement</h3>
-              <p>Affiche ce que le jeu écrit pendant qu'il démarre.</p>
+              <h3>Open the console on launch</h3>
+              <p>Shows what the game writes while it starts.</p>
             </div>
-            <div class="control"><input type="checkbox" class="switch" id="show-console" aria-label="Ouvrir la console au lancement"></div>
+            <div class="control"><input type="checkbox" class="switch" id="show-console" aria-label="Open the console on launch"></div>
           </div>
         </section>
 
         <section class="group" id="tools">
-          <h2>Outils</h2>
+          <h2>Tools</h2>
           <div class="setting">
             <div class="label">
-              <h3>Importer depuis .minecraft</h3>
-              <p>Copie tes options, tes serveurs et tes resource packs, sans rien écraser.</p>
+              <h3>Import from .minecraft</h3>
+              <p>Copies your options, servers and resource packs without overwriting anything.</p>
             </div>
-            <div class="control"><button id="import" class="secondary">Importer</button></div>
+            <div class="control"><button id="import" class="secondary">Import</button></div>
           </div>
           <div class="setting">
             <div class="label">
-              <h3>Dossiers</h3>
+              <h3>Folders</h3>
               <p id="game-dir" class="path"></p>
             </div>
             <div class="control links">
-              <button class="link" data-folder="game">Jeu</button>
+              <button class="link" data-folder="game">Game</button>
               <button class="link" data-folder="resourcepacks">Packs</button>
-              <button class="link" data-folder="screenshots">Captures</button>
-              <button class="link" data-folder="logs">Journaux</button>
+              <button class="link" data-folder="screenshots">Screenshots</button>
+              <button class="link" data-folder="logs">Logs</button>
             </div>
           </div>
           <div class="setting">
             <div class="label">
-              <h3>Réparer l'installation</h3>
-              <p>Retélécharge le jeu et Java au prochain lancement. Tes mondes, options et mods restent.</p>
+              <h3>Repair installation</h3>
+              <p>Downloads the game and Java again on the next launch. Your worlds, options and mods stay.</p>
             </div>
-            <div class="control"><button id="repair" class="secondary">Réparer</button></div>
+            <div class="control"><button id="repair" class="secondary">Repair</button></div>
           </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- Friends -->
+    <section class="page friends" id="page-friends" hidden>
+      <div class="page-scroll">
+        <header class="page-head">
+          <h1>Friends</h1>
+          <p>Your Rago friends, and who is playing with Rago right now. A friend who hides that they use Rago shows as offline.</p>
+        </header>
+        <form class="add-friend" id="friend-form" autocomplete="off">
+          <input id="friend-name" type="text" maxlength="16" spellcheck="false" placeholder="Minecraft name" aria-label="Minecraft name of a friend to add">
+          <button class="primary" id="friend-add" type="submit"><svg class="i sm"><use href="#i-plus"/></svg>Add friend</button>
+        </form>
+        <p class="field-error" id="friends-error" hidden></p>
+        <section class="friend-group" id="received-group" hidden>
+          <h2>Requests</h2>
+          <div class="list" id="received-list"></div>
+        </section>
+        <section class="friend-group">
+          <h2 id="friends-title">Friends</h2>
+          <div class="list" id="friend-list"></div>
+          <p class="muted small-text" id="friends-empty">No friends yet: add one by their Minecraft name.</p>
+        </section>
+        <section class="friend-group" id="sent-group" hidden>
+          <h2>Waiting for an answer</h2>
+          <div class="list" id="sent-list"></div>
         </section>
       </div>
     </section>
@@ -413,20 +471,25 @@
     <!-- Console -->
     <section class="page console" id="page-console" hidden>
       <div class="toolbar">
-        <input id="console-filter" type="search" placeholder="Filtrer" aria-label="Filtrer la console" spellcheck="false">
-        <label class="check"><input type="checkbox" id="console-follow" checked> Suivre</label>
-        <button id="console-copy" class="secondary small">Copier</button>
-        <button class="secondary small" data-folder="logs">Ouvrir les journaux</button>
+        <input id="console-filter" type="search" placeholder="Filter" aria-label="Filter the console" spellcheck="false">
+        <label class="check"><input type="checkbox" id="console-follow" checked> Follow</label>
+        <button id="console-copy" class="secondary small">Copy</button>
+        <button class="secondary small" data-folder="logs">Open logs</button>
       </div>
       <div class="log" id="console-out" tabindex="0"></div>
-      <p class="empty" id="console-empty">La console se remplit quand le jeu démarre.</p>
+      <p class="empty" id="console-empty">The console fills up when the game starts.</p>
     </section>
   </main>
 </div>
 
 <footer class="statusbar">
-  <p><i class="state" id="state-dot"></i>Statut : <strong id="state-text">Prêt</strong></p>
-  <p class="versions" id="versions"></p>
+  <p><i class="state" id="state-dot"></i>Status: <strong id="state-text">Ready</strong></p>
+  <div class="bottom-actions">
+    <button class="bar-button shop" id="shop" disabled title="The Rago shop opens soon"><svg class="i"><use href="#i-bag"/></svg>Shop<span class="soon">Soon</span></button>
+    <button class="bar-button discord" id="discord" title="Join the Rago Discord"><svg class="i"><use href="#i-discord"/></svg>Discord</button>
+    <span class="sep" aria-hidden="true"></span>
+    <p class="versions" id="versions"></p>
+  </div>
 </footer>
 
 <div class="toast" id="toast" role="status" hidden></div>

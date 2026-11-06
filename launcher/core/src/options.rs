@@ -22,7 +22,7 @@ impl Preset {
             "performance" => Preset::Performance,
             "balanced" => Preset::Balanced,
             "quality" => Preset::Quality,
-            _ => bail!("préréglage inconnu"),
+            _ => bail!("unknown preset"),
         })
     }
 
@@ -42,6 +42,7 @@ impl Preset {
                 ("fboEnable", "true"),
                 ("enableVsync", "false"),
                 ("maxFps", "260"),
+                ("snooperEnabled", "false"),
             ],
             Preset::Balanced => &[
                 ("renderDistance", "10"),
@@ -55,6 +56,7 @@ impl Preset {
                 ("fboEnable", "true"),
                 ("enableVsync", "false"),
                 ("maxFps", "260"),
+                ("snooperEnabled", "false"),
             ],
             Preset::Quality => &[
                 ("renderDistance", "12"),
@@ -68,6 +70,46 @@ impl Preset {
                 ("fboEnable", "true"),
                 ("enableVsync", "false"),
                 ("maxFps", "260"),
+                ("snooperEnabled", "false"),
+            ],
+        }
+    }
+}
+
+impl Preset {
+    /// OptiFine's own settings for this preset, written to `optionsof.txt` (OptiFine reads them
+    /// when it is installed, and nothing else does). Fast Math and Render Regions cost nothing in
+    /// looks; Fast Render, the biggest gain, can clash with shaders, so only the competitive preset
+    /// turns it on.
+    pub fn optifine_values(self) -> &'static [(&'static str, &'static str)] {
+        match self {
+            Preset::Performance => &[
+                ("ofFastRender", "true"),
+                ("ofFastMath", "true"),
+                ("ofRenderRegions", "true"),
+                ("ofSmartAnimations", "true"),
+                ("ofSmoothFps", "false"),
+                ("ofDynamicLights", "3"),
+                ("ofVignette", "1"),
+                ("ofBetterGrass", "3"),
+                ("ofAaLevel", "0"),
+                ("ofChunkUpdates", "1"),
+                ("ofVoidParticles", "false"),
+            ],
+            Preset::Balanced => &[
+                ("ofFastRender", "false"),
+                ("ofFastMath", "true"),
+                ("ofRenderRegions", "true"),
+                ("ofSmartAnimations", "true"),
+                ("ofSmoothFps", "false"),
+                ("ofDynamicLights", "3"),
+                ("ofVignette", "1"),
+            ],
+            Preset::Quality => &[
+                ("ofFastRender", "false"),
+                ("ofFastMath", "true"),
+                ("ofRenderRegions", "true"),
+                ("ofSmoothFps", "false"),
             ],
         }
     }
@@ -75,7 +117,11 @@ impl Preset {
 
 /// `options.txt` with the preset's keys replaced (added when missing); every other line is kept.
 pub fn with_preset(options: &str, preset: Preset) -> String {
-    let values = preset.values();
+    with_values(options, preset.values())
+}
+
+/// A `key:value` file with these keys replaced (added when missing); every other line is kept.
+fn with_values(options: &str, values: &[(&str, &str)]) -> String {
     let mut seen = vec![false; values.len()];
     let mut out = String::with_capacity(options.len() + 256);
     for line in options.lines() {
@@ -105,16 +151,21 @@ pub fn with_preset(options: &str, preset: Preset) -> String {
 /// Writes the preset into `<game>/options.txt` (through a temporary file). The game must be closed:
 /// it writes the file again when it quits.
 pub fn apply(game: &Path, preset: Preset) -> Result<()> {
-    let path = game.join("options.txt");
+    write(game, "options.txt", preset.values())?;
+    write(game, "optionsof.txt", preset.optifine_values())
+}
+
+fn write(game: &Path, name: &str, values: &[(&str, &str)]) -> Result<()> {
+    let path = game.join(name);
     let current = match fs::read_to_string(&path) {
         Ok(s) => s,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
-        Err(e) => return Err(e).context("options.txt"),
+        Err(e) => return Err(e).with_context(|| name.to_string()),
     };
     fs::create_dir_all(game)?;
     let tmp = path.with_extension("txt.tmp");
-    fs::write(&tmp, with_preset(&current, preset))?;
-    fs::rename(&tmp, &path).context("options.txt")?;
+    fs::write(&tmp, with_values(&current, values))?;
+    fs::rename(&tmp, &path).with_context(|| name.to_string())?;
     Ok(())
 }
 
@@ -141,5 +192,10 @@ mod tests {
         let text = fs::read_to_string(dir.path().join("options.txt")).unwrap();
         assert!(text.contains("fancyGraphics:false\n") && !text.contains("fancyGraphics:true"));
         assert!(Preset::parse("nope").is_err());
+        let of = fs::read_to_string(dir.path().join("optionsof.txt")).unwrap();
+        assert!(of.contains("ofFastMath:true\n") && of.contains("ofFastRender:false\n"));
+        apply(dir.path(), Preset::Performance).unwrap();
+        let of = fs::read_to_string(dir.path().join("optionsof.txt")).unwrap();
+        assert!(of.contains("ofFastRender:true\n") && of.matches("ofFastRender").count() == 1);
     }
 }

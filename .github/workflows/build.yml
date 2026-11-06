@@ -28,6 +28,25 @@ jobs:
           path: build/libs/*.jar
           if-no-files-found: error
 
+  loader:
+    # Rago's own loader; its Forge-compatible API compiles against Minecraft, downloaded from
+    # Mojang in this job and renamed by the loader itself, never put in the jar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and test the loader
+        run: bash loader/ci/build.sh "$RUNNER_TEMP/game"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rago-loader-jar
+          path: loader/build/libs/rago-loader-*.jar
+          if-no-files-found: error
+
   launcher:
     runs-on: ubuntu-latest
     defaults:
@@ -43,12 +62,17 @@ jobs:
         run: cargo test --locked -p rago-launcher-core
 
   launcher-windows:
+    needs: loader
     runs-on: windows-latest
     defaults:
       run:
         working-directory: launcher/app
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: rago-loader-jar
+          path: rago-loader-jar
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -57,10 +81,13 @@ jobs:
         with:
           node-version: 22
       - name: Build the Windows installer
+        shell: bash
         env:
           # Rago's Azure app id (public, not a secret); sign-in stays off while it is empty
           RAGO_MS_CLIENT_ID: ${{ vars.RAGO_MS_CLIENT_ID }}
-        run: npx --yes @tauri-apps/cli@2.12.4 build --ci
+        run: |
+          export RAGO_LOADER_JAR="$GITHUB_WORKSPACE\\rago-loader-jar\\$(ls ../../rago-loader-jar | head -1)"
+          npx --yes @tauri-apps/cli@2.12.4 build --ci
       - uses: actions/upload-artifact@v4
         with:
           name: rago-launcher-windows
@@ -69,8 +96,9 @@ jobs:
 
   launcher-windows-game:
     # installs everything through the launcher's engine on a real Windows machine and starts the
-    # game with a test profile until Forge has run Rago (no account, nothing online)
-    needs: build
+    # game with a test profile until Forge has run Rago, then with Rago's own loader on Java 21
+    # (no account, nothing online)
+    needs: [build, loader]
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -83,10 +111,25 @@ jobs:
         with:
           name: rago-jar
           path: rago-jar
+      - uses: actions/download-artifact@v4
+        with:
+          name: rago-loader-jar
+          path: rago-loader-jar
       - name: Install and start the game
         shell: bash
         run: |
           jar=$(ls rago-jar | grep -- '+1.8.9.jar$' | head -1)
+          loader=$(ls rago-loader-jar | head -1)
           cd launcher
           RAGO_E2E_DIR="$RUNNER_TEMP\\rago" RAGO_E2E_JAR="$GITHUB_WORKSPACE\\rago-jar\\$jar" \
-            cargo test --locked -p rago-launcher-core --test end_to_end -- --ignored --nocapture
+            RAGO_LOADER_JAR="$GITHUB_WORKSPACE\\rago-loader-jar\\$loader" \
+            cargo test --locked -p rago-launcher-core --test end_to_end -- --ignored --nocapture --test-threads=1
+      - name: Try the loader's setup for the official launcher on that install
+        # loader/windows/essai-chargeur.ps1, as players run it, in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP "rago"
+          .\loader\windows\essai-chargeur.ps1 -Minecraft $root -Mods (Join-Path $root "game\mods") -Java $env:JAVA_HOME_21_X64
+          $v = Get-Content (Join-Path $root "versions\1.8.9-rago\1.8.9-rago.json") -Raw | ConvertFrom-Json
+          if ($v.mainClass -ne "gg.rago.loader.Main" -or $v.minecraftArguments -notlike "launch --game *--username *") { throw "bad version file" }
+          if (-not (Test-Path (Join-Path $root "libraries\gg\rago\rago-loader\0.1.0\rago-loader-0.1.0.jar"))) { throw "loader jar missing" }

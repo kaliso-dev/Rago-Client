@@ -26,6 +26,20 @@ A file is kept only when its size and hash match. Files already on disk are chec
 - `runtime/`
 - `game/`: options, worlds, resource packs and `mods/`
 
+## Releases and updates
+
+Players install the launcher once. After that, everything updates by itself:
+
+- **Rago** (the mod): on every Play, the launcher downloads the newest release jar if it is not already in `mods/` (setting "Keep Rago updated").
+- **The launcher**, with Rago's loader inside it: on start, it looks for a newer `launcher-v*` release, downloads its installer, checks its SHA-256 and runs it with only a progress bar (`/P /UPDATE /R`). The installer keeps the settings and shortcuts and opens the new launcher. With "Keep Rago updated" off, the bell offers the update instead.
+
+To publish, bump the versions, then run **Actions → release → Run workflow** on `main`:
+
+- `mod_version` in `gradle.properties` for the mod (tag `v<version>`, marked "latest": the launcher asks GitHub for it).
+- `version` in `launcher/Cargo.toml` and `launcher/app/tauri.conf.json` (the same in both) for the launcher (tag `launcher-v<version>`).
+
+The workflow publishes each version that has no release yet and creates its tag. Pushing one of those tags publishes only that one. Release jars leave out PolyPatcher (CC BY-NC-SA 4.0, no commercial use) unless the run's "Bundle PolyPatcher" box is ticked.
+
 ## Signing in
 
 Sign-in uses the authorization code flow with PKCE:

@@ -34,7 +34,7 @@ fn now() -> u64 {
 
 fn random_url_safe(bytes: usize) -> Result<String> {
     let mut buf = vec![0u8; bytes];
-    getrandom::getrandom(&mut buf).map_err(|e| anyhow!("aléatoire indisponible : {e}"))?;
+    getrandom::getrandom(&mut buf).map_err(|e| anyhow!("randomness unavailable: {e}"))?;
     Ok(URL_SAFE_NO_PAD.encode(buf))
 }
 
@@ -92,8 +92,8 @@ pub fn begin(client_id: &str) -> Result<Pending> {
     Ok(Pending { url, listeners, redirect, state, pkce, client_id: client_id.to_string() })
 }
 
-const PAGE_OK: &str = "<!doctype html><meta charset=utf-8><title>Rago</title><body style=\"background:#0B0A0D;color:#F4F4F5;font-family:sans-serif;display:grid;place-items:center;height:90vh\"><div><h1>Connecté à Rago</h1><p>Tu peux fermer cette page et revenir au launcher.</p></div>";
-const PAGE_ERR: &str = "<!doctype html><meta charset=utf-8><title>Rago</title><body style=\"background:#0B0A0D;color:#F4F4F5;font-family:sans-serif;display:grid;place-items:center;height:90vh\"><div><h1>Connexion annulée</h1><p>Reviens au launcher pour réessayer.</p></div>";
+const PAGE_OK: &str = "<!doctype html><meta charset=utf-8><title>Rago</title><body style=\"background:#0B0A0D;color:#F4F4F5;font-family:sans-serif;display:grid;place-items:center;height:90vh\"><div><h1>Signed in to Rago</h1><p>You can close this page and go back to the launcher.</p></div>";
+const PAGE_ERR: &str = "<!doctype html><meta charset=utf-8><title>Rago</title><body style=\"background:#0B0A0D;color:#F4F4F5;font-family:sans-serif;display:grid;place-items:center;height:90vh\"><div><h1>Sign-in cancelled</h1><p>Go back to the launcher to try again.</p></div>";
 
 fn respond(stream: &mut TcpStream, status: &str, body: &str) {
     let _ = write!(stream, "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
@@ -134,18 +134,18 @@ impl Pending {
                 }
                 if get("state").as_deref() != Some(self.state.as_str()) {
                     respond(&mut stream, "400 Bad Request", PAGE_ERR);
-                    bail!("réponse de connexion inattendue");
+                    bail!("unexpected sign-in response");
                 }
                 if let Some(err) = get("error") {
                     respond(&mut stream, "200 OK", PAGE_ERR);
-                    bail!("connexion Microsoft refusée : {}", get("error_description").unwrap_or(err));
+                    bail!("Microsoft sign-in refused: {}", get("error_description").unwrap_or(err));
                 }
                 respond(&mut stream, "200 OK", PAGE_OK);
                 return Ok(get("code").unwrap());
             }
             std::thread::sleep(Duration::from_millis(50));
         }
-        bail!("connexion Microsoft trop longue, réessaie")
+        bail!("Microsoft sign-in took too long, try again")
     }
 }
 
@@ -170,7 +170,7 @@ fn token_request(client: &Client, form: &[(&str, &str)]) -> Result<MsTokens> {
     if !response.status().is_success() {
         let status = response.status();
         let body: serde_json::Value = response.json().unwrap_or_default();
-        bail!("Microsoft a refusé la connexion ({status}) : {}", body["error_description"].as_str().unwrap_or("?"));
+        bail!("Microsoft refused the sign-in ({status}): {}", body["error_description"].as_str().unwrap_or("?"));
     }
     let t: TokenResponse = response.json()?;
     Ok(MsTokens { access_token: t.access_token, refresh_token: t.refresh_token, expires_at: now() + t.expires_in })
@@ -200,11 +200,11 @@ struct Xui {
 
 fn xbox_error(code: u64) -> &'static str {
     match code {
-        2148916233 => "ce compte Microsoft n'a pas de profil Xbox : crée-le sur xbox.com puis réessaie",
-        2148916235 => "Xbox Live n'est pas disponible dans ton pays",
-        2148916236 | 2148916237 => "ce compte doit être vérifié comme adulte sur xbox.com",
-        2148916238 => "compte enfant : un adulte doit l'ajouter à une famille Microsoft",
-        _ => "Xbox Live a refusé la connexion",
+        2148916233 => "this Microsoft account has no Xbox profile: create one on xbox.com, then try again",
+        2148916235 => "Xbox Live is not available in your country",
+        2148916236 | 2148916237 => "this account must be verified as an adult on xbox.com",
+        2148916238 => "child account: an adult must add it to a Microsoft family",
+        _ => "Xbox Live refused the sign-in",
     }
 }
 
@@ -226,9 +226,9 @@ pub fn minecraft_login(client: &Client, ms_access_token: &str) -> Result<McSessi
         }))
         .send()?
         .error_for_status()
-        .context("Xbox Live a refusé la connexion")?
+        .context("Xbox Live refused the sign-in")?
         .json()?;
-    let uhs = xbl.display_claims.xui.first().map(|x| x.uhs.clone()).ok_or_else(|| anyhow!("réponse Xbox Live incomplète"))?;
+    let uhs = xbl.display_claims.xui.first().map(|x| x.uhs.clone()).ok_or_else(|| anyhow!("incomplete Xbox Live response"))?;
 
     let xsts = client
         .post("https://xsts.auth.xboxlive.com/xsts/authorize")
@@ -249,19 +249,19 @@ pub fn minecraft_login(client: &Client, ms_access_token: &str) -> Result<McSessi
         .json(&json!({"identityToken": format!("XBL3.0 x={uhs};{}", xsts.token)}))
         .send()?;
     if login.status().as_u16() == 403 {
-        bail!("Mojang n'a pas encore autorisé l'application Rago à se connecter à Minecraft");
+        bail!("Mojang has not yet approved the Rago app for Minecraft sign-in");
     }
     let login: serde_json::Value = login.error_for_status()?.json()?;
-    let access = login["access_token"].as_str().ok_or_else(|| anyhow!("réponse Minecraft incomplète"))?.to_string();
+    let access = login["access_token"].as_str().ok_or_else(|| anyhow!("incomplete Minecraft response"))?.to_string();
     let expires_at = now() + login["expires_in"].as_u64().unwrap_or(86400);
 
     let profile = client.get("https://api.minecraftservices.com/minecraft/profile").bearer_auth(&access).send()?;
     if profile.status().as_u16() == 404 {
-        bail!("ce compte ne possède pas Minecraft Java Edition");
+        bail!("this account does not own Minecraft Java Edition");
     }
     let profile: serde_json::Value = profile.error_for_status()?.json()?;
-    let name = profile["name"].as_str().ok_or_else(|| anyhow!("profil Minecraft incomplet"))?.to_string();
-    let uuid = profile["id"].as_str().ok_or_else(|| anyhow!("profil Minecraft incomplet"))?.replace('-', "");
+    let name = profile["name"].as_str().ok_or_else(|| anyhow!("incomplete Minecraft profile"))?.to_string();
+    let uuid = profile["id"].as_str().ok_or_else(|| anyhow!("incomplete Minecraft profile"))?.replace('-', "");
     Ok(McSession { account: Account { name, uuid, access_token: access }, expires_at })
 }
 
@@ -297,6 +297,6 @@ mod tests {
             out
         });
         assert_eq!(pending.wait_for_code(Duration::from_secs(5)).unwrap(), "abc");
-        assert!(browser.join().unwrap().contains("Connecté à Rago"));
+        assert!(browser.join().unwrap().contains("Signed in to Rago"));
     }
 }
