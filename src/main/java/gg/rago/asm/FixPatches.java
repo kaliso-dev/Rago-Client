@@ -454,6 +454,94 @@ final class FixPatches {
 		return true;
 	}
 
+	// ---- light ----------------------------------------------------------------------------------
+
+	/** The World field that holds how far the light update in progress may spread. */
+	static final String LIGHT_SPREAD = "rago$lightSpread";
+
+	/**
+	 * World.checkLightFor: its first call, {@code isAreaLoaded(pos, 17, allowEmpty)}, becomes
+	 * {@code FixHooks.lightSpread(this, pos, 17, allowEmpty)}, kept in {@link #LIGHT_SPREAD} and
+	 * tested like the boolean it replaces (-1 means not loaded); the two distance limits of 17 (the
+	 * light going down, then up) then read that field.
+	 */
+	static boolean lightSpread(MethodNode m) {
+		AbstractInsnNode area = null;
+		List<AbstractInsnNode> limits = new ArrayList<>();
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (area == null) {
+				if (isCall(insn, "func_175648_a", "isAreaLoaded", "(Lnet/minecraft/util/BlockPos;IZ)Z") && pushes17(previous(previous(insn)))) {
+					area = insn;
+				}
+			} else if (pushes17(insn) && next(insn) != null && next(insn).getOpcode() == Opcodes.IF_ICMPGE) {
+				limits.add(insn);
+			}
+		}
+		if (area == null || limits.size() != 2) {
+			return false;
+		}
+		InsnList spread = new InsnList();
+		spread.add(fix("lightSpread", "(Lnet/minecraft/world/World;Lnet/minecraft/util/BlockPos;IZ)I"));
+		spread.add(new InsnNode(Opcodes.DUP));
+		spread.add(new VarInsnNode(Opcodes.ALOAD, 0));
+		spread.add(new InsnNode(Opcodes.SWAP));
+		spread.add(new FieldInsnNode(Opcodes.PUTFIELD, "net/minecraft/world/World", LIGHT_SPREAD, "I"));
+		spread.add(new InsnNode(Opcodes.ICONST_1));
+		spread.add(new InsnNode(Opcodes.IADD));
+		m.instructions.insert(area, spread);
+		m.instructions.remove(area);
+		for (AbstractInsnNode limit : limits) {
+			InsnList read = new InsnList();
+			read.add(new VarInsnNode(Opcodes.ALOAD, 0));
+			read.add(new FieldInsnNode(Opcodes.GETFIELD, "net/minecraft/world/World", LIGHT_SPREAD, "I"));
+			m.instructions.insert(limit, read);
+			m.instructions.remove(limit);
+		}
+		return true;
+	}
+
+	/**
+	 * Chunk.setBlockState: in {@code relightBlock(x, y + 1, z)}, made when a block that stops light
+	 * is put at or above the column's height map, {@code y + 1} becomes {@code FixHooks.relightFrom(y)}.
+	 * The other relightBlock call, for the top block taken away, has no {@code + 1} and stays.
+	 */
+	static boolean relightFrom(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (isCall(insn, "func_76615_h", "relightBlock", "(III)V")) {
+				AbstractInsnNode z = previous(insn);
+				AbstractInsnNode add = previous(z);
+				AbstractInsnNode one = previous(add);
+				if (z != null && z.getOpcode() == Opcodes.ILOAD && add != null && add.getOpcode() == Opcodes.IADD
+					&& one != null && one.getOpcode() == Opcodes.ICONST_1) {
+					m.instructions.remove(one);
+					m.instructions.set(add, fix("relightFrom", "(I)I"));
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private static boolean pushes17(AbstractInsnNode insn) {
+		return insn != null && insn.getOpcode() == Opcodes.BIPUSH && ((IntInsnNode) insn).operand == 17;
+	}
+
+	/** The instruction before, skipping labels, line numbers and frames. */
+	private static AbstractInsnNode previous(AbstractInsnNode insn) {
+		do {
+			insn = insn == null ? null : insn.getPrevious();
+		} while (insn != null && insn.getOpcode() < 0);
+		return insn;
+	}
+
+	/** The instruction after, skipping labels, line numbers and frames. */
+	private static AbstractInsnNode next(AbstractInsnNode insn) {
+		do {
+			insn = insn == null ? null : insn.getNext();
+		} while (insn != null && insn.getOpcode() < 0);
+		return insn;
+	}
+
 	// ---- menus ----------------------------------------------------------------------------------
 
 	/** GuiScreenAddServer / GuiScreenServerList.actionPerformed: the address stored goes through {@code FixHooks.serverAddress}. */

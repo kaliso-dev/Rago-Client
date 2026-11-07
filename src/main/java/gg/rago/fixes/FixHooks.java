@@ -23,9 +23,11 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EnumPlayerModelParts;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.BlockPos;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3i;
+import net.minecraft.world.World;
 import net.minecraftforge.client.ForgeHooksClient;
 import net.minecraftforge.client.model.IPerspectiveAwareModel;
 import net.minecraftforge.client.model.pipeline.UnpackedBakedQuad;
@@ -440,6 +442,43 @@ public final class FixHooks {
 	/** TileEntityRendererDispatcher.renderTileEntity, first: a removed block entity is not drawn. */
 	public static boolean skipTileEntity(TileEntity tile) {
 		return tile.isInvalid() && internal();
+	}
+
+	// ---- light ----------------------------------------------------------------------------------
+
+	/**
+	 * World.checkLightFor, first: how many blocks the light update at {@code pos} may spread, or -1
+	 * to skip it. Vanilla needs the chunks within 17 blocks loaded and spreads 17; light updated
+	 * while a chunk's neighbours are still generating so reads light from chunks that do not exist
+	 * yet at its far edge, and is skipped altogether closer to them, which leaves dark patches
+	 * along new chunk borders. With the fix (PolyPatcher's "light initializing too early") an
+	 * update only reads loaded chunks: it spreads 17 blocks when those within 18 are loaded, else
+	 * 15, the reach of the brightest light, when those within 16 are, else waits like vanilla.
+	 * Measured in the same new world as PolyPatcher: every light write the same, in the same order.
+	 */
+	public static int lightSpread(World world, BlockPos pos, int radius, boolean allowEmpty) {
+		if (radius == 17 && internal()) {
+			if (world.isAreaLoaded(pos, 18, allowEmpty)) {
+				return 17;
+			}
+			return world.isAreaLoaded(pos, 16, allowEmpty) ? 15 : -1;
+		}
+		return world.isAreaLoaded(pos, radius, allowEmpty) ? radius : -1;
+	}
+
+	/**
+	 * Chunk.setBlockState: the height a column is relit from when a block that stops light is put at
+	 * or above the column's height map. Vanilla relights from the block above the new one, so the
+	 * height map rises over it and its sky shadow appears at once. With the fix (PolyPatcher's change
+	 * to the sky light calculation) the column is relit from the new block itself, which leaves the
+	 * new block out: the height map only rises to the blocks already below it, so the new block casts
+	 * no sky shadow until something else relights the column, as with PolyPatcher. That height map
+	 * is also where world generation puts the next tree, snow or flower, so new single player worlds
+	 * come out as they do with PolyPatcher. Measured in the same new normal world as PolyPatcher,
+	 * with the light fix above: every light write until the player joins the same, in the same order.
+	 */
+	public static int relightFrom(int y) {
+		return internal() ? y : y + 1;
 	}
 
 	// ---- menus ----------------------------------------------------------------------------------

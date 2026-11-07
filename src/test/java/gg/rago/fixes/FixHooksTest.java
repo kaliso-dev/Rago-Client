@@ -6,6 +6,13 @@ import gg.rago.hooks.Hooks;
 import gg.rago.modules.ClientFixes;
 import net.minecraft.client.renderer.block.model.ItemTransformVec3f;
 import net.minecraft.entity.player.EnumPlayerModelParts;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.profiler.Profiler;
+import net.minecraft.util.BlockPos;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldProviderSurface;
+import net.minecraft.world.chunk.IChunkProvider;
+import net.minecraft.world.storage.WorldInfo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.util.vector.Vector3f;
@@ -113,6 +120,53 @@ class FixHooksTest {
 		assertTrue(FixHooks.tabHat(null, EnumPlayerModelParts.HAT));
 		option(fixes, "tab_hat_layer").set(false);
 		assertFalse(FixHooks.tabHat(null, EnumPlayerModelParts.HAT));
+	}
+
+	@Test
+	void lightSpreadsAsFarAsTheLoadedChunksAllow() {
+		int[] loaded = {18};
+		World world = new World(null, new WorldInfo(new NBTTagCompound()), new WorldProviderSurface(), new Profiler(), false) {
+			@Override
+			protected IChunkProvider createChunkProvider() {
+				return null;
+			}
+
+			@Override
+			protected int getRenderDistanceChunks() {
+				return 8;
+			}
+
+			@Override
+			public boolean isAreaLoaded(BlockPos center, int radius, boolean allowEmpty) {
+				return radius <= loaded[0];
+			}
+		};
+		BlockPos pos = new BlockPos(0, 64, 0);
+		int[][] vanilla = {{18, 17}, {17, 17}, {16, -1}, {15, -1}, {0, -1}};
+		for (int[] c : vanilla) {
+			loaded[0] = c[0];
+			assertEquals(c[1], FixHooks.lightSpread(world, pos, 17, false), "without the module, vanilla: loaded within " + c[0]);
+		}
+		ClientFixes fixes = new ClientFixes();
+		Hooks.clientFixes = fixes;
+		int[][] fixed = {{40, 17}, {18, 17}, {17, 15}, {16, 15}, {15, -1}, {0, -1}};
+		for (int[] c : fixed) {
+			loaded[0] = c[0];
+			assertEquals(c[1], FixHooks.lightSpread(world, pos, 17, false), "loaded within " + c[0]);
+		}
+		option(fixes, "internal_fixes").set(false);
+		loaded[0] = 16;
+		assertEquals(-1, FixHooks.lightSpread(world, pos, 17, false));
+	}
+
+	@Test
+	void columnRelitFromTheNewBlockWithTheFix() {
+		assertEquals(71, FixHooks.relightFrom(70), "without the module, vanilla: from the block above");
+		ClientFixes fixes = new ClientFixes();
+		Hooks.clientFixes = fixes;
+		assertEquals(70, FixHooks.relightFrom(70));
+		option(fixes, "internal_fixes").set(false);
+		assertEquals(71, FixHooks.relightFrom(70));
 	}
 
 	private static BooleanOption option(ClientFixes fixes, String key) {

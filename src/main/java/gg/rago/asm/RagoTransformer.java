@@ -9,6 +9,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
+import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.FrameNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
@@ -54,6 +55,8 @@ public final class RagoTransformer implements IClassTransformer {
 		final Patcher patcher;
 		/** One of the fixes PolyPatcher makes: left to it while it is loaded. */
 		boolean polyPatcher;
+		/** A public int field the patched code uses, added to the class with the patch (or null). */
+		String intField;
 
 		Patch(String what, String srg, String mcp, String desc, Patcher patcher) {
 			this.what = what;
@@ -465,6 +468,10 @@ public final class RagoTransformer implements IClassTransformer {
 			"(Lnet/minecraft/client/Minecraft;II)V", FixPatches::soundSlider);
 		fix("net.minecraft.client.renderer.EntityRenderer", "F3 crosshair with the parallax fix", "func_175067_i", "renderWorldDirections",
 			"(F)V", FixPatches::debugCrosshair);
+		fix("net.minecraft.world.World", "light initializing too early", "func_180500_c", "checkLightFor",
+			"(Lnet/minecraft/world/EnumSkyBlock;Lnet/minecraft/util/BlockPos;)Z", FixPatches::lightSpread).intField = FixPatches.LIGHT_SPREAD;
+		fix("net.minecraft.world.chunk.Chunk", "sky light calculation", "func_177436_a", "setBlockState",
+			"(Lnet/minecraft/util/BlockPos;Lnet/minecraft/block/state/IBlockState;)Lnet/minecraft/block/state/IBlockState;", FixPatches::relightFrom);
 	}
 
 	/** Passes each value a player method returns through a hook that also gets the player. */
@@ -497,10 +504,11 @@ public final class RagoTransformer implements IClassTransformer {
 	}
 
 	/** A fix PolyPatcher also makes ({@link FixPatches}): skipped while PolyPatcher is loaded. */
-	private static void fix(String className, String what, String srg, String mcp, String desc, Patcher patcher) {
+	private static Patch fix(String className, String what, String srg, String mcp, String desc, Patcher patcher) {
 		Patch patch = new Patch(what, srg, mcp, desc, patcher);
 		patch.polyPatcher = true;
 		add(className, patch);
+		return patch;
 	}
 
 	private static volatile Boolean patcherLoaded;
@@ -583,6 +591,9 @@ public final class RagoTransformer implements IClassTransformer {
 			MethodNode copy = copyOf(target);
 			if (p.patcher.apply(copy)) {
 				node.methods.set(node.methods.indexOf(target), copy);
+				if (p.intField != null && node.fields.stream().noneMatch(f -> f.name.equals(p.intField))) {
+					node.fields.add(new FieldNode(Opcodes.ACC_PUBLIC, p.intField, "I", null, null));
+				}
 				patched.remove(target); // a second patch on the same method
 				patched.add(copy);
 				LOG.info("Hook installed: {}", p.what);
