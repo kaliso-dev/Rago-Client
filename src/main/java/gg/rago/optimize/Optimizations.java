@@ -23,21 +23,8 @@ import net.minecraft.client.renderer.tileentity.TileEntitySkullRenderer;
 import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.resources.IResourcePack;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.IProjectile;
-import net.minecraft.entity.item.EntityArmorStand;
-import net.minecraft.entity.item.EntityTNTPrimed;
-import net.minecraft.entity.projectile.EntityFireball;
-import net.minecraft.entity.item.EntityFallingBlock;
-import net.minecraft.entity.item.EntityFireworkRocket;
-import net.minecraft.entity.item.EntityItemFrame;
-import net.minecraft.entity.item.EntityPainting;
-import net.minecraft.entity.item.EntityXPOrb;
-import net.minecraft.entity.monster.IMob;
-import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.AxisAlignedBB;
 import net.minecraftforge.client.event.EntityViewRenderEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
@@ -47,14 +34,14 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 
 /**
  * Rago's own performance settings: frame caps, entity and tile entity render distances, hiding
- * things that cost frames without helping in PvP, a particle cap and fog. Everything here only
- * changes what this client draws; nothing is sent to the server.
+ * things that cost frames without helping in PvP, back-face culling, a chunk update limit, a
+ * particle cap and fog. Everything here only changes what this client draws; nothing is sent to
+ * the server. The distances and hiding options are PolyPatcher's, as it does them ({@link RenderRules}).
  */
 public final class Optimizations {
 	private static final String FPS = "rago.section.fps";
@@ -81,21 +68,29 @@ public final class Optimizations {
 	private final BooleanOption cullTiles;
 	private final EntityCulling culling;
 
+	private final BooleanOption entityBackFaces;
+	private final BooleanOption playerBackFaces;
+
 	private final BooleanOption entityDistance;
+	private final IntOption globalDistance;
 	private final IntOption playerDistance;
-	private final IntOption hostileDistance;
 	private final IntOption passiveDistance;
-	private final IntOption otherDistance;
+	private final IntOption hostileDistance;
+	private final IntOption tileDistance;
 	private final BooleanOption hideStuckArrows;
+	private final BooleanOption hideGroundedArrows;
+	private final BooleanOption hideFlyingArrows;
 	private final BooleanOption hideItemFrames;
+	private final BooleanOption hideMapFrames;
 	private final BooleanOption hidePaintings;
 	private final BooleanOption hideArmorStands;
+	private final BooleanOption hideSeeThroughPlayers;
 	private final BooleanOption hideXpOrbs;
 	private final BooleanOption hideFireworks;
 	private final BooleanOption hideFallingBlocks;
 	private final BooleanOption lightGlint;
+	private final BooleanOption disableGlint;
 
-	private final IntOption tileDistance;
 	private final BooleanOption hideSkulls;
 	private final BooleanOption hideSigns;
 	private final BooleanOption hideEnchantBooks;
@@ -106,6 +101,8 @@ public final class Optimizations {
 	private final BooleanOption hideGrass;
 	private final BooleanOption hideFlowers;
 	private final BooleanOption hideDeadBushes;
+	private final BooleanOption limitChunkUpdates;
+	private final IntOption chunkUpdateLimit;
 	private final IntOption maxParticles;
 	private final BooleanOption particleCollisions;
 	private final BooleanOption fastWorldSwitch;
@@ -125,10 +122,8 @@ public final class Optimizations {
 	private final EngineTweaks engine;
 	private final BooleanOption disableFog;
 
-	private final Map<Entity, Double> originalWeights = new WeakHashMap<>();
 	private final List<RemovedLayer> removedArrowLayers = new ArrayList<>();
 	private FoliagePack foliagePack;
-	private Object lastWorld;
 	private int ticks;
 
 	private static final class RemovedLayer {
@@ -166,25 +161,35 @@ public final class Optimizations {
 		}
 		culling = new EntityCulling(occlusionCulling::get, cullingInterval::get, smartCulling::get, drawDragons::get, drawWithers::get,
 			keepPlayerNames::get, keepEntityNames::get, keepStandNames::get, standRules::get, cullTiles::get);
+		// PolyPatcher's back-face culling: always shown, whether occlusion culling is on or not
+		entityBackFaces = s.bool(p, CULLING, "entity_backface_culling", false, null);
+		playerBackFaces = s.bool(p, CULLING, "player_backface_culling", false, null);
 
-		entityDistance = s.bool(p, ENTITIES, "entity_distance", false, null);
-		hideStuckArrows = s.bool(p, ENTITIES, "hide_stuck_arrows", false, v -> applyArrowLayers());
-		playerDistance = s.slider(p, ENTITIES, "player_distance", NO_LIMIT, 8, NO_LIMIT, 8, Optimizations::distanceLabel, null);
-		hostileDistance = s.slider(p, ENTITIES, "hostile_distance", 64, 8, NO_LIMIT, 8, Optimizations::distanceLabel, null);
-		passiveDistance = s.slider(p, ENTITIES, "passive_distance", 64, 8, NO_LIMIT, 8, Optimizations::distanceLabel, null);
-		otherDistance = s.slider(p, ENTITIES, "other_distance", 48, 8, NO_LIMIT, 8, Optimizations::distanceLabel, null);
-		for (String id : new String[] {"player_distance", "hostile_distance", "passive_distance", "other_distance"}) {
+		// PolyPatcher's custom render distances: 1 to 64 blocks, the global one capping the others
+		entityDistance = s.bool(p, ENTITIES, "entity_render_distance", false, null);
+		globalDistance = s.slider(p, ENTITIES, "global_render_distance", 64, 1, 64, 1, Optimizations::blocks, null);
+		playerDistance = s.slider(p, ENTITIES, "player_render_distance", 64, 1, 64, 1, Optimizations::blocks, null);
+		passiveDistance = s.slider(p, ENTITIES, "passive_render_distance", 64, 1, 64, 1, Optimizations::blocks, null);
+		hostileDistance = s.slider(p, ENTITIES, "hostile_render_distance", 64, 1, 64, 1, Optimizations::blocks, null);
+		tileDistance = s.slider(p, ENTITIES, "tile_render_distance", 64, 1, 64, 1, Optimizations::blocks, null);
+		for (String id : new String[] {"global_render_distance", "player_render_distance", "passive_render_distance",
+			"hostile_render_distance", "tile_render_distance"}) {
 			visibleWhen(s, id, entityDistance::get);
 		}
+		hideStuckArrows = s.bool(p, ENTITIES, "hide_stuck_arrows", false, v -> applyArrowLayers());
+		hideGroundedArrows = s.bool(p, ENTITIES, "hide_grounded_arrows", false, null);
+		hideFlyingArrows = s.bool(p, ENTITIES, "hide_flying_arrows", false, null);
 		hideItemFrames = s.bool(p, ENTITIES, "hide_item_frames", false, null);
+		hideMapFrames = s.bool(p, ENTITIES, "hide_map_frames", false, null);
 		hidePaintings = s.bool(p, ENTITIES, "hide_paintings", false, null);
-		hideArmorStands = s.bool(p, ENTITIES, "hide_armor_stands", false, null);
+		hideArmorStands = s.bool(p, ENTITIES, "hide_all_armor_stands", false, null);
+		hideSeeThroughPlayers = s.bool(p, ENTITIES, "hide_see_through_players", false, null);
 		hideXpOrbs = s.bool(p, ENTITIES, "hide_xp_orbs", false, null);
 		hideFireworks = s.bool(p, ENTITIES, "hide_fireworks", false, null);
 		hideFallingBlocks = s.bool(p, ENTITIES, "hide_falling_blocks", false, null);
 		lightGlint = s.bool(p, ENTITIES, "light_glint", false, null);
+		disableGlint = s.bool(p, ENTITIES, "disable_glint", false, null);
 
-		tileDistance = s.slider(p, TILES, "tile_distance", 64, 8, 64, 4, Optimizations::blocks, null);
 		hideSkulls = s.bool(p, TILES, "hide_skulls", false, null);
 		hideSigns = s.bool(p, TILES, "hide_signs", false, null);
 		hideEnchantBooks = s.bool(p, TILES, "hide_enchant_books", false, null);
@@ -196,6 +201,9 @@ public final class Optimizations {
 		hideFlowers = s.bool(p, WORLD, "hide_flowers", false, v -> reloadFoliage());
 		hideDeadBushes = s.bool(p, WORLD, "hide_dead_bushes", false, v -> reloadFoliage());
 		disableFog = s.bool(p, WORLD, "disable_fog", false, null);
+		limitChunkUpdates = s.bool(p, WORLD, "limit_chunk_updates", false, null);
+		chunkUpdateLimit = s.slider(p, WORLD, "chunk_update_limit", 50, 5, 250, 1, v -> I18n.format("rago.value.per_second", v), null);
+		visibleWhen(s, "chunk_update_limit", limitChunkUpdates::get);
 		maxParticles = s.slider(p, WORLD, "max_particles", 4000, 100, 4000, 100,
 			v -> v >= 4000 ? I18n.format("rago.value.vanilla") : Integer.toString(v), null);
 		particleCollisions = s.bool(p, WORLD, "particle_collisions", true, null);
@@ -272,16 +280,6 @@ public final class Optimizations {
 		return I18n.format("rago.value.blocks", v);
 	}
 
-	/**
-	 * The entity distance sliders' last value: no limit, so as far as the server sends entities, and
-	 * never nearer than the game's own distance.
-	 */
-	static final int NO_LIMIT = 512;
-
-	private static String distanceLabel(int v) {
-		return v >= NO_LIMIT ? I18n.format("rago.value.unlimited") : blocks(v);
-	}
-
 	/** Applies settings that need it once the config is loaded and the game is up. */
 	public void start() {
 		applyFrameCaps();
@@ -312,9 +310,47 @@ public final class Optimizations {
 
 	@SubscribeEvent
 	public void onRenderTick(TickEvent.RenderTickEvent event) {
-		if (event.phase == TickEvent.Phase.START && gg.rago.debug.FrameProfile.ON) {
+		if (event.phase != TickEvent.Phase.START) {
+			return;
+		}
+		updateRules();
+		RenderRules.markRefused();
+		if (gg.rago.debug.FrameProfile.ON) {
 			gg.rago.debug.FrameProfile.frame();
 		}
+	}
+
+	/** The settings the game hooks read for each entity, copied once a frame into plain fields. */
+	void updateRules() {
+		boolean distances = entityDistance.get();
+		RenderRules.distances = distances;
+		RenderRules.globalSq = square(globalDistance.get());
+		RenderRules.playerSq = square(playerDistance.get());
+		RenderRules.passiveSq = square(passiveDistance.get());
+		RenderRules.hostileSq = square(hostileDistance.get());
+		int tiles = Math.min(globalDistance.get(), tileDistance.get());
+		RenderRules.tileSq = distances && tiles < 64 ? square(tiles) : 0;
+		RenderRules.armorStands = hideArmorStands.get();
+		RenderRules.seeThroughPlayers = hideSeeThroughPlayers.get();
+		RenderRules.itemFrames = hideItemFrames.get();
+		RenderRules.mapFrames = hideMapFrames.get();
+		RenderRules.paintings = hidePaintings.get();
+		RenderRules.xpOrbs = hideXpOrbs.get();
+		RenderRules.fireworks = hideFireworks.get();
+		RenderRules.fallingBlocks = hideFallingBlocks.get();
+		RenderRules.groundedArrows = hideGroundedArrows.get();
+		RenderRules.flyingArrows = hideFlyingArrows.get();
+		RenderRules.entities = distances || RenderRules.armorStands || RenderRules.seeThroughPlayers || RenderRules.itemFrames
+			|| RenderRules.mapFrames || RenderRules.paintings || RenderRules.xpOrbs || RenderRules.fireworks || RenderRules.fallingBlocks
+			|| RenderRules.groundedArrows || RenderRules.flyingArrows;
+		RenderRules.entityBackFaces = entityBackFaces.get();
+		RenderRules.playerBackFaces = playerBackFaces.get();
+		RenderRules.noGlint = disableGlint.get();
+		RenderRules.chunkLimit = limitChunkUpdates.get() ? chunkUpdateLimit.get() : 0;
+	}
+
+	private static double square(int blocks) {
+		return (double) blocks * blocks;
 	}
 
 	/** One line in the F3 screen, so the effect of culling can be checked. */
@@ -343,101 +379,12 @@ public final class Optimizations {
 		if (mc.theWorld == null) {
 			return;
 		}
-		if (mc.theWorld != lastWorld) {
-			// entity ids restart in a new world, and Entity.equals compares ids
-			originalWeights.clear();
-			lastWorld = mc.theWorld;
-		}
 		ticks++;
-		if (ticks % 4 == 0) {
-			updateEntities(mc);
-		}
 		if (ticks % 100 == 1) {
 			wrapTileRenderers();
 			applyArrowLayers();
 		}
 		capParticles(mc.effectRenderer);
-	}
-
-	private void updateEntities(Minecraft mc) {
-		Entity viewer = mc.getRenderViewEntity();
-		for (Entity e : mc.theWorld.loadedEntityList) {
-			if (e == viewer || e == mc.thePlayer) {
-				continue;
-			}
-			Double original = originalWeights.get(e);
-			double vanilla = original != null ? original : e.renderDistanceWeight;
-			double want = desiredWeight(e, vanilla);
-			if (Double.isNaN(want)) {
-				if (original != null) {
-					e.renderDistanceWeight = original;
-					originalWeights.remove(e);
-				}
-			} else {
-				if (original == null) {
-					originalWeights.put(e, e.renderDistanceWeight);
-				}
-				e.renderDistanceWeight = want;
-			}
-		}
-	}
-
-	/** The render distance weight to use, or NaN to keep the entity's own (a number, not an object, for each entity 5 times a second). */
-	private double desiredWeight(Entity e, double vanilla) {
-		if (hidden(e)) {
-			return 0.0;
-		}
-		if (!entityDistance.get() || incoming(e)) {
-			return Double.NaN;
-		}
-		int blocks;
-		if (e instanceof EntityPlayer) {
-			blocks = playerDistance.get();
-		} else if (e instanceof IMob) {
-			blocks = hostileDistance.get();
-		} else if (e instanceof EntityLivingBase && !(e instanceof EntityArmorStand) || isFloatingName(e)) {
-			// animals and NPCs, with the floating names over the NPCs (Hypixel's shops, for one)
-			blocks = passiveDistance.get();
-		} else {
-			blocks = otherDistance.get();
-		}
-		return weight(blocks, e.getEntityBoundingBox(), vanilla);
-	}
-
-	/** What can hit you (arrows, fireballs, lit TNT): always drawn as far as the game draws it. */
-	private static boolean incoming(Entity e) {
-		return e instanceof IProjectile || e instanceof EntityFireball || e instanceof EntityTNTPrimed;
-	}
-
-	/**
-	 * An invisible armor stand that only carries a name, as servers put over their NPCs and
-	 * generators: kept by "hide armor stands", and drawn as far as NPCs.
-	 */
-	private static boolean isFloatingName(Entity e) {
-		return e instanceof EntityArmorStand && e.hasCustomName() && e.getAlwaysRenderNameTag();
-	}
-
-	/**
-	 * The render distance weight for {@code blocks} blocks: farther or nearer than the game's own
-	 * ({@code vanilla}), as chosen; {@link #NO_LIMIT} never nearer than the game's.
-	 */
-	static double weight(int blocks, AxisAlignedBB box, double vanilla) {
-		// Entity.isInRangeToRenderDist: distance < averageEdge * 64 * weight
-		double edge = box == null ? 1 : box.getAverageEdgeLength();
-		if (Double.isNaN(edge) || edge <= 0) {
-			edge = 1;
-		}
-		double weight = blocks / (edge * 64);
-		return blocks >= NO_LIMIT ? Math.max(vanilla, weight) : weight;
-	}
-
-	private boolean hidden(Entity e) {
-		return hideItemFrames.get() && e instanceof EntityItemFrame
-			|| hidePaintings.get() && e instanceof EntityPainting
-			|| hideArmorStands.get() && e instanceof EntityArmorStand && !isFloatingName(e)
-			|| hideXpOrbs.get() && e instanceof EntityXPOrb
-			|| hideFireworks.get() && e instanceof EntityFireworkRocket
-			|| hideFallingBlocks.get() && e instanceof EntityFallingBlock;
 	}
 
 	@SuppressWarnings({"unchecked", "rawtypes"})
@@ -450,10 +397,7 @@ public final class Optimizations {
 				continue;
 			}
 			BooleanSupplier hide = hideRule(r);
-			GatedTileRenderer gated = new GatedTileRenderer(r, hide, (Predicate<TileEntity>) culling::tileHidden, () -> {
-				int d = tileDistance.get();
-				return d >= 64 ? 0 : (double) d * d;
-			});
+			GatedTileRenderer gated = new GatedTileRenderer(r, hide, (Predicate<TileEntity>) culling::tileHidden, RenderRules::tileDistanceSq);
 			gated.setRendererDispatcher(dispatcher);
 			entry.setValue(gated);
 		}

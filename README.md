@@ -24,9 +24,14 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
 - a Performance page with a one-click **Max performance** preset (with Undo) and Rago's own optimisations, Minecraft's video settings and, when OptiFine is
   installed, its performance, detail, animation and particle settings in one searchable list:
   - frame caps: menus above vanilla's fixed 30 FPS, and a lower cap while the window is unfocused
-  - entity render distances for players, hostile mobs, passive mobs and other entities
-  - hide arrows stuck in players, item frames, paintings, armor stands, XP orbs, fireworks, falling blocks
-  - tile entity distance, and hide skulls, signs, enchanting books, banners, beacon beams, end portals
+  - render distances, as PolyPatcher's (1 to 64 blocks): all living entities, players, hostile
+    mobs, passive mobs and block entities
+  - hide arrows stuck in players, in the ground or in flight (as PolyPatcher: the ones heading east,
+    south or up), item frames (all, or only those holding a map), paintings, armor stands,
+    see-through players, XP orbs, fireworks, falling blocks
+  - hide skulls, signs, enchanting books, banners, beacon beams, end portals
+  - back-face culling for entities and for players, no enchantment glint, and a limit on chunk
+    updates per second
   - hide tall grass, ferns, flowers and dead bushes, a particle cap, particle collisions and a fog switch
 - a Controls page to rebind every key (keyboard or mouse), with conflicts shown in red
 - a module system: every feature is a module with an on/off switch and its own options

@@ -10,8 +10,9 @@ import java.util.function.Predicate;
 
 /**
  * Wraps a tile entity renderer so it can be hidden, skipped when occlusion culling found it hidden
- * behind blocks, or skipped beyond a distance. The game passes
- * the position relative to the camera, so the distance check is three multiplications.
+ * behind blocks, or skipped beyond a distance. The game passes the block's corner relative to the
+ * camera's entity, so the distance to the centre of the block, the one the game itself measures for
+ * its 64 blocks, is three additions and three multiplications.
  */
 final class GatedTileRenderer<T extends TileEntity> extends TileEntitySpecialRenderer<T> {
 	final TileEntitySpecialRenderer<T> inner;
@@ -32,8 +33,13 @@ final class GatedTileRenderer<T extends TileEntity> extends TileEntitySpecialRen
 			return;
 		}
 		double max = maxDistanceSq.getAsDouble();
-		if (max > 0 && x * x + y * y + z * z > max && !inner.forceTileEntityRender()) {
-			return;
+		if (max > 0 && !inner.forceTileEntityRender()) {
+			double cx = x + 0.5;
+			double cy = y + 0.5;
+			double cz = z + 0.5;
+			if (cx * cx + cy * cy + cz * cz >= max) {
+				return;
+			}
 		}
 		inner.renderTileEntityAt(te, x, y, z, partialTicks, destroyStage);
 	}

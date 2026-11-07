@@ -482,6 +482,26 @@ public final class RagoTransformer implements IClassTransformer {
 		fix(font, "cache font data", "func_78256_a", "getStringWidth", "(Ljava/lang/String;)I", FontPatches::keptWidths);
 		fix(font, "cache font data: font changes", "func_110549_a", "onResourceManagerReload",
 			"(Lnet/minecraft/client/resources/IResourceManager;)V", FontPatches::fontReloaded);
+		// PolyPatcher's options that are off until chosen (gg.rago.optimize.RenderRules); these work beside it, as they
+		// only answer first: the hiding options and render distances, before anything of the entity is drawn
+		add("net.minecraft.client.renderer.entity.RenderManager", new Patch("hiding options and entity render distances",
+			"func_178635_a", "shouldRender", "(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/renderer/culling/ICamera;DDD)Z",
+			m -> returnIf(m, "skipEntity", "(Lnet/minecraft/entity/Entity;DDD)Z",
+				new int[] {Opcodes.ALOAD, 1, Opcodes.DLOAD, 3, Opcodes.DLOAD, 5, Opcodes.DLOAD, 7}, Opcodes.ICONST_0, Opcodes.IRETURN)));
+		add("net.minecraft.client.renderer.entity.RenderItem", new Patch("no enchantment glint on items",
+			"func_180451_a", "renderEffect", "(Lnet/minecraft/client/resources/model/IBakedModel;)V",
+			m -> returnIf(m, "noGlint", "()Z", new int[0], -1, Opcodes.RETURN)));
+		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("no enchantment glint on armour",
+			"func_177183_a", "renderGlint", "(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
+			m -> returnIf(m, "noGlint", "()Z", new int[0], -1, Opcodes.RETURN)));
+		add("net.minecraft.client.renderer.chunk.RenderChunk", new Patch("chunk update limit",
+			"func_178581_b", "rebuildChunk", "(FFFLnet/minecraft/client/renderer/chunk/ChunkCompileTaskGenerator;)V",
+			m -> returnIf(m, "refuseRebuild",
+				"(Lnet/minecraft/client/renderer/chunk/RenderChunk;Lnet/minecraft/client/renderer/chunk/ChunkCompileTaskGenerator;)Z",
+				new int[] {Opcodes.ALOAD, 0, Opcodes.ALOAD, 4}, -1, Opcodes.RETURN)));
+		// ... while back-face culling takes the place of a call PolyPatcher may change too
+		fix("net.minecraft.client.renderer.entity.RendererLivingEntity", "entity and player back-face culling", "func_76986_a", "doRender",
+			"(Lnet/minecraft/entity/EntityLivingBase;DDDFF)V", RagoTransformer::livingCull);
 		// what a wide unicode character measures with OptiFine, as without it (gg.rago.fixes.GlyphWidths)
 		optional(fix("net.minecraft.client.gui.FontRenderer", "unicode character widths", "getCharWidthFloat",
 			"getCharWidthFloat", "(C)F", FixPatches::wideGlyphs));
@@ -968,6 +988,22 @@ public final class RagoTransformer implements IClassTransformer {
 		head.add(new FrameNode(Opcodes.F_SAME, 0, null, 0, null));
 		m.instructions.insert(head);
 		return true;
+	}
+
+	/** RendererLivingEntity.doRender: its one GlStateManager.disableCull() becomes {@code Hooks.livingCull(entity)}. */
+	private static boolean livingCull(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == Opcodes.INVOKESTATIC && "net/minecraft/client/renderer/GlStateManager".equals(((MethodInsnNode) insn).owner)
+				&& isMethod((MethodInsnNode) insn, "func_179129_p", "disableCull", "()V")) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ALOAD, 1));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "livingCull", "(Lnet/minecraft/entity/EntityLivingBase;)V", false));
+				m.instructions.insertBefore(insn, call);
+				m.instructions.remove(insn);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** {@code Hooks.thirdPersonItem(entity)} just before the held item is drawn in the third-person transform. */

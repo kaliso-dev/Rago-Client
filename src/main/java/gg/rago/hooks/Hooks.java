@@ -758,6 +758,27 @@ public final class Hooks {
 		return c != null ? c.capeFor(player, vanilla) : vanilla;
 	}
 
+	/** RenderManager.shouldRender, first thing: true leaves the entity out of this frame (hiding options, render distances). */
+	public static boolean skipEntity(Entity entity, double x, double y, double z) {
+		return gg.rago.optimize.RenderRules.skip(entity, x, y, z);
+	}
+
+	/** RendererLivingEntity.doRender, in place of its GlStateManager.disableCull(): back-face culling for living entities. */
+	public static void livingCull(EntityLivingBase entity) {
+		gg.rago.optimize.RenderRules.livingCull(entity);
+	}
+
+	/** RenderItem.renderEffect and LayerArmorBase.renderGlint, first thing: true draws no enchantment glint. */
+	public static boolean noGlint() {
+		return gg.rago.optimize.RenderRules.noGlint();
+	}
+
+	/** RenderChunk.rebuildChunk, first thing: true when the chunk update limit makes this rebuild wait. */
+	public static boolean refuseRebuild(net.minecraft.client.renderer.chunk.RenderChunk chunk,
+		net.minecraft.client.renderer.chunk.ChunkCompileTaskGenerator task) {
+		return gg.rago.optimize.RenderRules.refuseRebuild(chunk, task);
+	}
+
 	/** RenderItem.renderEffect: the colour of the glint on items (vanilla -8372020, purple). */
 	public static int glintColor(int vanilla) {
 		GlintColor g = glint;
