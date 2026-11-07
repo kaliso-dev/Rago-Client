@@ -17,7 +17,13 @@ public final class FrameProfile {
 	/** Working out the name tags (and the lines above them) as each player is drawn. */
 	public static final int NAMES_QUEUED = 4;
 	public static final int HITBOXES = 5;
-	private static final String[] NAMES = {"culling", "hud", "nametags", "tick", "names", "hitboxes"};
+	/** Hats, wings and shields drawn on players (the cosmetics layer). */
+	public static final int COSMETICS = 6;
+	/** The tab list's Rago lines: the logo, styled names and icons. */
+	public static final int TAB = 7;
+	/** Posing the players who dance. */
+	public static final int EMOTES = 8;
+	private static final String[] NAMES = {"culling", "hud", "nametags", "tick", "names", "hitboxes", "cosmetics", "tab", "emotes"};
 	private static final long[] TOTAL = new long[NAMES.length];
 	/** Bytes allocated on the client thread inside each slot (see {@link #start}). */
 	private static final long[] BYTES = new long[NAMES.length];

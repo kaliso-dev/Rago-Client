@@ -45,14 +45,43 @@ public final class RagoNetwork extends Module {
 	private final StringOption url = addOption(new StringOption("network_server", DEFAULT_SERVER, 120));
 	private final BooleanOption visible = addOption(new BooleanOption("network_visible", true));
 	private final BooleanOption others = addOption(new BooleanOption("network_others", true));
-	private final NetworkClient client = new NetworkClient(this::execute, System::currentTimeMillis,
+	private final NetworkClient client = new NetworkClient(this::execute, this::executeCall, System::currentTimeMillis,
 		RagoNetwork::version, LOG::info);
 	private final List<UUID> around = new ArrayList<>();
 	private ExecutorService worker;
+	private ExecutorService callWorker;
 	private SessionAccount account;
+
+	/** When the player last moved or looked around, for the play pass (minutes away do not count). */
+	private long lastActive;
+	private double lastX;
+	private double lastZ;
+	private float lastYaw;
+	private float lastPitch;
+	/** Minutes without moving after which the play pass stops counting. */
+	private static final long AWAY_AFTER = 5 * 60_000;
 
 	public RagoNetwork() {
 		super("rago_network", FeatureClass.VISUAL, true);
+		client.onPass(gg.rago.rewards.Rewards::passProgress);
+	}
+
+	/** In a world and not away from the keyboard: the time the play pass counts. */
+	private boolean playing() {
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
+		net.minecraft.client.entity.EntityPlayerSP p = mc.thePlayer;
+		if (mc.theWorld == null || p == null) {
+			return false;
+		}
+		long now = System.currentTimeMillis();
+		if (p.posX != lastX || p.posZ != lastZ || p.rotationYaw != lastYaw || p.rotationPitch != lastPitch) {
+			lastX = p.posX;
+			lastZ = p.posZ;
+			lastYaw = p.rotationYaw;
+			lastPitch = p.rotationPitch;
+			lastActive = now;
+		}
+		return now - lastActive < AWAY_AFTER;
 	}
 
 	@Override
@@ -66,9 +95,16 @@ public final class RagoNetwork extends Module {
 		RagoCape cape = Hooks.cape;
 		boolean show = visible.get();
 		int signature = (show ? 1 : 0) + 31 * (cosmetics != null ? cosmetics.sharedSignature(cape) : 0);
-		client.tick(url.get(), account(), show, others.get(), signature,
-			() -> cosmetics != null ? cosmetics.shared(cape) : Loadout.NONE, this::around);
+		client.playing(playing());
+		client.tick(url.get(), account(), show, others.get(), signature, sharedLoadout, aroundPlayers);
 	}
+
+	/** What you wear, as shared; made once, not every tick. */
+	private final java.util.function.Supplier<Loadout> sharedLoadout = () -> {
+		Cosmetics c = Hooks.cosmetics;
+		return c != null ? c.shared(Hooks.cape) : Loadout.NONE;
+	};
+	private final java.util.function.Supplier<Collection<UUID>> aroundPlayers = this::around;
 
 	@Override
 	protected void onDisable() {
@@ -77,6 +113,12 @@ public final class RagoNetwork extends Module {
 
 	/** What Rago Network says about the player {@code id}; null for someone not using Rago, or when off. */
 	public NetworkClient.Player player(UUID id) {
+		if (gg.rago.debug.FakeBedwars.ON) {
+			NetworkClient.Player fake = gg.rago.debug.FakeBedwars.ragoPlayer(id);
+			if (fake != null) {
+				return fake;
+			}
+		}
 		return isEnabled() && others.get() ? client.player(id) : null;
 	}
 
@@ -105,6 +147,20 @@ public final class RagoNetwork extends Module {
 	/** Rago players online, -1 when not known. */
 	public int online() {
 		return isEnabled() ? client.online() : -1;
+	}
+
+	/** A call for a screen (the daily chest, the shop...); answered "offline" when the mod is off. */
+	public void request(String path, com.google.gson.JsonObject body, NetworkClient.Answer answer) {
+		if (isEnabled()) {
+			client.request(path, body, answer);
+		} else {
+			answer.done(new com.google.gson.JsonObject(), "offline");
+		}
+	}
+
+	/** Whether this client is signed in to Rago Network. */
+	public boolean signedIn() {
+		return isEnabled() && client.signedIn();
 	}
 
 	/** One line for /rago network. */
@@ -152,6 +208,17 @@ public final class RagoNetwork extends Module {
 		worker.execute(job);
 	}
 
+	private synchronized void executeCall(Runnable job) {
+		if (callWorker == null) {
+			callWorker = Executors.newSingleThreadExecutor(r -> {
+				Thread t = new Thread(r, "Rago Network calls");
+				t.setDaemon(true);
+				return t;
+			});
+		}
+		callWorker.execute(job);
+	}
+
 	private NetworkClient.Account account() {
 		Session session = Minecraft.getMinecraft().getSession();
 		if (account == null || account.session != session) {
@@ -194,6 +261,11 @@ public final class RagoNetwork extends Module {
 
 		@Override
 		public void joinServer(String serverId) throws Exception {
+			if (Boolean.getBoolean("rago.test.network")) {
+				// developer testing against a local server whose session server says yes to anyone:
+				// a real server asks Mojang, which this skips, so it refuses the sign-in
+				return;
+			}
 			Minecraft.getMinecraft().getSessionService().joinServer(session.getProfile(), session.getToken(), serverId);
 		}
 	}

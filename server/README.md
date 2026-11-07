@@ -2,7 +2,7 @@
 
 The small server behind Rago Client's online features: which players use Rago (the Rago logo next
 to their name, in the tab list and on name tags), their role (creator, partner, staff) and the
-cosmetics they show (cape, hat, wings, shield), and how many Rago players are online.
+cosmetics they show (cape, hat, wings, shield), their friends, and how many Rago players are online.
 
 Python 3.10 or newer, standard library only, SQLite for storage.
 
@@ -38,7 +38,11 @@ Minecraft server's login and so join that server as the player.
 | `POST /v1/lookup` | yes | `{"uuids": [...]}` (100 at most) → `{"players": {uuid: {"role", "cosmetics"}}}` |
 | `POST /v1/emote` | yes | `{"emote": "dab", "speed": 100}` (`"none"` stops it) → `{"ok": true}`; kept in memory only, 10 minutes at most |
 | `POST /v1/emotes` | yes | `{"uuids": [...]}` (100 at most) → `{"emotes": {uuid: {"emote", "speed", "elapsed"}}}`, elapsed in ms |
-| `DELETE /v1/me` | yes | forgets the player and their sessions |
+| `POST /v1/friends` | yes | `{}` → `{"friends": [{"uuid", "name", "role", "online"}], "received": [{"uuid", "name"}], "sent": [...]}`: friends online first then by name, requests newest first |
+| `POST /v1/friends/add` | yes | `{"name"}` → `{"state": "sent" \| "friends", "name"}`; `404 not_on_rago`, `400 yourself` / `bad_name`, `409 too_many_friends` / `too_many_requests`. Asking someone who already asked you makes you friends |
+| `POST /v1/friends/answer` | yes | `{"uuid", "accept": true \| false}` → `{"state": "friends" \| "declined"}`; `404 no_request` |
+| `POST /v1/friends/remove` | yes | `{"uuid"}` → `{"removed": true \| false}`: ends a friendship, or takes back or turns down a request |
+| `DELETE /v1/me` | yes | forgets the player, their sessions, friends and requests |
 
 Signed-in calls send `Authorization: Bearer <token>`.
 
@@ -50,10 +54,13 @@ Signed-in calls send `Authorization: Bearer <token>`.
   the roles and the players (uuid, 32 hex digits) given, e.g.
   `{"cape": {"creator": ["creator", "<uuid of another account>"]}}`: a player listed wears it
   without getting the role.
+- A friend is online like everyone else: a presence in the last 150 seconds with `"visible": true`.
+  A player who hides that they use Rago shows offline to their friends and cannot be found by name
+  (`404 not_on_rago`), but can still ask others. 200 friends and 50 requests waiting at most.
 - Rate limits (per address for sign-in and stats, per player otherwise): sign-in 10 a minute,
-  presence 6, lookup 30, stats 60. Over the limit: `429`.
+  presence 6, lookup 30, friends 30, adding a friend 20, stats 60. Over the limit: `429`.
 - Nothing is logged per request, addresses are never stored, and players not seen for 180 days are
-  deleted.
+  deleted, with their friendships and requests.
 
 ## Configuration
 
@@ -63,13 +70,16 @@ Copy `config.example.json` to `config.json` and edit it:
 | --- | --- | --- |
 | `host`, `port` | `0.0.0.0`, `8080` | where to listen (the `PORT` environment variable, set by hosts such as Render, wins over `port`) |
 | `trust_proxy` | `false` | use `X-Forwarded-For` from the reverse proxy for rate limits |
-| `database` | `rago-network.db` | SQLite file |
+| `database` | `rago-network.db` | SQLite file, or a `postgresql://` address (the `DATABASE_URL` environment variable wins) |
+| `catalogue` | | path to `catalogue.json`: every cosmetic, its rarity and how it is won |
+| `founder_until` | | time (Unix seconds) before which players who sign in get the founder badge |
 | `cosmetics` | | path to `cosmetics.json` |
 | `session_ttl` | `86400` | session length, seconds |
 | `online_window` | `150` | how long a presence counts, seconds |
 | `forget_after` | `15552000` | delete players not seen for this long, seconds |
 | `roles` | `{}` | `{"<uuid>": "creator"}`: roles by uuid (preferred) |
 | `role_names` | `{}` | `{"qRago": "creator"}`: roles by name, applied when that player signs in |
+| `own_everything` | `[]` | `["<uuid>"]`: accounts that own every cosmetic without a role (qAbel, the creator's other account); the creator role owns everything too |
 
 Roles: `user`, `partner`, `staff`, `creator`. A role can also be set from the command line once the
 player has signed in once:
@@ -124,12 +134,26 @@ What the free plan means here:
   plays, their presence every minute keeps it awake.
 - 750 free instance hours a month per Render workspace, enough for one service all month; past
   them Render suspends the workspace's free services until the next month.
-- The disk is not kept: when the server sleeps, restarts or is redeployed, the database starts
-  empty. Players sign in again on their own (the client does it on the 401), their cosmetics come
-  back with their next presence (every minute) and roles given in `role_names` come back when
-  those players sign in. Roles given with the `role` command are lost: put them in `role_names`
-  (or `roles`) in `config.example.json`, which the Docker image uses as its config.
+- The disk is not kept: when the server sleeps, restarts or is redeployed, a SQLite database starts
+  empty, and Rago Points, chests and cosmetics won are lost with it. Give the server a free
+  PostgreSQL database instead (next section). Without one, players sign in again on their own (the
+  client does it on the 401), their loadout comes back with their next presence (every minute) and
+  roles given in `role_names` come back when those players sign in. Roles given with the `role`
+  command are lost: put them in `role_names` (or `roles`) in `config.example.json`, which the
+  Docker image uses as its config.
 - `PORT`, which Render sets, wins over `port` in the config.
+
+### Keeping points and cosmetics (free Neon database)
+
+1. Sign in on [neon.tech](https://neon.tech) and create a project (the free plan, a region near
+   Frankfurt).
+2. On the project's dashboard, **Connect**, and copy the connection string
+   (`postgresql://...?sslmode=require`).
+3. On Render, the `rago-network` service, **Environment**, add `DATABASE_URL` with that string,
+   then **Save**: Render redeploys and the server creates its tables on its own.
+
+The connection string is a password: keep it in Render's settings, never in the repository or a
+chat. A free Neon database sleeps when unused; the server opens its connection again when it wakes.
 
 When Rago has many players, the same Docker image runs on any small server with a disk (see
 "Running it" above), and only the address in the client changes.

@@ -17,16 +17,18 @@ class Whitelist:
         with open(path, encoding="utf-8") as f:
             return cls(json.load(f))
 
-    def clean(self, loadout, role, uuid=None):
+    def clean(self, loadout, role, uuid=None, owns=None):
         """The loadout with unknown fields dropped and anything invalid put back to its default; an
-        exclusive value is kept for the roles and the players (by uuid) it lists."""
+        exclusive value is kept for the roles and the players (by uuid) it lists, and owns(field, value),
+        when given, must say the player has the cosmetic."""
         if not isinstance(loadout, dict):
             loadout = {}
         player = uuid.replace("-", "").lower() if isinstance(uuid, str) else None
         out = {}
         for key, spec in self.fields.items():
             value = loadout.get(key, spec["default"])
-            out[key] = value if self._valid(key, spec, value, role, player) else spec["default"]
+            ok = self._valid(key, spec, value, role, player) and (owns is None or owns(key, value))
+            out[key] = value if ok else spec["default"]
         return out
 
     def _valid(self, key, spec, value, role, player):

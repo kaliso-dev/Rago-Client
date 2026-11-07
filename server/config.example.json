@@ -4,9 +4,11 @@
   "trust_proxy": true,
   "database": "/data/rago-network.db",
   "cosmetics": "/app/cosmetics.json",
+  "catalogue": "/app/catalogue.json",
   "session_ttl": 86400,
   "online_window": 150,
   "forget_after": 15552000,
   "roles": {},
-  "role_names": {"qRago": "creator"}
+  "role_names": {"qRago": "creator"},
+  "own_everything": ["642543c54ee741118102aa0bca1e552f"]
 }

@@ -283,28 +283,9 @@ public final class HologramBatch {
 		}
 	}
 
-	private static Boolean shadersClass;
-	private static Field shaderPackLoaded;
-
 	/** Whether an OptiFine shader pack is in use: labels then go through its programs, left to the game. */
 	private static boolean shaders() {
-		if (shadersClass == null) {
-			shadersClass = false;
-			for (String name : new String[] {"shadersmod.client.Shaders", "net.optifine.shaders.Shaders"}) {
-				try {
-					shaderPackLoaded = Class.forName(name).getField("shaderPackLoaded");
-					shadersClass = true;
-					break;
-				} catch (ReflectiveOperationException | LinkageError ignored) {
-					// not this OptiFine, or none
-				}
-			}
-		}
-		try {
-			return shadersClass && shaderPackLoaded.getBoolean(null);
-		} catch (IllegalAccessException e) {
-			return true;
-		}
+		return OptiFineFields.shadersOn();
 	}
 
 	@SubscribeEvent

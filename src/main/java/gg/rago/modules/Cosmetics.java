@@ -13,6 +13,7 @@ import gg.rago.network.NetworkClient;
 import gg.rago.render.BatWing;
 import gg.rago.render.CosmeticModel;
 import gg.rago.render.NeonColors;
+import gg.rago.rewards.Rewards;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.model.ModelPlayer;
@@ -50,12 +51,24 @@ public final class Cosmetics extends Module {
 	/** The voxel hats, by option value. */
 	private static final Map<String, CosmeticModel> HATS = new HashMap<>();
 	private static final CosmeticModel DRAGON_SMALL = model("dragon_small", "dragon_small");
+	/** The extruded wings won with Rago Points (tools/reward_wings.py), coloured in their texture. */
+	private static final Map<String, CosmeticModel> WING_MODELS = new HashMap<>();
+	/** The light along the mecha wings' blades, drawn again as a glow. */
+	private static final ResourceLocation MECHA_GLOW = new ResourceLocation("rago", "textures/cosmetics/wings_mecha_glow.png");
 	private static final String[] SHIELDS = Loadout.SHIELDS;
 	private static final Map<String, CosmeticModel> SHIELD_MODELS = new HashMap<>();
 
 	static {
 		HATS.put("top_hat", model("top_hat", "hats_atlas"));
 		HATS.put("wizard_hat", model("wizard_hat", "wizard_hat"));
+		// Rago's voxel hats (tools/reward_hats.py), each with its small palette texture
+		for (String h : new String[] {"cat_ears", "devil_horns", "headphones", "kitsune"}) {
+			HATS.put(h, model("hat_" + h, "hat_" + h));
+		}
+		WING_MODELS.put("dragon_small", DRAGON_SMALL);
+		for (String w : new String[] {"angel", "frost", "mecha"}) {
+			WING_MODELS.put(w, model("wings_" + w, "wings_" + w));
+		}
 		for (int i = 1; i < SHIELDS.length; i++) {
 			SHIELD_MODELS.put(SHIELDS[i], model("shield_" + SHIELDS[i], "shield_" + SHIELDS[i]));
 		}
@@ -79,6 +92,9 @@ public final class Cosmetics extends Module {
 		Loadout.SHIELD_SCALE_MAX));
 	/** The faint glow of the neon pieces: one more draw of each, added at full brightness. */
 	private final BooleanOption neonGlow = addOption(new BooleanOption("cosmetic_neon_glow", true));
+	/** The colour of your name and the icon after it (won with Rago Points), drawn by {@link RagoBadge}. */
+	private final ChoiceOption nameColor = addOption(new ChoiceOption("cosmetic_name_color", "none", Loadout.NAME_COLORS));
+	private final ChoiceOption nameIcon = addOption(new ChoiceOption("cosmetic_name_icon", "none", Loadout.NAME_ICONS));
 	private boolean installed;
 	/** Your loadout as drawn on you, made again when an option changes ({@link #ownSignature}). */
 	private Loadout own;
@@ -93,7 +109,7 @@ public final class Cosmetics extends Module {
 		hatNeon.showIf(this::ragoHat);
 		wingsNeon.showIf(() -> wings.is("dragon_small"));
 		shieldNeon.showIf(() -> shield.is("rago"));
-		neonGlow.showIf(() -> ragoHat() || wings.is("dragon_small") || shield.is("rago"));
+		neonGlow.showIf(() -> ragoHat() || wings.is("dragon_small") || wings.is("mecha") || shield.is("rago"));
 		hatScale.showIf(() -> !hat.is("none"));
 		wingsScale.showIf(() -> !wings.is("none"));
 		flap.showIf(() -> !wings.is("none"));
@@ -122,10 +138,27 @@ public final class Cosmetics extends Module {
 
 	private Loadout loadout(boolean on, RagoCape cape) {
 		boolean capeOn = cape != null && cape.isEnabled();
-		return new Loadout(capeOn ? cape.design() : "none", cape != null ? cape.neon() : "red", cape != null && cape.overOwn(),
-			on ? hat.get() : "none", hatNeon.get(), Loadout.NO_TINT, hatScale.get(),
-			on ? wings.get() : "none", wingsNeon.get(), Loadout.NO_TINT, wingsScale.get(), flap.get(), flapSpeed.get(),
-			on ? shield.get() : "none", shieldNeon.get(), shieldScale.get(), neonGlow.get());
+		return new Loadout(capeOn ? cape.worn() : "none", cape != null ? cape.neon() : "red", cape != null && cape.overOwn(),
+			on ? worn("hat", hat) : "none", hatNeon.get(), Loadout.NO_TINT, hatScale.get(),
+			on ? worn("wings", wings) : "none", wingsNeon.get(), Loadout.NO_TINT, wingsScale.get(), flap.get(), flapSpeed.get(),
+			on ? worn("shield", shield) : "none", shieldNeon.get(), shieldScale.get(), neonGlow.get(), worn("name", nameColor),
+			worn("icon", nameIcon));
+	}
+
+	/** The option's value when you have that cosmetic (bought or won), "none" until then. */
+	private static String worn(String type, ChoiceOption option) {
+		String id = option.get();
+		return Rewards.wearable(type, id) ? id : "none";
+	}
+
+	/** The colour of your name ("none": the game's). Shown whether the hat, wings and shield are on or not. */
+	public String nameColor() {
+		return ownLoadout().nameColor;
+	}
+
+	/** The icon after your name ("none" for none). */
+	public String nameIcon() {
+		return ownLoadout().nameIcon;
 	}
 
 	private int signature(boolean on, RagoCape cape) {
@@ -142,6 +175,9 @@ public final class Cosmetics extends Module {
 		h = 31 * h + shieldNeon.get().hashCode();
 		h = 31 * h + shieldScale.get();
 		h = 31 * h + (neonGlow.get() ? 1 : 0);
+		h = 31 * h + nameColor.get().hashCode();
+		h = 31 * h + nameIcon.get().hashCode();
+		h = 31 * h + Rewards.ownedVersion();
 		if (cape != null) {
 			h = 31 * h + (cape.isEnabled() ? 1 : 0);
 			h = 31 * h + cape.design().hashCode();
@@ -165,21 +201,33 @@ public final class Cosmetics extends Module {
 	 * Draws {@code pass} once more over what is there, added at full brightness whatever the light:
 	 * the faint glow of the neon pieces. Nothing when the loadout's glow is turned off.
 	 */
-	private static void glow(Loadout l, Runnable pass) {
+	/** The light the glow pass replaced, given back by {@link #glowEnd}. */
+	private static float glowLightX;
+	private static float glowLightY;
+
+	/**
+	 * Starts the glow pass of a piece (full brightness, added over it) when the loadout shows the
+	 * glow; false otherwise. Call {@link #glowEnd} after drawing it. Not a lambda per piece: this runs
+	 * for every player every frame.
+	 */
+	private static boolean glowStart(Loadout l) {
 		if (!l.neonGlow) {
-			return;
+			return false;
 		}
-		float lx = OpenGlHelper.lastBrightnessX;
-		float ly = OpenGlHelper.lastBrightnessY;
+		glowLightX = OpenGlHelper.lastBrightnessX;
+		glowLightY = OpenGlHelper.lastBrightnessY;
 		OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240, 240);
 		GlStateManager.enableBlend();
 		GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
 		GlStateManager.depthMask(false);
-		pass.run();
+		return true;
+	}
+
+	private static void glowEnd() {
 		GlStateManager.depthMask(true);
 		GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 		GlStateManager.disableBlend();
-		OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, lx, ly);
+		OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, glowLightX, glowLightY);
 	}
 
 	@SubscribeEvent
@@ -203,6 +251,16 @@ public final class Cosmetics extends Module {
 		@Override
 		public void doRenderLayer(AbstractClientPlayer player, float limbSwing, float limbSwingAmount, float partialTicks,
 			float ageInTicks, float netHeadYaw, float headPitch, float scale) {
+			if (gg.rago.debug.FrameProfile.ON) {
+				long t = gg.rago.debug.FrameProfile.start();
+				draw(player, ageInTicks);
+				gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.COSMETICS, System.nanoTime() - t);
+				return;
+			}
+			draw(player, ageInTicks);
+		}
+
+		private void draw(AbstractClientPlayer player, float ageInTicks) {
 			if (player.isInvisible()) {
 				return;
 			}
@@ -446,11 +504,12 @@ public final class Cosmetics extends Module {
 		box(-1.7f * PX, -7.1f * PX, 4.5f * PX, 1.7f * PX, -5.7f * PX, 4.55f * PX, 0xFF0B0B0E);
 		box(-2.8f * PX, -5.7f * PX, 4.5f * PX, 2.8f * PX, -4.95f * PX, 4.7f * PX, neon);
 		box(1.3f * PX, -5.85f * PX, 4.7f * PX, 2.2f * PX, -4.8f * PX, 4.8f * PX, 0xFFC9C9D0);
-		glow(l, () -> {
+		if (glowStart(l)) {
 			logoGlow(-1.6f, -8.3f, 3.2f, -4.56f, neon);
 			untextured();
 			box(-2.9f * PX, -5.8f * PX, 4.5f * PX, 2.9f * PX, -4.85f * PX, 4.74f * PX, 0x55000000 | neon & 0xFFFFFF);
-		});
+			glowEnd();
+		}
 		GlStateManager.popMatrix();
 		untextured();
 	}
@@ -465,7 +524,10 @@ public final class Cosmetics extends Module {
 		texBox(-4.8f, -5.75f, -4.8f, 4.8f, -3.9f, 4.8f, 0, 14, 9, 2, 9, 64, 32, c);
 		texBox(-1.5f, -11.6f, -1.5f, 1.5f, -9.1f, 1.5f, 40, 0, 3, 3, 3, 64, 32, neon);
 		logo(-0.9f, -5.65f, 1.8f, -4.83f, neon);
-		glow(l, () -> logoGlow(-0.9f, -5.65f, 1.8f, -4.86f, neon));
+		if (glowStart(l)) {
+			logoGlow(-0.9f, -5.65f, 1.8f, -4.86f, neon);
+			glowEnd();
+		}
 		GlStateManager.popMatrix();
 		untextured();
 	}
@@ -564,11 +626,16 @@ public final class Cosmetics extends Module {
 	// ---- wings: body space, the back of the body at z = 0.125 --------------------------------------
 
 	/**
-	 * One small dragon wing: Rago's pixel-art wing extruded into voxels, its root on the back. The
-	 * other side is the same model mirrored.
+	 * One extruded wing (the small dragon, angel, frost or mecha): pixel art made into voxels, its root
+	 * on the back. The other side is the same model mirrored. The small dragon's red takes the neon
+	 * colour; the mecha wings' lines glow.
 	 */
 	private static void extrudedWing(Loadout l, int side, float beat) {
-		// coloured in their texture (Rago's red and black)
+		CosmeticModel m = WING_MODELS.get(l.wings);
+		if (m == null) {
+			return;
+		}
+		// coloured in their texture
 		int c = 0xFFFFFFFF;
 		// compact
 		float span = 0.7f * l.wingsScale / 100f;
@@ -580,10 +647,19 @@ public final class Cosmetics extends Module {
 		GlStateManager.rotate(side * -22, 0, 0, 1);
 		GlStateManager.scale(side * span, span, span);
 		GlStateManager.disableBlend();
-		DRAGON_SMALL.render("wing", c, NeonColors.texture(DRAGON_SMALL.texture(), l.wingsNeon));
-		ResourceLocation lit = l.neonGlow ? NeonColors.glow(DRAGON_SMALL.texture(), l.wingsNeon) : null;
-		if (lit != null) {
-			glow(l, () -> DRAGON_SMALL.render("wing", c, lit));
+		if (m == DRAGON_SMALL) {
+			m.render("wing", c, NeonColors.texture(m.texture(), l.wingsNeon));
+			ResourceLocation lit = l.neonGlow ? NeonColors.glow(m.texture(), l.wingsNeon) : null;
+			if (lit != null && glowStart(l)) {
+				m.renderGlow("wing", c, lit);
+				glowEnd();
+			}
+		} else {
+			m.render("wing", c);
+			if (l.wings.equals("mecha") && glowStart(l)) {
+				m.renderGlow("wing", c, MECHA_GLOW);
+				glowEnd();
+			}
 		}
 		GlStateManager.popMatrix();
 		untextured();
@@ -611,8 +687,9 @@ public final class Cosmetics extends Module {
 		if (l.shield.equals("rago")) {
 			m.render("shield", 0xFFFFFFFF, NeonColors.texture(m.texture(), l.shieldNeon));
 			ResourceLocation lit = l.neonGlow ? NeonColors.glow(m.texture(), l.shieldNeon) : null;
-			if (lit != null) {
-				glow(l, () -> m.render("shield", 0xFFFFFFFF, lit));
+			if (lit != null && glowStart(l)) {
+				m.renderGlow("shield", 0xFFFFFFFF, lit);
+				glowEnd();
 			}
 		} else {
 			m.render("shield", 0xFFFFFFFF);

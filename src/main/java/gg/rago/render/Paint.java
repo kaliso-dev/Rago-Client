@@ -93,6 +93,26 @@ public final class Paint {
 		corner(b, x1 - r, y1 - r, r, 1, 1, argb);
 	}
 
+	/** Adds a filled triangle to a shape batch (a quad with its last corner twice). */
+	public static void triangleInto(WorldRenderer b, float x0, float y0, float x1, float y1, float x2, float y2, int argb) {
+		if (argb >>> 24 == 0) {
+			return;
+		}
+		// the same turning direction as the other shapes, so face culling treats it alike
+		if ((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0) > 0) {
+			float tx = x1;
+			float ty = y1;
+			x1 = x2;
+			y1 = y2;
+			x2 = tx;
+			y2 = ty;
+		}
+		color(b.pos(x0, y0, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+		color(b.pos(x1, y1, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+		color(b.pos(x2, y2, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+		color(b.pos(x2, y2, 0).tex(SOLID_UV, SOLID_UV), argb).endVertex();
+	}
+
 	/** Centre of the corner texture's last texel, which is fully opaque (64 texels wide). */
 	private static final float SOLID_UV = 1 - 0.5f / 64;
 

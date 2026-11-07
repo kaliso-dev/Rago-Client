@@ -9,6 +9,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
+import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.FrameNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
@@ -52,6 +53,12 @@ public final class RagoTransformer implements IClassTransformer {
 		final String mcp;
 		final String desc;
 		final Patcher patcher;
+		/** One of the fixes PolyPatcher makes: left to it while it is loaded. */
+		boolean polyPatcher;
+		/** A public int field the patched code uses, added to the class with the patch (or null). */
+		String intField;
+		/** A method only OptiFine has (in a class of its own or one it changed): nothing to do without it. */
+		boolean optional;
 
 		Patch(String what, String srg, String mcp, String desc, Patcher patcher) {
 			this.what = what;
@@ -68,9 +75,6 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.Minecraft", new Patch("menu and unfocused frame-rate caps",
 			"func_90020_K", "getLimitFramerate", "()I",
 			m -> beforeReturns(m, Opcodes.IRETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, "gg/rago/optimize/FrameLimit", "limit", "(I)I", false))));
-		add("net.minecraft.client.renderer.entity.RenderManager", new Patch("occlusion culling of entities",
-			"func_178635_a", "shouldRender", "(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/renderer/culling/ICamera;DDD)Z",
-			m -> returnIf(m, "skipEntity", "(Lnet/minecraft/entity/Entity;)Z", new int[] {Opcodes.ALOAD, 1}, Opcodes.ICONST_0, Opcodes.IRETURN)));
 		add("net.minecraft.client.renderer.EntityRenderer", new Patch("hurt camera strength",
 			"func_78482_e", "hurtCameraEffect", "(F)V",
 			RagoTransformer::hurtShake));
@@ -416,6 +420,140 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.gui.GuiIngame", new Patch("grouped sidebar",
 			"func_180475_a", "renderScoreboard", "(Lnet/minecraft/scoreboard/ScoreObjective;Lnet/minecraft/client/gui/ScaledResolution;)V",
 			RagoTransformer::sidebar));
+
+		// the fixes PolyPatcher makes (see gg.rago.fixes.FixHooks)
+		// PolyPatcher's entity culling, Rago's way (gg.rago.optimize.EntityCulling): what can be seen, as the entity pass starts
+		fix("net.minecraft.client.renderer.RenderGlobal", "entity culling", "func_180446_a", "renderEntities",
+			"(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/renderer/culling/ICamera;F)V", m -> {
+				InsnList head = new InsnList();
+				head.add(new VarInsnNode(Opcodes.ALOAD, 1));
+				head.add(new VarInsnNode(Opcodes.ALOAD, 2));
+				head.add(new VarInsnNode(Opcodes.FLOAD, 3));
+				head.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "entitiesStart",
+					"(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/renderer/culling/ICamera;F)V", false));
+				m.instructions.insert(head);
+				return true;
+			});
+		// PolyPatcher's Low Animation Tick: how many blocks around you get a random display tick each tick
+		fix("net.minecraft.client.multiplayer.WorldClient", "low animation tick", "func_73029_E", "doVoidFogParticles", "(III)V", m -> {
+			for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+				if (insn.getOpcode() == Opcodes.SIPUSH && ((IntInsnNode) insn).operand == 1000) {
+					m.instructions.set(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "randomDisplayTicks", "()I", false));
+					return true;
+				}
+			}
+			return false;
+		});
+		// PolyPatcher's Downscale Pack Images (gg.rago.optimize.PackIcons)
+		fix("net.minecraft.client.resources.AbstractResourcePack", "downscale pack images", "func_110586_a", "getPackImage",
+			"()Ljava/awt/image/BufferedImage;", m -> beforeReturns(m, Opcodes.ARETURN, new MethodInsnNode(Opcodes.INVOKESTATIC,
+				"gg/rago/optimize/PackIcons", "packIcon", "(Ljava/awt/image/BufferedImage;)Ljava/awt/image/BufferedImage;", false)));
+		// PolyPatcher's Batch Model Rendering (gg.rago.optimize.ModelBatch)
+		fix("net.minecraft.client.model.ModelRenderer", "batch model rendering", "func_78788_d", "compileDisplayList", "(F)V",
+			RagoTransformer::modelBatch);
+		fix("net.minecraft.client.model.TexturedQuad", "batch model rendering: faces", "func_178765_a", "draw",
+			"(Lnet/minecraft/client/renderer/WorldRenderer;F)V", RagoTransformer::modelBatchFace);
+		// PolyPatcher's Simplify FPS Counter: OptiFine's lowest frame rate left out of F3 and of its Show FPS line
+		fix("net.minecraft.client.gui.GuiOverlayDebug", "simplify FPS counter: F3", "call", "call", "()Ljava/util/List;",
+			FixPatches::debugMinFps);
+		optional(fix("Config", "simplify FPS counter: OptiFine's Show FPS", "drawFps", "drawFps", "()V", FixPatches::showFpsLine));
+		// PolyPatcher's Use Vanilla Metrics Renderer: OptiFine's lagometer left out (gg.rago.fixes.FrameCharts)
+		fix("net.minecraft.client.renderer.EntityRenderer", "vanilla metrics renderer: OptiFine's lagometer", "func_181560_a",
+			"updateCameraAndRender", "(FJ)V", FixPatches::lagometer);
+		// PolyPatcher's Optimized Font Renderer and Cache Font Data (gg.rago.optimize.FontBatch, FontPatches)
+		String font = "net.minecraft.client.gui.FontRenderer";
+		String atPos = "(Ljava/lang/String;Z)V";
+		fix(font, "optimized font renderer: one draw per string", "func_78255_a", "renderStringAtPos", atPos, FontPatches::stringBatch);
+		fix(font, "optimized font renderer: characters", "func_78266_a", "renderDefaultChar", "(IZ)F", FontPatches::glyphCalls);
+		fix(font, "optimized font renderer: unicode characters", "func_78277_a", "renderUnicodeChar", "(CZ)F", FontPatches::glyphCalls);
+		fix(font, "optimized font renderer: texture changes", "bindTexture", "bindTexture", "(Lnet/minecraft/util/ResourceLocation;)V",
+			FontPatches::textureChange);
+		fix(font, "optimized font renderer: colours", "setColor", "setColor", "(FFFF)V", FontPatches::colorChange);
+		fix(font, "optimized font renderer: underline and strikethrough", "doDraw", "doDraw", "(F)V", FontPatches::linesAfterCharacters);
+		fix(font, "optimized font renderer: whole-unit steps", "doDraw", "doDraw", "(F)V", FontPatches::wholeSteps);
+		fix(font, "optimized font renderer: bold step", "func_78255_a", "renderStringAtPos", atPos, FontPatches::boldStep);
+		fix(font, "optimized font renderer: no-break space", "func_181559_a", "renderChar", "(CZ)F", FontPatches::noBreakSpace);
+		fix(font, "optimized font renderer: lookups when drawing", "func_78255_a", "renderStringAtPos", atPos, FontPatches::lookups);
+		fix(font, "optimized font renderer: lookups for a character", "func_181559_a", "renderChar", "(CZ)F", FontPatches::lookups);
+		fix(font, "optimized font renderer: lookups when measuring", "func_78263_a", "getCharWidth", "(C)I", FontPatches::lookups);
+		optional(fix(font, "optimized font renderer: OptiFine's lookups when measuring", "getCharWidthFloat", "getCharWidthFloat", "(C)F",
+			FontPatches::lookups));
+		fix(font, "optimized font renderer: whole widths", "func_78256_a", "getStringWidth", "(Ljava/lang/String;)I", FontPatches::wholeWidth);
+		fix(font, "cache font data", "func_78256_a", "getStringWidth", "(Ljava/lang/String;)I", FontPatches::keptWidths);
+		fix(font, "cache font data: font changes", "func_110549_a", "onResourceManagerReload",
+			"(Lnet/minecraft/client/resources/IResourceManager;)V", FontPatches::fontReloaded);
+		// PolyPatcher's options that are off until chosen (gg.rago.optimize.RenderRules); these work beside it, as they
+		// only answer first: the hiding options and render distances, before anything of the entity is drawn
+		add("net.minecraft.client.renderer.entity.RenderManager", new Patch("hiding options and entity render distances",
+			"func_178635_a", "shouldRender", "(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/renderer/culling/ICamera;DDD)Z",
+			m -> returnIf(m, "skipEntity", "(Lnet/minecraft/entity/Entity;DDD)Z",
+				new int[] {Opcodes.ALOAD, 1, Opcodes.DLOAD, 3, Opcodes.DLOAD, 5, Opcodes.DLOAD, 7}, Opcodes.ICONST_0, Opcodes.IRETURN)));
+		add("net.minecraft.client.renderer.entity.RenderItem", new Patch("no enchantment glint on items",
+			"func_180451_a", "renderEffect", "(Lnet/minecraft/client/resources/model/IBakedModel;)V",
+			m -> returnIf(m, "noGlint", "()Z", new int[0], -1, Opcodes.RETURN)));
+		add("net.minecraft.client.renderer.entity.layers.LayerArmorBase", new Patch("no enchantment glint on armour",
+			"func_177183_a", "renderGlint", "(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/client/model/ModelBase;FFFFFFF)V",
+			m -> returnIf(m, "noGlint", "()Z", new int[0], -1, Opcodes.RETURN)));
+		add("net.minecraft.client.renderer.chunk.RenderChunk", new Patch("chunk update limit",
+			"func_178581_b", "rebuildChunk", "(FFFLnet/minecraft/client/renderer/chunk/ChunkCompileTaskGenerator;)V",
+			m -> returnIf(m, "refuseRebuild",
+				"(Lnet/minecraft/client/renderer/chunk/RenderChunk;Lnet/minecraft/client/renderer/chunk/ChunkCompileTaskGenerator;)Z",
+				new int[] {Opcodes.ALOAD, 0, Opcodes.ALOAD, 4}, -1, Opcodes.RETURN)));
+		// ... while back-face culling takes the place of a call PolyPatcher may change too
+		fix("net.minecraft.client.renderer.entity.RendererLivingEntity", "entity and player back-face culling", "func_76986_a", "doRender",
+			"(Lnet/minecraft/entity/EntityLivingBase;DDDFF)V", RagoTransformer::livingCull);
+		// what a wide unicode character measures with OptiFine, as without it (gg.rago.fixes.GlyphWidths)
+		optional(fix("net.minecraft.client.gui.FontRenderer", "unicode character widths", "getCharWidthFloat",
+			"getCharWidthFloat", "(C)F", FixPatches::wideGlyphs));
+		fix("net.minecraft.client.Minecraft", "keep shaders on F5", "func_71407_l", "runTick", "()V", FixPatches::keepShaders);
+		fix("net.minecraft.client.Minecraft", "no mob shader for a spectator in third person",
+			"func_175607_a", "setRenderViewEntity", "(Lnet/minecraft/entity/Entity;)V", FixPatches::spectatorShader);
+		fix("net.minecraft.client.renderer.RenderGlobal", "culling fix", "func_174970_a", "setupTerrain",
+			"(Lnet/minecraft/entity/Entity;DLnet/minecraft/client/renderer/culling/ICamera;IZ)V", FixPatches::cullingFix);
+		fix("net.minecraft.client.renderer.RenderGlobal", "player void rendering: horizon", "func_174976_a", "renderSky", "(FI)V", FixPatches::skyHeight);
+		fix("net.minecraft.client.renderer.RenderGlobal", "player void rendering", "func_174976_a", "renderSky", "(FI)V", FixPatches::voidBox);
+		fix("net.minecraft.client.renderer.RenderGlobal", "custom sky fix", "func_174968_a", "renderSky",
+			"(Lnet/minecraft/client/renderer/WorldRenderer;FZ)V", FixPatches::skyPlaneSize);
+		fix("net.minecraft.client.model.ModelPlayer", "Alex arm position",
+			"func_78087_a", "setRotationAngles", "(FFFFFFLnet/minecraft/entity/Entity;)V",
+			m -> FixPatches.headWithThis(m, "alexArms", "(Lnet/minecraft/client/model/ModelPlayer;)V"));
+		fix("net.minecraft.client.gui.GuiScreenBook", "book background", "func_73863_a", "drawScreen", "(IIF)V",
+			m -> FixPatches.headWithThis(m, "bookBackground", "(Lnet/minecraft/client/gui/GuiScreen;)V"));
+		fix("net.minecraft.client.renderer.entity.RenderItem", "vanilla held item lighting", "func_175032_a", "renderQuads",
+			"(Lnet/minecraft/client/renderer/WorldRenderer;Ljava/util/List;ILnet/minecraft/item/ItemStack;)V", FixPatches::itemLighting);
+		fix("net.minecraft.client.renderer.entity.RenderItem", "mirrored held items", "func_175040_a", "renderItemModelTransform",
+			"(Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/resources/model/IBakedModel;"
+				+ "Lnet/minecraft/client/renderer/block/model/ItemCameraTransforms$TransformType;)V", FixPatches::negativeScale);
+		fix("net.minecraft.client.gui.GuiPlayerTabOverlay", "hat layer in the tab list", "func_175249_a", "renderPlayerlist",
+			"(ILnet/minecraft/scoreboard/Scoreboard;Lnet/minecraft/scoreboard/ScoreObjective;)V", FixPatches::tabHat);
+		fix("net.minecraft.client.renderer.texture.TextureManager", "texture memory leak", "func_147645_c", "deleteTexture",
+			"(Lnet/minecraft/util/ResourceLocation;)V", FixPatches::textureLeak);
+		fix("net.minecraft.enchantment.EnchantmentHelper", "enchantment memory leak: thorns", "func_151384_a", "applyThornEnchantments",
+			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/entity/Entity;)V", FixPatches::enchantmentLeak);
+		fix("net.minecraft.enchantment.EnchantmentHelper", "enchantment memory leak: damage", "func_151385_b", "applyArthropodEnchantments",
+			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/entity/Entity;)V", FixPatches::enchantmentLeak);
+		fix("net.minecraft.enchantment.EnchantmentHelper", "enchantment memory leak: protection", "func_77508_a", "getEnchantmentModifierDamage",
+			"([Lnet/minecraft/item/ItemStack;Lnet/minecraft/util/DamageSource;)I", FixPatches::enchantmentLeak);
+		fix("net.minecraft.util.Util", "task error log spam", "func_181617_a", "runTask",
+			"(Ljava/util/concurrent/FutureTask;Lorg/apache/logging/log4j/Logger;)Ljava/lang/Object;", FixPatches::taskErrors);
+		fix("net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher", "removed block entities not drawn",
+			"func_180546_a", "renderTileEntity", "(Lnet/minecraft/tileentity/TileEntity;FI)V", FixPatches::invalidTileEntities);
+		fix("net.minecraft.client.gui.GuiScreenAddServer", "server address spaces", "func_146284_a", "actionPerformed",
+			"(Lnet/minecraft/client/gui/GuiButton;)V", FixPatches::serverAddress);
+		fix("net.minecraft.client.gui.GuiScreenServerList", "server address spaces: direct connect", "func_146284_a", "actionPerformed",
+			"(Lnet/minecraft/client/gui/GuiButton;)V", FixPatches::serverAddress);
+		fix("net.minecraft.client.gui.GuiLanguage$List", "language change reloads translations only", "func_148144_a", "elementClicked",
+			"(IZII)V", FixPatches::languageReload);
+		fix("net.minecraft.client.gui.GuiScreenOptionsSounds$Button", "sound slider errors: click", "func_146116_c", "mousePressed",
+			"(Lnet/minecraft/client/Minecraft;II)Z", FixPatches::soundSlider);
+		fix("net.minecraft.client.gui.GuiScreenOptionsSounds$Button", "sound slider errors: drag", "func_146119_b", "mouseDragged",
+			"(Lnet/minecraft/client/Minecraft;II)V", FixPatches::soundSlider);
+		fix("net.minecraft.client.renderer.EntityRenderer", "F3 crosshair with the parallax fix", "func_175067_i", "renderWorldDirections",
+			"(F)V", FixPatches::debugCrosshair);
+		fix("net.minecraft.world.World", "light initializing too early", "func_180500_c", "checkLightFor",
+			"(Lnet/minecraft/world/EnumSkyBlock;Lnet/minecraft/util/BlockPos;)Z", FixPatches::lightSpread).intField = FixPatches.LIGHT_SPREAD;
+		fix("net.minecraft.world.chunk.Chunk", "sky light calculation", "func_177436_a", "setBlockState",
+			"(Lnet/minecraft/util/BlockPos;Lnet/minecraft/block/state/IBlockState;)Lnet/minecraft/block/state/IBlockState;", FixPatches::relightFrom);
 	}
 
 	/** Passes each value a player method returns through a hook that also gets the player. */
@@ -447,11 +585,59 @@ public final class RagoTransformer implements IClassTransformer {
 		PATCHES.computeIfAbsent(className, k -> new ArrayList<>()).add(patch);
 	}
 
+	/** A fix PolyPatcher also makes ({@link FixPatches}): skipped while PolyPatcher is loaded. */
+	private static Patch fix(String className, String what, String srg, String mcp, String desc, Patcher patcher) {
+		Patch patch = new Patch(what, srg, mcp, desc, patcher);
+		patch.polyPatcher = true;
+		add(className, patch);
+		return patch;
+	}
+
+	private static Patch optional(Patch patch) {
+		patch.optional = true;
+		return patch;
+	}
+
+	/** For tests: whether every patch on the class is for a method only OptiFine has. */
+	static boolean optionalOnly(String className) {
+		List<Patch> patches = PATCHES.get(className);
+		return patches != null && patches.stream().allMatch(p -> p.optional);
+	}
+
+	private static volatile Boolean patcherLoaded;
+
+	/**
+	 * Whether PolyPatcher (or Patcher) is loaded. Its own versions of the same fixes change the
+	 * same methods, and both together could break them, so Rago's then stand aside. Its jar joins
+	 * the class path while mods are found, before the first game class loads.
+	 */
+	public static boolean patcherLoaded() {
+		Boolean loaded = patcherLoaded;
+		if (loaded == null) {
+			ClassLoader loader = net.minecraft.launchwrapper.Launch.classLoader;
+			loaded = loader != null && loader.getResource("club/sk1er/patcher/Patcher.class") != null;
+			patcherLoaded = loaded;
+			if (loaded) {
+				LOG.info("PolyPatcher is loaded: Rago's copies of its fixes stay off");
+			}
+		}
+		return loaded;
+	}
+
+	/** For tests: as if PolyPatcher were loaded or not; null checks again. */
+	static void patcherLoadedForTest(Boolean loaded) {
+		patcherLoaded = loaded;
+	}
+
 	@Override
 	public byte[] transform(String name, String transformedName, byte[] bytes) {
 		List<Patch> patches = bytes == null ? null : PATCHES.get(transformedName);
 		if (patches == null) {
 			return bytes;
+		}
+		if ("all".equals(System.getProperty("rago.dumpClasses"))) {
+			// -Drago.dumpClasses=all: every class Rago patches, as it arrives (after OptiFine and others)
+			dump(transformedName, bytes);
 		}
 		try {
 			ClassNode node = new ClassNode();
@@ -477,12 +663,18 @@ public final class RagoTransformer implements IClassTransformer {
 		List<String> problems) {
 		List<MethodNode> patched = new ArrayList<>();
 		for (Patch p : patches) {
+			if (p.polyPatcher && patcherLoaded()) {
+				continue;
+			}
 			MethodNode target = null;
 			for (MethodNode m : node.methods) {
 				if (p.desc.equals(m.desc) && (p.srg.equals(m.name) || p.mcp.equals(m.name))) {
 					target = m;
 					break;
 				}
+			}
+			if (target == null && p.optional) {
+				continue;
 			}
 			if (target == null) {
 				LOG.warn("{}: {}.{} not found, feature unavailable", p.what, transformedName, p.mcp);
@@ -495,6 +687,9 @@ public final class RagoTransformer implements IClassTransformer {
 			MethodNode copy = copyOf(target);
 			if (p.patcher.apply(copy)) {
 				node.methods.set(node.methods.indexOf(target), copy);
+				if (p.intField != null && node.fields.stream().noneMatch(f -> f.name.equals(p.intField))) {
+					node.fields.add(new FieldNode(Opcodes.ACC_PUBLIC, p.intField, "I", null, null));
+				}
 				patched.remove(target); // a second patch on the same method
 				patched.add(copy);
 				LOG.info("Hook installed: {}", p.what);
@@ -521,7 +716,8 @@ public final class RagoTransformer implements IClassTransformer {
 
 	/** With {@code -Drago.dumpClasses=true}, saves a class a patch did not fit, to see what changed it. */
 	private static void dump(String name, byte[] bytes) {
-		if (bytes == null || !Boolean.getBoolean("rago.dumpClasses")) {
+		String mode = System.getProperty("rago.dumpClasses");
+		if (bytes == null || !"true".equals(mode) && !"all".equals(mode)) {
 			return;
 		}
 		try {
@@ -707,6 +903,60 @@ public final class RagoTransformer implements IClassTransformer {
 	}
 
 	/** Passes every returned value of the given return opcode through {@code hook}. */
+	private static final String MODEL_BATCH = "gg/rago/optimize/ModelBatch";
+
+	/** ModelRenderer.compileDisplayList: {@code ModelBatch.start(this)} once the list is open, {@code ModelBatch.end()} before it closes. */
+	private static boolean modelBatch(MethodNode m) {
+		AbstractInsnNode open = null;
+		AbstractInsnNode close = null;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof MethodInsnNode && "org/lwjgl/opengl/GL11".equals(((MethodInsnNode) insn).owner)) {
+				String name = ((MethodInsnNode) insn).name;
+				if ("glNewList".equals(name) && open == null) {
+					open = insn;
+				} else if ("glEndList".equals(name)) {
+					close = insn;
+				}
+			}
+		}
+		if (open == null || close == null) {
+			return false;
+		}
+		InsnList start = new InsnList();
+		start.add(new VarInsnNode(Opcodes.ALOAD, 0));
+		start.add(new MethodInsnNode(Opcodes.INVOKESTATIC, MODEL_BATCH, "start", "(Lnet/minecraft/client/model/ModelRenderer;)V", false));
+		m.instructions.insert(open, start);
+		m.instructions.insertBefore(close, new MethodInsnNode(Opcodes.INVOKESTATIC, MODEL_BATCH, "end", "()V", false));
+		return true;
+	}
+
+	/** TexturedQuad.draw: its begin and draw calls go through ModelBatch (OptiFine has two begins, with and without shaders). */
+	private static boolean modelBatchFace(MethodNode m) {
+		int begins = 0;
+		int draws = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (!(insn instanceof MethodInsnNode)) {
+				continue;
+			}
+			MethodInsnNode call = (MethodInsnNode) insn;
+			MethodInsnNode hook = null;
+			if ("net/minecraft/client/renderer/WorldRenderer".equals(call.owner)
+				&& isMethod(call, "func_181668_a", "begin", "(ILnet/minecraft/client/renderer/vertex/VertexFormat;)V")) {
+				hook = new MethodInsnNode(Opcodes.INVOKESTATIC, MODEL_BATCH, "begin",
+					"(Lnet/minecraft/client/renderer/WorldRenderer;ILnet/minecraft/client/renderer/vertex/VertexFormat;)V", false);
+				begins++;
+			} else if ("net/minecraft/client/renderer/Tessellator".equals(call.owner) && isMethod(call, "func_78381_a", "draw", "()V")) {
+				hook = new MethodInsnNode(Opcodes.INVOKESTATIC, MODEL_BATCH, "draw", "(Lnet/minecraft/client/renderer/Tessellator;)V", false);
+				draws++;
+			}
+			if (hook != null) {
+				m.instructions.set(call, hook);
+				insn = hook;
+			}
+		}
+		return begins > 0 && draws == 1;
+	}
+
 	private static boolean beforeReturns(MethodNode m, int returnOpcode, MethodInsnNode hook) {
 		boolean found = false;
 		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
@@ -738,6 +988,22 @@ public final class RagoTransformer implements IClassTransformer {
 		head.add(new FrameNode(Opcodes.F_SAME, 0, null, 0, null));
 		m.instructions.insert(head);
 		return true;
+	}
+
+	/** RendererLivingEntity.doRender: its one GlStateManager.disableCull() becomes {@code Hooks.livingCull(entity)}. */
+	private static boolean livingCull(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == Opcodes.INVOKESTATIC && "net/minecraft/client/renderer/GlStateManager".equals(((MethodInsnNode) insn).owner)
+				&& isMethod((MethodInsnNode) insn, "func_179129_p", "disableCull", "()V")) {
+				InsnList call = new InsnList();
+				call.add(new VarInsnNode(Opcodes.ALOAD, 1));
+				call.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "livingCull", "(Lnet/minecraft/entity/EntityLivingBase;)V", false));
+				m.instructions.insertBefore(insn, call);
+				m.instructions.remove(insn);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** {@code Hooks.thirdPersonItem(entity)} just before the held item is drawn in the third-person transform. */
@@ -980,7 +1246,7 @@ public final class RagoTransformer implements IClassTransformer {
 		return false;
 	}
 
-	private static AbstractInsnNode previousReal(AbstractInsnNode insn) {
+	static AbstractInsnNode previousReal(AbstractInsnNode insn) {
 		AbstractInsnNode n = insn.getPrevious();
 		while (n != null && n.getOpcode() < 0) {
 			n = n.getPrevious();
@@ -1000,7 +1266,7 @@ public final class RagoTransformer implements IClassTransformer {
 		return null;
 	}
 
-	private static MethodInsnNode previousCall(AbstractInsnNode insn, int limit) {
+	static MethodInsnNode previousCall(AbstractInsnNode insn, int limit) {
 		AbstractInsnNode n = insn.getPrevious();
 		for (int i = 0; i < limit && n != null; n = n.getPrevious()) {
 			if (n.getOpcode() < 0) {
@@ -1227,7 +1493,7 @@ public final class RagoTransformer implements IClassTransformer {
 			|| n instanceof LdcInsnNode && ((LdcInsnNode) n).cst instanceof Float;
 	}
 
-	private static AbstractInsnNode nextReal(AbstractInsnNode insn) {
+	static AbstractInsnNode nextReal(AbstractInsnNode insn) {
 		AbstractInsnNode n = insn.getNext();
 		while (n != null && n.getOpcode() < 0) {
 			n = n.getNext();
@@ -1235,7 +1501,7 @@ public final class RagoTransformer implements IClassTransformer {
 		return n;
 	}
 
-	private static boolean isMethod(MethodInsnNode insn, String srg, String mcp, String desc) {
+	static boolean isMethod(MethodInsnNode insn, String srg, String mcp, String desc) {
 		return desc.equals(insn.desc) && (srg.equals(insn.name) || mcp.equals(insn.name));
 	}
 }

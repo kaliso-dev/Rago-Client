@@ -84,6 +84,7 @@ public final class RagoTitleScreen extends GuiScreen {
 	public void updateScreen() {
 		if (!RagoClient.classicHome()) {
 			ServerStatus.tick();
+			gg.rago.rewards.Rewards.tickHome();
 		}
 		if (preview != null) {
 			preview.tick();
@@ -117,7 +118,7 @@ public final class RagoTitleScreen extends GuiScreen {
 		promo(w, h);
 		footer(w, h);
 		account(w);
-		backgroundButton(w);
+		pointsButton(backgroundButton(w));
 		backgroundPicker(w, h);
 		if (optifineHelp) {
 			optifineDialog(w, h);
@@ -666,6 +667,12 @@ public final class RagoTitleScreen extends GuiScreen {
 			if ("zap".equals(icon)) {
 				Ui.circle(x + size - 3, y - lift + 3, 3.5f, Theme.ACCENT);
 			}
+			if ("gift".equals(icon) && gg.rago.rewards.Rewards.chestWaiting()) {
+				// today's chest waits: a dot that breathes
+				float beat = Anim.enabled() ? 0.5f + 0.5f * (float) Math.sin(System.nanoTime() / 1e9 * 3.2) : 1;
+				Ui.glow(x + size - 3, y - lift + 3, 9, Ui.alpha(0xFFFFAA00, 0.35f * beat));
+				Ui.circle(x + size - 3, y - lift + 3, 3.5f, 0xFFFFAA00);
+			}
 			if (hv > 0.01f) {
 				String tip = t(tips[i]);
 				float ts = 9;
@@ -685,12 +692,12 @@ public final class RagoTitleScreen extends GuiScreen {
 	}
 
 	/** The dock's buttons, with the OptiFine helper's when OptiFine is missing; their tips and animation keys. */
-	private static final String[] DOCK_ICONS = {"logo", "shirt", "sliders-horizontal", "settings", "globe", "power"};
-	private static final String[] DOCK_ICONS_OPTIFINE_HELP = {"logo", "shirt", "sliders-horizontal", "settings", "globe", "zap", "power"};
-	private static final String[] DOCK_TIPS = {"rago.dock.mods", "rago.dock.locker", "rago.dock.rago_settings", "rago.dock.options",
-		"rago.dock.servers", "rago.dock.quit"};
-	private static final String[] DOCK_TIPS_OPTIFINE_HELP = {"rago.dock.mods", "rago.dock.locker", "rago.dock.rago_settings",
-		"rago.dock.options", "rago.dock.servers", "rago.dock.optifine", "rago.dock.quit"};
+	private static final String[] DOCK_ICONS = {"logo", "gift", "ticket", "shirt", "store", "sliders-horizontal", "settings", "power"};
+	private static final String[] DOCK_ICONS_OPTIFINE_HELP = {"logo", "gift", "ticket", "shirt", "store", "sliders-horizontal", "settings", "zap", "power"};
+	private static final String[] DOCK_TIPS = {"rago.dock.mods", "rago.dock.rewards", "rago.dock.pass", "rago.dock.locker", "rago.dock.shop",
+		"rago.dock.rago_settings", "rago.dock.options", "rago.dock.quit"};
+	private static final String[] DOCK_TIPS_OPTIFINE_HELP = {"rago.dock.mods", "rago.dock.rewards", "rago.dock.pass", "rago.dock.locker", "rago.dock.shop",
+		"rago.dock.rago_settings", "rago.dock.options", "rago.dock.optifine", "rago.dock.quit"};
 	private static final String[] DOCK_KEYS = keys("dock:", DOCK_ICONS);
 	private static final String[] DOCK_KEYS_OPTIFINE_HELP = keys("dock:", DOCK_ICONS_OPTIFINE_HELP);
 	private Runnable[] dockActions;
@@ -709,12 +716,16 @@ public final class RagoTitleScreen extends GuiScreen {
 				return () -> mc.displayGuiScreen(new RagoMenuScreen(this));
 			case "shirt":
 				return () -> mc.displayGuiScreen(new LockerScreen(this));
+			case "gift":
+				return () -> mc.displayGuiScreen(new RewardsScreen(this));
+			case "store":
+				return () -> mc.displayGuiScreen(new ShopScreen(this));
+			case "ticket":
+				return () -> mc.displayGuiScreen(new PassScreen(this));
 			case "sliders-horizontal":
 				return () -> mc.displayGuiScreen(RagoMenuScreen.settings(this));
 			case "settings":
 				return () -> mc.displayGuiScreen(new GuiOptions(this, mc.gameSettings));
-			case "globe":
-				return () -> mc.displayGuiScreen(new GuiMultiplayer(this));
 			case "zap":
 				return () -> {
 					optifineHelp = true;
@@ -831,8 +842,8 @@ public final class RagoTitleScreen extends GuiScreen {
 	private boolean pickerOpen;
 	private float pickerRight;
 
-	/** The background button, top right, left of the account; opens the background menu. */
-	private void backgroundButton(float w) {
+	/** The background button, top right, left of the account; opens the background menu. Returns its left edge. */
+	private float backgroundButton(float w) {
 		String label = t("rago.home.background");
 		float size = 10;
 		float cw = Ui.textWidth(Ui.MEDIUM, label, size) + 58;
@@ -851,6 +862,42 @@ public final class RagoTitleScreen extends GuiScreen {
 		Ui.icon(pickerOpen ? "chevron-up" : "chevron-down", x + cw - 22, y + 10, 10, fg);
 		if (!optifineHelp && leaving == null) {
 			Ui.click(x, y, cw, 30, () -> pickerOpen = !pickerOpen);
+		}
+		Ui.opacity(1);
+		return x;
+	}
+
+	/** The points shown, and their text, kept so the text is not made again every frame. */
+	private int pointsShown = -1;
+	private String pointsText = "";
+
+	/**
+	 * The player's Rago Points in red, left of the background button (once Rago Network has said how
+	 * many); opens the shop.
+	 */
+	private void pointsButton(float right) {
+		gg.rago.rewards.Rewards.Status s = gg.rago.rewards.Rewards.status();
+		if (s == null) {
+			return;
+		}
+		if (s.points != pointsShown) {
+			pointsShown = s.points;
+			pointsText = RewardsScreen.number(s.points);
+		}
+		float size = 11;
+		float cw = Ui.textWidth(Ui.SEMIBOLD, pointsText, size) + 44;
+		float x = right - 8 - cw;
+		float y = 14;
+		float p = intro(420, 500);
+		Ui.opacity(p);
+		boolean over = Ui.hover(x, y, cw, 30);
+		float hv = Anim.to("points:button", over ? 1 : 0, 120);
+		Ui.glow(x + cw / 2, y + 15, cw * 0.9f, Ui.alpha(Theme.ACCENT, 0.18f + 0.14f * hv));
+		Ui.round(x, y, cw, 30, 15, Ui.mix(Theme.ACCENT, 0xFFFF5A4D, hv));
+		Ui.icon("coins", x + 12, y + 8, 14, 0xFFFFFFFF);
+		Ui.text(Ui.SEMIBOLD, pointsText, x + 32, y + (30 - size * 1.21f) / 2, size, 0xFFFFFFFF);
+		if (!optifineHelp && leaving == null) {
+			Ui.click(x, y, cw, 30, () -> mc.displayGuiScreen(new ShopScreen(this)));
 		}
 		Ui.opacity(1);
 	}

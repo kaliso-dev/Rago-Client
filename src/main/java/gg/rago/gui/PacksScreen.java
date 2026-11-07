@@ -3,6 +3,7 @@ package gg.rago.gui;
 import gg.rago.gui.ui.Anim;
 import gg.rago.gui.ui.Ui;
 import gg.rago.gui.ui.Widgets;
+import gg.rago.overlays.UserOverlays;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiScreenResourcePacks;
@@ -28,9 +29,11 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Rago's resource-pack screen, in place of the vanilla one: every pack as a card with its icon, its
@@ -61,6 +64,8 @@ public final class PacksScreen extends GuiScreen {
 	private final List<ResourcePackRepository.Entry> all = new ArrayList<>();
 	private final List<ResourcePackRepository.Entry> active = new ArrayList<>();
 	private final Map<String, Visual> visuals = new HashMap<>();
+	/** The names of the packs that are overlays, once the folder has been scanned (off the game's thread). */
+	private volatile Set<String> overlays = Collections.emptySet();
 	private long openedNs;
 	private float scroll;
 	private boolean changed;
@@ -103,6 +108,13 @@ public final class PacksScreen extends GuiScreen {
 	}
 
 	private void reload() {
+		UserOverlays.scan().thenAccept(found -> {
+			Set<String> names = new HashSet<>();
+			for (UserOverlays.Found f : found) {
+				names.add(f.name());
+			}
+			overlays = names;
+		});
 		repo.updateRepositoryEntriesAll();
 		all.clear();
 		all.addAll(repo.getRepositoryEntriesAll());
@@ -411,10 +423,19 @@ public final class PacksScreen extends GuiScreen {
 		Ui.icon(icon, x + 5, y + 5, 12, lit ? Theme.ACCENT : hover ? Theme.TEXT : Theme.MUTED);
 	}
 
+	/**
+	 * Turns a pack off, or on. A full pack turned on takes the place of the full packs in use, below
+	 * the overlays in use (wool, sky, sword...), so changing pack is one click; with Shift held, or for
+	 * an overlay, it goes on top of the others instead, as in vanilla.
+	 */
 	private void toggle(ResourcePackRepository.Entry e) {
 		if (!active.remove(e)) {
-			// a pack turned on goes on top, as in vanilla
-			active.add(0, e);
+			if (isShiftKeyDown() || overlays.contains(e.getResourcePackName())) {
+				active.add(0, e);
+			} else {
+				active.removeIf(a -> !overlays.contains(a.getResourcePackName()));
+				active.add(e);
+			}
 		}
 		changed = true;
 	}

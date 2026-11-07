@@ -12,6 +12,7 @@ import gg.rago.modules.HitDelayFix;
 import gg.rago.modules.BlockEditFix;
 import gg.rago.modules.NoHurtCam;
 import gg.rago.modules.NoF5Bobbing;
+import gg.rago.modules.ClearInventory;
 import gg.rago.modules.InventoryBlur;
 import gg.rago.modules.OldAnimations;
 import gg.rago.modules.Overlays;
@@ -32,7 +33,7 @@ import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
 import gg.rago.modules.TitleMod;
 import gg.rago.optimize.EngineTweaks;
-import gg.rago.optimize.OcclusionCuller;
+import gg.rago.optimize.EntityCulling;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.inventory.GuiContainer;
@@ -42,6 +43,7 @@ import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.particle.EntityFX;
 import net.minecraft.client.resources.model.IBakedModel;
+import net.minecraft.client.renderer.culling.ICamera;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityItem;
@@ -65,11 +67,12 @@ public final class Hooks {
 	/** Vanilla keeps 100 chat lines. */
 	public static final int VANILLA_CHAT_LINES = 100;
 
-	public static volatile OcclusionCuller culler;
+	public static volatile EntityCulling culling;
 	public static volatile gg.rago.optimize.HologramBatch holograms;
 	public static volatile NoHurtCam noHurtCam;
 	public static volatile NoF5Bobbing noF5Bobbing;
 	public static volatile InventoryBlur inventoryBlur;
+	public static volatile ClearInventory clearInventory;
 	public static volatile OldAnimations animations;
 	public static volatile Overlays overlays;
 	public static volatile TabPing tabPing;
@@ -132,10 +135,12 @@ public final class Hooks {
 	private Hooks() {
 	}
 
-	/** RenderManager.shouldRender: true skips an entity hidden behind blocks. */
-	public static boolean skipEntity(Entity e) {
-		OcclusionCuller c = culler;
-		return c != null && c.isHidden(e);
+	/** RenderGlobal.renderEntities, as it starts: entity culling asks what can be seen. */
+	public static void entitiesStart(Entity view, ICamera camera, float partialTicks) {
+		EntityCulling c = culling;
+		if (c != null) {
+			c.beforeEntities(view, camera, partialTicks);
+		}
 	}
 
 	/** EntityRenderer.hurtCameraEffect: the camera tilt in degrees when hurt (vanilla 14). */
@@ -145,24 +150,44 @@ public final class Hooks {
 	}
 
 	/**
-	 * EntityRenderer.setupCameraTransform, where it reads gameSettings.viewBobbing: no bobbing in
-	 * third person with "No F5 Bobbing" on. The hand (first person) reads the setting elsewhere.
+	 * EntityRenderer.setupCameraTransform, where it reads gameSettings.viewBobbing: no camera bobbing
+	 * in third person, or anywhere (minimal view bobbing), with "View Bobbing" on. The hand (first
+	 * person) reads the setting elsewhere, so it keeps bobbing.
 	 */
 	public static boolean cameraBobbing(boolean vanilla) {
 		NoF5Bobbing m = noF5Bobbing;
-		return vanilla && (m == null || !m.isEnabled() || Minecraft.getMinecraft().gameSettings.thirdPersonView == 0);
+		return vanilla && (m == null || m.cameraBobs(Minecraft.getMinecraft().gameSettings.thirdPersonView));
 	}
 
 	/** GuiScreen.drawWorldBackground: the colours of the dark gradient behind menus in a world. */
 	public static int menuShade(int vanilla) {
+		if (clear()) {
+			return 0;
+		}
 		InventoryBlur b = inventoryBlur;
 		return b != null ? b.shade(vanilla) : vanilla;
 	}
 
-	/** Gui.drawGradientRect, first thing: one of its two colours ({@code start} the top one). */
+	/**
+	 * Gui.drawGradientRect, first thing: one of its two colours ({@code start} the top one). Behind a
+	 * window Clear Inventory clears, the shade over the whole screen stays see-through, whatever
+	 * colour another mod gave it (PolyPatcher's container background opacity).
+	 */
 	public static int menuGradient(int left, int top, int right, int bottom, int color, boolean start) {
+		if (left == 0 && top == 0 && clear()) {
+			net.minecraft.client.gui.GuiScreen screen = Minecraft.getMinecraft().currentScreen;
+			if (right == screen.width && bottom == screen.height) {
+				return 0;
+			}
+		}
 		InventoryBlur b = inventoryBlur;
 		return b != null ? b.gradient(left, top, right, bottom, color, start) : color;
+	}
+
+	/** Whether the window open now is one Clear Inventory leaves see-through. */
+	public static boolean clear() {
+		ClearInventory c = clearInventory;
+		return c != null && c.clears(Minecraft.getMinecraft().currentScreen);
 	}
 
 	/** LayerArmorBase.shouldCombineTextures: true tints armour red with the player, as in 1.7. */
@@ -314,6 +339,16 @@ public final class Hooks {
 		if (e != null && !e.particleCollisions()) {
 			fx.noClip = true;
 		}
+	}
+
+	/**
+	 * WorldClient.doVoidFogParticles: how many blocks around the player get a random display tick
+	 * (torch flames and smoke, portal and ender chest sparkles, dripping water...) each tick. Vanilla
+	 * picks 1000; PolyPatcher's Low Animation Tick picks the first 100 of those same blocks.
+	 */
+	public static int randomDisplayTicks() {
+		EngineTweaks e = engine;
+		return e != null && e.lowAnimationTick() ? 100 : 1000;
 	}
 
 	/** Minecraft.loadWorld: vanilla forces a full garbage collection on every world change. */
@@ -504,6 +539,12 @@ public final class Hooks {
 		}
 		Emotes e = emotes;
 		if (e != null && e.active()) {
+			if (gg.rago.debug.FrameProfile.ON) {
+				long t = gg.rago.debug.FrameProfile.start();
+				e.pose(model, entity);
+				gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.EMOTES, System.nanoTime() - t);
+				return;
+			}
 			e.pose(model, entity);
 		}
 	}
@@ -580,7 +621,14 @@ public final class Hooks {
 		TabList t = tabList;
 		boolean custom = t != null && t.isEnabled();
 		RagoBadge r = ragoBadge;
-		if (r != null && r.tabLine(font, text, x, y, color, !custom || t.shadow())) {
+		if (gg.rago.debug.FrameProfile.ON && r != null) {
+			long time = gg.rago.debug.FrameProfile.start();
+			boolean drawn = r.tabLine(font, text, x, y, color, !custom || t.shadow());
+			gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.TAB, System.nanoTime() - time);
+			if (drawn) {
+				return 0;
+			}
+		} else if (r != null && r.tabLine(font, text, x, y, color, !custom || t.shadow())) {
 			return 0; // the game does not use what this returns
 		}
 		return custom ? t.drawText(font, text, x, y, color) : font.drawStringWithShadow(text, x, y, color);
@@ -626,7 +674,7 @@ public final class Hooks {
 	/** EntityRenderer.orientCamera: the first-person camera offset (parallax fix). */
 	public static float cameraOffset(float vanilla) {
 		ClientFixes f = clientFixes;
-		return f != null && f.isEnabled() ? f.cameraOffset(vanilla) : vanilla;
+		return f != null && f.isEnabled() ? gg.rago.fixes.FixHooks.cameraOffset(vanilla, f.cameraOffset(vanilla)) : vanilla;
 	}
 
 	/** S48PacketResourcePackSend.getURL: unsafe server pack links become a pack that does not exist. */
@@ -651,6 +699,12 @@ public final class Hooks {
 		BedwarsStats s = bedwarsStats;
 		String name = s != null && s.isEnabled() ? s.tabName(vanilla, info) : vanilla;
 		RagoBadge r = ragoBadge;
+		if (gg.rago.debug.FrameProfile.ON && r != null) {
+			long t = gg.rago.debug.FrameProfile.start();
+			String line = r.tabName(name, info);
+			gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.TAB, System.nanoTime() - t);
+			return line;
+		}
 		return r != null ? r.tabName(name, info) : name;
 	}
 
@@ -702,6 +756,27 @@ public final class Hooks {
 	public static ResourceLocation cape(ResourceLocation vanilla, AbstractClientPlayer player) {
 		RagoCape c = cape;
 		return c != null ? c.capeFor(player, vanilla) : vanilla;
+	}
+
+	/** RenderManager.shouldRender, first thing: true leaves the entity out of this frame (hiding options, render distances). */
+	public static boolean skipEntity(Entity entity, double x, double y, double z) {
+		return gg.rago.optimize.RenderRules.skip(entity, x, y, z);
+	}
+
+	/** RendererLivingEntity.doRender, in place of its GlStateManager.disableCull(): back-face culling for living entities. */
+	public static void livingCull(EntityLivingBase entity) {
+		gg.rago.optimize.RenderRules.livingCull(entity);
+	}
+
+	/** RenderItem.renderEffect and LayerArmorBase.renderGlint, first thing: true draws no enchantment glint. */
+	public static boolean noGlint() {
+		return gg.rago.optimize.RenderRules.noGlint();
+	}
+
+	/** RenderChunk.rebuildChunk, first thing: true when the chunk update limit makes this rebuild wait. */
+	public static boolean refuseRebuild(net.minecraft.client.renderer.chunk.RenderChunk chunk,
+		net.minecraft.client.renderer.chunk.ChunkCompileTaskGenerator task) {
+		return gg.rago.optimize.RenderRules.refuseRebuild(chunk, task);
 	}
 
 	/** RenderItem.renderEffect: the colour of the glint on items (vanilla -8372020, purple). */

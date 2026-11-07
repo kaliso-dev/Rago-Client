@@ -41,19 +41,15 @@ public final class PerformancePreset {
 		VALUES.put("minimized_cap", 1);
 		VALUES.put("occlusion_culling", 1);
 		VALUES.put("cull_tile_entities", 1);
-		// Rago: entities
-		VALUES.put("entity_distance", 1);
-		// never fewer players, nor NPCs nearer than the game's distance: a disadvantage, not a saving
-		VALUES.put("player_distance", Optimizations.NO_LIMIT);
-		VALUES.put("hostile_distance", 32);
-		VALUES.put("passive_distance", 64);
-		VALUES.put("other_distance", 24);
-		for (String id : new String[] {"hide_stuck_arrows", "hide_item_frames", "hide_paintings", "hide_armor_stands",
+		// Rago: entities. Not the render distances, which go up to 64 blocks only (PolyPatcher's), and so
+		// would draw fewer players than the game: a disadvantage, not a saving. Nor the armour stands,
+		// which also carry the floating names and timers, the flying arrows and the see-through players,
+		// which are seen for a reason
+		for (String id : new String[] {"hide_stuck_arrows", "hide_grounded_arrows", "hide_item_frames", "hide_paintings",
 			"hide_xp_orbs", "hide_fireworks", "hide_falling_blocks"}) {
 			VALUES.put(id, 1);
 		}
 		// Rago: tile entities and world
-		VALUES.put("tile_distance", 24);
 		for (String id : new String[] {"hide_skulls", "hide_signs", "hide_enchant_books", "hide_banners",
 			"hide_beacon_beams", "hide_end_portals", "hide_grass", "hide_flowers", "hide_dead_bushes", "disable_fog"}) {
 			VALUES.put(id, 1);
@@ -69,6 +65,11 @@ public final class PerformancePreset {
 		VALUES.put("hud_cache", 1);
 		VALUES.put("batch_holograms", 1);
 		VALUES.put("batch_vanilla_hud", 1);
+		VALUES.put("low_animation_tick", 1);
+		VALUES.put("batch_models", 1);
+		VALUES.put("optimized_font", 1);
+		VALUES.put("cache_font_data", 1);
+		VALUES.put("small_pack_icons", 1);
 		// Minecraft
 		VALUES.put("render_distance", 8);
 		VALUES.put("max_framerate", 260);

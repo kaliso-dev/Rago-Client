@@ -293,6 +293,15 @@ def wings():
         def depth(x, y, bones=bones):
             return 5 * k / 2 if (x, y) in bones else k
         write_model(name, [('wing', (0, 0, 0), extrude(name, (root[0] * k, root[1] * k), None, 0.25, depth))])
+    # the wings won with Rago Points (tools/reward_wings.py), each part as many cells thick as it says
+    import reward_wings
+    for name, draw in reward_wings.WINGS:
+        _, cells, _ = draw()
+
+        def depth(x, y, cells=cells):
+            return cells.get((x, y), 1) * k
+        root = reward_wings.ROOT
+        write_model('wings_' + name, [('wing', (0, 0, 0), extrude('wings_' + name, (root[0] * k, root[1] * k), None, 0.25, depth))])
 
 
 def shields():
@@ -309,7 +318,60 @@ def shields():
         write_model(name, [('shield', (0, 0, 0), extrude(name, (20 * k, 24 * k), None, 0, depth))])
 
 
+# ---- the voxel hats won with Rago Points ---------------------------------------------------------
+
+FACES = (
+    # outward direction, the four corners of that face of a unit cube (counter-clockwise from outside)
+    ((1, 0, 0), ((1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1))),
+    ((-1, 0, 0), ((0, 0, 1), (0, 1, 1), (0, 1, 0), (0, 0, 0))),
+    ((0, 1, 0), ((0, 1, 0), (0, 1, 1), (1, 1, 1), (1, 1, 0))),
+    ((0, -1, 0), ((0, 0, 1), (0, 0, 0), (1, 0, 0), (1, 0, 1))),
+    ((0, 0, 1), ((1, 0, 1), (1, 1, 1), (0, 1, 1), (0, 0, 1))),
+    ((0, 0, -1), ((0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0))),
+)
+
+
+def voxel_model(name, voxels):
+    """A model and a palette texture (each colour one 4 x 4 square) from tools/reward_hats.Voxels:
+    only the faces with no cube beside them, turned the way each triangle's shade expects."""
+    colours = sorted(set(voxels.cells.values()))
+    assert len(colours) <= 256, name
+    cell = 4
+    side = 16 * cell
+    tex = Image.new('RGBA', (side, side))
+    uv_of = {}
+    for i, c in enumerate(colours):
+        x, y = i % 16 * cell, i // 16 * cell
+        tex.paste(c + (255,), (x, y, x + cell, y + cell))
+        uv_of[c] = ((x + cell / 2) / side, (y + cell / 2) / side)
+    tex.save(os.path.join(TEXTURES, 'hat_' + name + '.png'))
+    s = voxels.size / 16  # pixels to blocks
+    tris = []
+    for (i, j, k), colour in voxels.cells.items():
+        uv = uv_of[colour]
+        for direction, corners in FACES:
+            if (i + direction[0], j + direction[1], k + direction[2]) in voxels.cells:
+                continue
+            pts = [voxels.matrix @ (np.array([i + a, j + b, k + c]) * voxels.size) + voxels.offset for a, b, c in corners]
+            pts = [p / 16 for p in pts]
+            outward = voxels.matrix @ np.array(direction, float)
+            for a, b, c in ((pts[0], pts[1], pts[2]), (pts[0], pts[2], pts[3])):
+                tri = np.array([a, b, c])
+                if np.dot(np.cross(b - a, c - a), outward) < 0:
+                    tri = np.array([a, c, b])
+                tris.append((tri, np.array([uv, uv, uv])))
+    write_model('hat_' + name, [('hat', (0, 0, 0), tris)])
+
+
+def voxel_hats():
+    import reward_hats
+    for name, build in reward_hats.HATS:
+        voxel_model(name, build())
+
+
 if __name__ == '__main__':
-    shields()
-    hats()
-    wings()
+    import sys
+    # python3 tools/models.py [shields] [hats] [wings] [voxel_hats]: only those (all by default)
+    wanted = sys.argv[1:] or ['shields', 'hats', 'wings', 'voxel_hats']
+    for part in wanted:
+        globals()[part]()

@@ -143,4 +143,8 @@ tasks.processResources {
     filesMatching("mcmod.info") {
         expand("version" to project.version)
     }
+    // the server's catalogue of cosmetics, shown until the server's own answer comes
+    from("server/catalogue.json") {
+        into("assets/rago")
+    }
 }

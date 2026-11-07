@@ -91,11 +91,22 @@ public final class NetworkClient {
 	/** An answer other than 200. */
 	static final class StatusException extends IOException {
 		final int status;
+		final String error;
 
 		StatusException(int status, String error) {
 			super("HTTP " + status + (error == null ? "" : " " + error));
 			this.status = status;
+			this.error = error;
 		}
+	}
+
+	/**
+	 * The answer to a screen's call (the daily chest, the shop): {@code error} is null when it
+	 * worked, else the server's error ("not_enough_points", "owned"...), "sign_in" when not signed in
+	 * yet, or "offline" when the server could not be reached. Called on the calls' own thread.
+	 */
+	public interface Answer {
+		void done(JsonObject answer, String error);
 	}
 
 	public static final String[] ROLES = {"user", "partner", "staff", "creator"};
@@ -121,6 +132,8 @@ public final class NetworkClient {
 	private static final Pattern CHALLENGE = Pattern.compile("^[0-9a-f]{16,64}$");
 
 	private final Executor worker;
+	/** The screens' calls, apart from the presence and lookups so neither waits for the other. */
+	private final Executor calls;
 	private final LongSupplier clock;
 	private final Supplier<String> version;
 	private final Consumer<String> log;
@@ -149,7 +162,25 @@ public final class NetworkClient {
 	private volatile String problem;
 
 	public NetworkClient(Executor worker, LongSupplier clock, Supplier<String> version, Consumer<String> log) {
+		this(worker, worker, clock, version, log);
+	}
+
+	/** Whether the player plays now (in a world, not away): the play pass counts those minutes. */
+	private volatile boolean playing;
+	/** Told of the play pass's progress each presence that counts a minute (on the network thread). */
+	private volatile Consumer<JsonObject> passListener;
+
+	public void playing(boolean playing) {
+		this.playing = playing;
+	}
+
+	public void onPass(Consumer<JsonObject> listener) {
+		this.passListener = listener;
+	}
+
+	public NetworkClient(Executor worker, Executor calls, LongSupplier clock, Supplier<String> version, Consumer<String> log) {
 		this.worker = worker;
+		this.calls = calls;
 		this.clock = clock;
 		this.version = version;
 		this.log = log;
@@ -252,6 +283,39 @@ public final class NetworkClient {
 
 	public boolean signedIn() {
 		return token != null;
+	}
+
+	/**
+	 * A signed-in call for a screen ({@code path} like "/v1/rewards"), answered on the calls' thread;
+	 * {@code body} null for a GET that needs no sign-in (the catalogue).
+	 */
+	public void request(String path, JsonObject body, Answer answer) {
+		String b = base;
+		String t = token;
+		if (b.isEmpty()) {
+			answer.done(new JsonObject(), "offline");
+			return;
+		}
+		if (body != null && t == null) {
+			answer.done(new JsonObject(), "sign_in");
+			return;
+		}
+		try {
+			calls.execute(() -> {
+				try {
+					answer.done(body == null ? call(b, "GET", path, null, null) : call(b, "POST", path, body, t), null);
+				} catch (StatusException e) {
+					if (e.status == 401) {
+						failed(e, clock.getAsLong());
+					}
+					answer.done(new JsonObject(), e.status == 401 ? "sign_in" : e.error != null ? e.error : "http_" + e.status);
+				} catch (IOException | RuntimeException e) {
+					answer.done(new JsonObject(), "offline");
+				}
+			});
+		} catch (RejectedExecutionException e) {
+			answer.done(new JsonObject(), "offline");
+		}
 	}
 
 	/** The last thing that went wrong, or null. */
@@ -402,9 +466,15 @@ public final class NetworkClient {
 		JsonObject body = new JsonObject();
 		body.addProperty("visible", visible);
 		body.addProperty("version", version.get());
+		body.addProperty("playing", playing);
 		body.add("cosmetics", loadout.toJson());
 		try {
 			JsonObject answer = call(b, "POST", "/v1/presence", body, token);
+			JsonElement pass = answer.get("pass");
+			Consumer<JsonObject> listener = passListener;
+			if (pass != null && pass.isJsonObject() && listener != null) {
+				listener.accept(pass.getAsJsonObject());
+			}
 			JsonElement count = answer.get("online");
 			if (count != null && count.isJsonPrimitive() && count.getAsJsonPrimitive().isNumber()) {
 				online = count.getAsInt();

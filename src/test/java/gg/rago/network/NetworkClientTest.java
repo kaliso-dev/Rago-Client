@@ -202,9 +202,9 @@ class NetworkClientTest {
 		assertEquals(now.get() - 2000, e.startedAt);
 		assertNull(client.emoteOf(OTHER));
 
-		client.emote("dab", 150);
+		client.emote("moonwalk", 150);
 		tick();
-		assertEquals("emote dab 150", calls.get(calls.size() - 1));
+		assertEquals("emote moonwalk 150", calls.get(calls.size() - 1));
 		client.emote(null, 150);
 		tick();
 		assertEquals("emote none 150", calls.get(calls.size() - 1));

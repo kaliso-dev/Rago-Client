@@ -70,6 +70,7 @@ public final class LockerScreen extends GuiScreen {
 	public void initGui() {
 		openedNs = System.nanoTime();
 		Keyboard.enableRepeatEvents(true);
+		gg.rago.rewards.Rewards.inventory();
 		if (preview == null) {
 			preview = PlayerPreview.create();
 		}
@@ -405,16 +406,18 @@ public final class LockerScreen extends GuiScreen {
 		float cy = y - scroll;
 		if (cape != null) {
 			ChoiceOption design = choice(cape, "cape_design");
-			cy = section(x, cy, w, "flag", t("rago.locker.cape"), design, cape, true);
+			cy = section(x, cy, w, "flag", t("rago.locker.cape"), design, cape, true, "cape");
 			cy = neon(x, cy, w, choice(cape, "cape_neon"), cape);
 		}
 		if (cos != null) {
-			cy = section(x, cy, w, "crown", t("rago.locker.hat"), choice(cos, "cosmetic_hat"), cos, false);
+			cy = section(x, cy, w, "crown", t("rago.locker.hat"), choice(cos, "cosmetic_hat"), cos, false, "hat");
 			cy = neon(x, cy, w, choice(cos, "cosmetic_hat_neon"), cos);
-			cy = section(x, cy, w, "wind", t("rago.locker.wings"), choice(cos, "cosmetic_wings"), cos, false);
+			cy = section(x, cy, w, "wind", t("rago.locker.wings"), choice(cos, "cosmetic_wings"), cos, false, "wings");
 			cy = neon(x, cy, w, choice(cos, "cosmetic_wings_neon"), cos);
-			cy = section(x, cy, w, "shield", t("rago.locker.shield"), choice(cos, "cosmetic_shield"), cos, false);
+			cy = section(x, cy, w, "shield", t("rago.locker.shield"), choice(cos, "cosmetic_shield"), cos, false, "shield");
 			cy = neon(x, cy, w, choice(cos, "cosmetic_shield_neon"), cos);
+			cy = section(x, cy, w, "type-outline", t("rago.locker.name_color"), choice(cos, "cosmetic_name_color"), cos, false, "name");
+			cy = section(x, cy, w, "badge-check", t("rago.locker.name_icon"), choice(cos, "cosmetic_name_icon"), cos, false, "icon");
 		}
 		// the neon glow can be turned off here; sizes and the rest stay in the mod's own settings
 		BooleanOption glow = cos == null ? null : bool(cos, "cosmetic_neon_glow");
@@ -454,9 +457,11 @@ public final class LockerScreen extends GuiScreen {
 
 	/**
 	 * A row of chips, one per choice. For the cape, "none" turns the mod off; for the others, any
-	 * choice but "none" turns the mod on.
+	 * choice but "none" turns the mod on. A cosmetic not won yet ({@code type}: its catalogue type)
+	 * shows a lock and opens the shop; the others show their rarity's colour.
 	 */
-	private float section(float x, float y, float w, String icon, String title, ChoiceOption option, Module module, boolean noneDisables) {
+	private float section(float x, float y, float w, String icon, String title, ChoiceOption option, Module module, boolean noneDisables,
+		String type) {
 		if (option == null) {
 			return y;
 		}
@@ -469,27 +474,50 @@ public final class LockerScreen extends GuiScreen {
 		for (String id : ids) {
 			boolean selected = noneDisables
 				? "none".equals(id) ? !module.isEnabled() : module.isEnabled() && option.is(id)
-				: option.is(id) && (module.isEnabled() || "none".equals(id));
+				: option.is(id) && (module.isEnabled() || "none".equals(id) || "name".equals(type) || "icon".equals(type));
+			boolean owned = gg.rago.rewards.Rewards.owns(type, id);
+			gg.rago.rewards.Rewards.Item item = gg.rago.rewards.Rewards.item(type + ":" + id);
 			String label = label(option.key(), id);
-			float cw = Ui.textWidth(Ui.MEDIUM, label, 9.5f) + 26;
+			boolean iconChip = "icon".equals(type) && !"none".equals(id);
+			float lead = !owned ? 14 : iconChip ? 14 : 0;
+			float cw = Ui.textWidth(Ui.MEDIUM, label, 9.5f) + 26 + lead;
 			if (cx + cw > x + w) {
 				cx = x;
 				y += chipH + 8;
 			}
 			float hv = Widgets.hoverAmount("locker:chip" + option.key() + id, cx, y, cw, chipH);
+			int rarity = item != null ? gg.rago.rewards.Rewards.color(item.rarity) : 0;
 			if (selected) {
 				Ui.round(cx, y, cw, chipH, chipH / 2, Theme.ACCENT);
 			} else {
-				Ui.glassBorder(cx, y, cw, chipH, chipH / 2, Ui.mix(0xFF151417, 0xFF222126, hv), 0x1FFFFFFF);
+				int edge = item != null && owned ? Ui.alpha(rarity, 0.55f) : 0x1FFFFFFF;
+				Ui.glassBorder(cx, y, cw, chipH, chipH / 2, Ui.mix(0xFF151417, 0xFF222126, hv), edge);
 			}
-			Ui.textCentered(Ui.MEDIUM, label, cx + cw / 2, y + (chipH - 9.5f * 1.21f) / 2, 9.5f, selected ? 0xFF1A0605 : Theme.TEXT);
+			int text = selected ? 0xFF1A0605 : owned ? Theme.TEXT : Theme.MUTED;
+			if ("name".equals(type) && !"none".equals(id) && !selected) {
+				// the name colour's own colour, as it will show
+				text = owned ? 0xFF000000 | gg.rago.modules.RagoBadge.nameShade(id) : Ui.alpha(0xFF000000 | gg.rago.modules.RagoBadge.nameShade(id), 0.5f);
+			}
+			float tx = cx + cw / 2 + lead / 2;
+			if (!owned) {
+				Ui.icon("lock", cx + 11, y + (chipH - 10) / 2, 10, selected ? 0xFF1A0605 : Theme.MUTED);
+			} else if (iconChip) {
+				Ui.texture(gg.rago.modules.RagoBadge.iconLocation(id), cx + 10, y + (chipH - 11) / 2, 11, 11, 0, 0, 1, 1, 0xFFFFFFFF);
+			}
+			Ui.textCentered(Ui.MEDIUM, label, tx, y + (chipH - 9.5f * 1.21f) / 2, 9.5f, text);
 			Ui.click(cx, y, cw, chipH, () -> {
+				if (!owned) {
+					message = t("rago.locker.locked", label);
+					messageError = false;
+					mc.displayGuiScreen(new ShopScreen(this));
+					return;
+				}
 				if (noneDisables && "none".equals(id)) {
 					module.setEnabled(false);
 					return;
 				}
 				option.select(id);
-				if (!"none".equals(id)) {
+				if (!"none".equals(id) && !"name".equals(type) && !"icon".equals(type)) {
 					module.setEnabled(true);
 				}
 			});

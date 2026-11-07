@@ -5,6 +5,7 @@ import unittest
 import urllib.error
 import urllib.request
 
+from rago_network import app
 from rago_network.app import Network, join_id, serve
 from rago_network.limits import Limiter
 from rago_network.store import Store
@@ -31,6 +32,25 @@ class FakeMojang:
         return self.players[name], name
 
 
+def fresh_store():
+    """An empty store: in memory, or in the PostgreSQL database named by RAGO_TEST_DATABASE (emptied
+    first), so that the same tests check both."""
+    target = os.environ.get("RAGO_TEST_DATABASE", ":memory:")
+    if target != ":memory:":
+        import psycopg
+        while _open_stores:
+            _open_stores.pop().close()
+        with psycopg.connect(target, autocommit=True) as conn:
+            for (table,) in conn.execute("SELECT tablename FROM pg_tables WHERE schemaname = 'public'").fetchall():
+                conn.execute(f'DROP TABLE "{table}"')
+    store = Store(target)
+    _open_stores.append(store)
+    return store
+
+
+_open_stores = []
+
+
 class Clock:
     def __init__(self):
         self.now = 1_000_000.0
@@ -41,7 +61,7 @@ class Clock:
 
 def network(clock=None, mojang=None):
     config = {"cosmetics": COSMETICS, "role_names": {"qRago": "creator"}}
-    return Network(config, store=Store(":memory:"), session_server=mojang or FakeMojang(), clock=clock or Clock())
+    return Network(config, store=fresh_store(), session_server=mojang or FakeMojang(), clock=clock or Clock())
 
 
 def sign_in(n, name="qRago", ip="1.2.3.4"):
@@ -262,6 +282,107 @@ class EmoteTest(unittest.TestCase):
         self.assertEqual(n.emotes(me["uuid"], {"uuids": [me["uuid"]] * 101})[0], 400)
 
 
+class FriendsTest(unittest.TestCase):
+    def setUp(self):
+        self.clock = Clock()
+        self.n = network(clock=self.clock)
+        self.me = sign_in(self.n, "qRago")["uuid"]
+        self.steve = sign_in(self.n, "Steve")["uuid"]
+
+    def befriend(self):
+        self.n.friend_add(self.me, {"name": "Steve"})
+        self.n.friend_answer(self.steve, {"uuid": self.me, "accept": True})
+
+    def test_a_request_accepted_makes_friends_on_both_sides(self):
+        n = self.n
+        self.assertEqual(n.friend_add(self.me, {"name": "steve"}), (200, {"state": "sent", "name": "Steve"}))
+        status, mine = n.friends(self.me, {})
+        self.assertEqual((mine["friends"], mine["sent"]), ([], [{"uuid": self.steve, "name": "Steve"}]))
+        status, his = n.friends(self.steve, {})
+        self.assertEqual(his["received"], [{"uuid": self.me, "name": "qRago"}])
+        self.assertEqual(n.friend_answer(self.steve, {"uuid": self.me, "accept": True}), (200, {"state": "friends"}))
+        for a, b, role in ((self.me, "Steve", "user"), (self.steve, "qRago", "creator")):
+            status, body = n.friends(a, {})
+            self.assertEqual(body["friends"], [{"uuid": body["friends"][0]["uuid"], "name": b, "role": role, "online": True}])
+            self.assertEqual((body["received"], body["sent"]), ([], []))
+        # asking a friend again changes nothing
+        self.assertEqual(n.friend_add(self.me, {"name": "Steve"}), (200, {"state": "friends", "name": "Steve"}))
+
+    def test_asking_back_is_accepting(self):
+        n = self.n
+        n.friend_add(self.me, {"name": "Steve"})
+        self.assertEqual(n.friend_add(self.steve, {"name": "qRago"}), (200, {"state": "friends", "name": "qRago"}))
+        self.assertEqual(n.friends(self.me, {})[1]["sent"], [])
+
+    def test_online_means_a_recent_visible_presence_and_comes_first(self):
+        n = self.n
+        abel = sign_in(n, "qAbel")["uuid"]
+        self.befriend()
+        n.friend_add(self.me, {"name": "qAbel"})
+        n.friend_answer(abel, {"uuid": self.me, "accept": True})
+        self.clock.now += 200
+        n.presence(self.steve, {"visible": True})
+        self.assertEqual([(f["name"], f["online"]) for f in n.friends(self.me, {})[1]["friends"]],
+                         [("Steve", True), ("qAbel", False)])
+        n.presence(self.steve, {"visible": False})
+        self.assertFalse(n.friends(self.me, {})[1]["friends"][1]["online"])
+        n.presence(self.steve, {"visible": True})
+        self.clock.now += 200
+        self.assertFalse(any(f["online"] for f in n.friends(self.me, {})[1]["friends"]))
+
+    def test_declining_removing_and_refusals(self):
+        n = self.n
+        self.assertEqual(n.friend_add(self.me, {"name": "Nobody"}), (404, {"error": "not_on_rago"}))
+        self.assertEqual(n.friend_add(self.me, {"name": "qRago"}), (400, {"error": "yourself"}))
+        self.assertEqual(n.friend_add(self.me, {"name": "bad name"}), (400, {"error": "bad_name"}))
+        self.assertEqual(n.friend_answer(self.steve, {"uuid": self.me, "accept": True}), (404, {"error": "no_request"}))
+        self.assertEqual(n.friend_answer(self.steve, {"uuid": self.me})[0], 400)
+        self.assertEqual(n.friend_remove(self.steve, {"uuid": "nope"})[0], 400)
+        n.friend_add(self.me, {"name": "Steve"})
+        self.assertEqual(n.friend_answer(self.steve, {"uuid": self.me, "accept": False}), (200, {"state": "declined"}))
+        self.assertEqual(n.friends(self.me, {})[1]["sent"], [])
+        # a request taken back
+        n.friend_add(self.me, {"name": "Steve"})
+        self.assertEqual(n.friend_remove(self.me, {"uuid": self.steve.replace("-", "")}), (200, {"removed": True}))
+        self.assertEqual(n.friends(self.steve, {})[1]["received"], [])
+        self.befriend()
+        self.assertEqual(n.friend_remove(self.steve, {"uuid": self.me}), (200, {"removed": True}))
+        self.assertEqual(n.friends(self.me, {})[1]["friends"], [])
+        self.assertEqual(n.friend_remove(self.steve, {"uuid": self.me}), (200, {"removed": False}))
+
+    def test_a_player_hiding_rago_cannot_be_found_but_can_ask(self):
+        n = self.n
+        n.presence(self.steve, {"visible": False})
+        self.assertEqual(n.friend_add(self.me, {"name": "Steve"}), (404, {"error": "not_on_rago"}))
+        self.assertEqual(n.friend_add(self.steve, {"name": "qRago"})[1]["state"], "sent")
+        self.assertEqual(n.friend_add(self.me, {"name": "Steve"}), (200, {"state": "friends", "name": "Steve"}))
+
+    def test_limits(self):
+        n = self.n
+        sign_in(n, "qAbel")
+        old = app.MAX_SENT, app.MAX_FRIENDS
+        try:
+            app.MAX_SENT, app.MAX_FRIENDS = 1, 1
+            n.friend_add(self.me, {"name": "Steve"})
+            self.assertEqual(n.friend_add(self.me, {"name": "qAbel"}), (409, {"error": "too_many_requests"}))
+            n.friend_answer(self.steve, {"uuid": self.me, "accept": True})
+            self.assertEqual(n.friend_add(self.me, {"name": "qAbel"}), (409, {"error": "too_many_friends"}))
+        finally:
+            app.MAX_SENT, app.MAX_FRIENDS = old
+
+    def test_deleting_or_forgetting_a_player_ends_their_friendships(self):
+        n = self.n
+        self.befriend()
+        n.delete(self.steve)
+        self.assertEqual(n.friends(self.me, {})[1]["friends"], [])
+        self.steve = sign_in(n, "Steve")["uuid"]
+        self.befriend()
+        self.clock.now += 200 * 86400
+        n.presence(self.me, {"visible": True})
+        n.store.prune(int(self.clock.now), 180 * 86400)
+        self.assertEqual(n.friends(self.me, {})[1], {"friends": [], "received": [], "sent": []})
+
+
 class LimiterTest(unittest.TestCase):
     def test_a_bucket_refills_with_time(self):
         t = [0.0]
@@ -310,6 +431,15 @@ class HttpTest(unittest.TestCase):
             self.assertEqual(call("POST", "/v1/emote", {"emote": "dab"}, done["token"]), (200, {"ok": True}))
             status, body = call("POST", "/v1/emotes", {"uuids": [done["uuid"]]}, done["token"])
             self.assertEqual(body["emotes"][done["uuid"]]["emote"], "dab")
+            self.assertEqual(call("POST", "/v1/friends", {})[0], 401)
+            self.assertEqual(call("POST", "/v1/friends", {}, done["token"]),
+                             (200, {"friends": [], "received": [], "sent": []}))
+            self.assertEqual(call("POST", "/v1/friends/add", {"name": "Steve"}, done["token"]),
+                             (404, {"error": "not_on_rago"}))
+            self.assertEqual(call("POST", "/v1/friends/answer", {"uuid": done["uuid"], "accept": True}, done["token"]),
+                             (404, {"error": "no_request"}))
+            self.assertEqual(call("POST", "/v1/friends/remove", {"uuid": done["uuid"]}, done["token"]),
+                             (200, {"removed": False}))
             self.assertEqual(call("DELETE", "/v1/me", token=done["token"]), (200, {"deleted": True}))
         finally:
             server.shutdown()

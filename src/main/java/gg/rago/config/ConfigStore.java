@@ -112,6 +112,9 @@ public final class ConfigStore {
 					}
 				}
 			}
+			if (module instanceof gg.rago.modules.NoF5Bobbing && options != null) {
+				((gg.rago.modules.NoF5Bobbing) module).migrate(options);
+			}
 			if (module instanceof Styled && (options == null || !options.has("style"))) {
 				// saved before styles existed: start from the default style rather than a mix
 				((Styled) module).applyStyle(((Styled) module).defaultStyle());

@@ -15,6 +15,10 @@ def main():
     args = parser.parse_args()
     with open(args.config, encoding="utf-8") as f:
         config = json.load(f)
+    # a PostgreSQL address (for example a free Neon database) is a secret: it comes from the
+    # environment, never from a file in the repository
+    if os.environ.get("DATABASE_URL"):
+        config["database"] = os.environ["DATABASE_URL"]
     network = Network(config)
     if args.command[:1] == ["role"]:
         if len(args.command) != 3 or undashed(args.command[1]) is None or args.command[2] not in ROLES:

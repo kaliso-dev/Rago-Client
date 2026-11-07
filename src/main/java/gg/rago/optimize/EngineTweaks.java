@@ -9,14 +9,21 @@ public final class EngineTweaks {
 	private final BooleanSupplier particleCollisions;
 	private final BooleanSupplier lightGlint;
 	private final BooleanSupplier nearbyChunksOnly;
+	private final BooleanSupplier lowAnimationTick;
 
 	EngineTweaks(BooleanSupplier fastWorldSwitch, BooleanSupplier unstackedItems, BooleanSupplier particleCollisions,
-		BooleanSupplier lightGlint, BooleanSupplier nearbyChunksOnly) {
+		BooleanSupplier lightGlint, BooleanSupplier nearbyChunksOnly, BooleanSupplier lowAnimationTick) {
 		this.fastWorldSwitch = fastWorldSwitch;
 		this.unstackedItems = unstackedItems;
 		this.particleCollisions = particleCollisions;
 		this.lightGlint = lightGlint;
 		this.nearbyChunksOnly = nearbyChunksOnly;
+		this.lowAnimationTick = lowAnimationTick;
+	}
+
+	/** PolyPatcher's Low Animation Tick: random display ticks for 100 blocks around you each tick instead of 1000. */
+	public boolean lowAnimationTick() {
+		return lowAnimationTick.getAsBoolean();
 	}
 
 	/** Skip the full garbage collection vanilla forces on every world change (the freeze when switching servers). */

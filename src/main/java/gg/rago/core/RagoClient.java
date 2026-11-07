@@ -51,7 +51,9 @@ import gg.rago.hud.elements.ItemCounterHud;
 import gg.rago.hud.elements.KeystrokesHud;
 import gg.rago.hud.elements.MemoryHud;
 import gg.rago.hud.elements.PingHud;
+import gg.rago.hud.elements.MusicHud;
 import gg.rago.hud.elements.PotionHud;
+import gg.rago.hud.elements.PvpTrainerHud;
 import gg.rago.hud.elements.ReachHud;
 import gg.rago.hud.elements.ScoreboardHud;
 import gg.rago.hud.elements.ServerHud;
@@ -60,6 +62,7 @@ import gg.rago.hud.elements.ToggleSprintHud;
 import gg.rago.hypixel.HypixelApi;
 import gg.rago.input.InputState;
 import gg.rago.modules.BlockOverlay;
+import gg.rago.modules.ClearInventory;
 import gg.rago.modules.ActionSounds;
 import gg.rago.modules.AutoMessages;
 import gg.rago.modules.AutoText;
@@ -225,6 +228,7 @@ public final class RagoClient {
 	private static Path configDir;
 	private static HypixelApi hypixel;
 	private static AutoText autoText;
+	private static MusicHud music;
 
 	/** Forge's config folder, where Rago keeps its files. */
 	public static Path configDir() {
@@ -275,6 +279,8 @@ public final class RagoClient {
 		MODULES.register(new ServerHud());
 		MODULES.register(new ReachHud());
 		MODULES.register(new ComboHud());
+		MODULES.register(new PvpTrainerHud());
+		music = MODULES.register(new MusicHud());
 		MODULES.register(new ScoreboardHud());
 		MODULES.register(new BossBarHud());
 		MODULES.register(new BedwarsResourcesHud());
@@ -334,6 +340,7 @@ public final class RagoClient {
 		Hooks.overlays = MODULES.register(new Overlays());
 		MODULES.register(new MotionBlur(zoom));
 		Hooks.inventoryBlur = MODULES.register(new InventoryBlur());
+		Hooks.clearInventory = MODULES.register(new ClearInventory());
 		MODULES.register(new ColorGrading());
 		MODULES.register(new Vignette());
 		RagoCape cape = MODULES.register(new RagoCape());
@@ -351,7 +358,7 @@ public final class RagoClient {
 		registerPresetRows();
 		optimizations = new Optimizations(SETTINGS);
 		VideoRows.register(SETTINGS);
-		Hooks.culler = optimizations.culler();
+		Hooks.culling = optimizations.culling();
 		Hooks.noHurtCam = noHurtCam;
 		Hooks.animations = animations;
 		Hooks.tabPing = tabPing;
@@ -406,6 +413,9 @@ public final class RagoClient {
 		for (KeyBinding k : autoText.keys()) {
 			ClientRegistry.registerKeyBinding(k);
 		}
+		for (KeyBinding k : music.keys()) {
+			ClientRegistry.registerKeyBinding(k);
+		}
 		MinecraftForge.EVENT_BUS.register(this);
 		gg.rago.debug.NametagBench bench = gg.rago.debug.NametagBench.fromProperty();
 		if (bench != null) {
@@ -413,6 +423,7 @@ public final class RagoClient {
 		}
 		MinecraftForge.EVENT_BUS.register(optimizations);
 		MinecraftForge.EVENT_BUS.register(optimizations.holograms());
+		MinecraftForge.EVENT_BUS.register(optimizations.culling());
 		MinecraftForge.EVENT_BUS.register(new gg.rago.chat.ChatCopy(chatCopy::get));
 		MinecraftForge.EVENT_BUS.register(new gg.rago.debug.InputTrace());
 		gg.rago.debug.StackSampler.startIfAsked();

@@ -3,7 +3,7 @@
 Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built as a
 [Minecraft Forge](https://files.minecraftforge.net) 1.8.9 mod so it runs next to OptiFine.
 
-**Current version: 1.10.11.** What it contains:
+**Current version: 1.11.2.** What it contains:
 
 - a clean home screen (animated Rago emblem, Singleplayer / Multiplayer / Play Hypixel, a dock of
   shortcuts) over a looping, lightly blurred background video, and a helper that links to the
@@ -24,9 +24,14 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
 - a Performance page with a one-click **Max performance** preset (with Undo) and Rago's own optimisations, Minecraft's video settings and, when OptiFine is
   installed, its performance, detail, animation and particle settings in one searchable list:
   - frame caps: menus above vanilla's fixed 30 FPS, and a lower cap while the window is unfocused
-  - entity render distances for players, hostile mobs, passive mobs and other entities
-  - hide arrows stuck in players, item frames, paintings, armor stands, XP orbs, fireworks, falling blocks
-  - tile entity distance, and hide skulls, signs, enchanting books, banners, beacon beams, end portals
+  - render distances, as PolyPatcher's (1 to 64 blocks): all living entities, players, hostile
+    mobs, passive mobs and block entities
+  - hide arrows stuck in players, in the ground or in flight (as PolyPatcher: the ones heading east,
+    south or up), item frames (all, or only those holding a map), paintings, armor stands,
+    see-through players, XP orbs, fireworks, falling blocks
+  - hide skulls, signs, enchanting books, banners, beacon beams, end portals
+  - back-face culling for entities and for players, no enchantment glint, and a limit on chunk
+    updates per second
   - hide tall grass, ferns, flowers and dead bushes, a particle cap, particle collisions and a fog switch
 - a Controls page to rebind every key (keyboard or mouse), with conflicts shown in red
 - a module system: every feature is a module with an on/off switch and its own options
@@ -499,6 +504,80 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     experience, reward summary): a second at least, then a second without a new line, eight seconds
     at most. Lines that still come in the next 12 seconds move it back to the bottom, one copy
     only, so it stays readable without scrolling up
+- new in 1.11.2
+  - **View Bobbing** (was No F5 Bobbing) has two options that can be on together: **Minimal**, in
+    first person the world and the camera stay still while you walk and only your hand and the item
+    you hold bob (Minecraft's view bobbing must be on), and **Not in F5**, the old behaviour, no
+    camera sway in third person. One check per frame
+  - **Resource packs**: turning a pack on now replaces the packs in use, so changing pack is one
+    click; overlays in use (wool, sky, sword...) stay on top of it, and Shift + click stacks a pack
+    on top of the others as before
+  - new HUD **PvP Trainer** (PvP, off by default), to practise jump resets and sprint resets. After
+    each knockback you take on the ground, a bar shows whether you jumped on its exact tick
+    (perfect, green), one tick off (yellow), two or three off (orange: early means you were already
+    in the air, late means you pressed jump in the air) or not at all (red), with the share of
+    perfect ones over the last 20. A row of dots shows which of your hits that landed were sprint
+    hits (W-tap). It only reads what the client already knows (motion, hurt animation, the game's
+    jump cooldown, your attacks) and shows what already happened: it never tells you when to jump
+    and never acts for you. Your own fireball jumps do not count (nobody within 6 blocks). A few
+    field reads a tick, one batch of shapes a frame, a nearby-entity lookup only when knockback
+    arrives
+  - new HUD **Music** (HUD, off by default, Windows only): what plays on this PC (Spotify, Deezer,
+    a browser...), with its cover, title, artist, time and a progress bar, read from Windows' media
+    controls (what the volume panel shows). Three keys to set in Controls: play/pause, next,
+    previous; while the chat is open, buttons for them take the place of the artist and the time,
+    and stay clickable. With "Hide when paused" on, a paused track stays shown 10 seconds, and
+    while the chat is open, so it can be started again. The reading runs in a separate PowerShell process at low priority, which asks Windows
+    once a second and writes a line only when something changes; it runs only while the HUD is on
+    and stops with the game. In the game: one field read a frame, the cut titles kept until the
+    track changes, the time text until its second changes, a 128 x 128 cover uploaded once per
+    track. No Spotify account or key: Spotify's API cannot play music itself, so Spotify (or
+    another player) still has to be open
+  - Rago Network: **friends** (ask a Rago player by name, accept or decline, remove), for the
+    launcher's friends list
+  - Rago Points lowered: the chest's point cards and duplicates give half as much (about 50 points
+    a day instead of 85), and the play pass takes 90 minutes a tier (45 hours in all) for 1,200
+    points instead of 1,710, most of them in the last tiers. Points and tiers already won stay
+- new in 1.11.1
+  - **Clear Inventory** (Visual): behind your inventory (E) the world stays as it is, with no blur
+    and no dark shade, only a light vignette at the edges (0 to 100 %, 25 % by default; 0 for
+    none). It can also apply to every window (chests, Hypixel's menus and shops). It costs less than
+    Minecraft's own background: the shade is made see-through, the vignette is one quad with the
+    game's vignette texture, drawn only while such a window is open; Inventory Blur steps aside
+  - **15 flag capes** in 4K: France, Belgium, Switzerland, Canada, Morocco, Algeria, Tunisia, the
+    United States, the United Kingdom, Germany, Spain, Italy, Portugal, Brazil and Turkey, drawn from
+    the official flags (public domain, `tools/flags`) by `tools/flag_capes.py`: the field continued
+    above and below, stripes made taller with emblems kept at their proportions, the stars and the
+    Union Jack drawn again at the cape's shape. Common cosmetics, sold in the shop; flat colours,
+    so each file is small, read only when someone wears it
+- new in 1.11.0
+  - **Daily chest**: free every day (dock, gift button), three cards drawn by Rago Network: Rago
+    Points, cosmetics or fragments of one. Day 7 of a streak gives a card more, day 14 a rare card,
+    day 30 an epic one; an epic card comes within 20 chests and a legendary one within 90 at most.
+    The odds of each rarity are shown on the screen; a cosmetic already owned turns into points.
+    Nothing is ever sold at random, and points have no money value: they cannot be bought, traded,
+    given or cashed out
+  - **Rago Points and the shop**: four cosmetics a day, a bundle a week (20 % cheaper, the items
+    already owned taken off its price) and the Forge, which finishes a cosmetic started with
+    fragments
+  - **Play pass**: one tier for each hour played in a world (time away from the keyboard does not
+    count, four hours a day at most), 30 tiers of points and cosmetics, three found nowhere else.
+    Free; a reached tier is said in chat
+  - **Cosmetics are won**: the Rago cape, the Rago cap, the small dragon wings, the clap and every
+    neon colour are free; every other cosmetic, the old ones too, is won in the chest, the pass or
+    the shop. The locker and the emote wheel show the others with a lock and lead to the shop, and
+    what you wear is what you own, as other players see it. The creator's capes stay theirs
+  - new capes (Sakura, Circuit, Inferno, Galaxy, Hundred days), hats (cat ears, devil horns,
+    headphones, kitsune mask) and wings (Frost, Angel, Mecha, whose lines glow), all Rago's own
+  - **name colour and icon**: 14 colours for your name above your head and in the player list
+    (plain, gradients, moving, rainbow) and 11 icons after it, seen by Rago players. Your real name
+    always stays readable, and in a Bed Wars game the team colour shows instead
+  - dances: the twerk (with a rounder back, the cape lifting off it), the griddy (head down) and a
+    new moonwalk, with the clap and the wave; dab, disco, zombie, macarena and groove are gone
+  - the home screen's **Strong** blur is strong on every screen: it blurred the same few pixels as
+    Light, which looked the same on a large screen
+  - Rago Network keeps the points and the collection in a free PostgreSQL database (Neon) when one
+    is set, so they survive the server restarting (see `server/README.md`)
 - new in 1.10.11
   - **11 new menu backgrounds**: Minecraft landscapes filmed with shaders (Lake at sunset, Great
     oak, Golden peak, Coast from above, Lake valley, Seabed, Meadow, Mountain flower, Dusk,
@@ -948,7 +1027,7 @@ compare like for like, set the Ping HUD to *Server (tab)* on both.
 ## Install (players)
 
 1. Install **Forge 1.8.9 - 11.15.1.2318** with the Forge installer ("Install client").
-2. Put `rago-1.10.11+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
+2. Put `rago-1.11.0+1.8.9.jar` in `.minecraft/mods` (with Prism Launcher or another launcher
    that makes instances, in that instance's `minecraft/mods` folder). If your Rago build bundles OptiFine, that is
    all; otherwise download **OptiFine 1.8.9 HD U M5** from [optifine.net](https://optifine.net/downloads)
    and put it in `.minecraft/mods` too.

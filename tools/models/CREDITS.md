@@ -9,4 +9,8 @@ model space, split into groups, hidden faces removed, and tinted in game.
 | Minecraft Hats Mini-pack 1 | VoxelBear | https://sketchfab.com/3d-models/minecraft-hats-mini-pack-1-7d78cb557cdd44c2b6dbe86c5596cece | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) | `top_hat`, `hats_atlas.png` |
 | Minecraft Hats Mini-pack 3 | VoxelBear | https://sketchfab.com/3d-models/minecraft-hats-mini-pack-3-e37b079ead7b42438e919eb88a8da7ee | [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/) | `wizard_hat`, `wizard_hat.png` |
 
-The Rago cap and beanie, and the dragon wings, are Rago's own (`tools/cosmetics.py`).
+The Rago cap and beanie, and the dragon wings, are Rago's own (`tools/cosmetics.py`). So are the cat
+ears, devil horns, headphones and kitsune mask (`tools/reward_hats.py`), the Frost, Angel and Mecha
+wings (`tools/reward_wings.py`), the Sakura, Circuit, Inferno, Galaxy and Hundred days capes
+(`tools/reward_capes.py`) and the icons shown after a name (`tools/name_icons.py`), all drawn from
+plain shapes by those scripts.

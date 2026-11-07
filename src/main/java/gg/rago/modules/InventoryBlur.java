@@ -149,7 +149,7 @@ public final class InventoryBlur extends Module {
 			return;
 		}
 		Minecraft mc = Minecraft.getMinecraft();
-		if (!(mc.currentScreen instanceof GuiContainer) || mc.theWorld == null) {
+		if (!(mc.currentScreen instanceof GuiContainer) || mc.theWorld == null || gg.rago.hooks.Hooks.clear()) {
 			return;
 		}
 		long now = System.nanoTime();

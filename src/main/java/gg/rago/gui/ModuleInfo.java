@@ -71,6 +71,8 @@ final class ModuleInfo {
 		ICONS.put("server_address", "server");
 		ICONS.put("reach", "ruler");
 		ICONS.put("combo", "trending-up");
+		ICONS.put("pvp_trainer", "target");
+		ICONS.put("music", "music-2");
 		ICONS.put("bedwars_resources", "gem");
 		ICONS.put("motion_blur", "blend");
 		ICONS.put("rago_cape", "flag");
@@ -115,6 +117,7 @@ final class ModuleInfo {
 		ICONS.put("game_debrief", "image");
 		ICONS.put("overlays", "paintbrush");
 		ICONS.put("inventory_blur", "droplet");
+		ICONS.put("clear_inventory", "eye");
 		ICONS.put("no_f5_bobbing", "camera");
 	}
 

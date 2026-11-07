@@ -11,9 +11,13 @@ import com.google.gson.JsonPrimitive;
  * or not allowed falls back to its default, as the server itself does.
  */
 public final class Loadout {
-	public static final String[] CAPES = {"none", "rago", "black_cat", "pixel_cat", "night_cat", "qrago", "pink_r", "primal", "mfga"};
-	public static final String[] HATS = {"none", "rago_cap", "rago_beanie", "top_hat", "wizard_hat", "crown", "halo"};
-	public static final String[] WINGS = {"none", "dragon", "dragon_small"};
+	public static final String[] CAPES = {"none", "rago", "black_cat", "pixel_cat", "night_cat", "qrago", "pink_r", "primal", "mfga", "sakura", "circuit", "inferno", "galaxy", "streak_100", "flag_fr", "flag_be", "flag_ch", "flag_ca", "flag_ma", "flag_dz", "flag_tn", "flag_us", "flag_gb", "flag_de", "flag_es", "flag_it", "flag_pt", "flag_br", "flag_tr"};
+	public static final String[] HATS = {"none", "rago_cap", "rago_beanie", "top_hat", "wizard_hat", "crown", "halo", "cat_ears", "devil_horns", "headphones", "kitsune"};
+	public static final String[] WINGS = {"none", "dragon", "dragon_small", "frost", "angel", "mecha"};
+	/** The colours of the name (catalogue "name:..."), drawn by gg.rago.modules.RagoBadge. */
+	public static final String[] NAME_COLORS = {"none", "mint", "sky", "peach", "lilac", "lemon", "rago_red", "sakura", "sunset", "ocean", "toxic", "aurora", "inferno", "rainbow", "gold_rush"};
+	/** The icons after the name (catalogue "icon:..."). */
+	public static final String[] NAME_ICONS = {"none", "heart", "star", "note", "flame", "bolt", "paw", "sword", "gem", "sakura", "skull", "hourglass"};
 	public static final String[] SHIELDS = {"none", "rago", "crimson", "gold", "frost", "void"};
 	/** The neon colours, as {@code gg.rago.render.NeonColors.IDS}. */
 	public static final String[] NEON = {"red", "orange", "yellow", "green", "cyan", "blue", "purple", "pink", "white"};
@@ -51,10 +55,20 @@ public final class Loadout {
 	public final String shieldNeon;
 	public final int shieldScale;
 	public final boolean neonGlow;
+	/** The colour of the name and the icon after it, "none" for neither. */
+	public final String nameColor;
+	public final String nameIcon;
 
 	public Loadout(String cape, String capeNeon, boolean capeOverOwn, String hat, String hatNeon, int hatColor, int hatScale,
 		String wings, String wingsNeon, int wingsColor, int wingsScale, boolean wingsFlap, int wingsFlapSpeed, String shield,
 		String shieldNeon, int shieldScale, boolean neonGlow) {
+		this(cape, capeNeon, capeOverOwn, hat, hatNeon, hatColor, hatScale, wings, wingsNeon, wingsColor, wingsScale, wingsFlap,
+			wingsFlapSpeed, shield, shieldNeon, shieldScale, neonGlow, "none", "none");
+	}
+
+	public Loadout(String cape, String capeNeon, boolean capeOverOwn, String hat, String hatNeon, int hatColor, int hatScale,
+		String wings, String wingsNeon, int wingsColor, int wingsScale, boolean wingsFlap, int wingsFlapSpeed, String shield,
+		String shieldNeon, int shieldScale, boolean neonGlow, String nameColor, String nameIcon) {
 		this.cape = cape;
 		this.capeNeon = capeNeon;
 		this.capeOverOwn = capeOverOwn;
@@ -72,11 +86,14 @@ public final class Loadout {
 		this.shieldNeon = shieldNeon;
 		this.shieldScale = shieldScale;
 		this.neonGlow = neonGlow;
+		this.nameColor = nameColor;
+		this.nameIcon = nameIcon;
 	}
 
 	/** Whether this shows nothing at all. */
 	public boolean empty() {
-		return cape.equals("none") && hat.equals("none") && wings.equals("none") && shield.equals("none");
+		return cape.equals("none") && hat.equals("none") && wings.equals("none") && shield.equals("none")
+			&& nameColor.equals("none") && nameIcon.equals("none");
 	}
 
 	/** As the server takes it: colours as #RRGGBB (their alpha is not passed on). */
@@ -99,6 +116,8 @@ public final class Loadout {
 		o.addProperty("shield_neon", shieldNeon);
 		o.addProperty("shield_scale", shieldScale);
 		o.addProperty("neon_glow", neonGlow);
+		o.addProperty("name_color", nameColor);
+		o.addProperty("name_icon", nameIcon);
 		return o;
 	}
 
@@ -116,7 +135,8 @@ public final class Loadout {
 			integer(o, "wings_scale", WINGS_SCALE_MIN, WINGS_SCALE_MAX), bool(o, "wings_flap", true),
 			integer(o, "wings_flap_speed", FLAP_SPEED_MIN, FLAP_SPEED_MAX),
 			choice(o, "shield", SHIELDS), choice(o, "shield_neon", NEON),
-			integer(o, "shield_scale", SHIELD_SCALE_MIN, SHIELD_SCALE_MAX), bool(o, "neon_glow", true));
+			integer(o, "shield_scale", SHIELD_SCALE_MIN, SHIELD_SCALE_MAX), bool(o, "neon_glow", true),
+			choice(o, "name_color", NAME_COLORS), choice(o, "name_icon", NAME_ICONS));
 	}
 
 	static String hex(int argb) {
