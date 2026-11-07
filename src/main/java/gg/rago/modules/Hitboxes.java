@@ -6,7 +6,6 @@ import gg.rago.config.IntOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
-import gg.rago.hooks.Hooks;
 import gg.rago.render.WorldDraw;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.culling.Frustum;
@@ -71,8 +70,7 @@ public final class Hitboxes extends Module {
 		for (Entity e : mc.theWorld.loadedEntityList) {
 			if (e == viewer && mc.gameSettings.thirdPersonView == 0 || e.isInvisible() || !wanted(e)
 				|| !e.isInRangeToRender3d(rm.viewerPosX, rm.viewerPosY, rm.viewerPosZ)
-				|| !e.ignoreFrustumCheck && !frustum.isBoundingBoxInFrustum(e.getEntityBoundingBox())
-				|| Hooks.skipEntity(e)) {
+				|| !e.ignoreFrustumCheck && !frustum.isBoundingBoxInFrustum(e.getEntityBoundingBox())) {
 				continue;
 			}
 			if (wr == null) {

@@ -33,7 +33,7 @@ import gg.rago.modules.TabList;
 import gg.rago.modules.TabPing;
 import gg.rago.modules.TitleMod;
 import gg.rago.optimize.EngineTweaks;
-import gg.rago.optimize.OcclusionCuller;
+import gg.rago.optimize.EntityCulling;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.inventory.GuiContainer;
@@ -43,6 +43,7 @@ import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.client.particle.EntityFX;
 import net.minecraft.client.resources.model.IBakedModel;
+import net.minecraft.client.renderer.culling.ICamera;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.item.EntityItem;
@@ -66,7 +67,7 @@ public final class Hooks {
 	/** Vanilla keeps 100 chat lines. */
 	public static final int VANILLA_CHAT_LINES = 100;
 
-	public static volatile OcclusionCuller culler;
+	public static volatile EntityCulling culling;
 	public static volatile gg.rago.optimize.HologramBatch holograms;
 	public static volatile NoHurtCam noHurtCam;
 	public static volatile NoF5Bobbing noF5Bobbing;
@@ -134,10 +135,12 @@ public final class Hooks {
 	private Hooks() {
 	}
 
-	/** RenderManager.shouldRender: true skips an entity hidden behind blocks. */
-	public static boolean skipEntity(Entity e) {
-		OcclusionCuller c = culler;
-		return c != null && c.isHidden(e);
+	/** RenderGlobal.renderEntities, as it starts: entity culling asks what can be seen. */
+	public static void entitiesStart(Entity view, ICamera camera, float partialTicks) {
+		EntityCulling c = culling;
+		if (c != null) {
+			c.beforeEntities(view, camera, partialTicks);
+		}
 	}
 
 	/** EntityRenderer.hurtCameraEffect: the camera tilt in degrees when hurt (vanilla 14). */

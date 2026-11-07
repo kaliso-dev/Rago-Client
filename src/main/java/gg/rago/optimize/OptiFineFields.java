@@ -92,6 +92,30 @@ public final class OptiFineFields {
 		}
 	}
 
+	private static Boolean shadersClass;
+	private static Field shaderPackLoaded;
+
+	/** Whether an OptiFine shader pack is in use (OptiFine's own flag; works for every OptiFine of 1.8.9). */
+	public static boolean shadersOn() {
+		if (shadersClass == null) {
+			shadersClass = false;
+			for (String name : new String[] {"shadersmod.client.Shaders", "net.optifine.shaders.Shaders"}) {
+				try {
+					shaderPackLoaded = Class.forName(name).getField("shaderPackLoaded");
+					shadersClass = true;
+					break;
+				} catch (ReflectiveOperationException | LinkageError ignored) {
+					// not this OptiFine, or none
+				}
+			}
+		}
+		try {
+			return shadersClass && shaderPackLoaded.getBoolean(null);
+		} catch (IllegalAccessException e) {
+			return true;
+		}
+	}
+
 	/** Lists every OptiFine field with its type, for the log. */
 	public static String describe() {
 		StringBuilder sb = new StringBuilder();

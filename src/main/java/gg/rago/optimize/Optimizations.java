@@ -70,9 +70,16 @@ public final class Optimizations {
 	private final BooleanOption minimizedCap;
 
 	private final BooleanOption occlusionCulling;
-	private final BooleanOption cullPlayers;
+	private final IntOption cullingInterval;
+	private final BooleanOption smartCulling;
+	private final BooleanOption drawDragons;
+	private final BooleanOption drawWithers;
+	private final BooleanOption keepPlayerNames;
+	private final BooleanOption keepEntityNames;
+	private final BooleanOption keepStandNames;
+	private final BooleanOption standRules;
 	private final BooleanOption cullTiles;
-	private final OcclusionCuller culler;
+	private final EntityCulling culling;
 
 	private final BooleanOption entityDistance;
 	private final IntOption playerDistance;
@@ -136,12 +143,24 @@ public final class Optimizations {
 		unfocusedFps = s.slider(p, FPS, "unfocused_fps", 30, 5, 120, 5, v -> v + " FPS", v -> applyFrameCaps());
 		minimizedCap = s.bool(p, FPS, "minimized_cap", true, v -> applyFrameCaps());
 
+		// PolyPatcher's entity culling settings, with its defaults
 		occlusionCulling = s.bool(p, CULLING, "occlusion_culling", true, null);
-		cullPlayers = s.bool(p, CULLING, "cull_players", false, null);
+		cullingInterval = s.choice(p, CULLING, "culling_interval", 0, null,
+			"rago.value.culling_interval.0", "rago.value.culling_interval.1", "rago.value.culling_interval.2");
+		smartCulling = s.bool(p, CULLING, "smart_culling", true, null);
+		drawDragons = s.bool(p, CULLING, "never_cull_dragons", true, null);
+		drawWithers = s.bool(p, CULLING, "never_cull_withers", true, null);
+		keepPlayerNames = s.bool(p, CULLING, "culled_player_names", true, null);
+		keepEntityNames = s.bool(p, CULLING, "culled_entity_names", true, null);
+		keepStandNames = s.bool(p, CULLING, "culled_stand_names", true, null);
+		standRules = s.bool(p, CULLING, "armor_stand_rules", true, null);
 		cullTiles = s.bool(p, CULLING, "cull_tile_entities", true, null);
-		visibleWhen(s, "cull_players", occlusionCulling::get);
-		visibleWhen(s, "cull_tile_entities", occlusionCulling::get);
-		culler = new OcclusionCuller(occlusionCulling::get, cullPlayers::get, cullTiles::get);
+		for (String id : new String[] {"culling_interval", "smart_culling", "never_cull_dragons", "never_cull_withers", "culled_player_names",
+			"culled_entity_names", "culled_stand_names", "armor_stand_rules", "cull_tile_entities"}) {
+			visibleWhen(s, id, occlusionCulling::get);
+		}
+		culling = new EntityCulling(occlusionCulling::get, cullingInterval::get, smartCulling::get, drawDragons::get, drawWithers::get,
+			keepPlayerNames::get, keepEntityNames::get, keepStandNames::get, standRules::get, cullTiles::get);
 
 		entityDistance = s.bool(p, ENTITIES, "entity_distance", false, null);
 		hideStuckArrows = s.bool(p, ENTITIES, "hide_stuck_arrows", false, v -> applyArrowLayers());
@@ -273,20 +292,15 @@ public final class Optimizations {
 		FrameLimit.setMinimizedCap(minimizedCap.get());
 	}
 
-	/** Entities and tile entities hidden behind blocks, for the class patches and other features. */
-	public OcclusionCuller culler() {
-		return culler;
+	/** Entities and tile entities hidden behind the world, for the class patches and the event bus. */
+	public EntityCulling culling() {
+		return culling;
 	}
 
 	@SubscribeEvent
 	public void onRenderTick(TickEvent.RenderTickEvent event) {
-		if (event.phase == TickEvent.Phase.START) {
-			long t = gg.rago.debug.FrameProfile.ON ? gg.rago.debug.FrameProfile.start() : 0;
-			culler.update(Minecraft.getMinecraft(), event.renderTickTime);
-			if (gg.rago.debug.FrameProfile.ON) {
-				gg.rago.debug.FrameProfile.add(gg.rago.debug.FrameProfile.CULLING, System.nanoTime() - t);
-				gg.rago.debug.FrameProfile.frame();
-			}
+		if (event.phase == TickEvent.Phase.START && gg.rago.debug.FrameProfile.ON) {
+			gg.rago.debug.FrameProfile.frame();
 		}
 	}
 
@@ -295,7 +309,7 @@ public final class Optimizations {
 	public void onDebugText(RenderGameOverlayEvent.Text event) {
 		if (Minecraft.getMinecraft().gameSettings.showDebugInfo && occlusionCulling.get()) {
 			event.left.add("");
-			event.left.add("[Rago] Occlusion culling: " + culler.hiddenCount() + " hidden");
+			event.left.add("[Rago] Entity culling: " + culling.hiddenCount() + " hidden");
 		}
 	}
 
@@ -423,7 +437,7 @@ public final class Optimizations {
 				continue;
 			}
 			BooleanSupplier hide = hideRule(r);
-			GatedTileRenderer gated = new GatedTileRenderer(r, hide, (Predicate<TileEntity>) culler::isHidden, () -> {
+			GatedTileRenderer gated = new GatedTileRenderer(r, hide, (Predicate<TileEntity>) culling::tileHidden, () -> {
 				int d = tileDistance.get();
 				return d >= 64 ? 0 : (double) d * d;
 			});

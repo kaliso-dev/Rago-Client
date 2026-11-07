@@ -73,9 +73,6 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.Minecraft", new Patch("menu and unfocused frame-rate caps",
 			"func_90020_K", "getLimitFramerate", "()I",
 			m -> beforeReturns(m, Opcodes.IRETURN, new MethodInsnNode(Opcodes.INVOKESTATIC, "gg/rago/optimize/FrameLimit", "limit", "(I)I", false))));
-		add("net.minecraft.client.renderer.entity.RenderManager", new Patch("occlusion culling of entities",
-			"func_178635_a", "shouldRender", "(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/renderer/culling/ICamera;DDD)Z",
-			m -> returnIf(m, "skipEntity", "(Lnet/minecraft/entity/Entity;)Z", new int[] {Opcodes.ALOAD, 1}, Opcodes.ICONST_0, Opcodes.IRETURN)));
 		add("net.minecraft.client.renderer.EntityRenderer", new Patch("hurt camera strength",
 			"func_78482_e", "hurtCameraEffect", "(F)V",
 			RagoTransformer::hurtShake));
@@ -423,6 +420,18 @@ public final class RagoTransformer implements IClassTransformer {
 			RagoTransformer::sidebar));
 
 		// the fixes PolyPatcher makes (see gg.rago.fixes.FixHooks)
+		// PolyPatcher's entity culling, Rago's way (gg.rago.optimize.EntityCulling): what can be seen, as the entity pass starts
+		fix("net.minecraft.client.renderer.RenderGlobal", "entity culling", "func_180446_a", "renderEntities",
+			"(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/renderer/culling/ICamera;F)V", m -> {
+				InsnList head = new InsnList();
+				head.add(new VarInsnNode(Opcodes.ALOAD, 1));
+				head.add(new VarInsnNode(Opcodes.ALOAD, 2));
+				head.add(new VarInsnNode(Opcodes.FLOAD, 3));
+				head.add(new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "entitiesStart",
+					"(Lnet/minecraft/entity/Entity;Lnet/minecraft/client/renderer/culling/ICamera;F)V", false));
+				m.instructions.insert(head);
+				return true;
+			});
 		fix("net.minecraft.client.Minecraft", "keep shaders on F5", "func_71407_l", "runTick", "()V", FixPatches::keepShaders);
 		fix("net.minecraft.client.Minecraft", "no mob shader for a spectator in third person",
 			"func_175607_a", "setRenderViewEntity", "(Lnet/minecraft/entity/Entity;)V", FixPatches::spectatorShader);

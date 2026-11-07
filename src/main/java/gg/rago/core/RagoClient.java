@@ -358,7 +358,7 @@ public final class RagoClient {
 		registerPresetRows();
 		optimizations = new Optimizations(SETTINGS);
 		VideoRows.register(SETTINGS);
-		Hooks.culler = optimizations.culler();
+		Hooks.culling = optimizations.culling();
 		Hooks.noHurtCam = noHurtCam;
 		Hooks.animations = animations;
 		Hooks.tabPing = tabPing;
@@ -423,6 +423,7 @@ public final class RagoClient {
 		}
 		MinecraftForge.EVENT_BUS.register(optimizations);
 		MinecraftForge.EVENT_BUS.register(optimizations.holograms());
+		MinecraftForge.EVENT_BUS.register(optimizations.culling());
 		MinecraftForge.EVENT_BUS.register(new gg.rago.chat.ChatCopy(chatCopy::get));
 		MinecraftForge.EVENT_BUS.register(new gg.rago.debug.InputTrace());
 		gg.rago.debug.StackSampler.startIfAsked();
