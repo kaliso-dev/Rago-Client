@@ -661,7 +661,7 @@ public final class Hooks {
 	/** EntityRenderer.orientCamera: the first-person camera offset (parallax fix). */
 	public static float cameraOffset(float vanilla) {
 		ClientFixes f = clientFixes;
-		return f != null && f.isEnabled() ? f.cameraOffset(vanilla) : vanilla;
+		return f != null && f.isEnabled() ? gg.rago.fixes.FixHooks.cameraOffset(vanilla, f.cameraOffset(vanilla)) : vanilla;
 	}
 
 	/** S48PacketResourcePackSend.getURL: unsafe server pack links become a pack that does not exist. */

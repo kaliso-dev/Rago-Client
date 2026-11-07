@@ -1099,12 +1099,30 @@ rago.option.pack_colors.help=Garde les couleurs que l'auteur du pack a mises dan
 
 # 1.4: client fixes
 rago.module.client_fixes=Correctifs du client
-rago.module.client_fixes.desc=Des correctifs pour la 1.8 dans l'esprit de Patcher : l'inventaire reste centré avec des effets de potion, un parallax fix en option, et les serveurs ne peuvent plus fouiller tes fichiers avec un lien de pack de ressources.
+rago.module.client_fixes.desc=Des corrections de bugs de la 1.8 : l'inventaire reste centré avec des effets de potion, les shaders restent en F5, plus de boîte noire dans le vide, l'éclairage vanilla des objets tenus, une correction du culling, les serveurs ne peuvent plus fouiller tes fichiers avec un lien de pack de ressources, et plus encore.
 rago.option.inventory_position_fix=Inventaire centré avec les potions
 rago.option.parallax_fix=Parallax fix
 rago.option.parallax_fix.help=Place la caméra à la première personne au niveau de tes yeux au lieu d'un dixième de bloc devant, pour que le monde ne glisse plus un peu quand tu regardes autour.
 rago.option.resource_pack_check=Vérifier les packs des serveurs
 rago.option.resource_pack_check.help=Refuse les liens de pack de ressources qu'un serveur pourrait utiliser pour savoir quels fichiers sont sur ton ordinateur (une faille connue de la 1.8).
+rago.option.keep_shaders=Garder les shaders en F5
+rago.option.keep_shaders.help=Les shaders des Super Secret Settings restent actifs quand tu changes de vue avec F5.
+rago.option.culling_fix=Correction du culling
+rago.option.culling_fix.help=Empêche des morceaux du monde de disparaître par erreur sous certains angles ou après un zoom (MC-63020, MC-70850).
+rago.option.tab_hat_layer=Couche chapeau dans Tab
+rago.option.tab_hat_layer.help=Affiche la couche chapeau de la tête de chaque joueur dans la liste Tab. Le jeu de base ne l'affiche que pour les joueurs proches.
+rago.option.void_rendering=Pas de boîte noire dans le vide
+rago.option.void_rendering.help=Montre le ciel au lieu d'une boîte noire autour de toi quand tu tombes dans le vide.
+rago.option.alex_arms=Position des bras Alex
+rago.option.alex_arms.help=Met les bras des skins fins (Alex) à la même hauteur que ceux de Steve.
+rago.option.book_background=Fond derrière les livres
+rago.option.book_background.help=Assombrit l'écran derrière un livre ouvert, comme pour les autres menus.
+rago.option.vanilla_item_lighting=Éclairage vanilla des objets tenus
+rago.option.vanilla_item_lighting.help=Rend aux bords gauche et droit des objets tenus l'éclairage qu'ils ont en vanilla. Forge les éclaire dans le mauvais sens.
+rago.option.custom_sky_fix=Correction des ciels custom
+rago.option.custom_sky_fix.help=Avec OptiFine, les ciels custom des packs de ressources n'ont plus de boîte en bas : le plan sous l'horizon retrouve sa taille vanilla.
+rago.option.internal_fixes=Autres corrections 1.8
+rago.option.internal_fixes.help=Petites corrections sans réglage à elles : l'horizon au fond du monde au lieu du niveau de la mer (le bas du ciel ne devient plus sombre sur les maps basses), fuites de mémoire, la même erreur répétée dans le log, objets tenus inversés par les packs, espaces dans les adresses de serveur, changement de langue plus rapide, menu des sons, viseur F3, shaders de mob et citrouille en spectateur.
 
 rago.option.pack_logo_size=Taille du logo
 

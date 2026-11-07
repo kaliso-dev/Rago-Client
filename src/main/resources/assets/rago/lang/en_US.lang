@@ -1099,12 +1099,30 @@ rago.option.pack_colors.help=Keeps the colours the pack's author put in its name
 
 # 1.4: client fixes
 rago.module.client_fixes=Client Fixes
-rago.module.client_fixes.desc=Fixes for 1.8 in the spirit of Patcher's: the inventory stays centred with potion effects, an optional parallax fix, and servers can no longer probe your files through a resource pack link.
+rago.module.client_fixes.desc=Fixes for 1.8 bugs: the inventory stays centred with potion effects, shaders stay on F5, no black box in the void, vanilla held item lighting, a culling fix, servers can no longer probe your files through a resource pack link, and more.
 rago.option.inventory_position_fix=Centred inventory with potions
 rago.option.parallax_fix=Parallax fix
 rago.option.parallax_fix.help=Puts the first-person camera at your eyes instead of a tenth of a block in front, so the world no longer slides a little when you look around.
 rago.option.resource_pack_check=Check server resource packs
 rago.option.resource_pack_check.help=Refuses resource pack links a server could use to find out which files are on your computer (a known 1.8 flaw).
+rago.option.keep_shaders=Keep shaders on F5
+rago.option.keep_shaders.help=Super Secret Settings shaders stay on when you change perspective with F5.
+rago.option.culling_fix=Culling fix
+rago.option.culling_fix.help=Stops parts of the world from vanishing by mistake at some angles or after a zoom (MC-63020, MC-70850).
+rago.option.tab_hat_layer=Hat layer in Tab
+rago.option.tab_hat_layer.help=Shows the hat layer of every player's head in the Tab list. Vanilla only shows it for players near you.
+rago.option.void_rendering=No black box in the void
+rago.option.void_rendering.help=Shows the sky instead of a black box around you when you fall into the void.
+rago.option.alex_arms=Alex arm position
+rago.option.alex_arms.help=Puts the arms of slim (Alex) skins at the same height as Steve's.
+rago.option.book_background=Book background
+rago.option.book_background.help=Darkens the screen behind an open book, like other menus.
+rago.option.vanilla_item_lighting=Vanilla held item lighting
+rago.option.vanilla_item_lighting.help=Gives the left and right edges of held items the lighting they have in vanilla. Forge lights them the wrong way.
+rago.option.custom_sky_fix=Custom sky fix
+rago.option.custom_sky_fix.help=With OptiFine, custom skies from resource packs no longer show a box at the bottom: the plane under the horizon gets its vanilla size back.
+rago.option.internal_fixes=Other 1.8 fixes
+rago.option.internal_fixes.help=Small fixes with no setting of their own: the horizon at the bottom of the world instead of sea level (the lower sky no longer turns dark on low maps), memory leaks, the same error repeated in the log, mirrored held items from packs, spaces in server addresses, faster language changes, the sound menu, the F3 crosshair, and mob shaders and pumpkins in spectator mode.
 
 rago.option.pack_logo_size=Logo size
 

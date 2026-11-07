@@ -52,6 +52,8 @@ public final class RagoTransformer implements IClassTransformer {
 		final String mcp;
 		final String desc;
 		final Patcher patcher;
+		/** One of the fixes PolyPatcher makes: left to it while it is loaded. */
+		boolean polyPatcher;
 
 		Patch(String what, String srg, String mcp, String desc, Patcher patcher) {
 			this.what = what;
@@ -416,6 +418,53 @@ public final class RagoTransformer implements IClassTransformer {
 		add("net.minecraft.client.gui.GuiIngame", new Patch("grouped sidebar",
 			"func_180475_a", "renderScoreboard", "(Lnet/minecraft/scoreboard/ScoreObjective;Lnet/minecraft/client/gui/ScaledResolution;)V",
 			RagoTransformer::sidebar));
+
+		// the fixes PolyPatcher makes (see gg.rago.fixes.FixHooks)
+		fix("net.minecraft.client.Minecraft", "keep shaders on F5", "func_71407_l", "runTick", "()V", FixPatches::keepShaders);
+		fix("net.minecraft.client.Minecraft", "no mob shader for a spectator in third person",
+			"func_175607_a", "setRenderViewEntity", "(Lnet/minecraft/entity/Entity;)V", FixPatches::spectatorShader);
+		fix("net.minecraft.client.renderer.RenderGlobal", "culling fix", "func_174970_a", "setupTerrain",
+			"(Lnet/minecraft/entity/Entity;DLnet/minecraft/client/renderer/culling/ICamera;IZ)V", FixPatches::cullingFix);
+		fix("net.minecraft.client.renderer.RenderGlobal", "player void rendering: horizon", "func_174976_a", "renderSky", "(FI)V", FixPatches::skyHeight);
+		fix("net.minecraft.client.renderer.RenderGlobal", "player void rendering", "func_174976_a", "renderSky", "(FI)V", FixPatches::voidBox);
+		fix("net.minecraft.client.renderer.RenderGlobal", "custom sky fix", "func_174968_a", "renderSky",
+			"(Lnet/minecraft/client/renderer/WorldRenderer;FZ)V", FixPatches::skyPlaneSize);
+		fix("net.minecraft.client.model.ModelPlayer", "Alex arm position",
+			"func_78087_a", "setRotationAngles", "(FFFFFFLnet/minecraft/entity/Entity;)V",
+			m -> FixPatches.headWithThis(m, "alexArms", "(Lnet/minecraft/client/model/ModelPlayer;)V"));
+		fix("net.minecraft.client.gui.GuiScreenBook", "book background", "func_73863_a", "drawScreen", "(IIF)V",
+			m -> FixPatches.headWithThis(m, "bookBackground", "(Lnet/minecraft/client/gui/GuiScreen;)V"));
+		fix("net.minecraft.client.renderer.entity.RenderItem", "vanilla held item lighting", "func_175032_a", "renderQuads",
+			"(Lnet/minecraft/client/renderer/WorldRenderer;Ljava/util/List;ILnet/minecraft/item/ItemStack;)V", FixPatches::itemLighting);
+		fix("net.minecraft.client.renderer.entity.RenderItem", "mirrored held items", "func_175040_a", "renderItemModelTransform",
+			"(Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/resources/model/IBakedModel;"
+				+ "Lnet/minecraft/client/renderer/block/model/ItemCameraTransforms$TransformType;)V", FixPatches::negativeScale);
+		fix("net.minecraft.client.gui.GuiPlayerTabOverlay", "hat layer in the tab list", "func_175249_a", "renderPlayerlist",
+			"(ILnet/minecraft/scoreboard/Scoreboard;Lnet/minecraft/scoreboard/ScoreObjective;)V", FixPatches::tabHat);
+		fix("net.minecraft.client.renderer.texture.TextureManager", "texture memory leak", "func_147645_c", "deleteTexture",
+			"(Lnet/minecraft/util/ResourceLocation;)V", FixPatches::textureLeak);
+		fix("net.minecraft.enchantment.EnchantmentHelper", "enchantment memory leak: thorns", "func_151384_a", "applyThornEnchantments",
+			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/entity/Entity;)V", FixPatches::enchantmentLeak);
+		fix("net.minecraft.enchantment.EnchantmentHelper", "enchantment memory leak: damage", "func_151385_b", "applyArthropodEnchantments",
+			"(Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/entity/Entity;)V", FixPatches::enchantmentLeak);
+		fix("net.minecraft.enchantment.EnchantmentHelper", "enchantment memory leak: protection", "func_77508_a", "getEnchantmentModifierDamage",
+			"([Lnet/minecraft/item/ItemStack;Lnet/minecraft/util/DamageSource;)I", FixPatches::enchantmentLeak);
+		fix("net.minecraft.util.Util", "task error log spam", "func_181617_a", "runTask",
+			"(Ljava/util/concurrent/FutureTask;Lorg/apache/logging/log4j/Logger;)Ljava/lang/Object;", FixPatches::taskErrors);
+		fix("net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher", "removed block entities not drawn",
+			"func_180546_a", "renderTileEntity", "(Lnet/minecraft/tileentity/TileEntity;FI)V", FixPatches::invalidTileEntities);
+		fix("net.minecraft.client.gui.GuiScreenAddServer", "server address spaces", "func_146284_a", "actionPerformed",
+			"(Lnet/minecraft/client/gui/GuiButton;)V", FixPatches::serverAddress);
+		fix("net.minecraft.client.gui.GuiScreenServerList", "server address spaces: direct connect", "func_146284_a", "actionPerformed",
+			"(Lnet/minecraft/client/gui/GuiButton;)V", FixPatches::serverAddress);
+		fix("net.minecraft.client.gui.GuiLanguage$List", "language change reloads translations only", "func_148144_a", "elementClicked",
+			"(IZII)V", FixPatches::languageReload);
+		fix("net.minecraft.client.gui.GuiScreenOptionsSounds$Button", "sound slider errors: click", "func_146116_c", "mousePressed",
+			"(Lnet/minecraft/client/Minecraft;II)Z", FixPatches::soundSlider);
+		fix("net.minecraft.client.gui.GuiScreenOptionsSounds$Button", "sound slider errors: drag", "func_146119_b", "mouseDragged",
+			"(Lnet/minecraft/client/Minecraft;II)V", FixPatches::soundSlider);
+		fix("net.minecraft.client.renderer.EntityRenderer", "F3 crosshair with the parallax fix", "func_175067_i", "renderWorldDirections",
+			"(F)V", FixPatches::debugCrosshair);
 	}
 
 	/** Passes each value a player method returns through a hook that also gets the player. */
@@ -447,11 +496,47 @@ public final class RagoTransformer implements IClassTransformer {
 		PATCHES.computeIfAbsent(className, k -> new ArrayList<>()).add(patch);
 	}
 
+	/** A fix PolyPatcher also makes ({@link FixPatches}): skipped while PolyPatcher is loaded. */
+	private static void fix(String className, String what, String srg, String mcp, String desc, Patcher patcher) {
+		Patch patch = new Patch(what, srg, mcp, desc, patcher);
+		patch.polyPatcher = true;
+		add(className, patch);
+	}
+
+	private static volatile Boolean patcherLoaded;
+
+	/**
+	 * Whether PolyPatcher (or Patcher) is loaded. Its own versions of the same fixes change the
+	 * same methods, and both together could break them, so Rago's then stand aside. Its jar joins
+	 * the class path while mods are found, before the first game class loads.
+	 */
+	static boolean patcherLoaded() {
+		Boolean loaded = patcherLoaded;
+		if (loaded == null) {
+			ClassLoader loader = net.minecraft.launchwrapper.Launch.classLoader;
+			loaded = loader != null && loader.getResource("club/sk1er/patcher/Patcher.class") != null;
+			patcherLoaded = loaded;
+			if (loaded) {
+				LOG.info("PolyPatcher is loaded: Rago's copies of its fixes stay off");
+			}
+		}
+		return loaded;
+	}
+
+	/** For tests: as if PolyPatcher were loaded or not; null checks again. */
+	static void patcherLoadedForTest(Boolean loaded) {
+		patcherLoaded = loaded;
+	}
+
 	@Override
 	public byte[] transform(String name, String transformedName, byte[] bytes) {
 		List<Patch> patches = bytes == null ? null : PATCHES.get(transformedName);
 		if (patches == null) {
 			return bytes;
+		}
+		if ("all".equals(System.getProperty("rago.dumpClasses"))) {
+			// -Drago.dumpClasses=all: every class Rago patches, as it arrives (after OptiFine and others)
+			dump(transformedName, bytes);
 		}
 		try {
 			ClassNode node = new ClassNode();
@@ -477,6 +562,9 @@ public final class RagoTransformer implements IClassTransformer {
 		List<String> problems) {
 		List<MethodNode> patched = new ArrayList<>();
 		for (Patch p : patches) {
+			if (p.polyPatcher && patcherLoaded()) {
+				continue;
+			}
 			MethodNode target = null;
 			for (MethodNode m : node.methods) {
 				if (p.desc.equals(m.desc) && (p.srg.equals(m.name) || p.mcp.equals(m.name))) {
@@ -521,7 +609,8 @@ public final class RagoTransformer implements IClassTransformer {
 
 	/** With {@code -Drago.dumpClasses=true}, saves a class a patch did not fit, to see what changed it. */
 	private static void dump(String name, byte[] bytes) {
-		if (bytes == null || !Boolean.getBoolean("rago.dumpClasses")) {
+		String mode = System.getProperty("rago.dumpClasses");
+		if (bytes == null || !"true".equals(mode) && !"all".equals(mode)) {
 			return;
 		}
 		try {
@@ -980,7 +1069,7 @@ public final class RagoTransformer implements IClassTransformer {
 		return false;
 	}
 
-	private static AbstractInsnNode previousReal(AbstractInsnNode insn) {
+	static AbstractInsnNode previousReal(AbstractInsnNode insn) {
 		AbstractInsnNode n = insn.getPrevious();
 		while (n != null && n.getOpcode() < 0) {
 			n = n.getPrevious();
@@ -1000,7 +1089,7 @@ public final class RagoTransformer implements IClassTransformer {
 		return null;
 	}
 
-	private static MethodInsnNode previousCall(AbstractInsnNode insn, int limit) {
+	static MethodInsnNode previousCall(AbstractInsnNode insn, int limit) {
 		AbstractInsnNode n = insn.getPrevious();
 		for (int i = 0; i < limit && n != null; n = n.getPrevious()) {
 			if (n.getOpcode() < 0) {
@@ -1227,7 +1316,7 @@ public final class RagoTransformer implements IClassTransformer {
 			|| n instanceof LdcInsnNode && ((LdcInsnNode) n).cst instanceof Float;
 	}
 
-	private static AbstractInsnNode nextReal(AbstractInsnNode insn) {
+	static AbstractInsnNode nextReal(AbstractInsnNode insn) {
 		AbstractInsnNode n = insn.getNext();
 		while (n != null && n.getOpcode() < 0) {
 			n = n.getNext();
@@ -1235,7 +1324,7 @@ public final class RagoTransformer implements IClassTransformer {
 		return n;
 	}
 
-	private static boolean isMethod(MethodInsnNode insn, String srg, String mcp, String desc) {
+	static boolean isMethod(MethodInsnNode insn, String srg, String mcp, String desc) {
 		return desc.equals(insn.desc) && (srg.equals(insn.name) || mcp.equals(insn.name));
 	}
 }
