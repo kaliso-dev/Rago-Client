@@ -12,6 +12,7 @@ import gg.rago.network.Loadout;
 import gg.rago.network.NetworkClient;
 import gg.rago.render.BatWing;
 import gg.rago.render.CosmeticModel;
+import gg.rago.render.HdTexture;
 import gg.rago.render.NeonColors;
 import gg.rago.rewards.Rewards;
 import net.minecraft.client.Minecraft;
@@ -30,7 +31,9 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Cosmetics on your own player: a hat, wings and a shield in the left hand, each with its size (and
@@ -63,6 +66,11 @@ public final class Cosmetics extends Module {
 	 */
 	private static final Map<String, float[]> WING_FITS = new HashMap<>();
 	private static final float[] DEFAULT_WING_FIT = {0.05f, 0.04f, 0.16f, -30, -22, 0.7f};
+	/**
+	 * The wings whose texture is a big picture (1024 px, tools/image_wings.py), drawn smooth with
+	 * mipmaps ({@link HdTexture}) where Minecraft would draw its pixels sharp and shimmering.
+	 */
+	private static final Set<String> HD_WINGS = new HashSet<>();
 	/** The light along the mecha wings' blades, drawn again as a glow. */
 	private static final ResourceLocation MECHA_GLOW = new ResourceLocation("rago", "textures/cosmetics/wings_mecha_glow.png");
 	private static final String[] SHIELDS = Loadout.SHIELDS;
@@ -83,6 +91,7 @@ public final class Cosmetics extends Module {
 		for (String w : new String[] {"dragon_red_black", "rago_frost", "rago_inferno"}) {
 			WING_MODELS.put(w, model("wings_" + w, "wings_" + w));
 			WING_FITS.put(w, new float[] {0, 0.16f, 0.16f, -18, -10, 1.0f});
+			HD_WINGS.add(w);
 		}
 		for (int i = 1; i < SHIELDS.length; i++) {
 			SHIELD_MODELS.put(SHIELDS[i], model("shield_" + SHIELDS[i], "shield_" + SHIELDS[i]));
@@ -650,6 +659,14 @@ public final class Cosmetics extends Module {
 		if (m == null) {
 			return;
 		}
+		ResourceLocation texture = m.texture();
+		if (HD_WINGS.contains(l.wings)) {
+			// not drawn for the few frames its picture is being read, the first time it is seen
+			texture = HdTexture.ready(texture);
+			if (texture == null) {
+				return;
+			}
+		}
 		// coloured in their texture
 		int c = 0xFFFFFFFF;
 		float[] fit = WING_FITS.getOrDefault(l.wings, DEFAULT_WING_FIT);
@@ -671,7 +688,7 @@ public final class Cosmetics extends Module {
 				glowEnd();
 			}
 		} else {
-			m.render("wing", c);
+			m.render("wing", c, texture);
 			if (l.wings.equals("mecha") && glowStart(l)) {
 				m.renderGlow("wing", c, MECHA_GLOW);
 				glowEnd();

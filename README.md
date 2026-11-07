@@ -535,9 +535,9 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     points instead of 1,710, most of them in the last tiers. Points and tiers already won stay
   - three new wings, **Dragon Red Black**, **Rago Frost** and **Rago Inferno** (legendary, from the
     daily chest and the shop), each a pair with a piece joining the two wings on the spine. They are
-    made from a picture of the pair by `tools/image_wings.py`: the right wing traced onto the
-    wing grid with its own colours, thicker where it is dark (the bones), and extruded into voxels
-    like the other wings
+    made in high definition from a picture of the pair by `tools/image_wings.py`: the right wing
+    cut along its smooth outline, with the picture's own colours as a 1024 px texture drawn filtered
+    with mipmaps (as the big capes are), thicker where it is dark (the bones)
   - for makers of cosmetics: `tools/voxelize.py` turns a 3D model (.glb from Meshy, Tripo, Blender
     or Blockbench) into a voxel hat of half-pixel cubes coloured from its texture, and
     `tools/preview.py` draws a model on a player from six sides without starting the game

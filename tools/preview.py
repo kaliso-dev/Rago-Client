@@ -206,7 +206,11 @@ def sheet(model, texture, skin, out, title=None, panel=360, supersample=2, place
     """A picture of six views of the model on the player: a hat (place 'head'), or wings (place: the
     fit of the wings, as WING_FITS)."""
     skin_tex = np.asarray(Image.open(skin).convert('RGBA')).astype(float)
-    cos_tex = np.asarray(Image.open(texture).convert('RGBA')).astype(float)
+    cos_img = Image.open(texture).convert('RGBA')
+    if cos_img.width > 512:
+        # a big texture is drawn from its mipmaps in game (HdTexture): one halved enough for these views
+        cos_img = cos_img.resize((512, 512 * cos_img.height // cos_img.width), Image.BOX)
+    cos_tex = np.asarray(cos_img).astype(float)
     ppos, puv, pshade = player(skin_tex)
     meshes = [(ppos, puv, pshade, skin_tex)]
     cosmetic = []

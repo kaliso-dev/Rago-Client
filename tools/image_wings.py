@@ -1,13 +1,16 @@
-"""Rago wings from a picture of a pair of wings (made with ChatGPT, or drawn), in tools/wings: the right
-wing of the picture, with its half of the piece that joins the two in the middle, traced onto the
-64 x 64 grid of the wing textures (tools/cosmetics.py) with its own colours; tools/models.py's
-extrude then makes it a voxel model, each part as many cells thick as its colour says. In game the
-other wing is the same model mirrored, the two halves of the middle piece meeting on the spine
-(gg.rago.modules.Cosmetics, WING_FITS).
+"""Rago wings from a picture of a pair of wings (made with ChatGPT, or drawn), in tools/wings, in high
+definition: the right wing of the picture, with its half of the piece that joins the two in the middle,
+becomes a texture of TEXTURE x TEXTURE pixels in its own colours (the picture's full detail) and a model
+cut along the wing's outline, smooth to a fraction of a pixel, not in steps. Each kind of colour is as
+thick as the picture's spec says, its outline smoothed too: the darker bones stand out of the membrane.
+In game the other wing is the same model mirrored, the two halves of the middle piece meeting on the
+spine (gg.rago.modules.Cosmetics, WING_FITS), and the texture is drawn filtered with mipmaps
+(gg.rago.render.HdTexture), so it stays smooth near and far.
 
 The picture: the pair seen from the front or the back, centred, on a plain white background.
 
-  python3 tools/image_wings.py [NAME ...]      (all of WINGS by default)
+  python3 tools/image_wings.py [NAME ...]      (all of WINGS by default; needs numpy, Pillow and
+                                              mapbox_earcut: pip install mapbox_earcut)
 
 writes assets/rago/textures/cosmetics/wings_NAME.png and assets/rago/models/cosmetics/wings_NAME.rmdl,
 and pictures of the wings on a player (tools/preview.py) in build/wing-previews.
@@ -15,6 +18,7 @@ and pictures of the wings on a player (tools/preview.py) in build/wing-previews.
 import os
 import sys
 
+import mapbox_earcut
 import numpy as np
 from PIL import Image
 
@@ -25,56 +29,223 @@ import cosmetics  # noqa: E402
 import models  # noqa: E402
 
 SRC = os.path.join(HERE, 'wings')
+# the wing's square: 64 cells as the older wings (one block at a span of 1), the root on the spine
 N = cosmetics.N
-K = cosmetics.WING_SCALE
-# a cell of the grid holds a part of the wing when this much of it is wing in the picture
-COVER = 0.5
+# texture pixels across the square: a little more than the picture has (a cell is 11 to 13 of its
+# pixels, 16 of the texture's), so none of its detail is lost
+TEXTURE = 1024
+# a piece or a hole smaller than this (texture pixels) is left out: specks of the background
+MIN_AREA = 60
+# how far the outline may stray from the traced one, in texture pixels, once simplified
+TOLERANCE = 1.0
 
-# For each picture: how many cells thick each kind of colour is (the first that matches wins, the
-# others are `base`), how many colours the texture keeps, and how many cells tall the pair is on the
-# grid. The kinds: dark (black, charcoal), grey (white to grey, little colour), bright (strong
-# light colours: claws, glowing parts, crystals).
+# For each picture: how many cells (1/64 block) thick each kind of colour is (the first that matches
+# wins, the others are `base`), and how many cells tall the pair is in the square. The kinds: dark
+# (black, charcoal), grey (white to grey, little colour), bright (strong light colours: claws,
+# glowing parts, crystals).
 WINGS = {
-    'dragon_red_black': dict(thick=[('dark', 3), ('bright', 2)], base=1, colours=24, height=62),
-    'rago_frost': dict(thick=[('grey', 3)], base=2, colours=28, height=62),
-    'rago_inferno': dict(thick=[('dark', 3), ('bright', 2)], base=2, colours=24, height=62),
+    'dragon_red_black': dict(thick=[('dark', 3)], base=1.5, height=62),
+    'rago_frost': dict(thick=[('grey', 3)], base=2, height=62),
+    'rago_inferno': dict(thick=[('dark', 3)], base=2, height=62),
 }
 
 
-def background(rgb):
-    """The white around the wings: near-white pixels reached from the edge of the picture (white
-    highlights inside the wings stay)."""
-    white = (255 - rgb.min(2)) < 14
-    out = np.zeros_like(white)
-    out[0, :] = out[-1, :] = out[:, 0] = out[:, -1] = True
-    out &= white
+def flood(seed, allowed):
+    """The part of `allowed` reached from `seed` through neighbours (up, down, left, right)."""
+    out = seed & allowed
     while True:
         grown = out.copy()
         grown[1:] |= out[:-1]
         grown[:-1] |= out[1:]
         grown[:, 1:] |= out[:, :-1]
         grown[:, :-1] |= out[:, 1:]
-        grown &= white
+        grown &= allowed
         if (grown == out).all():
             return out
         out = grown
 
 
-def kind(c):
-    lo, hi = int(min(c)), int(max(c))
-    if hi < 70 and hi - lo < 35:
-        return 'dark'
-    if hi - lo < 40:
-        return 'grey'
-    if hi > 200 and hi - lo > 120:
-        return 'bright'
-    return None
+def background(rgb):
+    """The white around the wings: near-white pixels reached from the edge of the picture (white
+    highlights inside the wings stay)."""
+    white = (255 - rgb.min(2)) < 14
+    edge = np.zeros_like(white)
+    edge[0, :] = edge[-1, :] = edge[:, 0] = edge[:, -1] = True
+    return flood(edge, white)
 
 
-def trace(name, spec):
-    """The wing's texture (N K x N K) and the thickness of each of its pixels, and its root."""
-    rgb = np.asarray(Image.open(os.path.join(SRC, name + '.png')).convert('RGB')).astype(np.int64)
-    wing = ~background(rgb)
+def kinds(rgb):
+    """Each pixel's kind of colour: dark, grey, bright or none."""
+    lo, hi = rgb.min(2), rgb.max(2)
+    out = np.full(rgb.shape[:2], '', object)
+    out[(hi > 200) & (hi - lo > 120)] = 'bright'
+    out[hi - lo < 40] = 'grey'
+    out[(hi < 70) & (hi - lo < 35)] = 'dark'
+    return out
+
+
+def box(a, r):
+    """The mean of `a` over the square of side 2r+1 around each pixel (the edges padded with 0)."""
+    p = np.pad(a.astype(float), r + 1)
+    c = p.cumsum(0).cumsum(1)
+    k = 2 * r + 1
+    s = c[k:, k:] - c[:-k, k:] - c[k:, :-k] + c[:-k, :-k]
+    return s[:a.shape[0], :a.shape[1]] / (k * k)
+
+
+def erode(mask, r):
+    return box(mask, r) > 1 - 1e-9 if r > 0 else mask
+
+
+def fill(rgb, known):
+    """The colours of the `known` pixels carried over the others (each takes the colours around it),
+    so the edges of the wing are not mixed with the white, near or far (mipmaps)."""
+    if known.all() or not known.any():
+        return rgb
+    w = known.astype(float)
+    small = fill(*halve(rgb * w[..., None], w))
+    up = np.repeat(np.repeat(small, 2, 0), 2, 1)[:rgb.shape[0], :rgb.shape[1]]
+    out = rgb.copy()
+    out[~known] = up[~known]
+    return out
+
+
+def halve(weighted, w):
+    h, wd = w.shape
+    h2, w2 = (h + 1) // 2, (wd + 1) // 2
+    pw = np.zeros((h2 * 2, w2 * 2))
+    pw[:h, :wd] = w
+    pc = np.zeros((h2 * 2, w2 * 2, 3))
+    pc[:h, :wd] = weighted
+    sw = pw.reshape(h2, 2, w2, 2).sum((1, 3))
+    sc = pc.reshape(h2, 2, w2, 2, 3).sum((1, 3))
+    rgb = sc / np.maximum(sw, 1e-9)[..., None]
+    return rgb, sw > 0
+
+
+def loops(mask):
+    """The outlines of `mask` along the sides of its pixels: closed loops of corners (x, y), the
+    mask on their right (outlines clockwise, holes anticlockwise, on screen). Two pixels touching
+    by a corner only are apart."""
+    m = np.pad(mask, 1)
+    ys, xs = np.nonzero(m[1:-1, 1:-1])
+    outs = {}
+
+    def add(sel, ax, ay, bx, by):
+        for e in zip(ax[sel].tolist(), ay[sel].tolist(), bx[sel].tolist(), by[sel].tolist()):
+            outs.setdefault(e[:2], []).append(e[2:])
+    add(~m[ys, xs + 1], xs, ys, xs + 1, ys)
+    add(~m[ys + 1, xs + 2], xs + 1, ys, xs + 1, ys + 1)
+    add(~m[ys + 2, xs + 1], xs + 1, ys + 1, xs, ys + 1)
+    add(~m[ys + 1, xs], xs, ys + 1, xs, ys)
+    used = set()
+    out = []
+    for a0, ends in outs.items():
+        for b0 in ends:
+            if (a0, b0) in used:
+                continue
+            loop = []
+            a, b = a0, b0
+            while True:
+                used.add((a, b))
+                loop.append(a)
+                options = outs[b]
+                c = options[0]
+                if len(options) > 1:
+                    # where two ways go on, turn right: round the pixel the loop goes along
+                    c = (b[0] - (b[1] - a[1]), b[1] + (b[0] - a[0]))
+                if (b, c) == (a0, b0):
+                    break
+                a, b = b, c
+            out.append(np.array(loop, float))
+    return out
+
+
+def area(p):
+    x, y = p[:, 0], p[:, 1]
+    return 0.5 * float(np.dot(x, np.roll(y, -1)) - np.dot(np.roll(x, -1), y))
+
+
+def smooth(p, passes=4):
+    """The steps of the pixels rounded off: each corner moved toward its neighbours, a few times."""
+    for _ in range(passes):
+        p = (np.roll(p, 1, 0) + 2 * p + np.roll(p, -1, 0)) / 4
+    return p
+
+
+def simplify(p, tolerance):
+    """The loop with as few corners as keep it within `tolerance` of itself (Douglas-Peucker)."""
+    n = len(p)
+    if n < 8:
+        return p
+    far = int(np.argmax(((p - p[0]) ** 2).sum(1)))
+    keep = np.zeros(n, bool)
+    keep[0] = keep[far] = True
+    stack = [(0, far), (far, n)]
+    while stack:
+        i, j = stack.pop()
+        if j - i < 2:
+            continue
+        a, b = p[i], p[j % n]
+        seg = p[i + 1:j]
+        d = b - a
+        length = np.hypot(*d)
+        if length < 1e-9:
+            dist = np.hypot(*(seg - a).T)
+        else:
+            dist = np.abs(d[0] * (seg[:, 1] - a[1]) - d[1] * (seg[:, 0] - a[0])) / length
+        k = int(np.argmax(dist))
+        if dist[k] > tolerance:
+            m = i + 1 + k
+            keep[m] = True
+            stack += [(i, m), (m, j)]
+    return p[keep]
+
+
+def inside(point, poly):
+    x, y = point
+    xs, ys = poly[:, 0], poly[:, 1]
+    xn, yn = np.roll(xs, -1), np.roll(ys, -1)
+    cross = (ys > y) != (yn > y)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        at = xs + (y - ys) * (xn - xs) / (yn - ys)
+    return bool(np.count_nonzero(cross & (x < at)) % 2)
+
+
+def shapes(mask):
+    """The mask as smooth polygons: [(outline, [holes])], in texture pixels."""
+    outer, holes = [], []
+    for raw in loops(mask):
+        a = area(raw)
+        if abs(a) < MIN_AREA:
+            continue
+        p = simplify(smooth(raw), TOLERANCE)
+        if len(p) >= 3:
+            (outer if a > 0 else holes).append((p, raw, abs(a)))
+    out = [(p, [], raw, size) for p, raw, size in outer]
+    for hole, raw, _ in holes:
+        # the smallest outline around the hole is the one it is cut from
+        probe = raw[0] + 0.25
+        around = [s for s in out if inside(probe, s[2])]
+        if around:
+            min(around, key=lambda s: s[3])[1].append(hole)
+    return [(p, hs) for p, hs, _, _ in out]
+
+
+def caps(shape):
+    """Triangles (as indices into the corners of outline + holes) covering a polygon with holes."""
+    outline, holes = shape
+    rings = [outline] + holes
+    verts = np.concatenate(rings)
+    ends = np.cumsum([len(r) for r in rings]).astype(np.uint32)
+    return verts, np.asarray(mapbox_earcut.triangulate_float64(verts, ends)).reshape(-1, 3)
+
+
+def picture(name, spec):
+    """The right wing of the picture in the wing's square: its colours (TEXTURE x TEXTURE), how much
+    of each pixel is wing, how many cells thick each pixel is, and the root (texture pixels)."""
+    rgb = np.asarray(Image.open(os.path.join(SRC, name + '.png')).convert('RGB')).astype(float)
+    wing = ~background(rgb.astype(int))
     ys, xs = np.nonzero(wing)
     top, bottom = ys.min(), ys.max() + 1
     centre = (xs.min() + xs.max() + 1) / 2
@@ -83,55 +254,78 @@ def trace(name, spec):
     mid = wing[:, int(centre) - 3:int(centre) + 3].any(1)
     rows = np.nonzero(mid)[0]
     root_y = (rows.min() + rows.max() + 1) / 2 if len(rows) else (top + bottom) / 2
-    # the grid: column 0 starts at the centre line, the root row lands on a whole cell
+    # the square: its left side on the centre line, the root on a whole cell
     first_row = root_y - round((root_y - top) / cell + 1) * cell
-    # the colours of the whole right wing, reduced
-    right = wing.copy()
-    right[:, :int(centre)] = False
-    pixels = rgb[right].astype(np.uint8)
-    q = Image.fromarray(pixels.reshape(1, -1, 3), 'RGB').quantize(
-        colors=spec['colours'], method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
-    palette = np.array(q.getpalette()[:3 * spec['colours']], np.uint8).reshape(-1, 3)
-    index = np.full(wing.shape, -1)
-    index[right] = np.asarray(q).reshape(-1)
-    cells = np.zeros((N, N, 4), np.uint8)
-    depth = np.zeros((N, N))
-    for gy in range(N):
-        y0, y1 = int(round(first_row + gy * cell)), int(round(first_row + (gy + 1) * cell))
-        if y1 <= 0 or y0 >= rgb.shape[0]:
-            continue
-        for gx in range(N):
-            x0, x1 = int(round(centre + gx * cell)), int(round(centre + (gx + 1) * cell))
-            if x0 >= rgb.shape[1]:
-                continue
-            block = index[max(y0, 0):y1, x0:x1]
-            if block.size == 0 or (block >= 0).mean() < COVER:
-                continue
-            c = palette[np.bincount(block[block >= 0]).argmax()]
-            cells[gy, gx] = tuple(c) + (255,)
-            d = spec['base']
-            for k, cells_thick in spec['thick']:
-                if kind(c) == k:
-                    d = cells_thick
-                    break
-            depth[gy, gx] = d
-    root = (0, int(round((root_y - first_row) / cell)))
-    img = Image.fromarray(cells, 'RGBA').resize((N * K, N * K), Image.NEAREST)
-    used = (depth > 0).sum()
-    print(f'{name}: {used} cells, root at cell {root}, {int(cell)} picture pixels a cell')
-    return img, depth, root
+    root_row = int(round((root_y - first_row) / cell))
+    # thickness of each pixel of the picture, in cells
+    depth = np.full(wing.shape, float(spec['base']))
+    k = kinds(rgb.astype(int))
+    for kind_name, cells in reversed(spec['thick']):
+        depth[k == kind_name] = cells
+    # the colours of the wing, carried out past its edges (the picture's edge pixels are part white)
+    core = erode(wing, 1)
+    rgb = fill(rgb, core)
+    # the square, cut from the picture (carried on past its sides) and resized to the texture
+    size = N * cell
+    pad = int(size) + 4
+    square = (centre + pad, first_row + pad, centre + pad + size, first_row + pad + size)
+
+    def cut(a, mode, mode_name):
+        big = np.pad(a, [(pad, pad), (pad, pad)] + [(0, 0)] * (a.ndim - 2), mode=mode)
+        return Image.fromarray(big, mode_name).resize((TEXTURE, TEXTURE), Image.LANCZOS if mode_name == 'RGB' else Image.BOX,
+                                                   box=square)
+    colours = cut(rgb.clip(0, 255).astype(np.uint8), 'edge', 'RGB')
+    cover = cut(wing.astype(np.float32), 'constant', 'F')
+    thick = cut(depth.astype(np.float32), 'constant', 'F')
+    root = (0, root_row * TEXTURE / N)
+    return np.asarray(colours), np.asarray(cover), np.asarray(thick), root, cell
 
 
 def build(name):
     spec = WINGS[name]
-    img, depth, root = trace(name, spec)
+    colours, cover, thick, root, cell = picture(name, spec)
     tex = 'wings_' + name
-    img.save(os.path.join(cosmetics.OUT, tex + '.png'), optimize=True)
+    # opaque: the model's outline makes the wing's shape, the colours carried past it fill the mipmaps
+    Image.fromarray(colours, 'RGB').save(os.path.join(cosmetics.OUT, tex + '.png'), optimize=True)
 
-    def depth_at(x, y):
-        return depth[y // K, x // K] * K
-    tris = models.extrude(tex, (root[0] * K, root[1] * K), None, 0.25, depth_at)
+    t = TEXTURE
+    per_cell = t / N
+    rx, ry = root
+    sweep = 0.25
+
+    def at(x, y, z):
+        xx = (x - rx) / t
+        return (xx, (y - ry) / t, z / t + xx * sweep)
+
+    # the layers: the whole wing, then each thicker kind, inside the one below it
+    wing = cover > 0.5
+    levels = sorted({spec['base']} | {c for _, c in spec['thick'] if c > spec['base']})
+    masks = [wing]
+    for cells in levels[1:]:
+        # a part thicker than the one below where most of the pixels around are (no specks)
+        m = box(thick >= cells - 1e-6, int(per_cell / 3)) > 0.5
+        masks.append(m & erode(masks[-1], 2))
+    tris = []
+    below = None
+    for cells, mask in zip(levels, masks):
+        h = cells * per_cell / 2
+        for shape in shapes(mask):
+            verts, faces = caps(shape)
+            for a, b, c in faces:
+                p = [verts[a], verts[b], verts[c]]
+                uv = [(q[0] / t, q[1] / t) for q in p]
+                tris.append((np.array([at(*q, -h) for q in p]), np.array(uv)))
+                tris.append((np.array([at(*q, h) for q in p[::-1]]), np.array(uv[::-1])))
+            # the sides, facing out: through the wing, or on a thicker part only where it stands out
+            sides = [(-h, h)] if below is None else [(below, h), (-h, -below)]
+            for ring in [shape[0]] + shape[1]:
+                for a, b in zip(ring, np.roll(ring, -1, 0)):
+                    uv = [(a[0] / t, a[1] / t), (b[0] / t, b[1] / t), (b[0] / t, b[1] / t), (a[0] / t, a[1] / t)]
+                    for z0, z1 in sides:
+                        tris += models.quad(at(*a, z0), at(*b, z0), at(*b, z1), at(*a, z1), uv)
+        below = h
     models.write_model(tex, [('wing', (0, 0, 0), tris)])
+    print(f'{name}: {int(cell)} picture pixels a cell, root at {root}')
     return tex
 
 
