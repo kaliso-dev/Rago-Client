@@ -55,10 +55,10 @@ WING_VIEWS = [
 # the right one mirrored), and how wide the texture is in blocks.
 DEFAULT_WINGS = (0.05, 0.04, 0.16, -30, -22, 0.7)
 WING_FITS = {
-    'dragon_red_black': (0, 0.16, 0.16, -18, -10, 1.0),
-    'rago_frost': (0, 0.16, 0.16, -18, -10, 1.0),
-    'rago_inferno': (0, 0.16, 0.16, -18, -10, 1.0),
-    'little_wings': (0, 0.2, 0.16, -18, -14, 0.62),
+    'dragon_red_black': (0, 0.1, 0.16, -18, -14, 1.6),
+    'rago_frost': (0, 0.1, 0.16, -18, -14, 1.6),
+    'rago_inferno': (0, 0.1, 0.16, -18, -14, 1.6),
+    'little_wings': (0, 0.04, 0.16, -15, -28, 0.85),
 }
 
 
