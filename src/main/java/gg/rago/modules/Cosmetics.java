@@ -93,6 +93,13 @@ public final class Cosmetics extends Module {
 			WING_FITS.put(w, new float[] {0, 0.16f, 0.16f, -18, -10, 1.0f});
 			HD_WINGS.add(w);
 		}
+		// the little wings: one model, a texture in each of the neon colours (tools/image_wings.py)
+		for (String colour : NeonColors.IDS) {
+			String w = "little_wings_" + colour;
+			WING_MODELS.put(w, model("wings_little_wings", "wings_little_wings_" + colour));
+			WING_FITS.put(w, new float[] {0, 0.2f, 0.16f, -18, -14, 0.62f});
+			HD_WINGS.add(w);
+		}
 		for (int i = 1; i < SHIELDS.length; i++) {
 			SHIELD_MODELS.put(SHIELDS[i], model("shield_" + SHIELDS[i], "shield_" + SHIELDS[i]));
 		}

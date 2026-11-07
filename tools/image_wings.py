@@ -40,13 +40,18 @@ MIN_AREA = 60
 TOLERANCE = 1.0
 
 # For each picture: how many cells (1/64 block) thick each kind of colour is (the first that matches
-# wins, the others are `base`), and how many cells tall the pair is in the square. The kinds: dark
-# (black, charcoal), grey (white to grey, little colour), bright (strong light colours: claws,
-# glowing parts, crystals).
+# wins, the others are `base`), and how many cells tall the pair is in the square (`height`), or how
+# many wide one wing is (`width`, for a low wide pair). The kinds: dark (black, charcoal), grey
+# (white to grey, little colour), bright (strong light colours: claws, glowing parts, crystals).
+# Optional: `erase`, boxes of the picture (x0, y0, x1, y1) whose glowing red marks are painted over
+# with the colours around them; `variants`, to make the wing in each of NeonColors' colours, one
+# texture each (wings_NAME_COLOUR.png) on the one model (wings_NAME.rmdl).
 WINGS = {
     'dragon_red_black': dict(thick=[('dark', 3)], base=1.5, height=62),
     'rago_frost': dict(thick=[('grey', 3)], base=2, height=62),
     'rago_inferno': dict(thick=[('dark', 3)], base=2, height=62),
+    # small and wide: one wing 62 cells wide; the mark on the middle piece painted over
+    'little_wings': dict(thick=[('dark', 3)], base=1.5, width=62, erase=[(580, 585, 650, 650)], variants=True),
 }
 
 
@@ -241,15 +246,72 @@ def caps(shape):
     return verts, np.asarray(mapbox_earcut.triangulate_float64(verts, ends)).reshape(-1, 3)
 
 
+# gg.rago.render.NeonColors' colours and their hues (degrees; white has none)
+NEON = [('red', 0), ('orange', 28), ('yellow', 54), ('green', 125), ('cyan', 186), ('blue', 218),
+        ('purple', 272), ('pink', 325), ('white', None)]
+
+
+def to_hsv(rgb):
+    f = rgb / 255.0
+    v = f.max(2)
+    d = v - f.min(2)
+    s = np.where(v > 0, d / np.maximum(v, 1e-9), 0)
+    r, g, b = f[..., 0], f[..., 1], f[..., 2]
+    dd = np.maximum(d, 1e-9)
+    h = np.where(v == r, (g - b) / dd % 6, np.where(v == g, (b - r) / dd + 2, (r - g) / dd + 4)) * 60
+    return np.where(d > 0, h, 0), s, v
+
+
+def to_rgb(h, s, v):
+    k = lambda n: (n + h / 60) % 6  # noqa: E731
+    f = lambda n: v - v * s * np.clip(np.minimum(k(n), 4 - k(n)), 0, 1)  # noqa: E731
+    return np.stack([f(5), f(3), f(1)], -1) * 255
+
+
+def recolour(rgb, hue):
+    """The picture's reds in another colour as NeonColors makes them (the hue turned, as far from
+    the new one as it was from red; or white), its shading kept and the other colours left; the
+    change fades out between 25 and 40 degrees from red, so no edge shows between what changes and
+    what does not."""
+    h, s, v = to_hsv(rgb.astype(float))
+    offset = (h + 180) % 360 - 180
+    weight = np.clip((40 - np.abs(offset)) / 15, 0, 1)[..., None]
+    if hue is None:
+        new = to_rgb(h, s * 0.05, np.minimum(1, v * 1.05))
+    else:
+        new = to_rgb((hue + offset) % 360, s, v)
+    return (rgb * (1 - weight) + new * weight).round().clip(0, 255).astype(np.uint8)
+
+
+def erase(rgb, boxes):
+    """The glowing red marks inside each box painted over with the colours around them."""
+    known = np.ones(rgb.shape[:2], bool)
+    for x0, y0, x1, y1 in boxes:
+        # the mark and its glow: clearly redder than the dark material around it
+        part = rgb[y0:y1, x0:x1]
+        lit = part[..., 0] - (part[..., 1] + part[..., 2]) / 2 > 28
+        known[y0:y1, x0:x1] &= ~(box(lit, 2) > 0)
+    out = fill(rgb, known)
+    # then smoothed, the painted part only, into the shading around it
+    for x0, y0, x1, y1 in boxes:
+        part, hole = out[y0 - 3:y1 + 3, x0 - 3:x1 + 3], ~known[y0 - 3:y1 + 3, x0 - 3:x1 + 3]
+        for _ in range(60):
+            blurred = np.stack([box(part[..., c], 1) for c in range(3)], -1)
+            part[hole] = blurred[hole]
+    return out
+
+
 def picture(name, spec):
     """The right wing of the picture in the wing's square: its colours (TEXTURE x TEXTURE), how much
     of each pixel is wing, how many cells thick each pixel is, and the root (texture pixels)."""
     rgb = np.asarray(Image.open(os.path.join(SRC, name + '.png')).convert('RGB')).astype(float)
+    if spec.get('erase'):
+        rgb = erase(rgb, spec['erase'])
     wing = ~background(rgb.astype(int))
     ys, xs = np.nonzero(wing)
     top, bottom = ys.min(), ys.max() + 1
     centre = (xs.min() + xs.max() + 1) / 2
-    cell = (bottom - top) / spec['height']
+    cell = (xs.max() + 1 - centre) / spec['width'] if 'width' in spec else (bottom - top) / spec['height']
     # the root: where the middle piece crosses the centre of the picture, half way down it
     mid = wing[:, int(centre) - 3:int(centre) + 3].any(1)
     rows = np.nonzero(mid)[0]
@@ -286,7 +348,10 @@ def build(name):
     colours, cover, thick, root, cell = picture(name, spec)
     tex = 'wings_' + name
     # opaque: the model's outline makes the wing's shape, the colours carried past it fill the mipmaps
-    Image.fromarray(colours, 'RGB').save(os.path.join(cosmetics.OUT, tex + '.png'), optimize=True)
+    for suffix, hue in NEON if spec.get('variants') else [('', 0)]:
+        img = colours if hue == 0 else recolour(colours, hue)
+        Image.fromarray(img, 'RGB').save(os.path.join(cosmetics.OUT, tex + (suffix and '_' + suffix) + '.png'),
+                                         optimize=True)
 
     t = TEXTURE
     per_cell = t / N
@@ -336,8 +401,9 @@ def main():
     os.makedirs(out, exist_ok=True)
     for name in names:
         tex = build(name)
+        texture = tex + ('_red' if WINGS[name].get('variants') else '')
         path = os.path.join(out, tex + '.png')
-        preview.sheet(os.path.join(models.MODELS, tex + '.rmdl'), os.path.join(models.TEXTURES, tex + '.png'),
+        preview.sheet(os.path.join(models.MODELS, tex + '.rmdl'), os.path.join(models.TEXTURES, texture + '.png'),
                       os.path.join(models.RES, 'skins', 'qrago.png'), path, title=name, place=preview.WING_FITS[name])
         print(f'preview: {path}')
 

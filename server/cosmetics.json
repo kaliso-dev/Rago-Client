@@ -8,7 +8,7 @@
     "hat_neon": {"type": "choice", "default": "red", "values": ["red", "orange", "yellow", "green", "cyan", "blue", "purple", "pink", "white"]},
     "hat_color": {"type": "color", "default": "#FFFFFF"},
     "hat_scale": {"type": "int", "default": 100, "min": 70, "max": 150},
-    "wings": {"type": "choice", "default": "none", "values": ["none", "dragon", "dragon_small", "frost", "angel", "mecha", "dragon_red_black", "rago_frost", "rago_inferno"]},
+    "wings": {"type": "choice", "default": "none", "values": ["none", "dragon", "dragon_small", "frost", "angel", "mecha", "dragon_red_black", "rago_frost", "rago_inferno", "little_wings_red", "little_wings_orange", "little_wings_yellow", "little_wings_green", "little_wings_cyan", "little_wings_blue", "little_wings_purple", "little_wings_pink", "little_wings_white"]},
     "wings_neon": {"type": "choice", "default": "red", "values": ["red", "orange", "yellow", "green", "cyan", "blue", "purple", "pink", "white"]},
     "wings_color": {"type": "color", "default": "#FFFFFF"},
     "wings_scale": {"type": "int", "default": 100, "min": 50, "max": 160},

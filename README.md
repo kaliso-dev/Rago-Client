@@ -538,6 +538,9 @@ Competitive Minecraft 1.8.9 client for Hypixel Bedwars and Minemen Club, built a
     made in high definition from a picture of the pair by `tools/image_wings.py`: the right wing
     cut along its smooth outline, with the picture's own colours as a 1024 px texture drawn filtered
     with mipmaps (as the big capes are), thicker where it is dark (the bones)
+  - **Little Wings** (epic, from the daily chest and the shop): small wings high on the back, in high
+    definition like the three above, in each of the nine neon colours (red, orange, yellow, green,
+    cyan, blue, purple, pink, white), each colour its own piece to collect
   - for makers of cosmetics: `tools/voxelize.py` turns a 3D model (.glb from Meshy, Tripo, Blender
     or Blockbench) into a voxel hat of half-pixel cubes coloured from its texture, and
     `tools/preview.py` draws a model on a player from six sides without starting the game
