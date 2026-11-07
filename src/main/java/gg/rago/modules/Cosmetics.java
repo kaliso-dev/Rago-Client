@@ -12,6 +12,7 @@ import gg.rago.network.Loadout;
 import gg.rago.network.NetworkClient;
 import gg.rago.render.BatWing;
 import gg.rago.render.CosmeticModel;
+import gg.rago.render.HdTexture;
 import gg.rago.render.NeonColors;
 import gg.rago.rewards.Rewards;
 import net.minecraft.client.Minecraft;
@@ -30,7 +31,9 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Cosmetics on your own player: a hat, wings and a shield in the left hand, each with its size (and
@@ -53,6 +56,21 @@ public final class Cosmetics extends Module {
 	private static final CosmeticModel DRAGON_SMALL = model("dragon_small", "dragon_small");
 	/** The extruded wings won with Rago Points (tools/reward_wings.py), coloured in their texture. */
 	private static final Map<String, CosmeticModel> WING_MODELS = new HashMap<>();
+	/**
+	 * Where a wing model's root goes on the back and how the wing is turned, for the wings that are
+	 * not placed as the others (tools/preview.py, WING_FITS, draws them the same way): x from the
+	 * spine, y down from the neck, z back from the middle of the body (blocks); the turn back around
+	 * the spine and up around the root (degrees, the left wing; the right one mirrored); and how wide
+	 * the texture is (blocks, at 100%). The wings made from a picture of the pair (tools/image_wings.py)
+	 * have their root on the spine, where the two halves of the piece between them meet.
+	 */
+	private static final Map<String, float[]> WING_FITS = new HashMap<>();
+	private static final float[] DEFAULT_WING_FIT = {0.05f, 0.04f, 0.16f, -30, -22, 0.7f};
+	/**
+	 * The wings whose texture is a big picture (1024 px, tools/image_wings.py), drawn smooth with
+	 * mipmaps ({@link HdTexture}) where Minecraft would draw its pixels sharp and shimmering.
+	 */
+	private static final Set<String> HD_WINGS = new HashSet<>();
 	/** The light along the mecha wings' blades, drawn again as a glow. */
 	private static final ResourceLocation MECHA_GLOW = new ResourceLocation("rago", "textures/cosmetics/wings_mecha_glow.png");
 	private static final String[] SHIELDS = Loadout.SHIELDS;
@@ -68,6 +86,19 @@ public final class Cosmetics extends Module {
 		WING_MODELS.put("dragon_small", DRAGON_SMALL);
 		for (String w : new String[] {"angel", "frost", "mecha"}) {
 			WING_MODELS.put(w, model("wings_" + w, "wings_" + w));
+		}
+		// the wings made from a picture of the pair (tools/image_wings.py)
+		for (String w : new String[] {"dragon_red_black", "rago_frost", "rago_inferno"}) {
+			WING_MODELS.put(w, model("wings_" + w, "wings_" + w));
+			WING_FITS.put(w, new float[] {0, 0.1f, 0.16f, -18, -14, 1.6f});
+			HD_WINGS.add(w);
+		}
+		// the little wings: one model, a texture in each of the neon colours (tools/image_wings.py)
+		for (String colour : NeonColors.IDS) {
+			String w = "little_wings_" + colour;
+			WING_MODELS.put(w, model("wings_little_wings", "wings_little_wings_" + colour));
+			WING_FITS.put(w, new float[] {0, 0.04f, 0.16f, -15, -28, 0.85f});
+			HD_WINGS.add(w);
 		}
 		for (int i = 1; i < SHIELDS.length; i++) {
 			SHIELD_MODELS.put(SHIELDS[i], model("shield_" + SHIELDS[i], "shield_" + SHIELDS[i]));
@@ -635,16 +666,25 @@ public final class Cosmetics extends Module {
 		if (m == null) {
 			return;
 		}
+		ResourceLocation texture = m.texture();
+		if (HD_WINGS.contains(l.wings)) {
+			// not drawn for the few frames its picture is being read, the first time it is seen
+			texture = HdTexture.ready(texture);
+			if (texture == null) {
+				return;
+			}
+		}
 		// coloured in their texture
 		int c = 0xFFFFFFFF;
+		float[] fit = WING_FITS.getOrDefault(l.wings, DEFAULT_WING_FIT);
 		// compact
-		float span = 0.7f * l.wingsScale / 100f;
+		float span = fit[5] * l.wingsScale / 100f;
 		GlStateManager.pushMatrix();
 		// the root high on the back, between the shoulder blades
-		GlStateManager.translate(side * 0.05f, 0.04f, 0.16f);
-		GlStateManager.rotate(side * (-30 + beat), 0, 1, 0);
+		GlStateManager.translate(side * fit[0], fit[1], fit[2]);
+		GlStateManager.rotate(side * (fit[3] + beat), 0, 1, 0);
 		// raised, the tips above the shoulders
-		GlStateManager.rotate(side * -22, 0, 0, 1);
+		GlStateManager.rotate(side * fit[4], 0, 0, 1);
 		GlStateManager.scale(side * span, span, span);
 		GlStateManager.disableBlend();
 		if (m == DRAGON_SMALL) {
@@ -655,7 +695,7 @@ public final class Cosmetics extends Module {
 				glowEnd();
 			}
 		} else {
-			m.render("wing", c);
+			m.render("wing", c, texture);
 			if (l.wings.equals("mecha") && glowStart(l)) {
 				m.renderGlow("wing", c, MECHA_GLOW);
 				glowEnd();
