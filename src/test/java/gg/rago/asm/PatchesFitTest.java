@@ -33,6 +33,9 @@ class PatchesFitTest {
 		int methods = 0;
 		for (String name : new TreeSet<>(RagoTransformer.patchedClasses())) {
 			byte[] bytes = read(name);
+			if (bytes == null && RagoTransformer.optionalOnly(name)) {
+				continue; // a class only OptiFine has
+			}
 			if (bytes == null) {
 				problems.add(name + ": class not found");
 				continue;

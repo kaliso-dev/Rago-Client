@@ -5,6 +5,7 @@ import gg.rago.hooks.Hooks;
 import gg.rago.modules.ClientFixes;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.model.ModelPlayer;
 import net.minecraft.client.renderer.EntityRenderer;
 import net.minecraft.client.renderer.GlStateManager;
@@ -44,6 +45,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * The fixes for 1.8.9 and Forge bugs that PolyPatcher makes, rewritten for Rago from the game's own
@@ -598,5 +600,54 @@ public final class FixHooks {
 			RagoClient.LOG.warn("OptiFine's {}.{} not found: {}", className, name, e.toString());
 			return null;
 		}
+	}
+
+	// ---- Use Vanilla Metrics Renderer ------------------------------------------------------------
+
+	private static final MethodHandle OPTIFINE_LAGOMETER = optiFine("net.optifine.Lagometer", "showLagometer", ScaledResolution.class);
+	private static boolean lagometerLogged;
+
+	/**
+	 * EntityRenderer.updateCameraAndRender with OptiFine, F3 open: OptiFine's lagometer, left out
+	 * when Rago draws the game's charts ({@link FrameCharts}), even with OptiFine's Lagometer option.
+	 */
+	public static void lagometer(ScaledResolution resolution) {
+		ClientFixes f = fixes();
+		if (f != null && f.vanillaMetrics() || OPTIFINE_LAGOMETER == null) {
+			return;
+		}
+		try {
+			OPTIFINE_LAGOMETER.invokeExact(resolution);
+		} catch (Throwable t) {
+			if (!lagometerLogged) {
+				lagometerLogged = true;
+				RagoClient.LOG.warn("OptiFine's lagometer failed: {}", t.toString());
+			}
+		}
+	}
+
+	// ---- Simplify FPS Counter --------------------------------------------------------------------
+
+	/** The frame rate and OptiFine's lowest frame rate at the start of its Show FPS line ("60/45 fps"). */
+	private static final Pattern MIN_FPS = Pattern.compile("^(\\d+)/\\d+ fps");
+
+	/**
+	 * GuiOverlayDebug.call with OptiFine: where OptiFine puts its lowest frame rate in the F3 frame
+	 * rate line ("60/45 fps"), or -1 so that it puts none with Simplify FPS Counter ("60 fps").
+	 */
+	public static int debugMinFpsAt(int index) {
+		ClientFixes f = fixes();
+		return f != null && f.simplifyFps() ? -1 : index;
+	}
+
+	/** OptiFine's Show FPS line ("60/45 fps, C: 120, ..."), without its lowest frame rate with Simplify FPS Counter. */
+	public static String showFpsLine(String line) {
+		ClientFixes f = fixes();
+		return f != null && f.simplifyFps() ? withoutMinFps(line) : line;
+	}
+
+	/** "60/45 fps, C: 120, ..." without the lowest frame rate: "60 fps, C: 120, ...". */
+	static String withoutMinFps(String line) {
+		return line == null ? null : MIN_FPS.matcher(line).replaceFirst("$1 fps");
 	}
 }

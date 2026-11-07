@@ -1,17 +1,21 @@
 package gg.rago.modules;
 
+import gg.rago.asm.RagoTransformer;
 import gg.rago.config.BooleanOption;
 import gg.rago.core.Category;
 import gg.rago.core.FeatureClass;
 import gg.rago.core.Module;
 import gg.rago.core.RagoClient;
 import gg.rago.fixes.FixHooks;
+import gg.rago.fixes.FrameCharts;
+import gg.rago.fixes.GlyphWidths;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -54,6 +58,8 @@ public final class ClientFixes extends Module {
 	private final BooleanOption vanillaItemLighting = addOption(new BooleanOption("vanilla_item_lighting", true));
 	private final BooleanOption customSkyFix = addOption(new BooleanOption("custom_sky_fix", true));
 	private final BooleanOption internalFixes = addOption(new BooleanOption("internal_fixes", true));
+	private final BooleanOption simplifyFps = addOption(new BooleanOption("simplify_fps", true));
+	private final BooleanOption vanillaMetrics = addOption(new BooleanOption("vanilla_metrics", true));
 	private static Field guiLeft;
 	private static Field xSize;
 	private static boolean guiLeftMissing;
@@ -62,6 +68,7 @@ public final class ClientFixes extends Module {
 
 	public ClientFixes() {
 		super("client_fixes", FeatureClass.VISUAL, true);
+		GlyphWidths.setSwitch(() -> isEnabled() && internalFixes.get());
 	}
 
 	@Override
@@ -96,6 +103,9 @@ public final class ClientFixes extends Module {
 		if (event.phase != TickEvent.Phase.END) {
 			return;
 		}
+		if (!RagoTransformer.patcherLoaded()) {
+			GlyphWidths.syncGlyph(Minecraft.getMinecraft().fontRendererObj, isEnabled() && internalFixes.get());
+		}
 		boolean fixed = isEnabled() && customSkyFix.get();
 		if (skyPlanesFixed == null || skyPlanesFixed != fixed) {
 			boolean first = skyPlanesFixed == null;
@@ -103,6 +113,35 @@ public final class ClientFixes extends Module {
 			if (!first || fixed) {
 				FixHooks.rebuildSkyPlanes();
 			}
+		}
+	}
+
+	/** Use Vanilla Metrics Renderer: each frame is timed from its start, whether or not the charts show. */
+	@SubscribeEvent
+	public void onRenderTick(TickEvent.RenderTickEvent event) {
+		if (event.phase == TickEvent.Phase.START && !RagoTransformer.patcherLoaded()) {
+			FrameCharts.frameStart();
+		}
+	}
+
+	/** Use Vanilla Metrics Renderer: each tick of the singleplayer server, as it times them (its thread). */
+	@SubscribeEvent
+	public void onServerTick(TickEvent.ServerTickEvent event) {
+		if (event.phase == TickEvent.Phase.END && !RagoTransformer.patcherLoaded()) {
+			FrameCharts.serverTick(MinecraftServer.getServer());
+		}
+	}
+
+	/** Use Vanilla Metrics Renderer: with F3 and ALT+F3, the charts, drawn with F3's text (under the chat). */
+	@SubscribeEvent
+	public void onOverlayText(RenderGameOverlayEvent.Post event) {
+		if (event.type != RenderGameOverlayEvent.ElementType.TEXT || !isEnabled() || !vanillaMetrics.get()
+			|| RagoTransformer.patcherLoaded()) {
+			return;
+		}
+		Minecraft mc = Minecraft.getMinecraft();
+		if (mc.gameSettings.showDebugInfo && mc.gameSettings.showLagometer) {
+			FrameCharts.draw(mc, event.resolution);
 		}
 	}
 
@@ -158,6 +197,16 @@ public final class ClientFixes extends Module {
 
 	public boolean internalFixes() {
 		return internalFixes.get();
+	}
+
+	/** PolyPatcher's Simplify FPS Counter: OptiFine's lowest frame rate left out of its FPS counters. */
+	public boolean simplifyFps() {
+		return simplifyFps.get();
+	}
+
+	/** PolyPatcher's Use Vanilla Metrics Renderer: ALT+F3 draws the frame and tick time charts of later versions. */
+	public boolean vanillaMetrics() {
+		return vanillaMetrics.get();
 	}
 
 	/** The first-person camera's offset from the eyes (vanilla: -0.1, a tenth of a block forward). */

@@ -117,6 +117,11 @@ public final class Optimizations {
 	private final BooleanOption batchHolograms;
 	private final HologramBatch holograms;
 	private final BooleanOption batchVanillaHud;
+	private final BooleanOption lowAnimationTick;
+	private final BooleanOption batchModels;
+	private final BooleanOption optimizedFont;
+	private final BooleanOption cacheFontData;
+	private final BooleanOption smallPackIcons;
 	private final EngineTweaks engine;
 	private final BooleanOption disableFog;
 
@@ -194,6 +199,7 @@ public final class Optimizations {
 		maxParticles = s.slider(p, WORLD, "max_particles", 4000, 100, 4000, 100,
 			v -> v >= 4000 ? I18n.format("rago.value.vanilla") : Integer.toString(v), null);
 		particleCollisions = s.bool(p, WORLD, "particle_collisions", true, null);
+		lowAnimationTick = s.bool(p, WORLD, "low_animation_tick", true, null);
 
 		fastWorldSwitch = s.bool(p, ENGINE, "fast_world_switch", true, null);
 		nearbyChunksOnly = s.bool(p, ENGINE, "nearby_chunks_only", true, null);
@@ -206,8 +212,15 @@ public final class Optimizations {
 		holograms = new HologramBatch(batchHolograms::get);
 		batchVanillaHud = s.bool(p, ENGINE, "batch_vanilla_hud", true, null);
 		GuiBatch.setSwitch(batchVanillaHud::get);
+		batchModels = s.bool(p, ENGINE, "batch_models", true, null);
+		ModelBatch.setSwitch(batchModels::get);
+		optimizedFont = s.bool(p, ENGINE, "optimized_font", true, null);
+		cacheFontData = s.bool(p, ENGINE, "cache_font_data", true, null);
+		FontBatch.setSwitch(optimizedFont::get, cacheFontData::get);
+		smallPackIcons = s.bool(p, ENGINE, "small_pack_icons", true, null);
+		PackIcons.setSwitch(smallPackIcons::get);
 		engine = new EngineTweaks(fastWorldSwitch::get, unstackedItems::get, particleCollisions::get, lightGlint::get,
-			nearbyChunksOnly::get);
+			nearbyChunksOnly::get, lowAnimationTick::get);
 	}
 
 	/** Whether Rago's HUD is drawn into an image a fixed number of times per second. */

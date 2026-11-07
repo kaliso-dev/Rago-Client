@@ -345,6 +345,8 @@ rago.setting.max_particles=Max particles
 rago.setting.max_particles.help=Caps how many particles exist at once. Big fights spawn thousands of crit particles.
 rago.setting.particle_collisions=Particle collisions
 rago.setting.particle_collisions.help=Particles bounce on blocks, as in vanilla. Off, each particle skips its collision test every tick (a look-up of the blocks and entities around it): many particles cost less, and they go through blocks.
+rago.setting.low_animation_tick=Low animation tick
+rago.setting.low_animation_tick.help=Each tick, Minecraft picks 1000 blocks around you for their small animations: torch flames and smoke, portal and ender chest sparkles, dripping water and lava. With this, 100 of them, as PolyPatcher does: ten times fewer of these particles, and less work every tick.
 rago.setting.render_distance=Render distance
 rago.setting.max_framerate=Max framerate
 rago.setting.vsync=VSync
@@ -1139,7 +1141,11 @@ rago.option.vanilla_item_lighting.help=Gives the left and right edges of held it
 rago.option.custom_sky_fix=Custom sky fix
 rago.option.custom_sky_fix.help=With OptiFine, custom skies from resource packs no longer show a box at the bottom: the plane under the horizon gets its vanilla size back.
 rago.option.internal_fixes=Other 1.8 fixes
-rago.option.internal_fixes.help=Small fixes with no setting of their own: the horizon at the bottom of the world instead of sea level (the lower sky no longer turns dark on low maps), memory leaks, the same error repeated in the log, mirrored held items from packs, spaces in server addresses, faster language changes, the sound menu, the F3 crosshair, and mob shaders and pumpkins in spectator mode.
+rago.option.internal_fixes.help=Small fixes with no setting of their own: the horizon at the bottom of the world instead of sea level (the lower sky no longer turns dark on low maps), memory leaks, the same error repeated in the log, mirrored held items from packs, spaces in server addresses, faster language changes, the sound menu, the F3 crosshair, mob shaders and pumpkins in spectator mode, and with OptiFine, wide unicode characters (Chinese, Japanese, Korean...) measured as wide as they are drawn.
+rago.option.simplify_fps=Simplify FPS counter
+rago.option.simplify_fps.help=Leaves out the lowest frame rate OptiFine adds after the frame rate, in F3 and in its Show FPS line: "60 fps" instead of "60/45 fps".
+rago.option.vanilla_metrics=Frame time charts (ALT+F3)
+rago.option.vanilla_metrics.help=With F3 and the lagometer (ALT+F3) on, draws the frame time chart of later Minecraft versions instead of OptiFine's lagometer, with the time of each frame and lines at 30 and 60 FPS, and in singleplayer the server tick time chart with its line at 20 TPS.
 
 rago.option.pack_logo_size=Logo size
 
@@ -1265,6 +1271,14 @@ rago.setting.batch_holograms=Group floating texts
 rago.setting.batch_holograms.help=The floating texts over generators and shop keepers (invisible armour stands with a name) are drawn together in a few draw calls instead of several each, and the invisible stands that carry them skip setting up a body nobody can see. They look the same, behind water and stained glass too.
 rago.setting.batch_vanilla_hud=Group Minecraft's HUD
 rago.setting.batch_vanilla_hud.help=Minecraft draws every heart, armour point, food icon and air bubble on its own, and the sidebar line by line: over 60 draw calls a frame in survival with a full sidebar. Grouped, the icons and the sidebar's background take 4, and the sidebar's plain text 1 more (bold titles and symbols are still drawn one by one). They look the same.
+rago.setting.batch_models=Batch model rendering
+rago.setting.batch_models.help=Minecraft draws each part of a mob, player or armour model face by face, six draw calls per box. Grouped, each part takes one, as PolyPatcher does. They look the same.
+rago.setting.optimized_font=Optimized font rendering
+rago.setting.optimized_font.help=Minecraft sends each letter to the graphics card on its own, about ten calls per letter. Grouped, each piece of text is drawn in one go, as PolyPatcher does. With OptiFine, letters are also placed as PolyPatcher places them: on whole pixels, as Minecraft does without OptiFine.
+rago.setting.cache_font_data=Cache font data
+rago.setting.cache_font_data.help=The width of a text, measured each time it is drawn centred, in a box, on a name tag or in the tab list, is kept the first time instead of measured again, as PolyPatcher does. Kept widths are dropped when the font changes (resource pack, Unicode font).
+rago.setting.small_pack_icons=Downscale pack images
+rago.setting.small_pack_icons.help=Resource pack icons bigger than 64x64 are shrunk to 64x64 as packs are found, as PolyPatcher does, so large icons stop taking memory. The pack list shows them at that size anyway.
 rago.menu.click_to_type=Click to type
 
 # 1.4: message hotkeys

@@ -341,6 +341,16 @@ public final class Hooks {
 		}
 	}
 
+	/**
+	 * WorldClient.doVoidFogParticles: how many blocks around the player get a random display tick
+	 * (torch flames and smoke, portal and ender chest sparkles, dripping water...) each tick. Vanilla
+	 * picks 1000; PolyPatcher's Low Animation Tick picks the first 100 of those same blocks.
+	 */
+	public static int randomDisplayTicks() {
+		EngineTweaks e = engine;
+		return e != null && e.lowAnimationTick() ? 100 : 1000;
+	}
+
 	/** Minecraft.loadWorld: vanilla forces a full garbage collection on every world change. */
 	public static void worldSwitchGc() {
 		EngineTweaks e = engine;

@@ -9,6 +9,7 @@ import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.IntInsnNode;
 import org.objectweb.asm.tree.JumpInsnNode;
 import org.objectweb.asm.tree.LabelNode;
+import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TryCatchBlockNode;
@@ -603,6 +604,90 @@ final class FixPatches {
 				after.add(fix("debugCrosshair", "(Z)V"));
 				m.instructions.insertBefore(insn, before);
 				m.instructions.insert(insn, after);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * GuiOverlayDebug.call (F3): OptiFine puts its lowest frame rate after the frame rate ("60/45
+	 * fps"), where {@code indexOf(" fps ")} finds; that place goes through
+	 * {@code FixHooks.debugMinFpsAt}, which gives -1 (nothing put) with Simplify FPS Counter. The
+	 * game alone puts nothing there: nothing to change without OptiFine.
+	 */
+	static boolean debugMinFps(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof LdcInsnNode && " fps ".equals(((LdcInsnNode) insn).cst)) {
+				AbstractInsnNode next = insn.getNext();
+				if (next instanceof MethodInsnNode && "java/lang/String".equals(((MethodInsnNode) next).owner)
+					&& "indexOf".equals(((MethodInsnNode) next).name) && "(Ljava/lang/String;)I".equals(((MethodInsnNode) next).desc)) {
+					m.instructions.insert(next, fix("debugMinFpsAt", "(I)I"));
+					return true;
+				}
+				return false;
+			}
+		}
+		return !callsOptiFine(m);
+	}
+
+	/**
+	 * OptiFine's Config.drawFps (its Show FPS line, "60/45 fps, C: 120, E: 12+3, U: 4"): the line
+	 * goes through {@code FixHooks.showFpsLine} before it is drawn.
+	 */
+	static boolean showFpsLine(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof MethodInsnNode && "java/lang/StringBuilder".equals(((MethodInsnNode) insn).owner)
+				&& "toString".equals(((MethodInsnNode) insn).name)) {
+				m.instructions.insert(insn, fix("showFpsLine", "(Ljava/lang/String;)Ljava/lang/String;"));
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * EntityRenderer.updateCameraAndRender with OptiFine: its lagometer (F3 with ALT+F3, or with its
+	 * Lagometer option) goes through {@code FixHooks.lagometer}, which leaves it out when Rago draws
+	 * the game's charts instead (Use Vanilla Metrics Renderer). The game alone has no such call.
+	 */
+	static boolean lagometer(MethodNode m) {
+		boolean found = false;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == Opcodes.INVOKESTATIC && "net/optifine/Lagometer".equals(((MethodInsnNode) insn).owner)
+				&& "showLagometer".equals(((MethodInsnNode) insn).name)
+				&& "(Lnet/minecraft/client/gui/ScaledResolution;)V".equals(((MethodInsnNode) insn).desc)) {
+				MethodInsnNode call = fix("lagometer", "(Lnet/minecraft/client/gui/ScaledResolution;)V");
+				m.instructions.set(insn, call);
+				insn = call;
+				found = true;
+			}
+		}
+		return found || !callsOptiFine(m);
+	}
+
+	/**
+	 * OptiFine's FontRenderer.getCharWidthFloat, which getCharWidth, getStringWidth and
+	 * trimStringToWidth use: of a unicode glyph past column 7 it measures all 16 columns
+	 * ({@code if (last > 7) { last = 15; first = 0; }}); the 7 becomes
+	 * {@code GlyphWidths.wideGlyphLimit()}, 15 (never past) with the fix. The game's own
+	 * getCharWidth has no such step.
+	 */
+	static boolean wideGlyphs(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn.getOpcode() == Opcodes.BIPUSH && ((IntInsnNode) insn).operand == 7 && insn.getNext() != null
+				&& insn.getNext().getOpcode() == Opcodes.IF_ICMPLE) {
+				m.instructions.set(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, "gg/rago/fixes/GlyphWidths", "wideGlyphLimit", "()I", false));
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Whether the method calls OptiFine's Config class (as its changed copies of game methods do). */
+	private static boolean callsOptiFine(MethodNode m) {
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof MethodInsnNode && "Config".equals(((MethodInsnNode) insn).owner)) {
 				return true;
 			}
 		}

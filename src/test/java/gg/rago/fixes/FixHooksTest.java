@@ -177,4 +177,13 @@ class FixHooksTest {
 		}
 		throw new AssertionError(key);
 	}
+
+	@Test
+	void optiFinesLowestFrameRateLeavesItsShowFpsLine() {
+		assertEquals("60 fps, C: 120, E: 12+3, U: 4", FixHooks.withoutMinFps("60/45 fps, C: 120, E: 12+3, U: 4"));
+		assertEquals("28 fps, C: 14, E: 0+0, U: 17", FixHooks.withoutMinFps("28/24 fps, C: 14, E: 0+0, U: 17"));
+		assertEquals("60 fps, C: 120", FixHooks.withoutMinFps("60 fps, C: 120"), "already simple");
+		assertEquals("C: 60/45 fps", FixHooks.withoutMinFps("C: 60/45 fps"), "only at the start");
+		assertEquals(null, FixHooks.withoutMinFps(null));
+	}
 }

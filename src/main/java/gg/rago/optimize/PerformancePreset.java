@@ -69,6 +69,11 @@ public final class PerformancePreset {
 		VALUES.put("hud_cache", 1);
 		VALUES.put("batch_holograms", 1);
 		VALUES.put("batch_vanilla_hud", 1);
+		VALUES.put("low_animation_tick", 1);
+		VALUES.put("batch_models", 1);
+		VALUES.put("optimized_font", 1);
+		VALUES.put("cache_font_data", 1);
+		VALUES.put("small_pack_icons", 1);
 		// Minecraft
 		VALUES.put("render_distance", 8);
 		VALUES.put("max_framerate", 260);

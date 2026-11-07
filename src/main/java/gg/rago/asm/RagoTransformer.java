@@ -57,6 +57,8 @@ public final class RagoTransformer implements IClassTransformer {
 		boolean polyPatcher;
 		/** A public int field the patched code uses, added to the class with the patch (or null). */
 		String intField;
+		/** A method only OptiFine has (in a class of its own or one it changed): nothing to do without it. */
+		boolean optional;
 
 		Patch(String what, String srg, String mcp, String desc, Patcher patcher) {
 			this.what = what;
@@ -432,6 +434,57 @@ public final class RagoTransformer implements IClassTransformer {
 				m.instructions.insert(head);
 				return true;
 			});
+		// PolyPatcher's Low Animation Tick: how many blocks around you get a random display tick each tick
+		fix("net.minecraft.client.multiplayer.WorldClient", "low animation tick", "func_73029_E", "doVoidFogParticles", "(III)V", m -> {
+			for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+				if (insn.getOpcode() == Opcodes.SIPUSH && ((IntInsnNode) insn).operand == 1000) {
+					m.instructions.set(insn, new MethodInsnNode(Opcodes.INVOKESTATIC, HOOKS, "randomDisplayTicks", "()I", false));
+					return true;
+				}
+			}
+			return false;
+		});
+		// PolyPatcher's Downscale Pack Images (gg.rago.optimize.PackIcons)
+		fix("net.minecraft.client.resources.AbstractResourcePack", "downscale pack images", "func_110586_a", "getPackImage",
+			"()Ljava/awt/image/BufferedImage;", m -> beforeReturns(m, Opcodes.ARETURN, new MethodInsnNode(Opcodes.INVOKESTATIC,
+				"gg/rago/optimize/PackIcons", "packIcon", "(Ljava/awt/image/BufferedImage;)Ljava/awt/image/BufferedImage;", false)));
+		// PolyPatcher's Batch Model Rendering (gg.rago.optimize.ModelBatch)
+		fix("net.minecraft.client.model.ModelRenderer", "batch model rendering", "func_78788_d", "compileDisplayList", "(F)V",
+			RagoTransformer::modelBatch);
+		fix("net.minecraft.client.model.TexturedQuad", "batch model rendering: faces", "func_178765_a", "draw",
+			"(Lnet/minecraft/client/renderer/WorldRenderer;F)V", RagoTransformer::modelBatchFace);
+		// PolyPatcher's Simplify FPS Counter: OptiFine's lowest frame rate left out of F3 and of its Show FPS line
+		fix("net.minecraft.client.gui.GuiOverlayDebug", "simplify FPS counter: F3", "call", "call", "()Ljava/util/List;",
+			FixPatches::debugMinFps);
+		optional(fix("Config", "simplify FPS counter: OptiFine's Show FPS", "drawFps", "drawFps", "()V", FixPatches::showFpsLine));
+		// PolyPatcher's Use Vanilla Metrics Renderer: OptiFine's lagometer left out (gg.rago.fixes.FrameCharts)
+		fix("net.minecraft.client.renderer.EntityRenderer", "vanilla metrics renderer: OptiFine's lagometer", "func_181560_a",
+			"updateCameraAndRender", "(FJ)V", FixPatches::lagometer);
+		// PolyPatcher's Optimized Font Renderer and Cache Font Data (gg.rago.optimize.FontBatch, FontPatches)
+		String font = "net.minecraft.client.gui.FontRenderer";
+		String atPos = "(Ljava/lang/String;Z)V";
+		fix(font, "optimized font renderer: one draw per string", "func_78255_a", "renderStringAtPos", atPos, FontPatches::stringBatch);
+		fix(font, "optimized font renderer: characters", "func_78266_a", "renderDefaultChar", "(IZ)F", FontPatches::glyphCalls);
+		fix(font, "optimized font renderer: unicode characters", "func_78277_a", "renderUnicodeChar", "(CZ)F", FontPatches::glyphCalls);
+		fix(font, "optimized font renderer: texture changes", "bindTexture", "bindTexture", "(Lnet/minecraft/util/ResourceLocation;)V",
+			FontPatches::textureChange);
+		fix(font, "optimized font renderer: colours", "setColor", "setColor", "(FFFF)V", FontPatches::colorChange);
+		fix(font, "optimized font renderer: underline and strikethrough", "doDraw", "doDraw", "(F)V", FontPatches::linesAfterCharacters);
+		fix(font, "optimized font renderer: whole-unit steps", "doDraw", "doDraw", "(F)V", FontPatches::wholeSteps);
+		fix(font, "optimized font renderer: bold step", "func_78255_a", "renderStringAtPos", atPos, FontPatches::boldStep);
+		fix(font, "optimized font renderer: no-break space", "func_181559_a", "renderChar", "(CZ)F", FontPatches::noBreakSpace);
+		fix(font, "optimized font renderer: lookups when drawing", "func_78255_a", "renderStringAtPos", atPos, FontPatches::lookups);
+		fix(font, "optimized font renderer: lookups for a character", "func_181559_a", "renderChar", "(CZ)F", FontPatches::lookups);
+		fix(font, "optimized font renderer: lookups when measuring", "func_78263_a", "getCharWidth", "(C)I", FontPatches::lookups);
+		optional(fix(font, "optimized font renderer: OptiFine's lookups when measuring", "getCharWidthFloat", "getCharWidthFloat", "(C)F",
+			FontPatches::lookups));
+		fix(font, "optimized font renderer: whole widths", "func_78256_a", "getStringWidth", "(Ljava/lang/String;)I", FontPatches::wholeWidth);
+		fix(font, "cache font data", "func_78256_a", "getStringWidth", "(Ljava/lang/String;)I", FontPatches::keptWidths);
+		fix(font, "cache font data: font changes", "func_110549_a", "onResourceManagerReload",
+			"(Lnet/minecraft/client/resources/IResourceManager;)V", FontPatches::fontReloaded);
+		// what a wide unicode character measures with OptiFine, as without it (gg.rago.fixes.GlyphWidths)
+		optional(fix("net.minecraft.client.gui.FontRenderer", "unicode character widths", "getCharWidthFloat",
+			"getCharWidthFloat", "(C)F", FixPatches::wideGlyphs));
 		fix("net.minecraft.client.Minecraft", "keep shaders on F5", "func_71407_l", "runTick", "()V", FixPatches::keepShaders);
 		fix("net.minecraft.client.Minecraft", "no mob shader for a spectator in third person",
 			"func_175607_a", "setRenderViewEntity", "(Lnet/minecraft/entity/Entity;)V", FixPatches::spectatorShader);
@@ -520,6 +573,17 @@ public final class RagoTransformer implements IClassTransformer {
 		return patch;
 	}
 
+	private static Patch optional(Patch patch) {
+		patch.optional = true;
+		return patch;
+	}
+
+	/** For tests: whether every patch on the class is for a method only OptiFine has. */
+	static boolean optionalOnly(String className) {
+		List<Patch> patches = PATCHES.get(className);
+		return patches != null && patches.stream().allMatch(p -> p.optional);
+	}
+
 	private static volatile Boolean patcherLoaded;
 
 	/**
@@ -527,7 +591,7 @@ public final class RagoTransformer implements IClassTransformer {
 	 * same methods, and both together could break them, so Rago's then stand aside. Its jar joins
 	 * the class path while mods are found, before the first game class loads.
 	 */
-	static boolean patcherLoaded() {
+	public static boolean patcherLoaded() {
 		Boolean loaded = patcherLoaded;
 		if (loaded == null) {
 			ClassLoader loader = net.minecraft.launchwrapper.Launch.classLoader;
@@ -588,6 +652,9 @@ public final class RagoTransformer implements IClassTransformer {
 					target = m;
 					break;
 				}
+			}
+			if (target == null && p.optional) {
+				continue;
 			}
 			if (target == null) {
 				LOG.warn("{}: {}.{} not found, feature unavailable", p.what, transformedName, p.mcp);
@@ -816,6 +883,60 @@ public final class RagoTransformer implements IClassTransformer {
 	}
 
 	/** Passes every returned value of the given return opcode through {@code hook}. */
+	private static final String MODEL_BATCH = "gg/rago/optimize/ModelBatch";
+
+	/** ModelRenderer.compileDisplayList: {@code ModelBatch.start(this)} once the list is open, {@code ModelBatch.end()} before it closes. */
+	private static boolean modelBatch(MethodNode m) {
+		AbstractInsnNode open = null;
+		AbstractInsnNode close = null;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (insn instanceof MethodInsnNode && "org/lwjgl/opengl/GL11".equals(((MethodInsnNode) insn).owner)) {
+				String name = ((MethodInsnNode) insn).name;
+				if ("glNewList".equals(name) && open == null) {
+					open = insn;
+				} else if ("glEndList".equals(name)) {
+					close = insn;
+				}
+			}
+		}
+		if (open == null || close == null) {
+			return false;
+		}
+		InsnList start = new InsnList();
+		start.add(new VarInsnNode(Opcodes.ALOAD, 0));
+		start.add(new MethodInsnNode(Opcodes.INVOKESTATIC, MODEL_BATCH, "start", "(Lnet/minecraft/client/model/ModelRenderer;)V", false));
+		m.instructions.insert(open, start);
+		m.instructions.insertBefore(close, new MethodInsnNode(Opcodes.INVOKESTATIC, MODEL_BATCH, "end", "()V", false));
+		return true;
+	}
+
+	/** TexturedQuad.draw: its begin and draw calls go through ModelBatch (OptiFine has two begins, with and without shaders). */
+	private static boolean modelBatchFace(MethodNode m) {
+		int begins = 0;
+		int draws = 0;
+		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+			if (!(insn instanceof MethodInsnNode)) {
+				continue;
+			}
+			MethodInsnNode call = (MethodInsnNode) insn;
+			MethodInsnNode hook = null;
+			if ("net/minecraft/client/renderer/WorldRenderer".equals(call.owner)
+				&& isMethod(call, "func_181668_a", "begin", "(ILnet/minecraft/client/renderer/vertex/VertexFormat;)V")) {
+				hook = new MethodInsnNode(Opcodes.INVOKESTATIC, MODEL_BATCH, "begin",
+					"(Lnet/minecraft/client/renderer/WorldRenderer;ILnet/minecraft/client/renderer/vertex/VertexFormat;)V", false);
+				begins++;
+			} else if ("net/minecraft/client/renderer/Tessellator".equals(call.owner) && isMethod(call, "func_78381_a", "draw", "()V")) {
+				hook = new MethodInsnNode(Opcodes.INVOKESTATIC, MODEL_BATCH, "draw", "(Lnet/minecraft/client/renderer/Tessellator;)V", false);
+				draws++;
+			}
+			if (hook != null) {
+				m.instructions.set(call, hook);
+				insn = hook;
+			}
+		}
+		return begins > 0 && draws == 1;
+	}
+
 	private static boolean beforeReturns(MethodNode m, int returnOpcode, MethodInsnNode hook) {
 		boolean found = false;
 		for (AbstractInsnNode insn = m.instructions.getFirst(); insn != null; insn = insn.getNext()) {
